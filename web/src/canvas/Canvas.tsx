@@ -449,6 +449,22 @@ export function Canvas({ profile }: { profile: Profile }) {
     const ids = new Set(links.flatMap((l) => (l.source === focusId ? [l.target] : l.target === focusId ? [l.source] : [])));
     return rows.filter((r) => ids.has(r.id));
   }, [focusId, links, rows]);
+  // Todas las secciones con su ruta («Casa › Cocina»), para mover la nota abierta.
+  const sectionOptions = useMemo(() => {
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const pathOf = (r: NoteRow) => {
+      const names: string[] = [];
+      const seen = new Set<string>();
+      for (let z: NoteRow | undefined = r; z && z.kind === 'zone' && !seen.has(z.id); z = z.zoneId ? byId.get(z.zoneId) : undefined) {
+        seen.add(z.id);
+        names.unshift(z.title || 'Sin nombre');
+      }
+      return names.join(' › ');
+    };
+    const zones = rows.filter((r) => r.kind === 'zone').map((z) => ({ id: z.id as string | null, path: pathOf(z) }));
+    zones.sort((a, b) => a.path.localeCompare(b.path, 'es'));
+    return [{ id: null, path: 'Sin sección' }, ...zones];
+  }, [rows]);
   const inspected = inspectId ? (rows.find((r) => r.id === inspectId) ?? null) : null;
 
   return (
@@ -558,6 +574,8 @@ export function Canvas({ profile }: { profile: Profile }) {
           }}
           onSave={saveContent}
           onError={report}
+          sections={sectionOptions}
+          onMove={(zoneId) => moveTo(focused.id, zoneId)}
           onCycle={cycleStatus}
           onProps={(id) => setInspectId(id)}
           onTask={() => toggleTask(focused)}

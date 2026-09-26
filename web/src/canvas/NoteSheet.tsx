@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
 import type { OpenFrom } from './fluid';
@@ -7,6 +7,7 @@ import { NoteChips } from './NoteChips';
 import { TaskGlyph } from './TaskGlyph';
 import { useExperiments } from '../lab/experiments';
 import { MediaUpload } from './media';
+import { SectionPicker, type SectionOption } from './SectionPicker';
 
 // En el mapa de secciones una nota se abre como hoja a pantalla completa: la
 // celda termina de crecer hasta los bordes con su mismo tinte, y al cerrar
@@ -48,6 +49,9 @@ type Props = {
   onDelete: (id: string) => void;
   onClose: () => void;
   onError: (e: unknown) => void;
+  // Secciones a las que se puede mover y la ruta de la actual.
+  sections: SectionOption[];
+  onMove: (zoneId: string | null) => void;
 };
 
 // Recorte con la forma de la celda, relativo a la hoja.
@@ -66,10 +70,12 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onLink, onUnlink, onDelete, onClose, onError }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onLink, onUnlink, onDelete, onClose, onError, sections, onMove }: Props) {
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
+  const [moving, setMoving] = useState(false);
+  const where = sections.find((o) => o.id === note.zoneId)?.path ?? null;
   const shown = neighbors.slice(0, MAX_LINKS);
   const hue = from?.hue;
 
@@ -128,6 +134,15 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
         </span>
       </header>
       <article className="sheet-body" key={note.id}>
+        <button className="sheet-where meta" onClick={() => setMoving(true)} title="Mover a otra sección">
+          {where ? where.split(' › ').map((p, i) => (
+            <span key={i}>
+              {i > 0 && <span className="sheet-where-sep">›</span>}
+              {p}
+            </span>
+          )) : <span>Sin sección</span>}
+          <span className="sheet-where-move">Mover</span>
+        </button>
         {note.kind === 'task' && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}
         <SheetEditor note={note} onSave={onSave} onError={onError} />
         <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
@@ -149,6 +164,17 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
           </button>
         </nav>
       </article>
+      {moving && (
+        <SectionPicker
+          options={sections}
+          current={note.zoneId}
+          onPick={(zoneId) => {
+            setMoving(false);
+            onMove(zoneId);
+          }}
+          onClose={() => setMoving(false)}
+        />
+      )}
     </div>
   );
 }
