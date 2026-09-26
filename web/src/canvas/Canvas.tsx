@@ -16,6 +16,7 @@ import { parseBody } from './editor';
 import { hasMedia, isMedia, uploadMedia } from './media';
 import { Inspector } from './Inspector';
 import { TasksView } from './TasksView';
+import { actionFor, keysBlocked } from '../keys';
 
 // La vista de Canvian: el mapa de secciones. Aquí viven las notas, los
 // enlaces y todo lo que se guarda; SectionMap solo dibuja y avisa.
@@ -300,13 +301,16 @@ export function Canvas({ profile }: { profile: Profile }) {
   // ── Teclado de la vista (el mapa tiene el suyo) ─────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.shiftKey && e.key.toLowerCase() === 'e') {
+      if (keysBlocked()) return;
+      // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
+      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'lantern']);
+      const chord = e.metaKey || e.ctrlKey || e.altKey;
+      if (action === 'exportCanvas' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         exportCanvas();
         return;
       }
-      if (mod && !e.shiftKey && e.key.toLowerCase() === 'k') {
+      if (action === 'search' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         setPaletteOpen((o) => (o ? false : 'open'));
         return;
@@ -315,15 +319,15 @@ export function Canvas({ profile }: { profile: Profile }) {
         setInspectId(null);
         return;
       }
-      if (isTyping(e.target) || mod || paletteOpen || focusId || tasksOpen) return;
-      if (e.key.toLowerCase() === 'a' && !e.shiftKey) {
+      if (isTyping(e.target) || paletteOpen || focusId || tasksOpen) return;
+      if (action === 'tasks') {
         e.preventDefault();
         setTasksOpen(true);
         return;
       }
       // ⇧1…⇧9 abren las lentes guardadas.
       const digit = /^Digit([1-9])$/.exec(e.code);
-      if (e.shiftKey && digit) {
+      if (e.shiftKey && !chord && digit) {
         const saved = lenses.find((l) => l.slot === Number(digit[1]));
         if (saved) {
           e.preventDefault();
@@ -335,7 +339,7 @@ export function Canvas({ profile }: { profile: Profile }) {
         e.preventDefault();
         setMode(nextMode(mode));
       } else if (e.key === 'Escape' && lamp !== null) clearLamp();
-      else if (e.key.toLowerCase() === 'f') {
+      else if (action === 'lantern') {
         e.preventDefault();
         setLamp((q) => q ?? '');
         setLampOpen(true);
@@ -526,7 +530,7 @@ export function Canvas({ profile }: { profile: Profile }) {
       )}
       {loaded && !tasksOpen && (
         <div className="chrome-top-right">
-          <button className="surface-2 pill tasks-pill" onClick={() => setTasksOpen(true)} title="Todas las tareas activas (A)">
+          <button className="surface-2 pill tasks-pill" onClick={() => setTasksOpen(true)} title="Todas las tareas activas">
             <span className="pill-name">Tareas</span>
             <span className="meta">{rows.filter((r) => r.kind === 'task' && r.status !== 'done').length}</span>
           </button>

@@ -39,6 +39,8 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (i
 
 ## Atajos
 
+Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que tengas, y en **Configuración** (`Ctrl ,` o el botón junto al perfil) se pueden cambiar; se guardan en el servidor.
+
 | Atajo | Acción |
 |-------|--------|
 | Rueda | Acercar la sección o nota señalada; hacia atrás, alejar |

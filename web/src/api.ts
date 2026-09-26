@@ -115,6 +115,9 @@ async function upload(file: File): Promise<{ url: string; kind: 'image' | 'video
 
 export const api = {
   uploadMedia: upload,
+  prefs: () => request<Record<string, unknown>>('GET', '/prefs'),
+  savePref: (key: string, value: unknown) => request('PUT', `/prefs/${key}`, value),
+  deletePref: (key: string) => request('DELETE', `/prefs/${key}`),
   status: () => request<{ setupDone: boolean; authenticated: boolean }>('GET', '/auth/status'),
   setup: (password: string) => request('POST', '/auth/setup', { password }),
   login: (password: string) => request('POST', '/auth/login', { password }),

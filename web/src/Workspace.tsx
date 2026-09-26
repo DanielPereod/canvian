@@ -7,9 +7,12 @@ import { Ambient } from './backgrounds/Ambient';
 import { BackgroundPicker } from './backgrounds/BackgroundPicker';
 import { Lab } from './lab/Lab';
 import { EXPERIMENTS, useExperiments } from './lab/experiments';
+import { actionFor, keysBlocked, loadKeymap, useKeymap } from './keys';
+import { Keys } from './Kbd';
+import { Settings } from './Settings';
+import { Help } from './Help';
 
 const ACTIVE_KEY = 'canvian.activeProfile';
-const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
 
 function readActive(): string | null {
   try {
@@ -26,7 +29,14 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [previewBg, setPreviewBg] = useState<BackgroundKind | null>(null);
   const [labOpen, setLabOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const experiments = useExperiments();
+  const keymap = useKeymap();
+
+  useEffect(() => {
+    void loadKeymap();
+  }, []);
 
   useEffect(() => {
     api.profiles().then(setProfiles, () => onSignedOut());
@@ -46,21 +56,19 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
-        e.preventDefault();
-        setSwitcherOpen((open) => !open);
-        return;
-      }
+      if (keysBlocked()) return;
+      const action = actionFor(e, ['profiles', 'background', 'lab', 'help', 'settings']);
+      if (!action) return;
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
-      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key.toLowerCase() === 'b') {
-        e.preventDefault();
-        setPickerOpen(true);
-      } else if (e.key.toLowerCase() === 'e') {
-        e.preventDefault();
-        setLabOpen(true);
-      }
+      // Escribiendo, solo valen las combinaciones con Ctrl/⌘ o Alt.
+      if (typing && !(e.metaKey || e.ctrlKey || e.altKey)) return;
+      e.preventDefault();
+      if (action === 'profiles') setSwitcherOpen((open) => !open);
+      else if (action === 'background') setPickerOpen(true);
+      else if (action === 'lab') setLabOpen(true);
+      else if (action === 'help') setHelpOpen(true);
+      else setSettingsOpen(true);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -96,50 +104,18 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           <Glyph className="wordmark-glyph" />
           <span className="pill-name">{active.name}</span>
         </button>
+        <button className="surface-2 pill pill-icon" onClick={() => setSettingsOpen(true)} title="Configuración" aria-label="Configuración">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+            <circle cx="16" cy="7" r="2" />
+            <circle cx="10" cy="17" r="2" />
+          </svg>
+        </button>
       </div>
 
-      <div className="hints">
-        <span>
-          <kbd>rueda</kbd> acercar
-        </span>
-        <span>
-          <kbd>clic</kbd> entrar
-        </span>
-        <span>
-          <kbd>arrastrar</kbd> mover
-        </span>
-        <span>
-          <kbd>N</kbd> nota
-        </span>
-        <span>
-          <kbd>G</kbd> sección
-        </span>
-        <span>
-          <kbd>T</kbd> tarea
-        </span>
-        <span>
-          <kbd>P</kbd> propiedades
-        </span>
-        <span>
-          <kbd>A</kbd> tareas
-        </span>
-        <span>
-          <kbd>F</kbd> linterna
-        </span>
-        <span>
-          <kbd>Esc</kbd> atrás
-        </span>
-        <span>
-          <kbd>B</kbd> fondo
-        </span>
-        <span>
-          <kbd>E</kbd> laboratorio
-        </span>
-        <span>
-          <kbd>{mod}</kbd>
-          <kbd>K</kbd> buscar
-        </span>
-      </div>
+      <button className="hints" onClick={() => setHelpOpen(true)} title="Ver todos los atajos">
+        <Keys combo={keymap.help} /> atajos
+      </button>
 
       {switcherOpen && (
         <ProfileSwitcher
@@ -170,6 +146,32 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         />
       )}
       {labOpen && <Lab onClose={() => setLabOpen(false)} />}
+      {settingsOpen && (
+        <Settings
+          onClose={() => setSettingsOpen(false)}
+          onBackground={() => {
+            setSettingsOpen(false);
+            setPickerOpen(true);
+          }}
+          onLab={() => {
+            setSettingsOpen(false);
+            setLabOpen(true);
+          }}
+          onProfiles={() => {
+            setSettingsOpen(false);
+            setSwitcherOpen(true);
+          }}
+        />
+      )}
+      {helpOpen && (
+        <Help
+          onClose={() => setHelpOpen(false)}
+          onSettings={() => {
+            setHelpOpen(false);
+            setSettingsOpen(true);
+          }}
+        />
+      )}
     </div>
   );
 }

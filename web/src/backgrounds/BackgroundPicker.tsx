@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { matches } from '../keys';
 import type { BackgroundKind } from '../api';
 import { BACKGROUNDS } from './catalog';
 
@@ -19,7 +20,7 @@ export function BackgroundPicker({ current, onPreview, onChoose, onCancel }: Pro
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' || e.key.toLowerCase() === 'b') {
+    if (e.key === 'Escape' || matches(e, 'background')) {
       e.preventDefault();
       onCancel();
     } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
