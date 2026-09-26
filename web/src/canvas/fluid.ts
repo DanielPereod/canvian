@@ -366,7 +366,7 @@ class FluidView {
       e.title.style.fontSize = `${fs}px`;
       e.title.setAttribute('x', c.center.x.toFixed(1));
       e.title.setAttribute('y', (c.center.y - (note ? 0 : fs * 0.3)).toFixed(1));
-      const task = c.node.note?.kind === 'task' ? `${STATUS[c.node.note.status ?? 'todo']} ` : '';
+      const task = c.node.note?.kind === 'task' ? `${STATUS[c.node.note.status ?? 'todo']} ` : c.node.note?.kind === 'canvas' ? '◫ ' : '';
       const room = bbox(c.drawn).w * 0.82;
       const maxChars = Math.max(6, Math.floor(room / (fs * (note ? 0.52 : 0.42))));
       const text = task + c.node.title;

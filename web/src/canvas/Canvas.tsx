@@ -14,6 +14,7 @@ import type { OpenFrom } from './fluid';
 import { docText, docToMarkdown, markdownToDoc } from './markdown';
 import { parseBody } from './editor';
 import { hasMedia, isMedia, uploadMedia } from './media';
+import { emptyBoard, kindChange, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
 import { TasksView } from './TasksView';
 import { actionFor, keysBlocked } from '../keys';
@@ -40,7 +41,9 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [rows, setRows] = useState<NoteRow[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState<false | 'open' | 'link'>(false);
+  const [paletteOpen, setPaletteOpen] = useState<false | 'open' | 'link' | 'card'>(false);
+  // Qué hacer con la nota elegida cuando el buscador se abre desde un canvas.
+  const pickCard = useRef<((id: string) => void) | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [lamp, setLamp] = useState<string | null>(null);
   const [lampOpen, setLampOpen] = useState(false);
@@ -207,7 +210,7 @@ export function Canvas({ profile }: { profile: Profile }) {
     [patchRow, report],
   );
 
-  const toggleTask = (row: NoteRow) => updateNote(row.id, row.kind === 'task' ? { kind: 'text' } : { kind: 'task', status: row.status ?? 'todo' });
+  const toggleTask = (row: NoteRow) => updateNote(row.id, kindChange(row, row.kind === 'task' ? 'text' : 'task'));
   const cycleStatus = (id: string) => {
     const row = rowsRef.current.find((r) => r.id === id);
     if (!row || row.kind !== 'task') return;
@@ -277,6 +280,11 @@ export function Canvas({ profile }: { profile: Profile }) {
     openNote(row.id);
   };
 
+  const newCanvas = (zoneId: string | null) => {
+    const row = createNote(spotFor(zoneId), 'canvas', { zoneId, bodyJson: JSON.stringify(emptyBoard()) });
+    openNote(row.id);
+  };
+
   const newSection = (zoneId: string | null) => {
     const row = createNote(spotFor(zoneId), 'zone', { zoneId, ...ZONE_SIZE });
     setRenaming({ id: row.id, title: '' });
@@ -296,9 +304,11 @@ export function Canvas({ profile }: { profile: Profile }) {
   const onAction = (action: MapAction, node: MapNode) => {
     const row = rowsRef.current.find((r) => r.id === node.id);
     if (action === 'create') newNote(node.zoneId);
+    else if (action === 'createCanvas') newCanvas(node.zoneId);
     else if (action === 'section') newSection(node.zoneId);
     else if (!row) return;
-    else if (action === 'task' && row.kind !== 'zone') toggleTask(row);
+    // Un canvas solo cambia de tipo desde Propiedades: T aplanaría su lienzo.
+    else if (action === 'task' && row.kind !== 'zone' && row.kind !== 'canvas') toggleTask(row);
     else if (action === 'status') cycleStatus(row.id);
     else if (action === 'block') toggleBlocked(row.id);
     else if (action === 'props' && row.kind !== 'zone') setInspectId(row.id);
@@ -437,7 +447,7 @@ export function Canvas({ profile }: { profile: Profile }) {
         const { x, y, w, h } = rectOf(r);
         const base = { id: r.id, x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) };
         if (r.kind === 'zone') return { ...base, type: 'group', label: r.title ?? '' };
-        const md = docToMarkdown(parseBody(r.bodyJson)) || (r.bodyText ?? '');
+        const md = (r.kind === 'canvas' ? '' : docToMarkdown(parseBody(r.bodyJson))) || (r.bodyText ?? '');
         const box = r.kind === 'task' ? `- [${r.status === 'done' ? 'x' : ' '}] ` : '';
         return { ...base, type: 'text', text: box + md };
       }),
@@ -533,15 +543,22 @@ export function Canvas({ profile }: { profile: Profile }) {
       {paletteOpen && (
         <CommandPalette
           profileId={profile.id}
-          placeholder={paletteOpen === 'link' ? 'Enlazar con…' : undefined}
+          placeholder={paletteOpen === 'link' ? 'Enlazar con…' : paletteOpen === 'card' ? 'Añadir al canvas…' : undefined}
+          exclude={paletteOpen === 'open' ? undefined : focused?.id}
           onPick={(id) => {
             setPaletteOpen(false);
-            if (paletteOpen === 'link' && focused) connect(focused.id, id);
+            if (paletteOpen === 'card') pickCard.current?.(id);
+            else if (paletteOpen === 'link' && focused) connect(focused.id, id);
             else openNote(id);
           }}
           onCreate={(text) => {
             setPaletteOpen(false);
-            if (paletteOpen === 'link' && focused) {
+            if (paletteOpen === 'card' && focused) {
+              const row = createNote(spotFor(focused.zoneId), 'text', { zoneId: focused.zoneId });
+              const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
+              saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
+              pickCard.current?.(row.id);
+            } else if (paletteOpen === 'link' && focused) {
               // Enlazar con una nota que aún no existe: se crea junto a esta.
               const row = createNote(spotFor(focused.zoneId), 'text', { zoneId: focused.zoneId });
               const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
@@ -588,6 +605,12 @@ export function Canvas({ profile }: { profile: Profile }) {
           onCycle={cycleStatus}
           onProps={(id) => setInspectId(id)}
           onTask={() => toggleTask(focused)}
+          rows={rows}
+          onRename={(title) => updateNote(focused.id, { title: title || null })}
+          onPickNote={(then) => {
+            pickCard.current = then;
+            setPaletteOpen('card');
+          }}
           onBlock={() => toggleBlocked(focused.id)}
           onLink={() => setPaletteOpen('link')}
           onUnlink={(id) => unlink(focused.id, id)}
@@ -601,7 +624,7 @@ export function Canvas({ profile }: { profile: Profile }) {
             flush(id);
             setFocusId(null);
             // Una nota nueva que se queda vacía no se guarda.
-            if (!focused.bodyText?.trim() && !hasMedia(focused.bodyJson) && !links.some((l) => l.source === id || l.target === id)) removeNotes([id]);
+            if ((focused.kind === 'canvas' ? !focused.title?.trim() && !parseBoard(focused.bodyJson).nodes.length : !focused.bodyText?.trim() && !hasMedia(focused.bodyJson)) && !links.some((l) => l.source === id || l.target === id)) removeNotes([id]);
           }}
         />
       )}

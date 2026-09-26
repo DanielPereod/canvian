@@ -8,6 +8,7 @@ import { api } from './api';
 export type ActionId =
   | 'newNote'
   | 'newSection'
+  | 'newCanvas'
   | 'toggleTask'
   | 'cycleStatus'
   | 'blockTask'
@@ -30,6 +31,7 @@ export type KeyAction = { id: ActionId; label: string; group: 'Mapa' | 'Vistas y
 export const ACTIONS: KeyAction[] = [
   { id: 'newNote', label: 'Nota nueva (en la vista de tareas, tarea nueva)', group: 'Mapa', key: 'n' },
   { id: 'newSection', label: 'Sección nueva', group: 'Mapa', key: 'g' },
+  { id: 'newCanvas', label: 'Canvas nuevo (tarjetas libres y flechas)', group: 'Mapa', key: 'c' },
   { id: 'toggleTask', label: 'Convertir en tarea o en nota', group: 'Mapa', key: 't' },
   { id: 'cycleStatus', label: 'Avanzar el estado de una tarea', group: 'Mapa', key: 'x' },
   { id: 'blockTask', label: 'Bloquear o desbloquear una tarea', group: 'Mapa', key: 'shift+x' },

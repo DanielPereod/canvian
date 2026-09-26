@@ -10,6 +10,7 @@ import {
   type PropValue,
   type TaskStatus,
 } from '../api';
+import { kindChange } from './board/board';
 
 export const PRIORITIES = ['Sin prioridad', 'Baja', 'Media', 'Alta'] as const;
 const STATUSES: { id: TaskStatus; name: string }[] = [
@@ -93,12 +94,13 @@ export function Inspector({ note, defs, profileId, onChange, onDefsChange, onErr
 
           <Row label="Tipo" i={0}>
             <Segmented
-              value={task ? 'task' : 'text'}
+              value={note.kind === 'canvas' ? 'canvas' : task ? 'task' : 'text'}
               options={[
                 { id: 'text', name: 'Nota' },
                 { id: 'task', name: 'Tarea' },
+                { id: 'canvas', name: 'Canvas' },
               ]}
-              onChange={(v) => onChange(note.id, v === 'task' ? { kind: 'task', status: note.status ?? 'todo' } : { kind: 'text' })}
+              onChange={(v) => onChange(note.id, kindChange(note, v as 'text' | 'task' | 'canvas'))}
             />
           </Row>
 

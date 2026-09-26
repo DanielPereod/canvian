@@ -50,16 +50,17 @@ Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que te
 | Clic en una miga de pan | Volver a ese nivel; doble clic en una sección de las migas la renombra |
 | `1` | Volver a Todo |
 | `N` | Nota nueva en la sección señalada o en la que estás |
+| `C` | Canvas nuevo: una nota que es un lienzo libre, como los de Obsidian. Doble clic en el vacío crea una tarjeta; desde los bordes de una tarjeta se tiran flechas a otra; abajo se añaden tarjetas, notas existentes (doble clic las abre), grupos e imágenes (también pegando o soltando). `Supr` borra lo seleccionado. Se guarda en formato JSON Canvas |
 | `G` | Sección nueva en la que estás |
 | `R` | Renombrar la sección señalada |
 | Arrastrar una celda | Moverla a otra sección (soltándola sobre ella) o a un nivel de arriba (soltándola en las migas) |
 | `T` | Convertir la nota señalada en tarea (o volver a nota) |
 | `X` | Avanzar el estado de la tarea señalada: pendiente → en curso → hecha |
-| `P` | Propiedades de la nota señalada: tipo, estado, prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
+| `P` | Propiedades de la nota señalada: tipo (nota, tarea o canvas), estado, prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
 | `Supr` | Borrar la nota o sección señalada (lo que había dentro de una sección pasa a su madre) |
 | En la hoja de una nota | Escribir; arriba, hacer tarea, propiedades y borrar; abajo, sus enlaces (`+ Enlazar` busca otra nota, `×` quita el enlace) |
 | `A` | Vista de tareas: todas las tareas activas del perfil en una lista, agrupadas por estado, fecha o sección (`Tab` cambia). `↑`/`↓` para moverse, `Enter` abre, `X` avanza el estado, `N` crea una tarea, `Esc` vuelve al mapa |
-| `F` | Linterna: filtra el mapa en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea`, `estado:pendiente\|curso\|bloqueada\|hecha` (o `-hecha`), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d`, `zona:viaje`, `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
+| `F` | Linterna: filtra el mapa en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea` (o `nota`, `canvas`), `estado:pendiente\|curso\|bloqueada\|hecha` (o `-hecha`), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d`, `zona:viaje`, `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
 | `Tab` (con la linterna) | Cambia el modo: atenuar (lo demás se apaga) u ocultar (lo demás encoge) |
 | `⌘/Ctrl S` (en la linterna) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |
 | `B` | Elegir el fondo del perfil (liso, estrellas, luciérnagas, aurora) |

@@ -40,7 +40,7 @@ export const notes = sqliteTable(
     profileId: text('profile_id')
       .notNull()
       .references(() => profiles.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(), // text | task | link | image | checklist | code | zone
+    kind: text('kind').notNull(), // text | task | canvas | link | image | checklist | code | zone
     title: text('title'),
     bodyJson: text('body_json'), // documento Tiptap
     bodyText: text('body_text'), // texto plano para la búsqueda

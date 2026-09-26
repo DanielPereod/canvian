@@ -31,7 +31,9 @@ function textOf(r: NoteRow) {
 
 const KIND: Record<string, Test> = {
   tarea: (r) => r.kind === 'task',
-  nota: (r) => r.kind !== 'task' && r.kind !== 'zone',
+  nota: (r) => r.kind !== 'task' && r.kind !== 'zone' && r.kind !== 'canvas',
+  canvas: (r) => r.kind === 'canvas',
+  lienzo: (r) => r.kind === 'canvas',
   zona: (r) => r.kind === 'zone',
 };
 const STATUS: Record<string, 'todo' | 'doing' | 'blocked' | 'done'> = { pendiente: 'todo', curso: 'doing', encurso: 'doing', bloqueada: 'blocked', bloqueo: 'blocked', hecha: 'done' };
