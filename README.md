@@ -33,6 +33,10 @@ npm start        # sirve todo desde :3210
 
 Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` (por defecto `web/dist`).
 
+## Datos de ejemplo
+
+`npm run seed -w server` llena Personal y Trabajo con zonas, notas, tareas y enlaces de ejemplo (añade `-- --extra 400` para cientos de notas más). `npm run seed -w server -- --borrar` quita solo lo que creó.
+
 ## Atajos
 
 | Atajo | Acción |
