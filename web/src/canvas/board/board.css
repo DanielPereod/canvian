@@ -1,0 +1,92 @@
+/* ── Lienzo de una nota canvas ───────────────────────────────────── */
+.board {
+  --board-edge: color-mix(in oklab, var(--accent) 55%, var(--text-faint));
+  position: absolute;
+  inset: 0;
+  animation: fade var(--dur-slow) var(--ease-out) both;
+}
+.board .react-flow { background: transparent; --xy-background-color: transparent; }
+.board-dots { --xy-background-pattern-color: color-mix(in oklab, var(--text-ghost) 55%, transparent); }
+.board-empty {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  margin: 0; pointer-events: none;
+  font-family: var(--font-serif); font-style: italic; font-size: var(--text-xl); color: var(--text-ghost);
+}
+.board-empty em { color: var(--accent-ink); }
+
+/* Tarjetas */
+.board-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-md, 14px);
+  background: color-mix(in oklab, var(--bg) 70%, oklch(0.66 0.05 var(--hue, 280) / 0.35));
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-1);
+  overflow: visible; /* las asas de flechas y de tamaño sobresalen */
+  transition: border-color var(--dur-fast), box-shadow var(--dur-base);
+  animation: board-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes board-in { from { opacity: 0; scale: 0.94; } }
+.board-card:hover { border-color: var(--line-strong); }
+.board-card.is-selected, .board-group.is-selected { border-color: var(--accent-line); box-shadow: 0 0 0 1px var(--accent-line), 0 0 24px -8px var(--accent-glow, var(--accent)); }
+.board-text-body { height: 100%; padding: 12px 14px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-md); line-height: 1.5; }
+.board-textarea { width: 100%; height: 100%; resize: none; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; font-size: var(--text-md); line-height: 1.5; padding: 12px 14px; cursor: text; }
+
+.board-note { padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; cursor: default; overflow: hidden; border-left: 2px solid var(--accent-line); }
+.board-note-kind { color: var(--text-ghost); }
+.board-note-title { font-family: var(--font-serif); font-weight: 400; font-size: 20px; line-height: 1.15; }
+.board-note-body { margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+.board-note-open { margin-top: auto; color: var(--text-ghost); opacity: 0; transition: opacity var(--dur-fast); }
+.board-note:hover .board-note-open { opacity: 1; }
+.board-note.is-missing { opacity: 0.55; border-left-color: var(--line); }
+
+.board-file { background: var(--surface-sunken); display: grid; place-items: center; }
+.board-file img, .board-file video { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: inherit; }
+.board-file audio { width: calc(100% - 16px); }
+
+.board-group {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px dashed color-mix(in oklab, var(--accent) 35%, var(--line-strong));
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
+  transition: border-color var(--dur-fast);
+}
+.board-group-label {
+  position: absolute; top: -30px; left: 4px;
+  background: none; border: 0; outline: 0; color: var(--text-muted);
+  font-family: var(--font-serif); font-style: italic; font-size: 18px; width: 70%;
+}
+.board-group-label::placeholder { color: var(--text-ghost); }
+
+/* Asas para unir con flechas: aparecen al pasar por la tarjeta. */
+.board .board-handle { width: 10px; height: 10px; border-radius: 50%; background: var(--bg); border: 1.5px solid var(--board-edge); opacity: 0; z-index: 3; transition: opacity var(--dur-fast), scale var(--dur-fast); }
+.board .react-flow__node:hover .board-handle, .board .react-flow__node.selected .board-handle { opacity: 1; }
+.board .board-handle:hover { scale: 1.4; }
+.board-resize-line { border-color: transparent !important; }
+.board-resize-handle { width: 9px !important; height: 9px !important; border-radius: 3px !important; background: var(--accent) !important; border: 0 !important; }
+
+.board-edge { fill: none; stroke: var(--board-edge); stroke-width: 1.5; transition: stroke var(--dur-fast), stroke-width var(--dur-fast); }
+.board-edge.is-selected, .react-flow__edge:hover .board-edge { stroke: var(--accent); stroke-width: 2.2; }
+
+/* Barra para añadir */
+.board-tools {
+  position: absolute; left: 50%; bottom: var(--space-5); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; z-index: 5;
+  animation: rise-in var(--dur-slow) var(--ease-out) 200ms both;
+}
+.board-tools button, .board-tools-file { background: none; border: 0; color: var(--text-muted); font: inherit; font-size: var(--text-sm); padding: 6px 12px; border-radius: 999px; cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }
+.board-tools button:hover, .board-tools-file:hover { color: var(--text); background: var(--accent-soft); }
+.board-tools-file input { display: none; }
+.board-tools-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+
+/* La hoja de una nota canvas: el lienzo ocupa todo, el título flota arriba. */
+.sheet.is-canvas { overflow: hidden; }
+.sheet.is-canvas .sheet-top { position: relative; z-index: 6; }
+.sheet-canvas-head { position: absolute; top: 56px; left: var(--space-5); z-index: 6; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+.sheet-canvas-head > * { pointer-events: auto; }
+.sheet-canvas-head .sheet-where { margin: 0; }
+.sheet-canvas-title { background: none; border: 0; outline: 0; color: var(--text); font-family: var(--font-serif); font-size: clamp(26px, 3.4vw, 38px); line-height: 1.1; padding: 0; width: min(60vw, 640px); }
+.sheet-canvas-title::placeholder { color: var(--text-ghost); font-style: italic; }
+@media (max-width: 640px) { .board-tools { bottom: var(--space-3); max-width: calc(100% - 24px); overflow-x: auto; } }

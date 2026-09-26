@@ -8,6 +8,7 @@ import { TaskGlyph } from './TaskGlyph';
 import { useExperiments } from '../lab/experiments';
 import { MediaUpload } from './media';
 import { SectionPicker, type SectionOption } from './SectionPicker';
+import { CanvasBoard } from './board/CanvasBoard';
 
 // En el mapa de secciones una nota se abre como hoja a pantalla completa: la
 // celda termina de crecer hasta los bordes con su mismo tinte, y al cerrar
@@ -53,6 +54,10 @@ type Props = {
   // Secciones a las que se puede mover y la ruta de la actual.
   sections: SectionOption[];
   onMove: (zoneId: string | null) => void;
+  // Para las notas de tipo canvas.
+  rows: NoteRow[];
+  onRename: (title: string) => void;
+  onPickNote: (then: (id: string) => void) => void;
 };
 
 // Recorte con la forma de la celda, relativo a la hoja.
@@ -71,12 +76,24 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onLink, onUnlink, onDelete, onClose, onError, sections, onMove }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote }: Props) {
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
   const [moving, setMoving] = useState(false);
   const where = sections.find((o) => o.id === note.zoneId)?.path ?? null;
+  const isCanvas = note.kind === 'canvas';
+  const whereButton = (
+    <button className="sheet-where meta" onClick={() => setMoving(true)} title="Mover a otra sección">
+      {where ? where.split(' › ').map((p, i) => (
+        <span key={i}>
+          {i > 0 && <span className="sheet-where-sep">›</span>}
+          {p}
+        </span>
+      )) : <span>Sin sección</span>}
+      <span className="sheet-where-move">Mover</span>
+    </button>
+  );
   const shown = neighbors.slice(0, MAX_LINKS);
   const hue = from?.hue;
 
@@ -106,6 +123,9 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Con el inspector o el buscador abiertos, Esc los cierra a ellos y no a la hoja.
+      // Escribiendo en una tarjeta del canvas, Esc solo termina de escribir.
+      const t = e.target as HTMLElement | null;
+      if (e.key === 'Escape' && t?.closest('.board') && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
       if (e.key === 'Escape' && !document.querySelector('.inspector, .overlay')) {
         e.preventDefault();
         e.stopPropagation();
@@ -117,15 +137,17 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
   });
 
   return (
-    <div ref={ref} className="sheet" style={(hue !== undefined ? { '--hue': hue } : {}) as CSSProperties}>
+    <div ref={ref} className={`sheet${isCanvas ? ' is-canvas' : ''}`} style={(hue !== undefined ? { '--hue': hue } : {}) as CSSProperties}>
       <header className="sheet-top meta">
         <button className="sheet-back" onClick={() => close()}>
           ← Volver
         </button>
         <span className="sheet-actions">
-          <button className="sheet-back" onClick={onTask}>
-            {note.kind === 'task' ? 'Quitar tarea' : 'Hacer tarea'}
-          </button>
+          {!isCanvas && (
+            <button className="sheet-back" onClick={onTask}>
+              {note.kind === 'task' ? 'Quitar tarea' : 'Hacer tarea'}
+            </button>
+          )}
           {note.kind === 'task' && (
             <button className="sheet-back" onClick={onBlock}>
               {note.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
@@ -139,16 +161,33 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
           </button>
         </span>
       </header>
-      <article className="sheet-body" key={note.id}>
-        <button className="sheet-where meta" onClick={() => setMoving(true)} title="Mover a otra sección">
-          {where ? where.split(' › ').map((p, i) => (
-            <span key={i}>
-              {i > 0 && <span className="sheet-where-sep">›</span>}
-              {p}
-            </span>
-          )) : <span>Sin sección</span>}
-          <span className="sheet-where-move">Mover</span>
-        </button>
+      {isCanvas ? (
+        <div className="sheet-canvas" key={note.id + note.kind}>
+          <div className="sheet-canvas-head">
+            {whereButton}
+            <input
+              className="sheet-canvas-title"
+              defaultValue={note.title ?? ''}
+              placeholder="Canvas sin título"
+              autoFocus={!note.title}
+              onChange={(e) => onRename(e.target.value.trim())}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+              }}
+            />
+          </div>
+          <CanvasBoard
+            note={note}
+            rows={rows}
+            onSave={(c) => onSave(note.id, { ...c, title: note.title })}
+            onOpenNote={onNavigate}
+            onPickNote={onPickNote}
+            onError={onError}
+          />
+        </div>
+      ) : (
+      <article className="sheet-body" key={note.id + note.kind}>
+        {whereButton}
         {note.kind === 'task' && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}
         <SheetEditor note={note} onSave={onSave} onError={onError} />
         <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
@@ -170,6 +209,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
           </button>
         </nav>
       </article>
+      )}
       {moving && (
         <SectionPicker
           options={sections}

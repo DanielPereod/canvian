@@ -11,7 +11,7 @@ import { actionFor, keysBlocked, type ActionId } from '../keys';
 
 // Lo que se pide desde el mapa sobre la celda señalada (o la sección en la
 // que estás, para crear).
-export type MapAction = 'create' | 'section' | 'task' | 'status' | 'block' | 'props' | 'delete' | 'rename';
+export type MapAction = 'create' | 'createCanvas' | 'section' | 'task' | 'status' | 'block' | 'props' | 'delete' | 'rename';
 
 type Props = {
   tree: MapNode;
@@ -29,7 +29,7 @@ type Props = {
 };
 
 const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename' };
-const MAP_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'toRoot', 'newNote', 'newSection'];
+const MAP_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
 const DRAG_FROM = 6;
 
 // Sección a la que va lo que se suelta sobre este nodo; undefined si no admite.
@@ -113,6 +113,7 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onAction, onMo
       } else if (action === 'toRoot') map.current.upTo(0);
       // Nota nueva en la sección señalada o, si no, en la que estás.
       else if (action === 'newNote') onAction('create', hovered && hovered.kind !== 'note' ? hovered : here);
+      else if (action === 'newCanvas') onAction('createCanvas', hovered && hovered.kind !== 'note' ? hovered : here);
       // Sección nueva en la que estás.
       else if (action === 'newSection') onAction('section', here);
       else if (plain && (e.key === 'Escape' || e.key === 'Backspace')) map.current.relax();

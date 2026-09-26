@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { edges, notes, profiles } from '../db/schema.js';
 
-const KINDS = ['text', 'task', 'link', 'image', 'checklist', 'code', 'zone'] as const;
+const KINDS = ['text', 'task', 'canvas', 'link', 'image', 'checklist', 'code', 'zone'] as const;
 
 const noteFields = {
   kind: z.enum(KINDS),

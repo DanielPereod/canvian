@@ -7,6 +7,8 @@ type Props = {
   onCreate: (text: string) => void;
   onClose: () => void;
   placeholder?: string;
+  // Nota que no se ofrece (la abierta, al enlazar o añadir al canvas).
+  exclude?: string;
 };
 
 type Item = { kind: 'note'; hit: SearchHit } | { kind: 'create'; text: string };
@@ -17,7 +19,7 @@ function snippet(hit: SearchHit): string {
   return rest.slice(0, 90);
 }
 
-export function CommandPalette({ profileId, onPick, onCreate, onClose, placeholder = 'Buscar notas o crear una' }: Props) {
+export function CommandPalette({ profileId, onPick, onCreate, onClose, placeholder = 'Buscar notas o crear una', exclude }: Props) {
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [cursor, setCursor] = useState(0);
@@ -40,7 +42,7 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
     };
   }, [profileId, query]);
 
-  const items: Item[] = hits.map((hit) => ({ kind: 'note', hit }));
+  const items: Item[] = hits.filter((hit) => hit.id !== exclude).map((hit) => ({ kind: 'note', hit }));
   if (query.trim()) items.push({ kind: 'create', text: query.trim() });
 
   const run = (item: Item | undefined) => {
