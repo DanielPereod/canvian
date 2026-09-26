@@ -13,6 +13,7 @@ import { SectionName } from './SectionName';
 import type { OpenFrom } from './fluid';
 import { docText, docToMarkdown, markdownToDoc } from './markdown';
 import { parseBody } from './editor';
+import { hasMedia, isMedia, uploadMedia } from './media';
 import { Inspector } from './Inspector';
 
 // La vista de Canvian: el mapa de secciones. Aquí viven las notas, los
@@ -382,12 +383,25 @@ export function Canvas({ profile }: { profile: Profile }) {
     });
   };
 
+  // Imágenes, vídeo o audio soltados en el mapa: una nota nueva que los lleva.
+  const importMedia = async (files: File[]) => {
+    const content = await uploadMedia(files);
+    const zoneId = currentZone()?.id ?? null;
+    const bodyJson = JSON.stringify({ type: 'doc', content: [...content, { type: 'paragraph' }] });
+    const row = createNote(spotFor(zoneId), 'text', { zoneId, bodyJson });
+    openNote(row.id);
+  };
+
   const onDrop = (e: React.DragEvent) => {
-    const files = [...e.dataTransfer.files].filter((f) => /\.(md|markdown|txt)$/i.test(f.name));
     setDropping(false);
-    if (!files.length) return;
+    // Con una nota abierta, lo que se suelta es para su editor.
+    if (focusId) return;
+    const md = [...e.dataTransfer.files].filter((f) => /\.(md|markdown|txt)$/i.test(f.name));
+    const media = [...e.dataTransfer.files].filter(isMedia);
+    if (!md.length && !media.length) return;
     e.preventDefault();
-    void importMarkdown(files);
+    if (md.length) void importMarkdown(md);
+    if (media.length) importMedia(media).catch(report);
   };
 
   const exportCanvas = () => {
@@ -422,7 +436,7 @@ export function Canvas({ profile }: { profile: Profile }) {
     <div
       className="canvas"
       onDragOver={(e) => {
-        if (![...e.dataTransfer.types].includes('Files')) return;
+        if (focusId || ![...e.dataTransfer.types].includes('Files')) return;
         e.preventDefault();
         setDropping(true);
       }}
@@ -434,7 +448,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           <p className="display">
             Suelta tus <em>notas</em>
           </p>
-          <span className="meta">Archivos .md · entran en la sección en la que estás</span>
+          <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la sección en la que estás</span>
         </div>
       )}
       {loaded && (
@@ -506,6 +520,7 @@ export function Canvas({ profile }: { profile: Profile }) {
             setFocusId(id);
           }}
           onSave={saveContent}
+          onError={report}
           onCycle={cycleStatus}
           onProps={(id) => setInspectId(id)}
           onTask={() => toggleTask(focused)}
@@ -521,7 +536,7 @@ export function Canvas({ profile }: { profile: Profile }) {
             flush(id);
             setFocusId(null);
             // Una nota nueva que se queda vacía no se guarda.
-            if (!focused.bodyText?.trim() && !links.some((l) => l.source === id || l.target === id)) removeNotes([id]);
+            if (!focused.bodyText?.trim() && !hasMedia(focused.bodyJson) && !links.some((l) => l.source === id || l.target === id)) removeNotes([id]);
           }}
         />
       )}

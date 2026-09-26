@@ -135,6 +135,11 @@ export function docToMarkdown(doc: JSONContent | null): string {
         return '```\n' + inl(n) + '\n```';
       case 'horizontalRule':
         return '---';
+      case 'image':
+        return `![](${String(n.attrs?.src ?? '')})`;
+      case 'video':
+      case 'audio':
+        return `[${n.type === 'video' ? 'Vídeo' : 'Audio'}](${String(n.attrs?.src ?? '')})`;
       default:
         return (n.content ?? []).map((c) => block(c, indent)).join('\n\n');
     }

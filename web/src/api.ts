@@ -106,7 +106,15 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T;
 }
 
+async function upload(file: File): Promise<{ url: string; kind: 'image' | 'video' | 'audio' }> {
+  const res = await fetch('/api/media', { method: 'POST', headers: { 'content-type': file.type }, body: file, credentials: 'same-origin' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(data.error ?? 'No se pudo subir el archivo', res.status);
+  return data;
+}
+
 export const api = {
+  uploadMedia: upload,
   status: () => request<{ setupDone: boolean; authenticated: boolean }>('GET', '/auth/status'),
   setup: (password: string) => request('POST', '/auth/setup', { password }),
   login: (password: string) => request('POST', '/auth/login', { password }),

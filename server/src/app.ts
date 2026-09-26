@@ -17,6 +17,7 @@ import {
 import { canvasRoutes } from './routes/canvas.js';
 import { propertyRoutes } from './routes/properties.js';
 import { lensRoutes } from './routes/lenses.js';
+import { mediaRoutes } from './routes/media.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -39,7 +40,7 @@ const DEFAULT_PROFILES = [
   { name: 'Trabajo', color: PROFILE_COLORS[1], icon: 'briefcase' },
 ];
 
-export function createApp(db: Db) {
+export function createApp(db: Db, opts: { mediaDir?: string } = {}) {
   const api = new Hono();
 
   // La cookie solo se marca Secure si llega por HTTPS (directo o tras un proxy);
@@ -159,6 +160,7 @@ export function createApp(db: Db) {
   api.route('/', canvasRoutes(db));
   api.route('/', propertyRoutes(db));
   api.route('/', lensRoutes(db));
+  if (opts.mediaDir) api.route('/', mediaRoutes(opts.mediaDir));
 
   const app = new Hono();
   app.get('/health', (c) => c.json({ ok: true }));

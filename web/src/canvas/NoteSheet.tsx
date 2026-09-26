@@ -6,6 +6,7 @@ import { extensions, parseBody, titleFrom } from './editor';
 import { NoteChips } from './NoteChips';
 import { TaskGlyph } from './TaskGlyph';
 import { useExperiments } from '../lab/experiments';
+import { MediaUpload } from './media';
 
 // En el mapa de secciones una nota se abre como hoja a pantalla completa: la
 // celda termina de crecer hasta los bordes con su mismo tinte, y al cerrar
@@ -17,9 +18,9 @@ const MAX_LINKS = 24;
 
 export type NoteContent = { bodyJson: string; bodyText: string; title: string | null };
 
-function SheetEditor({ note, onSave }: { note: NoteRow; onSave: (id: string, content: NoteContent) => void }) {
+function SheetEditor({ note, onSave, onError }: { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void }) {
   const editor = useEditor({
-    extensions,
+    extensions: [...extensions, MediaUpload.configure({ onError })],
     content: parseBody(note.bodyJson) ?? '',
     // Abrir una nota es para escribir: el cursor ya está al final.
     autofocus: 'end',
@@ -46,6 +47,7 @@ type Props = {
   onUnlink: (id: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
+  onError: (e: unknown) => void;
 };
 
 // Recorte con la forma de la celda, relativo a la hoja.
@@ -64,7 +66,7 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onLink, onUnlink, onDelete, onClose }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onLink, onUnlink, onDelete, onClose, onError }: Props) {
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -127,7 +129,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
       </header>
       <article className="sheet-body" key={note.id}>
         {note.kind === 'task' && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}
-        <SheetEditor note={note} onSave={onSave} />
+        <SheetEditor note={note} onSave={onSave} onError={onError} />
         <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
         <nav className="sheet-links">
           <span className="meta">{neighbors.length === 0 ? 'Sin enlaces' : neighbors.length === 1 ? '1 enlace' : `${neighbors.length} enlaces`}</span>

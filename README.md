@@ -31,7 +31,7 @@ npm start        # sirve todo desde :3210
 | `server/` | Hono + better-sqlite3 + Drizzle. Esquema en `src/db/schema.ts`, migraciones en `drizzle/` (se generan con `npm run db:generate -w server`) y se aplican al arrancar. |
 | `web/`    | React 19 + Vite. El mapa de secciones se dibuja en SVG (`web/src/canvas/fluid.ts`). |
 
-Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` (por defecto `web/dist`).
+Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (imágenes, vídeo y audio de las notas; por defecto `media/` junto a la base, así que en Docker también quedan en el volumen `/data`), `CANVIAN_WEB_DIR` (por defecto `web/dist`).
 
 ## Datos de ejemplo
 
@@ -62,6 +62,7 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` 
 | `B` | Elegir el fondo del perfil (liso, estrellas, luciérnagas, aurora) |
 | `E` | Laboratorio: encender o apagar las ideas en prueba |
 | Arrastrar archivos `.md` | Importarlos como notas en la sección en la que estás; los `[[enlaces]]` entre ellas se convierten en enlaces |
+| Pegar o arrastrar imágenes, vídeo o audio | Dentro de una nota abierta, se añaden donde está el cursor o donde los sueltas. Sobre el mapa, crean una nota nueva con ellos. Hasta 200 MB por archivo |
 | `⌘/Ctrl ⇧ E` | Exportar el perfil a JSON Canvas (`.canvas`, se abre en Obsidian) |
 | `⌘/Ctrl K` | Buscar notas y abrirlas, o crear una |
 | `⌘/Ctrl ⇧ P` | Cambiar de perfil, crear uno o cerrar sesión |
