@@ -41,6 +41,8 @@ import { FloatingEdge } from './FloatingEdge';
 import { Constellation, CONSTELLATION_ZOOM, DEEP_ZOOM, TITLES_ZOOM } from './Constellation';
 import { useExperiments } from '../lab/experiments';
 import { StarLayer } from './StarLayer';
+import { SectionMap } from './SectionMap';
+import { buildSections, pathAt, type Section } from './sections';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { ColumnNode } from './ColumnNode';
@@ -54,6 +56,8 @@ type AppNode = Node<NoteData>;
 
 const NOTE_WIDTH = 240;
 const ZONE_SIZE = { w: 480, h: 320 };
+// Por debajo de este zoom, con el experimento de secciones, se abre el mapa.
+const SECTIONS_ZOOM = 0.3;
 const ZONE_PADDING = 40;
 const nodeTypes: NodeTypes = { note: NoteNode, zone: ZoneNode, column: ColumnNode };
 const edgeTypes: EdgeTypes = { floating: FloatingEdge };
@@ -85,6 +89,11 @@ const center = (n: AppNode) => {
   const { w, h } = size(n);
   return { x: n.position.x + w / 2, y: n.position.y + h / 2 };
 };
+
+function inside(zone: AppNode, p: { x: number; y: number }) {
+  const { w, h } = size(zone);
+  return p.x >= zone.position.x && p.x <= zone.position.x + w && p.y >= zone.position.y && p.y <= zone.position.y + h;
+}
 
 // La zona más pequeña que contiene el punto (así las zonas anidadas funcionan).
 function zoneAt(nodes: AppNode[], p: { x: number; y: number }): string | null {
@@ -134,7 +143,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const [settled, setSettled] = useState(false);
 
   // Zoom semántico y constelación: solo repinta al cruzar un umbral.
-  const { constelacion } = useExperiments();
+  const { constelacion, secciones } = useExperiments();
   const zoomClass = useStore((s) => {
     const z = s.transform[2];
     return `${z < TITLES_ZOOM ? ' titles' : ''}${constelacion && z < CONSTELLATION_ZOOM ? ' constellation' : ''}${constelacion && z < DEEP_ZOOM ? ' deep' : ''}`;
@@ -405,8 +414,9 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     for (const zone of dragged.filter((n) => n.type === 'zone')) {
       zoneDrag.current.set(zone.id, {
         start: { ...zone.position },
+        // Todo lo que cae dentro, también las subzonas y sus notas.
         children: nodesRef.current
-          .filter((n) => n.data.zoneId === zone.id && !draggedIds.has(n.id))
+          .filter((n) => !draggedIds.has(n.id) && (n.data.zoneId === zone.id || inside(zone, center(n))))
           .map((n) => ({ id: n.id, ...n.position })),
       });
     }
@@ -593,6 +603,33 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
 
   // ── Lentes: atenuar, ocultar o colocar en columnas ─────────────
   const arranging = mode === 'arrange' && !!lit;
+
+  // Mapa de secciones (laboratorio): muy de lejos, las zonas se ven como territorios.
+  const mapZoom = useStore((s) => s.transform[2] < SECTIONS_ZOOM);
+  const [mapDismissed, setMapDismissed] = useState(false);
+  useEffect(() => {
+    if (!mapZoom) setMapDismissed(false);
+  }, [mapZoom]);
+  const sections = useMemo(
+    () =>
+      secciones && mapZoom
+        ? buildSections(
+            nodes.map((n) => ({ id: n.id, kind: n.data.kind, title: n.data.title, rect: { x: n.position.x, y: n.position.y, ...size(n) } })),
+          )
+        : [],
+    [secciones, mapZoom, nodes],
+  );
+  const mapOpen = sections.length > 0 && !mapDismissed && !arranging && !focusId;
+  const mapStart = () => {
+    const { x, y, zoom } = flow.getViewport();
+    const box = document.querySelector('.react-flow')!.getBoundingClientRect();
+    return pathAt(sections, { x: (box.width / 2 - x) / zoom, y: (box.height / 2 - y) / zoom });
+  };
+  const landIn = (section: Section) => {
+    setMapDismissed(true);
+    const r = section.rect;
+    void flow.fitBounds({ x: r.x, y: r.y, width: r.w, height: r.h }, { padding: 0.12, duration: 750 });
+  };
   const groups = useMemo(() => groupOptions(defs), [defs]);
   const group = groups.some((g) => g.id === groupBy) ? groupBy : 'status';
 
@@ -916,6 +953,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
             </div>
           )}
         </div>
+        {mapOpen && <SectionMap sections={sections} start={mapStart()} onLand={landIn} onDismiss={() => setMapDismissed(true)} />}
         {paletteOpen && (
           <CommandPalette
             profileId={profile.id}

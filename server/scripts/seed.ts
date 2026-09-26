@@ -15,36 +15,52 @@ import { openDb } from '../src/db/index.js';
 import { edges, notes, profiles } from '../src/db/schema.js';
 
 type Item = { t: string; body?: string | string[]; task?: 'todo' | 'doing' | 'done' };
-type Zone = { name: string; items: Item[] };
+// Una zona puede tener subzonas dentro (secciones y subsecciones).
+type Zone = { name: string; items: Item[]; subs?: Zone[] };
 
 const PERSONAL: Zone[] = [
   {
     name: 'Viaje a Japón',
     items: [
       { t: 'Plan de viaje a Japón', body: 'Dos semanas en primavera, idealmente para ver los cerezos.' },
-      { t: 'Comprar billetes de avión', task: 'done' },
-      { t: 'Reservar ryokan en Kioto', task: 'doing', body: 'Mirar los que tienen onsen privado.' },
-      { t: 'JR Pass: ¿merece la pena?', body: ['Calcular trayectos largos', 'Comparar con billetes sueltos', 'Ver la subida de precio'] },
       { t: 'Ruta', body: ['Tokio · 4 días', 'Hakone · 1 día', 'Kioto · 4 días', 'Nara · excursión', 'Osaka · 3 días'] },
-      { t: 'Frases básicas en japonés', body: 'Sumimasen, arigatō gozaimasu, kore wa ikura desu ka.' },
-      { t: 'Tarjeta Suica en el móvil', task: 'todo' },
-      { t: 'Seguro de viaje', task: 'todo' },
-      { t: 'Templos imprescindibles', body: ['Fushimi Inari al amanecer', 'Kiyomizu-dera', 'Kinkaku-ji', 'Tōdai-ji'] },
-      { t: 'Comida que probar', body: 'Okonomiyaki en Osaka, ramen en Fukuoka si da tiempo, kaiseki en Kioto.' },
       { t: 'Presupuesto del viaje', body: 'Unos 3.500 € entre dos, sin contar compras.' },
-      { t: 'Adaptador de enchufe tipo A', task: 'done' },
-      { t: 'Descargar mapas offline', task: 'todo' },
-      { t: 'Museo Ghibli: entradas', task: 'doing', body: 'Salen a la venta el día 10 de cada mes.' },
+      { t: 'Frases básicas en japonés', body: 'Sumimasen, arigatō gozaimasu, kore wa ikura desu ka.' },
+    ],
+    subs: [
+      {
+        name: 'Preparativos',
+        items: [
+          { t: 'Comprar billetes de avión', task: 'done' },
+          { t: 'JR Pass: ¿merece la pena?', body: ['Calcular trayectos largos', 'Comparar con billetes sueltos', 'Ver la subida de precio'] },
+          { t: 'Tarjeta Suica en el móvil', task: 'todo' },
+          { t: 'Seguro de viaje', task: 'todo' },
+          { t: 'Adaptador de enchufe tipo A', task: 'done' },
+          { t: 'Descargar mapas offline', task: 'todo' },
+        ],
+      },
+      {
+        name: 'Qué ver',
+        items: [
+          { t: 'Museo Ghibli: entradas', task: 'doing', body: 'Salen a la venta el día 10 de cada mes.' },
+          { t: 'Comida que probar', body: 'Okonomiyaki en Osaka, ramen en Fukuoka si da tiempo, kaiseki en Kioto.' },
+        ],
+        subs: [
+          {
+            name: 'Kioto',
+            items: [
+              { t: 'Templos imprescindibles', body: ['Fushimi Inari al amanecer', 'Kiyomizu-dera', 'Kinkaku-ji', 'Tōdai-ji'] },
+              { t: 'Reservar ryokan en Kioto', task: 'doing', body: 'Mirar los que tienen onsen privado.' },
+            ],
+          },
+        ],
+      },
     ],
   },
   {
     name: 'Casa',
     items: [
-      { t: 'Reforma del baño', body: 'Pedir tres presupuestos antes de decidir.' },
-      { t: 'Llamar al fontanero', task: 'done' },
-      { t: 'Elegir azulejos', task: 'doing', body: ['Verde salvia', 'Terrazo claro', 'Blanco roto mate'] },
       { t: 'Cambiar bombillas a luz cálida', task: 'todo' },
-      { t: 'Plantas del balcón', body: 'Regar la albahaca cada dos días, el romero una vez a la semana.' },
       { t: 'Arreglar la persiana del salón', task: 'todo' },
       { t: 'Seguro del hogar vence en marzo', task: 'todo' },
       { t: 'Ideas para el estudio', body: ['Estantería de pared', 'Lámpara de pie', 'Alfombra de lana'] },
@@ -52,6 +68,20 @@ const PERSONAL: Zone[] = [
       { t: 'Limpieza de primavera', body: 'Armarios, trastero y la terraza.' },
       { t: 'Revisar la caldera', task: 'doing' },
       { t: 'Facturas de la luz', body: 'Comparar tarifa fija con la de discriminación horaria.' },
+    ],
+    subs: [
+      {
+        name: 'Reforma del baño',
+        items: [
+          { t: 'Reforma del baño', body: 'Pedir tres presupuestos antes de decidir.' },
+          { t: 'Llamar al fontanero', task: 'done' },
+          { t: 'Elegir azulejos', task: 'doing', body: ['Verde salvia', 'Terrazo claro', 'Blanco roto mate'] },
+        ],
+      },
+      {
+        name: 'Balcón',
+        items: [{ t: 'Plantas del balcón', body: 'Regar la albahaca cada dos días, el romero una vez a la semana.' }],
+      },
     ],
   },
   {
@@ -277,28 +307,26 @@ function seedProfile(profileId: string, zones: Zone[], loose: string[], extraCou
   const when = (maxDays: number) => new Date(Date.now() - random() ** 1.6 * maxDays * DAY).toISOString();
   const link = (a: string, b: string) => edgeRows.push({ id: ulid(), profileId, fromId: a, toId: b });
 
-  let zx = 0;
-  let zy = 0;
-  let rowH = 0;
-  zones.forEach((zone, zi) => {
-    // Coloca las notas en columnas, cada una bajo la anterior.
-    const colH = Array(COLS).fill(0);
+  // Coloca una zona (y sus subzonas, debajo de sus notas) con la esquina en x, y.
+  // Devuelve su tamaño y su nota central.
+  const placeZone = (zone: Zone, x: number, y: number, parentId: string | null): { w: number; h: number; hub: string | null } => {
+    const zoneId = ulid();
+    const updated = when(20);
+    const row: typeof notes.$inferInsert = { id: zoneId, profileId, kind: 'zone', title: zone.name, x, y, zoneId: parentId, props, createdAt: updated, updatedAt: updated };
+    // La zona va antes que lo que contiene para que se pinte debajo.
+    noteRows.push(row);
+
+    // Las notas en columnas, cada una bajo la anterior.
+    const cols = Math.min(COLS, Math.max(1, zone.items.length));
+    const colH = Array(cols).fill(0);
     const placed = zone.items.map((it) => {
       const c = colH.indexOf(Math.min(...colH));
       const pos = { x: c * (NOTE_W + GAP), y: colH[c] };
       colH[c] += heightOf(it) + GAP;
       return pos;
     });
-    const w = COLS * (NOTE_W + GAP) + 2 * 48 - GAP;
-    const h = Math.max(...colH) + 96 + 48;
-    if (zi > 0 && zi % 3 === 0) {
-      zx = 0;
-      zy += rowH + 160;
-      rowH = 0;
-    }
-    const zoneId = ulid();
-    const updated = when(20);
-    noteRows.push({ id: zoneId, profileId, kind: 'zone', title: zone.name, x: zx, y: zy, w, h, props, createdAt: updated, updatedAt: updated });
+    const itemsW = zone.items.length ? cols * (NOTE_W + GAP) - GAP : 0;
+    const itemsH = zone.items.length ? Math.max(...colH) : 0;
     const ids = zone.items.map((it, i) => {
       const id = ulid();
       const updatedAt = when(60);
@@ -310,8 +338,8 @@ function seedProfile(profileId: string, zones: Zone[], loose: string[], extraCou
         title: it.t,
         bodyJson,
         bodyText,
-        x: zx + 48 + placed[i].x,
-        y: zy + 96 + placed[i].y,
+        x: x + 48 + placed[i].x,
+        y: y + 96 + placed[i].y,
         w: NOTE_W,
         zoneId,
         status: it.task ?? null,
@@ -325,13 +353,40 @@ function seedProfile(profileId: string, zones: Zone[], loose: string[], extraCou
       return id;
     });
     // La primera nota de cada zona es su centro: se enlaza con varias de las demás.
-    const [hub, ...rest] = ids;
-    zoneHubs.push(hub);
+    const [hub = null, ...rest] = ids;
     rest.forEach((id, i) => {
-      if (i % 2 === 0 || random() < 0.3) link(hub, id);
+      if (i % 2 === 0 || random() < 0.3) link(hub!, id);
       else if (i > 0 && random() < 0.6) link(rest[i - 1], id);
     });
     allIds.push(...ids);
+
+    // Las subzonas, en fila bajo las notas; su centro se enlaza con el de esta.
+    let sx = x + 48;
+    let subsH = 0;
+    const sy = y + 96 + itemsH + (zone.items.length ? 24 : 0);
+    for (const sub of zone.subs ?? []) {
+      const r = placeZone(sub, sx, sy, zoneId);
+      if (hub && r.hub) link(hub, r.hub);
+      sx += r.w + 48;
+      subsH = Math.max(subsH, r.h);
+    }
+    const subsW = zone.subs?.length ? sx - 48 - (x + 48) : 0;
+    row.w = Math.max(itemsW, subsW, 400) + 96;
+    row.h = 96 + itemsH + (zone.subs?.length ? (zone.items.length ? 24 : 0) + subsH : 0) + 48;
+    return { w: row.w, h: row.h, hub };
+  };
+
+  let zx = 0;
+  let zy = 0;
+  let rowH = 0;
+  zones.forEach((zone, zi) => {
+    if (zi > 0 && zi % 3 === 0) {
+      zx = 0;
+      zy += rowH + 160;
+      rowH = 0;
+    }
+    const { w, h, hub } = placeZone(zone, zx, zy, null);
+    if (hub) zoneHubs.push(hub);
     zx += w + 160;
     rowH = Math.max(rowH, h);
   });

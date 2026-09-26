@@ -15,6 +15,7 @@ import './canvas/properties.css';
 import './lab/experiments.css';
 import './canvas/lens.css';
 import './canvas/focus.css';
+import './canvas/sections.css';
 import { App } from './App';
 
 createRoot(document.getElementById('root')!).render(

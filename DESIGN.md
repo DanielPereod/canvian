@@ -35,3 +35,4 @@ Si una se queda, su CSS sale de `lab/experiments.css` hacia su sitio definitivo.
 - **Tareas que maduran** (`maduran`): semilla, brote y flor en lugar del círculo que se llena.
 - **Modo constelación** (`constelacion`): por debajo de zoom 0,45 las notas son estrellas y los enlaces, líneas rectas.
 - **Notas que florecen** (`florecen`): `--bloom` (enlaces, hasta 6) agranda la nota y le da luz.
+- **Mapa de secciones** (`secciones`, apagado de serie): por debajo de zoom 0,3 las zonas se ven como territorios orgánicos que llenan la pantalla (`SectionMap`). Una zona dibujada dentro de otra es su subsección; la rueda o un clic entran, Esc o la rueda atrás salen, y en una sección sin subsecciones aterrizas en sus notas.
