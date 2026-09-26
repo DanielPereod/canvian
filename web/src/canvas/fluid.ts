@@ -1,4 +1,4 @@
-import { bounds, noteIdOf, taskStatusOf, type MapNode } from './sections';
+import { bounds, type MapNode } from './sections';
 
 // Motor del mapa de secciones. Cada nivel es un diagrama de potencia (un
 // Voronoi con pesos) que se recalcula en cada fotograma: los pesos se ajustan
@@ -375,7 +375,7 @@ class FluidView {
       const metaText =
         c.node.kind === 'note'
           ? ''
-          : `${c.node.count} ${taskStatusOf(c.node) ? (c.node.count === 1 ? 'tarea' : 'tareas') : c.node.count === 1 ? 'nota' : 'notas'}${
+          : `${c.node.count} ${c.node.count === 1 ? 'nota' : 'notas'}${
               c.node.children.some((k) => k.kind === 'zone') ? ` · ${c.node.children.filter((k) => k.kind === 'zone').length} secc.` : ''
             }`;
       e.meta.textContent = metaText;
@@ -611,7 +611,7 @@ export class FluidMap {
       if (z.node.kind === 'note') {
         if (this.opened !== z.node.id) {
           this.opened = z.node.id;
-          this.events.onOpen(noteIdOf(z.node), { rect: bbox(z.drawn), hue: z.hue });
+          this.events.onOpen(z.node.id, { rect: bbox(z.drawn), hue: z.hue });
         }
       } else if (this.nested) {
         const level = this.nested;
@@ -691,7 +691,7 @@ export class FluidMap {
     if (notes) {
       lit = new Set();
       const walk = (n: MapNode): boolean => {
-        let any = n.kind === 'note' && notes.has(noteIdOf(n));
+        let any = n.kind === 'note' && notes.has(n.id);
         for (const c of n.children) if (walk(c)) any = true;
         if (any) lit!.add(n.id);
         return any;
