@@ -209,7 +209,7 @@ export class Fluid {
 
   // Área que le toca a cada celda, de 0 a 1.
   shares(t: number, hover: string | null) {
-    const base = this.cells.map((c) => Math.pow(c.node.importance, 0.75) * (1 + 0.05 * Math.sin(t * 0.55 + c.phase)) * (c.node.id === hover ? 1.2 : 1));
+    const base = this.cells.map((c) => Math.pow(c.node.importance, 0.75) * (1 + 0.025 * Math.sin(t * 0.55 + c.phase)) * (c.node.id === hover ? 1.08 : 1));
     const zoomed = this.cells.reduce<Cell | null>((m, c) => (c.s > (m?.s ?? 0.001) ? c : m), null);
     const sum = base.reduce((a, b) => a + b, 0) || 1;
     const frac = base.map((b) => b / sum);
@@ -252,7 +252,7 @@ export class Fluid {
     let mean = 0;
     for (let i = 0; i < n; i++) {
       const c = this.cells[i];
-      c.w += (0.55 * (frac[i] * total - c.area)) / Math.PI;
+      c.w += (0.3 * (frac[i] * total - c.area)) / Math.PI;
       mean += c.w;
     }
     mean /= n;
@@ -261,9 +261,9 @@ export class Fluid {
     for (const c of this.cells) {
       const home = this.place(c.anchor);
       const cm = c.poly.length > 2 ? centroid(c.poly) : home;
-      c.seed = { x: c.seed.x + 0.14 * (cm.x - c.seed.x) + 0.015 * (home.x - c.seed.x), y: c.seed.y + 0.14 * (cm.y - c.seed.y) + 0.015 * (home.y - c.seed.y) };
-      c.alive += (1 - c.alive) * 0.07;
-      c.s += (c.sTarget - c.s) * 0.12;
+      c.seed = { x: c.seed.x + 0.07 * (cm.x - c.seed.x) + 0.01 * (home.x - c.seed.x), y: c.seed.y + 0.07 * (cm.y - c.seed.y) + 0.01 * (home.y - c.seed.y) };
+      c.alive += (1 - c.alive) * 0.04;
+      c.s += (c.sTarget - c.s) * 0.065;
     }
   }
 
@@ -333,7 +333,7 @@ class FluidView {
       e.g.style.opacity = String(Math.min(1, c.alive * 1.2) * smooth(18, 50, size));
       e.g.classList.toggle('hover', hover === id);
       e.g.classList.toggle('done', c.node.note?.kind === 'task' && c.node.note.status === 'done');
-      e.path.setAttribute('d', organicPath(c.drawn, t, Math.min(6, size / 30)));
+      e.path.setAttribute('d', organicPath(c.drawn, t, Math.min(3.5, size / 50)));
 
       const hidden = hideLabelOf?.id === id ? hideLabelOf.amount : 0;
       const note = c.node.kind === 'note';
@@ -431,6 +431,8 @@ export type FluidMapEvents = {
 };
 
 const OPEN_AT = 0.95;
+// Ritmo de la respiración y las ondas: lento, para que el mapa se sienta en calma.
+const TEMPO = 0.4;
 
 export class FluidMap {
   svg: SVGSVGElement;
@@ -458,12 +460,12 @@ export class FluidMap {
       const cell = top.fluid.cells.find((c) => c.node.id === id);
       if (!cell || !cell.node.children.length) break;
       cell.s = cell.sTarget = 1.02;
-      top.fluid.settle(80, 0);
+      top.fluid.settle(400, 0);
       top.view.root.style.display = 'none';
       this.levels.push(this.makeLevel(cell.node, this.frame, cell.hue));
     }
     this.levels.forEach((l, i) => (l.view.root.style.display = i === this.levels.length - 1 ? '' : 'none'));
-    this.top().fluid.settle(120, 0);
+    this.top().fluid.settle(400, 0);
     this.emitPath();
     this.loop();
   }
@@ -533,7 +535,7 @@ export class FluidMap {
   private loop = () => {
     this.raf = requestAnimationFrame(this.loop);
     if (this.paused) return;
-    const t = (performance.now() - this.t0) / 1000;
+    const t = ((performance.now() - this.t0) / 1000) * TEMPO;
     const top = this.top();
     top.fluid.step(t, this.hover);
     const z = this.zoomed();
@@ -546,7 +548,7 @@ export class FluidMap {
       if (!this.nested || this.nested.node.id !== openable.node.id) {
         this.dropNested();
         this.nested = this.makeLevel(openable.node, openable.drawn, openable.hue);
-        this.nested.fluid.settle(60, t);
+        this.nested.fluid.settle(240, t);
       }
       this.nested.fluid.frame = openable.drawn;
       this.nested.fluid.step(t, null);
@@ -607,7 +609,7 @@ export class FluidMap {
     if (cell) {
       cell.s = 1.02;
       cell.sTarget = all ? 0 : 0.72;
-      top.fluid.settle(20, (performance.now() - this.t0) / 1000);
+      top.fluid.settle(40, ((performance.now() - this.t0) / 1000) * TEMPO);
       leaving.fluid.frame = cell.drawn.length > 2 ? cell.drawn : this.frame;
       this.nested = leaving;
     } else leaving.view.destroy();
