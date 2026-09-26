@@ -5,26 +5,21 @@
 
 .note {
   --o-mem: calc(1 - 0.45 * var(--age, 0));
-  --sat-mem: calc(1 - 0.6 * var(--age, 0));
   --o-lamp: 1;
-  --blur-lamp: 0px;
-  --gray-lamp: 0;
   opacity: calc(var(--o-mem) * var(--o-lamp));
-  filter: saturate(var(--sat-mem)) grayscale(var(--gray-lamp)) blur(var(--blur-lamp));
   scale: calc(1 + 0.15 * var(--bloom, 0));
   transition:
     border-color var(--dur-base),
     box-shadow var(--dur-slow) var(--ease-out),
     transform var(--dur-base) var(--ease-out),
     opacity var(--dur-mood) var(--ease-out),
-    filter var(--dur-mood) var(--ease-out),
     scale var(--dur-slow) var(--ease-spring);
 }
 
 /* ── 1. Luz como memoria: al señalarla vuelve a encenderse ── */
 .react-flow__node:hover .note,
 .note.selected,
-.note.editing { --o-mem: 1; --sat-mem: 1; }
+.note.editing { --o-mem: 1; }
 
 /* ── 5. Notas que florecen: más enlaces, más presencia ── */
 .note:not(.selected):not(.editing) {
@@ -54,12 +49,12 @@
 
 .exp-linterna .lamp-on .lamp-dark { opacity: 1; }
 .exp-linterna .lamp-on .react-flow__background { opacity: 0.25; }
-.exp-linterna .note.shadowed { --o-lamp: 0.13; --gray-lamp: 0.9; --blur-lamp: 1.5px; }
+/* El filtro solo en las notas en sombra: en todas a la vez hacía lento el lienzo. */
+.exp-linterna .note.shadowed { --o-lamp: 0.13; filter: grayscale(0.9) blur(1.5px); }
 .exp-linterna .zone.shadowed { opacity: 0.25; }
 .exp-linterna .stem.shadowed, .exp-linterna .stem-pulse.shadowed { opacity: 0.06; }
 .exp-linterna .note.lit {
   --o-mem: 1;
-  --sat-mem: 1;
   border-color: var(--accent-line);
   box-shadow: var(--highlight), 0 0 0 1px var(--accent-line), 0 0 70px -10px var(--accent-glow), var(--shadow-1);
   animation: note-in var(--dur-slow) var(--ease-spring) both, ignite var(--dur-grow) var(--ease-out);
@@ -139,7 +134,8 @@
 .task-glyph.ripe.is-done .g-flower { rotate: 0deg; }
 .task-glyph.ripe .g-flower ellipse { fill: color-mix(in oklab, var(--accent) 70%, white); opacity: 0.92; }
 .task-glyph.ripe .g-flower .core { fill: var(--hue-amber); }
-.task-glyph.ripe.is-todo { animation: sway 3.2s ease-in-out infinite; }
+/* La semilla se mece al señalarla (cientos meciéndose a la vez pesaban demasiado). */
+.react-flow__node:hover .task-glyph.ripe.is-todo, .focus-card .task-glyph.ripe.is-todo { animation: sway 3.2s ease-in-out infinite; }
 .task-glyph.ripe.is-doing svg { filter: drop-shadow(0 0 5px var(--accent-glow)); }
 .task-glyph.ripe.is-done::after {
   content: '';
@@ -155,43 +151,19 @@
 @keyframes burst { from { opacity: 0.9; scale: 0.6; } to { opacity: 0; scale: 2.6; } }
 .exp-maduran .note.task.is-doing:not(.selected):not(.editing) { border-color: color-mix(in oklab, var(--accent) 35%, var(--line)); }
 
-/* ── 4. Constelación: de lejos, cada nota es una estrella ── */
-.star-label {
+/* ── 4. Constelación: de lejos, cada nota es una estrella ──
+   Las estrellas y sus nombres los dibuja StarLayer en un <canvas>; las notas
+   quedan transparentes debajo para poder señalarlas, seleccionarlas y moverlas. */
+.star-layer {
   position: absolute;
-  left: 50%;
-  top: calc(50% + (10px + 10px * var(--bloom, 0)) / var(--zoom, 1));
-  translate: -50% 0;
-  width: max-content;
-  max-width: calc(220px / var(--zoom, 1));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: calc(13px / var(--zoom, 1));
-  color: var(--text-muted);
+  inset: 0;
+  z-index: 4;
   pointer-events: none;
   opacity: 0;
   transition: opacity var(--dur-slow) var(--ease-out);
 }
-.note::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: calc((6px + 8px * var(--bloom, 0)) / var(--zoom, 1));
-  height: calc((6px + 8px * var(--bloom, 0)) / var(--zoom, 1));
-  translate: -50% -50%;
-  border-radius: 50%;
-  background: color-mix(in oklab, var(--accent) 45%, white);
-  box-shadow: 0 0 calc(16px / var(--zoom, 1)) calc(3px / var(--zoom, 1)) var(--accent-glow);
-  pointer-events: none;
-  opacity: 0;
-  scale: 0.1;
-  transition: opacity var(--dur-slow) var(--ease-out), scale var(--dur-grow) var(--ease-spring);
-}
-.note > :not(.star-label) { transition: opacity var(--dur-slow) var(--ease-out); }
-.note.task.is-todo::after { background: color-mix(in oklab, var(--hue-amber) 55%, white); }
+.star-layer.on { opacity: 1; }
+.note > * { transition: opacity var(--dur-slow) var(--ease-out); }
 
 .constellation .note {
   background: transparent;
@@ -199,16 +171,10 @@
   box-shadow: none !important;
   overflow: visible;
 }
-.constellation .note > :not(.star-label) { opacity: 0; pointer-events: none; }
-.constellation .note::after { opacity: 1; scale: 1; animation: twinkle 3.6s ease-in-out infinite; }
-.constellation .star-label { opacity: calc(0.55 + 0.45 * var(--bloom, 0)); }
-.constellation.deep .star-label { opacity: calc(var(--bloom, 0) * var(--bloom, 0)); }
-.constellation .note.task.is-done::after { background: var(--text-faint); box-shadow: none; }
-.constellation .react-flow__node:hover .star-label, .constellation .note.selected .star-label { color: var(--text); opacity: 1; }
-.constellation .note.selected::after { box-shadow: 0 0 0 calc(3px / var(--zoom, 1)) var(--accent-line), 0 0 calc(26px / var(--zoom, 1)) calc(6px / var(--zoom, 1)) var(--accent-glow); }
+.constellation .note > * { opacity: 0; pointer-events: none; }
 .constellation .zone { background: transparent; border-style: dashed; border-color: rgba(255, 255, 255, 0.06); }
 .constellation .zone .meta { opacity: 0; }
-.constellation .zone-title { font-size: calc(18px / var(--zoom, 1)); color: var(--text-faint); transition: font-size var(--dur-slow) var(--ease-out); }
+.constellation .zone-title { color: var(--text-faint); }
 .star-line {
   stroke: color-mix(in oklab, var(--accent) 55%, white);
   stroke-width: 1;
@@ -218,7 +184,6 @@
   animation: fade var(--dur-slow) var(--ease-out) both;
 }
 .react-flow__edge:hover .star-line, .react-flow__edge.selected .star-line { opacity: 1; stroke: var(--accent-ink); }
-@keyframes twinkle { 50% { scale: 0.82; } }
 
 /* ── Laboratorio (E) ── */
 .lab { width: min(460px, 100%); padding: var(--space-3); gap: var(--space-2); outline: none; }

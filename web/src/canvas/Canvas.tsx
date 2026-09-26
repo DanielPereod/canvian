@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { createDegreeStore, DegreeContext } from './degrees';
 import {
   Background,
   BackgroundVariant,
@@ -7,6 +8,7 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  useStore,
   type Connection,
   type Edge,
   type EdgeTypes,
@@ -36,7 +38,9 @@ import { NoteNode } from './NoteNode';
 import { ZoneNode } from './ZoneNode';
 import { CommandPalette } from './CommandPalette';
 import { FloatingEdge } from './FloatingEdge';
-import { Constellation } from './Constellation';
+import { Constellation, CONSTELLATION_ZOOM, DEEP_ZOOM, TITLES_ZOOM } from './Constellation';
+import { useExperiments } from '../lab/experiments';
+import { StarLayer } from './StarLayer';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { ColumnNode } from './ColumnNode';
@@ -123,6 +127,19 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const [defs, setDefs] = useState<PropertyDef[]>([]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
 
+  const [degrees] = useState(createDegreeStore);
+  useLayoutEffect(() => degrees.set(edges), [degrees, edges]);
+  // Las notas entran con animación al abrir el lienzo; después solo las nuevas
+  // (si no, al moverte se animarían todas las que van apareciendo).
+  const [settled, setSettled] = useState(false);
+
+  // Zoom semántico y constelación: solo repinta al cruzar un umbral.
+  const { constelacion } = useExperiments();
+  const zoomClass = useStore((s) => {
+    const z = s.transform[2];
+    return `${z < TITLES_ZOOM ? ' titles' : ''}${constelacion && z < CONSTELLATION_ZOOM ? ' constellation' : ''}${constelacion && z < DEEP_ZOOM ? ' deep' : ''}`;
+  });
+
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
   const pending = useRef(new Map<string, NoteContent>());
@@ -139,13 +156,18 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
 
   // La linterna: qué notas quedan con luz. La clave en texto evita recalcular
   // el conjunto (y repintar todas las notas) mientras arrastras.
-  const lens = useMemo(
-    () => (lamp ? parseLens(lamp, { defs, notes: nodes.map((n) => n.data), links: edges }) : null),
-    [lamp, nodes, edges, defs],
-  );
+  // Los datos de las notas solo cambian al editarlas; arrastrar o seleccionar
+  // crea nodos nuevos con los mismos datos, y así la lente no se recalcula.
+  const rowsRef = useRef<NoteRow[]>([]);
+  const rows = useMemo(() => {
+    const prev = rowsRef.current;
+    if (prev.length === nodes.length && nodes.every((n, i) => n.data === prev[i])) return prev;
+    return (rowsRef.current = nodes.map((n) => n.data));
+  }, [nodes]);
+  const lens = useMemo(() => (lamp ? parseLens(lamp, { defs, notes: rows, links: edges }) : null), [lamp, rows, edges, defs]);
   const litKey = useMemo(
-    () => (lens?.test ? nodes.filter((n) => lens.test!(n.data)).map((n) => n.id).join(' ') : null),
-    [lens, nodes],
+    () => (lens?.test ? rows.filter((r) => lens.test!(r)).map((r) => r.id).join(' ') : null),
+    [lens, rows],
   );
   const lit = useMemo(() => (litKey === null ? null : new Set(litKey.split(' ').filter(Boolean))), [litKey]);
 
@@ -169,16 +191,20 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   // Carga inicial del perfil: notas, enlaces y dónde dejaste la vista.
   useEffect(() => {
     let cancelled = false;
+    let settleTimer: ReturnType<typeof setTimeout> | undefined;
     Promise.all([api.canvas(profile.id), api.getViewport(profile.id), api.properties(profile.id), api.lenses(profile.id)]).then(([canvas, viewport, properties, saved]) => {
       if (cancelled) return;
       setDefs(properties);
       setLenses(saved);
+      setSettled(false);
       setNodes(canvas.notes.map(toNode));
       setEdges(canvas.edges.map(toEdge));
       flow.setViewport(viewport);
+      settleTimer = setTimeout(() => setSettled(true), 1500);
     }, report);
     return () => {
       cancelled = true;
+      clearTimeout(settleTimer);
     };
   }, [profile.id, flow, setNodes, setEdges, report]);
 
@@ -258,7 +284,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
         updatedAt: now(),
         ...extra,
       };
-      setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), { ...toNode(row), selected: true }]);
+      setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), { ...toNode(row), selected: true, className: 'born' }]);
       const request = api.createNote(profile.id, { ...row, props: parseProps(row.props) }).catch(report);
       created.current.set(row.id, request);
       void request.then(() => created.current.delete(row.id));
@@ -437,7 +463,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
 
   const connect = (source: string, target: string) => {
     const id = ulid();
-    setEdges((es) => [...es, { id, source, target, type: 'floating' }]);
+    setEdges((es) => [...es, { id, source, target, type: 'floating', className: 'born' }]);
     ready(source, target)
       .then(() => api.createEdge(profile.id, { id, fromId: source, toId: target }))
       .catch(report);
@@ -744,7 +770,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
         updatedAt: now(),
       };
     });
-    setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), ...rows.map((r) => ({ ...toNode(r), selected: true }))]);
+    setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), ...rows.map((r) => ({ ...toNode(r), selected: true, className: 'born' }))]);
     for (const row of rows) {
       const request = api.createNote(profile.id, { ...row, props: {} }).catch(report);
       created.current.set(row.id, request);
@@ -816,155 +842,159 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
 
   return (
     <CanvasContext.Provider value={actions}>
-      <div
-        className={`canvas${lit ? ` lamp-on lens-${mode}` : ''}${arranging || settling ? ' arranging' : ''}`}
-        onDoubleClick={(e) => !arranging && onPaneDoubleClick(e)}
-        onDragOver={(e) => {
-          if (![...e.dataTransfer.types].includes('Files')) return;
-          e.preventDefault();
-          setDropping(true);
-        }}
-        onDragLeave={(e) => e.currentTarget === e.target && setDropping(false)}
-        onDrop={onDrop}
-      >
-        {dropping && (
-          <div className="drop-hint" aria-hidden="true">
-            <p className="display">
-              Suelta tus <em>notas</em>
-            </p>
-            <span className="meta">Archivos .md · los [[enlaces]] se convierten en tallos</span>
-          </div>
-        )}
-        <div className="lamp-dark" aria-hidden="true" />
-        <ReactFlow<AppNode>
-          nodes={displayNodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          onNodesChange={onDisplayNodesChange}
-          onEdgesChange={onEdgesChange}
-          onNodeDragStart={onNodeDragStart}
-          onNodeDrag={onNodeDrag}
-          onNodeDragStop={onNodeDragStop}
-          onBeforeDelete={async ({ nodes: ns, edges: es }) => {
-            // Las notas las borramos nosotros para poder animar su salida.
-            if (ns.length) removeNotes(ns.map((n) => n.id));
-            return { nodes: [], edges: es.filter((e) => !ns.some((n) => n.id === e.source || n.id === e.target)) };
+      <DegreeContext.Provider value={degrees}>
+        <div
+          className={`canvas${zoomClass}${settled ? ' settled' : ''}${lit ? ` lamp-on lens-${mode}` : ''}${arranging || settling ? ' arranging' : ''}`}
+          onDoubleClick={(e) => !arranging && onPaneDoubleClick(e)}
+          onDragOver={(e) => {
+            if (![...e.dataTransfer.types].includes('Files')) return;
+            e.preventDefault();
+            setDropping(true);
           }}
-          onEdgesDelete={(es) => {
-            for (const e of es) if (!deleted.current.has(e.source) && !deleted.current.has(e.target)) api.deleteEdge(e.id).catch(report);
-          }}
-          onConnect={(c) => c.source && c.target && connect(c.source, c.target)}
-          onConnectEnd={onConnectEnd}
-          isValidConnection={isValidConnection}
-          connectionMode={ConnectionMode.Loose}
-          onMoveEnd={onMoveEnd}
-          deleteKeyCode={['Backspace', 'Delete']}
-          elevateNodesOnSelect={false}
-          multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
-          zoomOnDoubleClick={false}
-          minZoom={0.1}
-          maxZoom={3}
-          defaultEdgeOptions={{ type: 'floating', zIndex: 5 }}
-          proOptions={{ hideAttribution: true }}
+          onDragLeave={(e) => e.currentTarget === e.target && setDropping(false)}
+          onDrop={onDrop}
         >
-          <Constellation />
-          {background === 'dots' && (
-            <Background variant={BackgroundVariant.Dots} gap={26} size={1.2} color="var(--dots)" />
-          )}
-          {background === 'grid' && (
-            <Background variant={BackgroundVariant.Lines} gap={52} lineWidth={1} color="var(--grid)" />
-          )}
-        </ReactFlow>
-        {nodes.length === 0 && (
-          <div className="empty-state">
-            <div>
+          {dropping && (
+            <div className="drop-hint" aria-hidden="true">
               <p className="display">
-                Un lienzo en <em>calma</em>
+                Suelta tus <em>notas</em>
               </p>
-              <span className="meta">Doble clic para plantar la primera nota</span>
+              <span className="meta">Archivos .md · los [[enlaces]] se convierten en tallos</span>
             </div>
+          )}
+          <div className="lamp-dark" aria-hidden="true" />
+          <ReactFlow<AppNode>
+            nodes={displayNodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            onNodesChange={onDisplayNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeDragStart={onNodeDragStart}
+            onNodeDrag={onNodeDrag}
+            onNodeDragStop={onNodeDragStop}
+            onBeforeDelete={async ({ nodes: ns, edges: es }) => {
+              // Las notas las borramos nosotros para poder animar su salida.
+              if (ns.length) removeNotes(ns.map((n) => n.id));
+              return { nodes: [], edges: es.filter((e) => !ns.some((n) => n.id === e.source || n.id === e.target)) };
+            }}
+            onEdgesDelete={(es) => {
+              for (const e of es) if (!deleted.current.has(e.source) && !deleted.current.has(e.target)) api.deleteEdge(e.id).catch(report);
+            }}
+            onConnect={(c) => c.source && c.target && connect(c.source, c.target)}
+            onConnectEnd={onConnectEnd}
+            isValidConnection={isValidConnection}
+            connectionMode={ConnectionMode.Loose}
+            onMoveEnd={onMoveEnd}
+            deleteKeyCode={['Backspace', 'Delete']}
+            elevateNodesOnSelect={false}
+            multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
+            zoomOnDoubleClick={false}
+            onlyRenderVisibleElements
+            minZoom={0.1}
+            maxZoom={3}
+            defaultEdgeOptions={{ type: 'floating', zIndex: 5 }}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Constellation />
+            <StarLayer />
+            {background === 'dots' && (
+              <Background variant={BackgroundVariant.Dots} gap={26} size={1.2} color="var(--dots)" />
+            )}
+            {background === 'grid' && (
+              <Background variant={BackgroundVariant.Lines} gap={52} lineWidth={1} color="var(--grid)" />
+            )}
+          </ReactFlow>
+          {nodes.length === 0 && (
+            <div className="empty-state">
+              <div>
+                <p className="display">
+                  Un lienzo en <em>calma</em>
+                </p>
+                <span className="meta">Doble clic para plantar la primera nota</span>
+              </div>
+            </div>
+          )}
+        </div>
+        {paletteOpen && (
+          <CommandPalette
+            profileId={profile.id}
+            onPick={(id) => {
+              setPaletteOpen(false);
+              focusNote(id);
+            }}
+            onCreate={(text) => {
+              setPaletteOpen(false);
+              const { x, y, zoom } = flow.getViewport();
+              const box = document.querySelector('.react-flow')!.getBoundingClientRect();
+              const row = createNote({ x: (box.width / 2 - x) / zoom - NOTE_WIDTH / 2, y: (box.height / 2 - y) / zoom - 40 });
+              const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
+              actions.saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
+            }}
+            onClose={() => setPaletteOpen(false)}
+          />
+        )}
+        {focused && (
+          <FocusView
+            note={focused}
+            neighbors={focusNeighbors}
+            defs={defs}
+            onNavigate={(id) => {
+              flush(focused.id);
+              setFocusId(id);
+            }}
+            onSave={actions.saveContent}
+            onCycle={actions.cycleStatus}
+            onProps={(id) => actions.openInspector(id)}
+            onClose={() => {
+              const id = focused.id;
+              flush(id);
+              setFocusId(null);
+              focusNote(id);
+            }}
+          />
+        )}
+        {inspectorOpen && (
+          <Inspector
+            note={selectedNote}
+            defs={defs}
+            onChange={updateNote}
+            onDefsChange={setDefs}
+            profileId={profile.id}
+            onError={report}
+            onClose={() => setInspectorOpen(false)}
+          />
+        )}
+        {lamp !== null && (
+          <Lantern
+            open={lampOpen}
+            query={lamp}
+            count={lit?.size ?? 0}
+            tokens={lens?.tokens ?? []}
+            mode={mode}
+            groupBy={group}
+            groups={groups}
+            lenses={lenses}
+            onOpen={() => setLampOpen(true)}
+            onFold={() => setLampOpen(false)}
+            onChange={setLamp}
+            onMode={setMode}
+            onGroup={setGroupBy}
+            onSave={saveLens}
+            onApply={applyLens}
+            onDelete={(l) => {
+              setLenses((ls) => ls.filter((x) => x.id !== l.id));
+              api.deleteLens(l.id).catch(report);
+            }}
+            onClear={clearLamp}
+          />
+        )}
+        {problem && (
+          <div className="surface-3 toast toast-danger" role="status">
+            {problem}
           </div>
         )}
-      </div>
-      {paletteOpen && (
-        <CommandPalette
-          profileId={profile.id}
-          onPick={(id) => {
-            setPaletteOpen(false);
-            focusNote(id);
-          }}
-          onCreate={(text) => {
-            setPaletteOpen(false);
-            const { x, y, zoom } = flow.getViewport();
-            const box = document.querySelector('.react-flow')!.getBoundingClientRect();
-            const row = createNote({ x: (box.width / 2 - x) / zoom - NOTE_WIDTH / 2, y: (box.height / 2 - y) / zoom - 40 });
-            const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
-            actions.saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
-          }}
-          onClose={() => setPaletteOpen(false)}
-        />
-      )}
-      {focused && (
-        <FocusView
-          note={focused}
-          neighbors={focusNeighbors}
-          defs={defs}
-          onNavigate={(id) => {
-            flush(focused.id);
-            setFocusId(id);
-          }}
-          onSave={actions.saveContent}
-          onCycle={actions.cycleStatus}
-          onProps={(id) => actions.openInspector(id)}
-          onClose={() => {
-            const id = focused.id;
-            flush(id);
-            setFocusId(null);
-            focusNote(id);
-          }}
-        />
-      )}
-      {inspectorOpen && (
-        <Inspector
-          note={selectedNote}
-          defs={defs}
-          onChange={updateNote}
-          onDefsChange={setDefs}
-          profileId={profile.id}
-          onError={report}
-          onClose={() => setInspectorOpen(false)}
-        />
-      )}
-      {lamp !== null && (
-        <Lantern
-          open={lampOpen}
-          query={lamp}
-          count={lit?.size ?? 0}
-          tokens={lens?.tokens ?? []}
-          mode={mode}
-          groupBy={group}
-          groups={groups}
-          lenses={lenses}
-          onOpen={() => setLampOpen(true)}
-          onFold={() => setLampOpen(false)}
-          onChange={setLamp}
-          onMode={setMode}
-          onGroup={setGroupBy}
-          onSave={saveLens}
-          onApply={applyLens}
-          onDelete={(l) => {
-            setLenses((ls) => ls.filter((x) => x.id !== l.id));
-            api.deleteLens(l.id).catch(report);
-          }}
-          onClear={clearLamp}
-        />
-      )}
-      {problem && (
-        <div className="surface-3 toast toast-danger" role="status">
-          {problem}
-        </div>
-      )}
+      </DegreeContext.Provider>
     </CanvasContext.Provider>
   );
 }

@@ -16,6 +16,19 @@ const fold = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').to
 const key = (s: string) => fold(s).replace(/\s+/g, '');
 const words = (s: string) => fold(s).split(/[^\p{L}\p{N}#]+/u);
 
+// El texto normalizado de cada nota se recuerda mientras la nota no cambie:
+// con miles de notas, normalizar en cada tecla de la linterna se notaba.
+const textCache = new WeakMap<NoteRow, { folded: string; words: string[] }>();
+function textOf(r: NoteRow) {
+  let t = textCache.get(r);
+  if (!t) {
+    const raw = `${r.title ?? ''} ${r.bodyText ?? ''}`;
+    t = { folded: fold(raw), words: words(raw) };
+    textCache.set(r, t);
+  }
+  return t;
+}
+
 const KIND: Record<string, Test> = {
   tarea: (r) => r.kind === 'task',
   nota: (r) => r.kind !== 'task' && r.kind !== 'zone',
@@ -86,7 +99,7 @@ export function parseLens(query: string, ctx: LensContext): { test: Test | null;
       if (value.startsWith('#') && value.length > 1) {
         const tag = value.slice(1);
         const zones = new Set(ctx.notes.filter((n) => n.kind === 'zone' && key(n.title ?? '').startsWith(tag)).map((n) => n.id));
-        test = (r) => words(`${r.title ?? ''} ${r.bodyText ?? ''}`).some((w) => w.startsWith(value)) || (!!r.zoneId && zones.has(r.zoneId));
+        test = (r) => textOf(r).words.some((w) => w.startsWith(value)) || (!!r.zoneId && zones.has(r.zoneId));
         label = `#${tag}`;
       } else if (STATUS[value]) {
         // «hecha» o «-hecha» a secas se entienden como estado.
@@ -97,8 +110,8 @@ export function parseLens(query: string, ctx: LensContext): { test: Test | null;
         label = value;
         const phrase = value.includes(' ');
         test = phrase
-          ? (r) => fold(`${r.title ?? ''} ${r.bodyText ?? ''}`).includes(value)
-          : (r) => words(`${r.title ?? ''} ${r.bodyText ?? ''}`).some((w) => w.startsWith(value));
+          ? (r) => textOf(r).folded.includes(value)
+          : (r) => textOf(r).words.some((w) => w.startsWith(value));
       }
     } else if (name === 'tipo' && KIND[value]) {
       test = KIND[value];

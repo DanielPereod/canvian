@@ -1,5 +1,7 @@
-import { memo, useCallback, useMemo, type CSSProperties } from 'react';
-import { Handle, NodeResizer, Position, useStore, type Node, type NodeProps, type ReactFlowState } from '@xyflow/react';
+import { memo, useMemo, type CSSProperties } from 'react';
+import { Handle, NodeResizer, Position, useStore, type Node, type NodeProps } from '@xyflow/react';
+import { useDegree } from './degrees';
+import { TITLES_ZOOM } from './Constellation';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { bodyToHtml, extensions, parseBody, titleFrom } from './editor';
 import { useCanvasActions, type NoteData } from './context';
@@ -53,10 +55,10 @@ function NoteNodeView({ id, data, selected }: NodeProps<NoteNodeType>) {
   const { editingId, startEditing, resized, cycleStatus, lit, defs, openInspector } = useCanvasActions();
   const exp = useExperiments();
   const editing = editingId === id;
-  const html = useMemo(() => bodyToHtml(data.bodyJson), [data.bodyJson]);
-  const degree = useStore(
-    useCallback((s: ReactFlowState) => s.edges.reduce((c, e) => c + (e.source === id || e.target === id ? 1 : 0), 0), [id]),
-  );
+  // Zoom semántico: de lejos solo se ve el título, así que solo se pinta el título.
+  const far = useStore((s) => s.transform[2] < TITLES_ZOOM) && !editing && !selected;
+  const html = useMemo(() => (far ? '' : bodyToHtml(data.bodyJson)), [far, data.bodyJson]);
+  const degree = useDegree(id);
   const task = data.kind === 'task';
   const status = data.status ?? 'todo';
   const age = useMemo(() => ageOf(data.updatedAt, Date.now()), [data.updatedAt]);
@@ -84,21 +86,23 @@ function NoteNodeView({ id, data, selected }: NodeProps<NoteNodeType>) {
         handleClassName="resize-handle"
         onResizeEnd={(_, p) => resized(id, p)}
       />
+      {/* Las asas siempre: sin ellas React Flow no dibuja los enlaces de la nota. */}
       {SIDES.map((side) => (
         <Handle key={side} id={side} type="source" position={side} className="handle" />
       ))}
       {task && <TaskGlyph status={status} ripe={exp.maduran} onCycle={() => cycleStatus(id)} />}
-      <span className="star-label" aria-hidden="true">
-        {data.title || 'Nota'}
-      </span>
       {editing ? (
         <NoteEditor id={id} bodyJson={data.bodyJson} />
+      ) : far ? (
+        <div className="note-body prose">
+          <p>{data.title || 'Nota vacía'}</p>
+        </div>
       ) : html && data.bodyText?.trim() ? (
         <div className="note-body prose" dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
         <div className="note-body empty">Nota vacía</div>
       )}
-      {!editing && <NoteChips note={data} defs={defs} onOpen={() => openInspector(id)} />}
+      {!editing && !far && <NoteChips note={data} defs={defs} onOpen={() => openInspector(id)} />}
     </div>
   );
 }
