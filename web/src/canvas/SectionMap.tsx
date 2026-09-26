@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FluidMap, type OpenFrom } from './fluid';
-import type { MapNode } from './sections';
+import { noteIdOf, type MapNode } from './sections';
 
 // El mapa de secciones: todo Canvian como un mapa vivo. Cada sección ocupa
 // pantalla según la importancia de lo que tiene, y dentro de cada una están
@@ -151,7 +151,7 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onAction, onMo
     const onMouseUp = () => {
       const p = press.current;
       press.current = null;
-      if (drag?.target && p) onMove(p.id, drag.target.zoneId);
+      if (drag?.target && p) onMove(noteIdOf(drag.node), drag.target.zoneId);
       setDrag(null);
     };
     window.addEventListener('mousemove', onMouseMove);

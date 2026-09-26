@@ -5,7 +5,7 @@ import type { NoteContent } from './NoteSheet';
 import { CommandPalette } from './CommandPalette';
 import { useExperiments } from '../lab/experiments';
 import { SectionMap, type MapAction } from './SectionMap';
-import { buildTree, findPath, rectOf, type MapNode, type Rect } from './sections';
+import { buildTree, findPath, noteIdOf, rectOf, taskStatusOf, type MapNode, type Rect } from './sections';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { NoteSheet } from './NoteSheet';
@@ -259,6 +259,12 @@ export function Canvas({ profile }: { profile: Profile }) {
     openNote(row.id);
   };
 
+  // N dentro de «Tareas»: una tarea nueva, sin sección, con el estado del carril.
+  const newTask = (status: TaskStatus) => {
+    const row = createNote(spotFor(null), 'task', { status, doneAt: status === 'done' ? now() : null });
+    openNote(row.id);
+  };
+
   const newSection = (zoneId: string | null) => {
     const row = createNote(spotFor(zoneId), 'zone', { zoneId, ...ZONE_SIZE });
     setRenaming({ id: row.id, title: '' });
@@ -276,8 +282,10 @@ export function Canvas({ profile }: { profile: Profile }) {
   };
 
   const onAction = (action: MapAction, node: MapNode) => {
-    const row = rowsRef.current.find((r) => r.id === node.id);
-    if (action === 'create') newNote(node.zoneId);
+    const row = rowsRef.current.find((r) => r.id === noteIdOf(node));
+    const lane = taskStatusOf(node);
+    if (action === 'create' && lane && node.kind !== 'note') newTask(lane);
+    else if (action === 'create') newNote(node.zoneId);
     else if (action === 'section') newSection(node.zoneId);
     else if (!row) return;
     else if (action === 'task' && row.kind !== 'zone') toggleTask(row);

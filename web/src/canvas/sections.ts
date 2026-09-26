@@ -1,4 +1,4 @@
-import type { NoteRow } from '../api';
+import type { NoteRow, TaskStatus } from '../api';
 import { daysUntil } from './dates';
 
 // Mapa de secciones: todo el lienzo como un árbol. Las zonas son secciones,
@@ -19,6 +19,21 @@ export type MapNode = {
   // Zona en la que se crean las notas nuevas desde este nivel.
   zoneId: string | null;
   note?: NoteRow;
+};
+
+// La sección de todas las tareas y sus estados, en orden.
+export const TASKS = 'tareas';
+const TASK_LANES = [
+  ['doing', 'En curso'],
+  ['todo', 'Por hacer'],
+  ['done', 'Hechas'],
+] as const;
+// Nota que hay detrás de una celda (en «Tareas» el id de la celda es otro).
+export const noteIdOf = (n: MapNode) => n.note?.id ?? n.id;
+// Estado de las tareas nuevas creadas desde este nodo de «Tareas»; undefined si no es de ahí.
+export const taskStatusOf = (n: MapNode): TaskStatus | undefined => {
+  const m = /^(?:group:)?tareas(?:-(todo|doing|done))?(?:$|\.)/.exec(n.id);
+  return m ? ((m[1] as TaskStatus | undefined) ?? 'todo') : undefined;
 };
 
 // Más de esto en un nivel no se lee: las notas se agrupan por cercanía.
@@ -148,6 +163,41 @@ export function buildTree(rows: NoteRow[], links: { source: string; target: stri
     };
   };
 
+  // «Tareas»: todas las tareas del perfil juntas, vengan de la sección que
+  // vengan, repartidas por estado. Son las mismas notas, con otro id de celda.
+  const tasks = rows.filter((r) => r.kind === 'task');
+  const taskSection = (): MapNode | null => {
+    if (!tasks.length) return null;
+    const lanes = TASK_LANES.map(([status, title]) => {
+      const notes = tasks
+        .filter((r) => (r.status ?? 'todo') === status)
+        .map((row) => ({ ...noteNode({ row, rect: rectOf(row) }), id: `${TASKS}:${row.id}` }));
+      const children = group(notes, null, `${TASKS}-${status}`, MAX_PER_LEVEL);
+      return {
+        id: `${TASKS}-${status}`,
+        kind: 'group' as const,
+        title,
+        rect: bounds(notes.map((n) => n.rect)),
+        importance: sectionImportance(children),
+        children,
+        count: notes.length,
+        zoneId: null,
+      };
+    }).filter((l) => l.count > 0);
+    // Con un solo estado no hace falta el escalón intermedio.
+    const children = lanes.length === 1 ? lanes[0].children : lanes;
+    return {
+      id: TASKS,
+      kind: 'group',
+      title: 'Tareas',
+      rect: bounds(lanes.map((l) => l.rect)),
+      importance: sectionImportance(children),
+      children,
+      count: tasks.length,
+      zoneId: null,
+    };
+  };
+
   const tops = (zoneKids.get(null) ?? []).map(zoneNode);
   const loose = (noteKids.get(null) ?? []).map(noteNode);
   let children: MapNode[];
@@ -169,6 +219,9 @@ export function buildTree(rows: NoteRow[], links: { source: string; target: stri
       },
     ];
   }
+  const count = children.reduce((t, c) => t + c.count, 0);
+  const all = taskSection();
+  if (all) children = [...children, all];
   return {
     id: 'root',
     kind: 'root',
@@ -176,7 +229,7 @@ export function buildTree(rows: NoteRow[], links: { source: string; target: stri
     rect: bounds(children.map((c) => c.rect)),
     importance: 1,
     children,
-    count: children.reduce((t, c) => t + c.count, 0),
+    count,
     zoneId: null,
   };
 }

@@ -37,6 +37,10 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (i
 
 `npm run seed -w server` llena Personal y Trabajo con zonas, notas, tareas y enlaces de ejemplo (añade `-- --extra 400` para cientos de notas más). `npm run seed -w server -- --borrar` quita solo lo que creó.
 
+## Tareas
+
+En la raíz del mapa aparece la sección **Tareas** con todas las tareas del perfil, vengan de la sección que vengan, repartidas en En curso, Por hacer y Hechas. Son las mismas notas: cada tarea sigue también en su sección, y al cambiarle el estado (`X`) pasa de un grupo a otro.
+
 ## Atajos
 
 | Atajo | Acción |
@@ -47,7 +51,7 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (i
 | `Esc` / `Retroceso` | Salir: cierra la hoja o sube un nivel |
 | Clic en una miga de pan | Volver a ese nivel; doble clic en una sección de las migas la renombra |
 | `1` | Volver a Todo |
-| `N` | Nota nueva en la sección señalada o en la que estás |
+| `N` | Nota nueva en la sección señalada o en la que estás. Dentro de **Tareas** crea una tarea con el estado del grupo en el que estás |
 | `G` | Sección nueva en la que estás |
 | `R` | Renombrar la sección señalada |
 | Arrastrar una celda | Moverla a otra sección (soltándola sobre ella) o a un nivel de arriba (soltándola en las migas) |
