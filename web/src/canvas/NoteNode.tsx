@@ -44,7 +44,7 @@ function NoteNodeView({ id, data, selected }: NodeProps<NoteNodeType>) {
 
   return (
     <div
-      className={`note${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.h ? ' fixed' : ''}`}
+      className={`note surface-1${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.h ? ' fixed' : ''}`}
       onDoubleClick={(e) => {
         e.stopPropagation();
         startEditing(id);

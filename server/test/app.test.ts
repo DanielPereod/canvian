@@ -65,6 +65,7 @@ describe('profiles', () => {
   it('creates, renames and deletes profiles but keeps at least one', async () => {
     const created = await (await call('POST', '/api/profiles', { name: 'Estudio' })).json();
     expect(created.position).toBe(2);
+    expect(created.color).toBe('#F28B82');
 
     const renamed = await (await call('PATCH', `/api/profiles/${created.id}`, { name: 'Máster' })).json();
     expect(renamed.name).toBe('Máster');

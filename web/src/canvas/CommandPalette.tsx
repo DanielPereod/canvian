@@ -61,40 +61,43 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose }: Props) 
 
   return (
     <div className="overlay" onMouseDown={onClose}>
-      <div className="glass palette" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="surface-3 popover" onMouseDown={(e) => e.stopPropagation()}>
         <input
           id="note-search"
+          className="field field-bare"
           autoFocus
           placeholder="Buscar notas o crear una"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
         />
-        {!query.trim() && hits.length > 0 && <div className="palette-label">Recientes</div>}
-        <ul role="listbox">
+        <div className="popover-divider" />
+        {!query.trim() && hits.length > 0 && <div className="label">Recientes</div>}
+        <ul className="list" role="listbox">
           {items.map((item, i) => (
             <li
               key={item.kind === 'note' ? item.hit.id : 'create'}
               role="option"
               aria-selected={i === cursor}
-              className={i === cursor ? 'selected' : undefined}
+              className="list-item"
+              style={{ '--i': i } as React.CSSProperties}
               onMouseEnter={() => setCursor(i)}
               onClick={() => run(item)}
             >
               {item.kind === 'note' ? (
                 <div className="hit">
                   <span className="hit-title">{item.hit.title ?? 'Nota sin título'}</span>
-                  {snippet(item.hit) && <span className="muted hit-snippet">{snippet(item.hit)}</span>}
+                  {snippet(item.hit) && <span className="hit-snippet">{snippet(item.hit)}</span>}
                 </div>
               ) : (
                 <>
-                  <span className="dot ghost">+</span>
+                  <span className="list-icon">+</span>
                   Crear nota «{item.text}»
                 </>
               )}
             </li>
           ))}
-          {!query.trim() && hits.length === 0 && <li className="muted static">Aún no hay notas en este perfil.</li>}
+          {!query.trim() && hits.length === 0 && <li className="list-item static">Aún no hay notas en este perfil.</li>}
         </ul>
       </div>
     </div>

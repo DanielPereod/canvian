@@ -3,6 +3,8 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { api, type Profile } from './api';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { Canvas } from './canvas/Canvas';
+import { Glyph } from './Wordmark';
+import { Fireflies } from './Fireflies';
 
 const ACTIVE_KEY = 'canvian.activeProfile';
 const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
@@ -47,20 +49,29 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // El color del perfil es el acento de toda la interfaz. Va en la raíz porque
+  // los tokens derivados (--accent-soft, --glow-1…) se calculan ahí.
+  useEffect(() => {
+    if (active?.color) document.documentElement.style.setProperty('--accent', active.color);
+  }, [active?.color]);
+
   if (!active) return <div className="backdrop" />;
 
   return (
-    <div className="workspace" style={{ '--profile': active.color ?? 'var(--accent)' } as React.CSSProperties}>
+    <div className="workspace backdrop">
+      <Fireflies />
       <ReactFlowProvider>
         <Canvas key={active.id} profile={active} />
       </ReactFlowProvider>
 
-      <button className="glass profile-pill" onClick={() => setSwitcherOpen(true)}>
-        <span className="dot" />
-        {active.name}
-      </button>
+      <div className="chrome-top-left">
+        <button className="surface-2 pill" onClick={() => setSwitcherOpen(true)} title="Cambiar de perfil">
+          <Glyph className="wordmark-glyph" />
+          <span className="pill-name">{active.name}</span>
+        </button>
+      </div>
 
-      <div className="hint">
+      <div className="hints">
         <span>
           <kbd>2×clic</kbd> nota
         </span>

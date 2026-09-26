@@ -159,12 +159,20 @@ export function Canvas({ profile }: { profile: Profile }) {
           .then(() => api.deleteNote(id))
           .catch(report);
       }
-      setNodes((ns) =>
-        ns
-          .filter((n) => !gone.has(n.id))
-          .map((n) => (n.data.zoneId && gone.has(n.data.zoneId) ? { ...n, data: { ...n.data, zoneId: null } } : n)),
-      );
       setEdges((es) => es.filter((e) => !gone.has(e.source) && !gone.has(e.target)));
+      // Primero se desvanecen y luego desaparecen del canvas.
+      setNodes((ns) =>
+        ns.map((n) => (gone.has(n.id) ? { ...n, className: 'is-leaving', selectable: false, draggable: false } : n)),
+      );
+      setTimeout(
+        () =>
+          setNodes((ns) =>
+            ns
+              .filter((n) => !gone.has(n.id))
+              .map((n) => (n.data.zoneId && gone.has(n.data.zoneId) ? { ...n, data: { ...n.data, zoneId: null } } : n)),
+          ),
+        170,
+      );
     },
     [report, setNodes, setEdges],
   );
@@ -414,7 +422,11 @@ export function Canvas({ profile }: { profile: Profile }) {
           onNodeDragStart={onNodeDragStart}
           onNodeDrag={onNodeDrag}
           onNodeDragStop={onNodeDragStop}
-          onNodesDelete={(ns) => removeNotes(ns.map((n) => n.id))}
+          onBeforeDelete={async ({ nodes: ns, edges: es }) => {
+            // Las notas las borramos nosotros para poder animar su salida.
+            if (ns.length) removeNotes(ns.map((n) => n.id));
+            return { nodes: [], edges: es.filter((e) => !ns.some((n) => n.id === e.source || n.id === e.target)) };
+          }}
           onEdgesDelete={(es) => {
             for (const e of es) if (!deleted.current.has(e.source) && !deleted.current.has(e.target)) api.deleteEdge(e.id).catch(report);
           }}
@@ -432,11 +444,16 @@ export function Canvas({ profile }: { profile: Profile }) {
           defaultEdgeOptions={{ type: 'floating', zIndex: 5 }}
           proOptions={{ hideAttribution: true }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={24} size={1.4} color="var(--dots)" />
+          <Background variant={BackgroundVariant.Dots} gap={26} size={1.2} color="var(--dots)" />
         </ReactFlow>
         {nodes.length === 0 && (
           <div className="empty-state">
-            <p>Haz doble clic en cualquier sitio para crear tu primera nota.</p>
+            <div>
+              <p className="display">
+                Un lienzo en <em>calma</em>
+              </p>
+              <span className="meta">Doble clic para plantar la primera nota</span>
+            </div>
           </div>
         )}
       </div>
@@ -459,7 +476,7 @@ export function Canvas({ profile }: { profile: Profile }) {
         />
       )}
       {problem && (
-        <div className="glass toast" role="status">
+        <div className="surface-3 toast toast-danger" role="status">
           {problem}
         </div>
       )}

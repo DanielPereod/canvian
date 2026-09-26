@@ -1,7 +1,8 @@
-import { BaseEdge, Position, getBezierPath, useInternalNode, type EdgeProps, type InternalNode } from '@xyflow/react';
+import { Position, getBezierPath, useInternalNode, type EdgeProps, type InternalNode } from '@xyflow/react';
 
-// Los enlaces salen del borde más cercano de cada nota en vez de un asa fija,
-// así se ven bien muevas las notas como las muevas.
+// Los enlaces salen del borde más cercano de cada nota en vez de un asa fija
+// y se dibujan como tallos: crecen al aparecer y dejan pasar un pulso de luz
+// cuando los señalas.
 function box(node: InternalNode) {
   const { x, y } = node.internals.positionAbsolute;
   const w = node.measured.width ?? 0;
@@ -25,30 +26,26 @@ function borderPoint(from: InternalNode, to: InternalNode) {
   return { x, y, side };
 }
 
-export function FloatingEdge({ id, source, target, style, label, selected }: EdgeProps) {
+export function FloatingEdge({ id, source, target }: EdgeProps) {
   const s = useInternalNode(source);
   const t = useInternalNode(target);
   if (!s || !t) return null;
   const from = borderPoint(s, t);
   const to = borderPoint(t, s);
-  const [path, labelX, labelY] = getBezierPath({
+  const [path] = getBezierPath({
     sourceX: from.x,
     sourceY: from.y,
     sourcePosition: from.side,
     targetX: to.x,
     targetY: to.y,
     targetPosition: to.side,
+    curvature: 0.45,
   });
   return (
-    <BaseEdge
-      id={id}
-      path={path}
-      style={style}
-      label={label}
-      labelX={labelX}
-      labelY={labelY}
-      className={selected ? 'selected' : undefined}
-      interactionWidth={16}
-    />
+    <>
+      <path id={id} className="react-flow__edge-path stem" d={path} pathLength={1} />
+      <path className="stem-pulse" d={path} pathLength={1} />
+      <path className="react-flow__edge-interaction" d={path} fill="none" strokeOpacity={0} strokeWidth={18} />
+    </>
   );
 }

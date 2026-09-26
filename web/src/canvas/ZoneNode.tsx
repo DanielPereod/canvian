@@ -36,7 +36,7 @@ function ZoneNodeView({ id, data, selected }: NodeProps<ZoneNodeType>) {
         {editing ? (
           <input
             id={`zone-title-${id}`}
-            className="zone-title-input nodrag"
+            className="field zone-title-input nodrag"
             autoFocus
             value={draft}
             placeholder="Nombre de la zona"
@@ -48,7 +48,10 @@ function ZoneNodeView({ id, data, selected }: NodeProps<ZoneNodeType>) {
             }}
           />
         ) : (
-          <span className={data.title ? 'zone-title' : 'zone-title muted'}>{data.title || 'Zona sin nombre'}</span>
+          <>
+            <span className="meta">Zona</span>
+            <span className={data.title ? 'zone-title' : 'zone-title untitled'}>{data.title || 'Sin nombre'}</span>
+          </>
         )}
       </div>
       <div className="zone-body" />
