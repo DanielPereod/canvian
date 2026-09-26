@@ -1,7 +1,7 @@
 import { type CSSProperties, type KeyboardEvent } from 'react';
 import { EXPERIMENTS, toggleExperiment, useExperiments } from './experiments';
 
-// Panel para encender y apagar las ideas en prueba. 1–5 las alterna, E o Esc cierra.
+// Panel para encender y apagar las ideas en prueba. Los números las alternan, E o Esc cierra.
 export function Lab({ onClose }: { onClose: () => void }) {
   const on = useExperiments();
 
@@ -28,7 +28,7 @@ export function Lab({ onClose }: { onClose: () => void }) {
         <div className="bg-picker-head">
           <span className="label">Laboratorio</span>
           <span className="faint bg-picker-keys">
-            <kbd>1</kbd>–<kbd>5</kbd> encender o apagar
+            <kbd>1</kbd>–<kbd>{EXPERIMENTS.length}</kbd> encender o apagar
           </span>
         </div>
         <ul className="list">

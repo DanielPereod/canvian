@@ -41,10 +41,14 @@ import { FloatingEdge } from './FloatingEdge';
 import { Constellation, CONSTELLATION_ZOOM, DEEP_ZOOM, TITLES_ZOOM } from './Constellation';
 import { useExperiments } from '../lab/experiments';
 import { StarLayer } from './StarLayer';
+import { SectionMap, type NoteKey } from './SectionMap';
+import { buildTree, findPath, type MapNode } from './sections';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { ColumnNode } from './ColumnNode';
 import { FocusView } from './FocusView';
+import { NoteSheet } from './NoteSheet';
+import type { OpenFrom } from './fluid';
 import { docText, docToMarkdown, markdownToDoc } from './markdown';
 import { parseBody } from './editor';
 import { COL_GAP, COL_W, columnsFor, dropChange, groupOptions, layout } from './arrange';
@@ -86,6 +90,11 @@ const center = (n: AppNode) => {
   return { x: n.position.x + w / 2, y: n.position.y + h / 2 };
 };
 
+function inside(zone: AppNode, p: { x: number; y: number }) {
+  const { w, h } = size(zone);
+  return p.x >= zone.position.x && p.x <= zone.position.x + w && p.y >= zone.position.y && p.y <= zone.position.y + h;
+}
+
 // La zona más pequeña que contiene el punto (así las zonas anidadas funcionan).
 function zoneAt(nodes: AppNode[], p: { x: number; y: number }): string | null {
   let best: { id: string; area: number } | null = null;
@@ -123,6 +132,8 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const [colSize, setColSize] = useState(new Map<string, { width: number; height: number }>());
   const [settling, setSettling] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
+  // En el mapa: la celda desde la que se abrió la nota.
+  const [openFrom, setOpenFrom] = useState<OpenFrom | null>(null);
   const savedView = useRef<Viewport | null>(null);
   const [defs, setDefs] = useState<PropertyDef[]>([]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -134,7 +145,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const [settled, setSettled] = useState(false);
 
   // Zoom semántico y constelación: solo repinta al cruzar un umbral.
-  const { constelacion } = useExperiments();
+  const { constelacion, secciones, memoria } = useExperiments();
   const zoomClass = useStore((s) => {
     const z = s.transform[2];
     return `${z < TITLES_ZOOM ? ' titles' : ''}${constelacion && z < CONSTELLATION_ZOOM ? ' constellation' : ''}${constelacion && z < DEEP_ZOOM ? ' deep' : ''}`;
@@ -405,8 +416,9 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     for (const zone of dragged.filter((n) => n.type === 'zone')) {
       zoneDrag.current.set(zone.id, {
         start: { ...zone.position },
+        // Todo lo que cae dentro, también las subzonas y sus notas.
         children: nodesRef.current
-          .filter((n) => n.data.zoneId === zone.id && !draggedIds.has(n.id))
+          .filter((n) => !draggedIds.has(n.id) && (n.data.zoneId === zone.id || inside(zone, center(n))))
           .map((n) => ({ id: n.id, ...n.position })),
       });
     }
@@ -534,6 +546,11 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
         setPaletteOpen((o) => !o);
         return;
       }
+      // Esc cierra el inspector también sobre la hoja de una nota.
+      if (e.key === 'Escape' && inspectorOpen && focusId) {
+        setInspectorOpen(false);
+        return;
+      }
       if (isTyping(e.target) || mod || paletteOpen || focusId) return;
       // ⇧1…⇧9 abren las lentes guardadas.
       const digit = /^Digit([1-9])$/.exec(e.code);
@@ -547,7 +564,8 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
       }
       if (e.key === 'Tab' && lamp) {
         e.preventDefault();
-        setMode(nextMode(mode));
+        const next = nextMode(mode);
+        setMode(secciones && next === 'arrange' ? nextMode(next) : next);
         return;
       }
       if (e.key === 'Escape' && lamp && !inspectorOpen) {
@@ -592,7 +610,35 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   });
 
   // ── Lentes: atenuar, ocultar o colocar en columnas ─────────────
-  const arranging = mode === 'arrange' && !!lit;
+  // En el mapa no hay columnas: la linterna solo atenúa u oculta celdas.
+  const arranging = mode === 'arrange' && !!lit && !secciones;
+
+  // Mapa de secciones (laboratorio): con el experimento encendido, el lienzo
+  // se ve siempre como un mapa de secciones que fluyen.
+  const mapTree = useMemo(
+    () => (secciones ? buildTree(nodes.map((n) => ({ row: n.data, rect: { x: n.position.x, y: n.position.y, ...size(n) } })), edges) : null),
+    [secciones, nodes, edges],
+  );
+  const mapPath = useRef<string[]>([]);
+  // T, X, P y Supr en el mapa actúan sobre la nota señalada.
+  const mapNoteKey = (key: NoteKey, id: string) => {
+    const node = nodesRef.current.find((n) => n.id === id && n.type === 'note');
+    if (!node) return;
+    if (key === 'task') patchNotes([node], (n) => (n.data.kind === 'task' ? { kind: 'text' } : { kind: 'task', status: n.data.status ?? 'todo' }));
+    else if (key === 'status' && node.data.kind === 'task') setStatus([node], NEXT[node.data.status ?? 'todo']);
+    else if (key === 'props') actions.openInspector(id);
+    else if (key === 'delete') removeNotes([id]);
+  };
+  const createFromMap = (zoneId: string | null, near: MapNode) => {
+    const zone = zoneId ? nodesRef.current.find((n) => n.id === zoneId) : null;
+    const r = zone ? { x: zone.position.x, y: zone.position.y, ...size(zone) } : near.rect;
+    const pos = { x: r.x + 40 + Math.random() * Math.max(0, r.w - NOTE_WIDTH - 80), y: r.y + 90 + Math.random() * Math.max(0, r.h - 160) };
+    const row = createNote(pos, 'text', { zoneId });
+    // Se escribe en el modo foco, no en la nota del lienzo que queda debajo.
+    setEditingId(null);
+    setOpenFrom(null);
+    setFocusId(row.id);
+  };
   const groups = useMemo(() => groupOptions(defs), [defs]);
   const group = groups.some((g) => g.id === groupBy) ? groupBy : 'status';
 
@@ -796,12 +842,21 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     });
   };
 
+  // En el mapa lo importado entra en la sección en la que estás; en la raíz,
+  // a un lado de todo lo demás.
+  const mapDropSpot = (tree: MapNode) => {
+    const path = findPath(tree, mapPath.current.at(-1) ?? 'root') ?? [tree];
+    const here = [...path].reverse().find((n) => n.kind === 'zone');
+    const r = here?.rect ?? tree.rect;
+    return here ? { x: r.x + 40, y: r.y + 90 } : { x: r.x + r.w + 240, y: r.y };
+  };
+
   const onDrop = (e: React.DragEvent) => {
     const files = [...e.dataTransfer.files].filter((f) => /\.(md|markdown|txt)$/i.test(f.name));
     setDropping(false);
     if (!files.length) return;
     e.preventDefault();
-    void importMarkdown(files, flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
+    void importMarkdown(files, mapTree ? mapDropSpot(mapTree) : flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
   };
 
   const exportCanvas = () => {
@@ -824,6 +879,8 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  // En el mapa la nota se abre como hoja a pantalla completa.
+  const FocusSurface = secciones ? NoteSheet : FocusView;
   const focused = focusId ? (nodes.find((n) => n.id === focusId)?.data ?? null) : null;
   const focusNeighbors = useMemo(() => {
     if (!focusId) return [];
@@ -844,7 +901,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     <CanvasContext.Provider value={actions}>
       <DegreeContext.Provider value={degrees}>
         <div
-          className={`canvas${zoomClass}${settled ? ' settled' : ''}${lit ? ` lamp-on lens-${mode}` : ''}${arranging || settling ? ' arranging' : ''}`}
+          className={`canvas${mapTree ? ' mapped' : ''}${zoomClass}${settled ? ' settled' : ''}${lit ? ` lamp-on lens-${mode}` : ''}${arranging || settling ? ' arranging' : ''}`}
           onDoubleClick={(e) => !arranging && onPaneDoubleClick(e)}
           onDragOver={(e) => {
             if (![...e.dataTransfer.types].includes('Files')) return;
@@ -916,12 +973,33 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
             </div>
           )}
         </div>
+        {mapTree && (
+          <SectionMap
+            tree={mapTree}
+            paused={!!focusId || paletteOpen}
+            start={mapPath.current}
+            onPath={(ids) => (mapPath.current = ids)}
+            onOpen={(id, from) => {
+              setOpenFrom(from);
+              setFocusId(id);
+            }}
+            onCreate={createFromMap}
+            onNoteKey={mapNoteKey}
+            lit={lit}
+            hide={mode === 'hide'}
+            memoria={memoria}
+          />
+        )}
         {paletteOpen && (
           <CommandPalette
             profileId={profile.id}
             onPick={(id) => {
               setPaletteOpen(false);
-              focusNote(id);
+              if (secciones) {
+                setOpenFrom(null);
+                setFocusId(id);
+              }
+              else focusNote(id);
             }}
             onCreate={(text) => {
               setPaletteOpen(false);
@@ -935,7 +1013,9 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
           />
         )}
         {focused && (
-          <FocusView
+          <FocusSurface
+            key={secciones ? 'sheet' : 'focus'}
+            from={openFrom}
             note={focused}
             neighbors={focusNeighbors}
             defs={defs}
@@ -946,11 +1026,19 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
             onSave={actions.saveContent}
             onCycle={actions.cycleStatus}
             onProps={(id) => actions.openInspector(id)}
+            onTask={(id) => mapNoteKey('task', id)}
+            onDelete={(id) => {
+              flush(id);
+              setFocusId(null);
+              removeNotes([id]);
+            }}
             onClose={() => {
               const id = focused.id;
               flush(id);
               setFocusId(null);
-              focusNote(id);
+              if (!secciones) focusNote(id);
+              // En el mapa, una nota nueva que se queda vacía no se guarda.
+              else if (!focused.bodyText?.trim()) removeNotes([id]);
             }}
           />
         )}
@@ -987,6 +1075,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
               api.deleteLens(l.id).catch(report);
             }}
             onClear={clearLamp}
+            noColumns={secciones}
           />
         )}
         {problem && (

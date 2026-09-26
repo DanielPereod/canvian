@@ -30,10 +30,12 @@ function useViewport() {
   return size;
 }
 
-function FocusEditor({ note, onSave }: { note: NoteRow; onSave: Props['onSave'] }) {
+export function FocusEditor({ note, onSave }: { note: NoteRow; onSave: Props['onSave'] }) {
   const editor = useEditor({
     extensions,
     content: parseBody(note.bodyJson) ?? '',
+    // Entrar en el foco es para escribir: el cursor ya está al final.
+    autofocus: 'end',
     editorProps: { attributes: { class: 'note-body prose focus-prose' } },
     onUpdate: ({ editor }) => {
       const bodyText = editor.getText({ blockSeparator: '\n' });
