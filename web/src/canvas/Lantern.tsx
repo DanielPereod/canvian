@@ -29,6 +29,8 @@ type Props = {
   onApply: (lens: Lens) => void;
   onDelete: (lens: Lens) => void;
   onClear: () => void;
+  // El mapa de secciones no tiene columnas.
+  noColumns?: boolean;
 };
 
 export const nextMode = (m: LensMode): LensMode => MODES[(MODES.findIndex((x) => x.id === m) + 1) % MODES.length].id;
@@ -122,7 +124,7 @@ export function Lantern(p: Props) {
       {!empty && (
         <div className="lantern-tools">
           <div className="lantern-modes" role="radiogroup" aria-label="Modo">
-            {MODES.map((m) => (
+            {MODES.filter((m) => !(p.noColumns && m.id === 'arrange')).map((m) => (
               <button key={m.id} role="radio" aria-checked={p.mode === m.id} className={`chip${p.mode === m.id ? ' on' : ''}`} onClick={() => p.onMode(m.id)}>
                 {m.name}
               </button>
@@ -134,7 +136,7 @@ export function Lantern(p: Props) {
         </div>
       )}
 
-      {!empty && p.mode === 'arrange' && (
+      {!empty && p.mode === 'arrange' && !p.noColumns && (
         <div className="lantern-groups">
           <span className="faint">Columnas por</span>
           {p.groups.map((g) => (

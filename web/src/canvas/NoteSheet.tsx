@@ -24,6 +24,8 @@ type Props = {
   onSave: (id: string, content: NoteContent) => void;
   onCycle: (id: string) => void;
   onProps: (id: string) => void;
+  onTask?: (id: string) => void;
+  onDelete?: (id: string) => void;
   onClose: () => void;
 };
 
@@ -43,7 +45,7 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onClose }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onDelete, onClose }: Props) {
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -60,7 +62,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const close = () => {
+  const close = (then: () => void = onClose) => {
     const el = ref.current;
     if (!el || leaving.current) return;
     leaving.current = true;
@@ -70,12 +72,13 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
       easing: 'cubic-bezier(0.45, 0, 0.2, 1)',
       fill: 'forwards',
     });
-    a.onfinish = onClose;
+    a.onfinish = then;
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      // Con el inspector abierto, Esc lo cierra a él y no a la hoja.
+      if (e.key === 'Escape' && !document.querySelector('.inspector')) {
         e.preventDefault();
         e.stopPropagation();
         close();
@@ -88,10 +91,24 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
   return (
     <div ref={ref} className="sheet" style={(hue !== undefined ? { '--hue': hue } : {}) as CSSProperties}>
       <header className="sheet-top meta">
-        <button className="sheet-back" onClick={close}>
+        <button className="sheet-back" onClick={() => close()}>
           ← Volver
         </button>
-        <span>Esc para volver</span>
+        <span className="sheet-actions">
+          {onTask && (
+            <button className="sheet-back" onClick={() => onTask(note.id)}>
+              {note.kind === 'task' ? 'Quitar tarea' : 'Hacer tarea'}
+            </button>
+          )}
+          <button className="sheet-back" onClick={() => onProps(note.id)}>
+            Propiedades
+          </button>
+          {onDelete && (
+            <button className="sheet-back danger" onClick={() => close(() => onDelete(note.id))}>
+              Borrar
+            </button>
+          )}
+        </span>
       </header>
       <article className="sheet-body" key={note.id}>
         {note.kind === 'task' && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}

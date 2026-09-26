@@ -153,6 +153,7 @@ const GAP = 12;
 
 export class Fluid {
   node: MapNode;
+  lens: MapLens = { lit: null, hide: false, memoria: false };
   cells: Cell[] = [];
   frame: P[] = [];
   hue: number;
@@ -209,7 +210,14 @@ export class Fluid {
 
   // Área que le toca a cada celda, de 0 a 1.
   shares(t: number, hover: string | null) {
-    const base = this.cells.map((c) => Math.pow(c.node.importance, 0.75) * (1 + 0.025 * Math.sin(t * 0.55 + c.phase)) * (c.node.id === hover ? 1.08 : 1));
+    const { lit, hide } = this.lens;
+    const base = this.cells.map(
+      (c) =>
+        Math.pow(c.node.importance, 0.75) *
+        (1 + 0.025 * Math.sin(t * 0.55 + c.phase)) *
+        (c.node.id === hover ? 1.08 : 1) *
+        (hide && lit && !lit.has(c.node.id) ? 0.04 : 1),
+    );
     const zoomed = this.cells.reduce<Cell | null>((m, c) => (c.s > (m?.s ?? 0.001) ? c : m), null);
     const sum = base.reduce((a, b) => a + b, 0) || 1;
     const frac = base.map((b) => b / sum);
@@ -304,6 +312,8 @@ class FluidView {
 
   render(fluid: Fluid, t: number, opacity: number, hover: string | null, hideLabelOf: { id: string; amount: number } | null) {
     this.root.style.opacity = String(opacity);
+    const { lit, memoria } = fluid.lens;
+    const today = Date.now();
     const seen = new Set<string>();
     for (const c of fluid.cells) {
       const id = c.node.id;
@@ -330,7 +340,13 @@ class FluidView {
       if (!visible) continue;
       const size = Math.sqrt(Math.abs(polyArea(c.drawn)));
       e.g.style.setProperty('--hue', String(c.hue));
-      e.g.style.opacity = String(Math.min(1, c.alive * 1.2) * smooth(18, 50, size));
+      let fade = 1;
+      // Luz como memoria: lo que no tocas en un mes se va apagando.
+      const touched = c.node.note?.updatedAt;
+      if (memoria && touched && hover !== id) fade *= 1 - 0.45 * Math.min(1, Math.max(0, ((today - Date.parse(touched)) / DAY - 1) / 29));
+      if (lit && !lit.has(id)) fade *= 0.22;
+      e.g.classList.toggle('lit', !!lit && lit.has(id));
+      e.g.style.opacity = String(Math.min(1, c.alive * 1.2) * smooth(18, 50, size) * fade);
       e.g.classList.toggle('hover', hover === id);
       e.g.classList.toggle('done', c.node.note?.kind === 'task' && c.node.note.status === 'done');
       e.path.setAttribute('d', organicPath(c.drawn, t, Math.min(3.5, size / 50)));
@@ -425,6 +441,17 @@ class FluidView {
 
 type Level = { node: MapNode; fluid: Fluid; view: FluidView };
 
+// Lo que la linterna y la memoria cambian en el dibujo. Un solo objeto que
+// comparten todos los niveles.
+export type MapLens = {
+  // Celdas con algo que la linterna alumbra (una sección, si lo tiene dentro).
+  lit: Set<string> | null;
+  // Ocultar: lo que no encaja encoge hasta casi desaparecer.
+  hide: boolean;
+  memoria: boolean;
+};
+const DAY = 86_400_000;
+
 export type FluidMapEvents = {
   onPath: (path: MapNode[]) => void;
   // `from`: la celda de la nota justo al llenar la pantalla, para que la hoja
@@ -451,6 +478,8 @@ export class FluidMap {
   wheelLock = 0;
   // La nota que se abrió al acercarse; al cerrarla vuelve a su sitio.
   opened: string | null = null;
+  lens: MapLens = { lit: null, hide: false, memoria: false };
+  lensArgs: [Set<string> | null, boolean, boolean] = [null, false, false];
 
   constructor(host: HTMLElement, root: MapNode, events: FluidMapEvents, startPath: string[] = []) {
     this.events = events;
@@ -477,6 +506,7 @@ export class FluidMap {
 
   private makeLevel(node: MapNode, frame: P[], hue: number): Level {
     const fluid = new Fluid(node, frame, hue);
+    fluid.lens = this.lens;
     return { node, fluid, view: new FluidView(this.svg) };
   }
 
@@ -521,6 +551,7 @@ export class FluidMap {
       else this.dropNested();
     }
     this.levels.forEach((l, i) => (l.view.root.style.display = i === this.levels.length - 1 ? '' : 'none'));
+    this.setLens(...this.lensArgs);
     this.emitPath();
   }
 
@@ -642,6 +673,25 @@ export class FluidMap {
     if (!cell) return;
     for (const c of this.top().fluid.cells) if (c !== cell) c.sTarget = 0;
     cell.sTarget = 1.06;
+  }
+
+  // Linterna: `notes` son las notas que encajan; se alumbran también las
+  // secciones que las contienen.
+  setLens(notes: Set<string> | null, hide: boolean, memoria: boolean) {
+    let lit: Set<string> | null = null;
+    if (notes) {
+      lit = new Set();
+      const walk = (n: MapNode): boolean => {
+        let any = n.kind === 'note' && notes.has(n.id);
+        for (const c of n.children) if (walk(c)) any = true;
+        if (any) lit!.add(n.id);
+        return any;
+      };
+      walk(this.root);
+    }
+    // Mismo objeto para todos los niveles.
+    Object.assign(this.lens, { lit, hide: hide && !!notes, memoria });
+    this.lensArgs = [notes, hide, memoria];
   }
 
   // La hoja de la nota se cerró: la celda se encoge despacio hasta su sitio.

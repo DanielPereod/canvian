@@ -100,41 +100,83 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         </button>
       </div>
 
-      <div className="hints">
-        <span>
-          <kbd>2×clic</kbd> nota
-        </span>
-        <span>
-          <kbd>G</kbd> zona
-        </span>
-        <span>
-          <kbd>T</kbd> tarea
-        </span>
-        <span>
-          <kbd>X</kbd> estado
-        </span>
-        <span>
-          <kbd>P</kbd> propiedades
-        </span>
-        <span>
-          <kbd>F</kbd> linterna
-        </span>
-        <span>
-          <kbd>B</kbd> fondo
-        </span>
-        <span>
-          <kbd>E</kbd> laboratorio
-        </span>
-        <span>
-          <kbd>{mod}</kbd>
-          <kbd>K</kbd> buscar
-        </span>
-        <span>
-          <kbd>{mod}</kbd>
-          <kbd>⇧</kbd>
-          <kbd>P</kbd> perfiles
-        </span>
-      </div>
+      {experiments.secciones ? (
+        <div className="hints">
+          <span>
+            <kbd>rueda</kbd> acercar
+          </span>
+          <span>
+            <kbd>clic</kbd> entrar
+          </span>
+          <span>
+            <kbd>N</kbd> nota
+          </span>
+          <span>
+            <kbd>T</kbd> tarea
+          </span>
+          <span>
+            <kbd>X</kbd> estado
+          </span>
+          <span>
+            <kbd>P</kbd> propiedades
+          </span>
+          <span>
+            <kbd>F</kbd> linterna
+          </span>
+          <span>
+            <kbd>Esc</kbd> atrás
+          </span>
+          <span>
+            <kbd>1</kbd> inicio
+          </span>
+          <span>
+            <kbd>B</kbd> fondo
+          </span>
+          <span>
+            <kbd>E</kbd> laboratorio
+          </span>
+          <span>
+            <kbd>{mod}</kbd>
+            <kbd>K</kbd> buscar
+          </span>
+        </div>
+      ) : (
+        <div className="hints">
+          <span>
+            <kbd>2×clic</kbd> nota
+          </span>
+          <span>
+            <kbd>G</kbd> zona
+          </span>
+          <span>
+            <kbd>T</kbd> tarea
+          </span>
+          <span>
+            <kbd>X</kbd> estado
+          </span>
+          <span>
+            <kbd>P</kbd> propiedades
+          </span>
+          <span>
+            <kbd>F</kbd> linterna
+          </span>
+          <span>
+            <kbd>B</kbd> fondo
+          </span>
+          <span>
+            <kbd>E</kbd> laboratorio
+          </span>
+          <span>
+            <kbd>{mod}</kbd>
+            <kbd>K</kbd> buscar
+          </span>
+          <span>
+            <kbd>{mod}</kbd>
+            <kbd>⇧</kbd>
+            <kbd>P</kbd> perfiles
+          </span>
+        </div>
+      )}
 
       {switcherOpen && (
         <ProfileSwitcher

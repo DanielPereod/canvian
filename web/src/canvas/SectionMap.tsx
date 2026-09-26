@@ -15,9 +15,17 @@ type Props = {
   onPath: (ids: string[]) => void;
   onOpen: (noteId: string, from: OpenFrom) => void;
   onCreate: (zoneId: string | null, near: MapNode) => void;
+  // Atajos sobre la nota señalada: T tarea, X estado, P propiedades, Supr borrar.
+  onNoteKey: (key: NoteKey, noteId: string) => void;
+  lit: Set<string> | null;
+  hide: boolean;
+  memoria: boolean;
 };
 
-export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate }: Props) {
+export type NoteKey = 'task' | 'status' | 'props' | 'delete';
+const NOTE_KEYS: Record<string, NoteKey> = { t: 'task', x: 'status', p: 'props', delete: 'delete' };
+
+export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate, onNoteKey, lit, hide, memoria }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const map = useRef<FluidMap | null>(null);
   const [path, setPath] = useState<MapNode[]>([]);
@@ -51,6 +59,7 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate }: Pr
   }, []);
 
   useEffect(() => map.current?.setTree(tree), [tree]);
+  useEffect(() => map.current?.setLens(lit, hide, memoria), [lit, hide, memoria]);
   useEffect(() => {
     if (!map.current) return;
     map.current.paused = paused;
@@ -76,10 +85,23 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate }: Pr
       if (paused || !map.current) return;
       const target = e.target as HTMLElement | null;
       if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '')) return;
+      // Teclas dentro de un panel (inspector, linterna…) son de ese panel.
+      if (target && target !== document.body && !host.current?.contains(target)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // Con la linterna o el inspector abiertos, Esc los cierra primero.
+      if (e.key === 'Escape' && (lit || document.querySelector('.inspector'))) return;
       const hovered = here?.children.find((c) => c.id === hover);
-      if (e.key === 'Escape' || e.key === 'Backspace') map.current.relax();
+      const key = e.key.toLowerCase();
+      if (NOTE_KEYS[key]) {
+        if (hovered?.kind === 'note') onNoteKey(NOTE_KEYS[key], hovered.id);
+      } else if (key === '1') map.current.upTo(0);
+      // Sin lienzo libre no hay selección que encuadrar ni zona que dibujar.
+      else if (key === '2' || key === 'g') {
+        /* nada */
+      } else if (e.key === 'Escape' || e.key === 'Backspace') map.current.relax();
       // Una nota también se abre acercándose hasta llenar la pantalla.
-      else if (e.key === 'Enter' && hovered) map.current.enter(hovered.id); else if (e.key.toLowerCase() === 'n' && !e.metaKey && !e.ctrlKey && here) {
+      else if (e.key === 'Enter' && hovered) map.current.enter(hovered.id);
+      else if (key === 'n' && here) {
         // Nota nueva en la sección señalada o, si no, en la que estás.
         const into = hovered && hovered.kind !== 'note' ? hovered : here;
         onCreate(into.zoneId, into);
@@ -125,7 +147,6 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate }: Pr
           </span>
         ))}
       </nav>
-      <p className="smap-hint meta">Rueda para acercar y alejar · clic para entrar o abrir · N nota nueva · Esc atrás</p>
     </div>
   );
 }

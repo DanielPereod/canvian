@@ -8,7 +8,8 @@
   position: absolute;
   inset: 0;
   z-index: var(--z-chrome);
-  background: radial-gradient(120% 90% at 50% 40%, color-mix(in oklab, var(--bg) 92%, transparent), var(--bg));
+  /* Transparente en el centro: el fondo del perfil (estrellas, luciérnagas, aurora) se ve detrás. */
+  background: radial-gradient(120% 90% at 50% 40%, transparent 45%, color-mix(in oklab, var(--bg) 70%, transparent));
   animation: fade var(--dur-slow) var(--ease-out) both;
 }
 .smap-stage { position: absolute; inset: 0; }
@@ -130,3 +131,8 @@
   animation-delay: calc(320ms + var(--i, 0) * 35ms);
 }
 .sheet-link:hover { color: var(--text); background: oklch(0.66 0.07 var(--hue) / 0.2); }
+.sheet-actions { display: flex; gap: var(--space-2); }
+.sheet-back.danger:hover { color: var(--danger, oklch(0.72 0.14 25)); background: oklch(0.6 0.12 25 / 0.14); }
+.fl-cell.lit path { stroke: var(--accent-line); fill: oklch(0.66 0.08 var(--hue) / 0.14); filter: drop-shadow(0 0 14px var(--accent-glow)); }
+/* Sobre la hoja de la nota, el inspector sigue a mano. */
+.exp-secciones .inspector { z-index: calc(var(--z-chrome) + 3); }
