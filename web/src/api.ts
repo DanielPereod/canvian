@@ -11,7 +11,7 @@ export type Profile = {
 
 export type Viewport = { x: number; y: number; zoom: number };
 
-export type TaskStatus = 'todo' | 'doing' | 'done';
+export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
 
 export type NoteKind = 'text' | 'task' | 'link' | 'image' | 'checklist' | 'code' | 'zone';
 

@@ -50,6 +50,8 @@ describe('notes', () => {
     const note = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, title: 'Comprar pan' });
     const task = await data('PATCH', `/api/notes/${note.id}`, { kind: 'task', status: 'todo' });
     expect(task).toMatchObject({ kind: 'task', status: 'todo' });
+    expect(await data('PATCH', `/api/notes/${note.id}`, { status: 'blocked' })).toMatchObject({ status: 'blocked' });
+    expect((await call('PATCH', `/api/notes/${note.id}`, { status: 'parada' })).status).toBe(400);
     const done = await data('PATCH', `/api/notes/${note.id}`, { status: 'done', doneAt: '2026-09-26T12:00:00.000Z' });
     expect(done).toMatchObject({ status: 'done', doneAt: '2026-09-26T12:00:00.000Z' });
     expect((await call('PATCH', `/api/notes/${note.id}`, { status: 'quizás' })).status).toBe(400);

@@ -40,6 +40,7 @@ export function importanceOf(row: NoteRow, degree: number, now = Date.now()) {
   if (row.kind === 'task') {
     if (row.status === 'doing') imp += 0.8;
     if (row.status === 'done') imp *= 0.55;
+    if (row.status === 'blocked') imp *= 0.8;
     if (row.status !== 'done' && row.dueAt && daysUntil(row.dueAt) <= 2) imp += 1;
   }
   if (row.updatedAt) imp += 1.5 * Math.exp(-(now - Date.parse(row.updatedAt)) / DAY / 10);

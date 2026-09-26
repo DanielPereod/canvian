@@ -34,8 +34,8 @@ const KIND: Record<string, Test> = {
   nota: (r) => r.kind !== 'task' && r.kind !== 'zone',
   zona: (r) => r.kind === 'zone',
 };
-const STATUS: Record<string, 'todo' | 'doing' | 'done'> = { pendiente: 'todo', curso: 'doing', encurso: 'doing', hecha: 'done' };
-const STATUS_LABEL = { todo: 'pendientes', doing: 'en curso', done: 'hechas' };
+const STATUS: Record<string, 'todo' | 'doing' | 'blocked' | 'done'> = { pendiente: 'todo', curso: 'doing', encurso: 'doing', bloqueada: 'blocked', bloqueo: 'blocked', hecha: 'done' };
+const STATUS_LABEL = { todo: 'pendientes', doing: 'en curso', blocked: 'bloqueadas', done: 'hechas' };
 const PRIORITY: Record<string, number> = { ninguna: 0, baja: 1, media: 2, alta: 3 };
 const open = (r: NoteRow) => r.status !== 'done';
 const due = (test: (days: number) => boolean): Test => (r) => !!r.dueAt && test(daysUntil(r.dueAt));

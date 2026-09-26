@@ -25,7 +25,8 @@ export type Link = { id: string; source: string; target: string };
 
 const NOTE_W = 240;
 const ZONE_SIZE = { w: 480, h: 320 };
-const NEXT: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', done: 'todo' };
+// X avanza; una tarea bloqueada vuelve a pendiente al desbloquearla.
+const NEXT: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', blocked: 'todo', done: 'todo' };
 const now = () => new Date().toISOString();
 
 const isTyping = (target: EventTarget | null) =>
@@ -214,6 +215,12 @@ export function Canvas({ profile }: { profile: Profile }) {
     updateNote(id, { status, doneAt: status === 'done' ? now() : null });
   };
 
+  const toggleBlocked = (id: string) => {
+    const row = rowsRef.current.find((r) => r.id === id);
+    if (!row || row.kind !== 'task') return;
+    updateNote(id, { status: row.status === 'blocked' ? 'todo' : 'blocked', doneAt: null });
+  };
+
   const connect = (source: string, target: string) => {
     if (source === target || links.some((l) => (l.source === source && l.target === target) || (l.source === target && l.target === source))) return;
     const id = ulid();
@@ -293,6 +300,7 @@ export function Canvas({ profile }: { profile: Profile }) {
     else if (!row) return;
     else if (action === 'task' && row.kind !== 'zone') toggleTask(row);
     else if (action === 'status') cycleStatus(row.id);
+    else if (action === 'block') toggleBlocked(row.id);
     else if (action === 'props' && row.kind !== 'zone') setInspectId(row.id);
     else if (action === 'delete') removeNotes([row.id]);
     else if (action === 'rename' && row.kind === 'zone') setRenaming({ id: row.id, title: row.title ?? '' });
@@ -558,6 +566,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           paused={!!focusId || !!inspectId || !!paletteOpen}
           onOpen={(id) => openNote(id)}
           onCycle={cycleStatus}
+          onBlock={toggleBlocked}
           onNew={newTask}
           onClose={() => setTasksOpen(false)}
         />
@@ -579,6 +588,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           onCycle={cycleStatus}
           onProps={(id) => setInspectId(id)}
           onTask={() => toggleTask(focused)}
+          onBlock={() => toggleBlocked(focused.id)}
           onLink={() => setPaletteOpen('link')}
           onUnlink={(id) => unlink(focused.id, id)}
           onDelete={(id) => {

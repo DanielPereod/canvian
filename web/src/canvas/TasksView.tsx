@@ -27,7 +27,7 @@ function readGrouping(): TaskGrouping {
 
 // Lo que más urge arriba: en curso, vencida o cerca, prioridad, lo último tocado.
 const urgency = (r: NoteRow) =>
-  (r.status === 'doing' ? 1000 : 0) +
+  (r.status === 'doing' ? 1000 : r.status === 'blocked' ? -1000 : 0) +
   (r.dueAt ? 400 - Math.max(-30, Math.min(60, daysUntil(r.dueAt))) * 5 : 0) +
   (r.priority ?? 0) * 60 +
   (r.updatedAt ? Date.parse(r.updatedAt) / 1e11 : 0);
@@ -46,12 +46,13 @@ type Props = {
   rows: NoteRow[];
   onOpen: (id: string) => void;
   onCycle: (id: string) => void;
+  onBlock: (id: string) => void;
   onNew: () => void;
   onClose: () => void;
   paused: boolean;
 };
 
-export function TasksView({ rows, onOpen, onCycle, onNew, onClose, paused }: Props) {
+export function TasksView({ rows, onOpen, onCycle, onBlock, onNew, onClose, paused }: Props) {
   const { maduran } = useExperiments();
   const [grouping, setGrouping] = useState<TaskGrouping>(readGrouping);
   // El cursor sigue a la tarea aunque cambie de grupo; si desaparece, se queda en su sitio.
@@ -90,7 +91,7 @@ export function TasksView({ rows, onOpen, onCycle, onNew, onClose, paused }: Pro
     for (const r of active) {
       let key: number | string;
       let title: string;
-      if (grouping === 'estado') [key, title] = r.status === 'doing' ? [0, 'En curso'] : [1, 'Por hacer'];
+      if (grouping === 'estado') [key, title] = r.status === 'doing' ? [0, 'En curso'] : r.status === 'blocked' ? [2, 'Bloqueadas'] : [1, 'Por hacer'];
       else if (grouping === 'fecha') [key, title] = whenGroup(r);
       else {
         title = sectionOf(r) || 'Sin sección';
@@ -121,11 +122,12 @@ export function TasksView({ rows, onOpen, onCycle, onNew, onClose, paused }: Pro
       if (paused || keysBlocked()) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-      const action = actionFor(e, ['tasks', 'cycleStatus', 'newNote']);
+      const action = actionFor(e, ['tasks', 'cycleStatus', 'blockTask', 'newNote']);
       const k = e.metaKey || e.ctrlKey || e.altKey ? '' : e.key.toLowerCase();
       const cur = flat[at];
       if (k === 'escape' || action === 'tasks') onClose();
       else if (action === 'cycleStatus') cur && onCycle(cur.id);
+      else if (action === 'blockTask') cur && onBlock(cur.id);
       else if (action === 'newNote') onNew();
       else if (k === 'arrowdown' || k === 'j') setCursor(Math.min(flat.length - 1, at + 1));
       else if (k === 'arrowup' || k === 'k') setCursor(Math.max(0, at - 1));

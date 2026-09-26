@@ -1,6 +1,6 @@
 import type { TaskStatus } from '../api';
 
-const LABEL: Record<TaskStatus, string> = { todo: 'Pendiente', doing: 'En curso', done: 'Hecha' };
+const LABEL: Record<TaskStatus, string> = { todo: 'Pendiente', doing: 'En curso', blocked: 'Bloqueada', done: 'Hecha' };
 
 // Estado de una tarea. Con «Tareas que maduran» es una planta que crece
 // (semilla → brote → flor); sin él, un círculo que se va llenando.
@@ -33,12 +33,14 @@ export function TaskGlyph({ status, ripe, onCycle }: { status: TaskStatus; ripe:
             ))}
             <circle className="core" cx="12" cy="12" r="2.6" />
           </g>
+          <path className="bar" d="M6.5 17.5 L17.5 6.5" />
         </svg>
       ) : (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle className="ring" cx="12" cy="12" r="8" />
           <path className="half" d="M12 4 A8 8 0 0 1 12 20 Z" />
           <path className="tick" d="M8 12.4 l2.7 2.7 L16.2 9.4" />
+          <path className="bar" d="M6.5 17.5 L17.5 6.5" />
         </svg>
       )}
     </button>

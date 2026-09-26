@@ -117,3 +117,9 @@
 }
 [aria-checked='true'] > .switch { background: var(--accent-soft); }
 [aria-checked='true'] > .switch::after { translate: 14px 0; background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
+
+/* Bloqueada: el círculo en ámbar punteado, cruzado por una barra. */
+.task-glyph .bar { fill: none; stroke: var(--hue-amber); stroke-width: 1.8; stroke-linecap: round; stroke-dasharray: 16; stroke-dashoffset: 16; opacity: 0; transition: stroke-dashoffset var(--dur-slow) var(--ease-out), opacity var(--dur-fast); }
+.task-glyph.is-blocked .bar { stroke-dashoffset: 0; opacity: 1; }
+.task-glyph.plain.is-blocked .ring { stroke: var(--hue-amber); stroke-dasharray: 3 2.4; }
+.task-glyph.ripe.is-blocked .g-seed { opacity: 0.55; scale: 1; }

@@ -44,6 +44,7 @@ type Props = {
   onCycle: (id: string) => void;
   onProps: (id: string) => void;
   onTask: () => void;
+  onBlock: () => void;
   onLink: () => void;
   onUnlink: (id: string) => void;
   onDelete: (id: string) => void;
@@ -70,7 +71,7 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onLink, onUnlink, onDelete, onClose, onError, sections, onMove }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onLink, onUnlink, onDelete, onClose, onError, sections, onMove }: Props) {
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -125,6 +126,11 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
           <button className="sheet-back" onClick={onTask}>
             {note.kind === 'task' ? 'Quitar tarea' : 'Hacer tarea'}
           </button>
+          {note.kind === 'task' && (
+            <button className="sheet-back" onClick={onBlock}>
+              {note.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
+            </button>
+          )}
           <button className="sheet-back" onClick={() => onProps(note.id)}>
             Propiedades
           </button>

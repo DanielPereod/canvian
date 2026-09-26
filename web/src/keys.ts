@@ -10,6 +10,7 @@ export type ActionId =
   | 'newSection'
   | 'toggleTask'
   | 'cycleStatus'
+  | 'blockTask'
   | 'properties'
   | 'deleteCell'
   | 'rename'
@@ -31,6 +32,7 @@ export const ACTIONS: KeyAction[] = [
   { id: 'newSection', label: 'Sección nueva', group: 'Mapa', key: 'g' },
   { id: 'toggleTask', label: 'Convertir en tarea o en nota', group: 'Mapa', key: 't' },
   { id: 'cycleStatus', label: 'Avanzar el estado de una tarea', group: 'Mapa', key: 'x' },
+  { id: 'blockTask', label: 'Bloquear o desbloquear una tarea', group: 'Mapa', key: 'shift+x' },
   { id: 'properties', label: 'Propiedades', group: 'Mapa', key: 'p' },
   { id: 'deleteCell', label: 'Borrar lo señalado', group: 'Mapa', key: 'delete' },
   { id: 'rename', label: 'Renombrar la sección señalada', group: 'Mapa', key: 'r' },

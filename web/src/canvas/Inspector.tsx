@@ -17,6 +17,7 @@ export const PRIORITIES = ['Sin prioridad', 'Baja', 'Media', 'Alta'] as const;
 const STATUSES: { id: TaskStatus; name: string }[] = [
   { id: 'todo', name: 'Pendiente' },
   { id: 'doing', name: 'En curso' },
+  { id: 'blocked', name: 'Bloqueada' },
   { id: 'done', name: 'Hecha' },
 ];
 const TYPES: { id: PropertyType; name: string }[] = [
