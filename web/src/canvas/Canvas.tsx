@@ -12,6 +12,7 @@ import {
   type EdgeTypes,
   type FinalConnectionState,
   type Node,
+  type NodeChange,
   type NodeTypes,
   type Viewport,
 } from '@xyflow/react';
@@ -26,6 +27,7 @@ import {
   type NoteKind,
   type NoteRow,
   type Profile,
+  type Lens,
   type PropertyDef,
   type TaskStatus,
 } from '../api';
@@ -35,8 +37,10 @@ import { ZoneNode } from './ZoneNode';
 import { CommandPalette } from './CommandPalette';
 import { FloatingEdge } from './FloatingEdge';
 import { Constellation } from './Constellation';
-import { Lantern } from './Lantern';
-import { lanternMatcher } from './lanternMatch';
+import { Lantern, nextMode, type LensMode } from './Lantern';
+import { parseLens } from './lanternMatch';
+import { ColumnNode } from './ColumnNode';
+import { COL_GAP, COL_W, columnsFor, dropChange, groupOptions, layout } from './arrange';
 import { Inspector } from './Inspector';
 
 type AppNode = Node<NoteData>;
@@ -44,7 +48,7 @@ type AppNode = Node<NoteData>;
 const NOTE_WIDTH = 240;
 const ZONE_SIZE = { w: 480, h: 320 };
 const ZONE_PADDING = 40;
-const nodeTypes: NodeTypes = { note: NoteNode, zone: ZoneNode };
+const nodeTypes: NodeTypes = { note: NoteNode, zone: ZoneNode, column: ColumnNode };
 const edgeTypes: EdgeTypes = { floating: FloatingEdge };
 
 function toNode(row: NoteRow): AppNode {
@@ -101,7 +105,17 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [lamp, setLamp] = useState<string | null>(null);
-  const [lampKey, setLampKey] = useState(0);
+  const [lampOpen, setLampOpen] = useState(false);
+  const [mode, setMode] = useState<LensMode>('dim');
+  const [groupBy, setGroupBy] = useState('status');
+  const [lenses, setLenses] = useState<Lens[]>([]);
+  // Mientras hay columnas: dónde están, posiciones de arrastre y la vista a la que volver.
+  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
+  const [dragPos, setDragPos] = useState(new Map<string, { x: number; y: number }>());
+  const [hoverCol, setHoverCol] = useState<string | null>(null);
+  const [colSize, setColSize] = useState(new Map<string, { width: number; height: number }>());
+  const [settling, setSettling] = useState(false);
+  const savedView = useRef<Viewport | null>(null);
   const [defs, setDefs] = useState<PropertyDef[]>([]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
 
@@ -115,13 +129,20 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const ready = (...ids: string[]) => Promise.all(ids.map((id) => created.current.get(id)));
   const zoneDrag = useRef(new Map<string, { start: { x: number; y: number }; children: { id: string; x: number; y: number }[] }>());
   const viewportTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const arrangementRef = useRef<unknown>(null);
+  const columnAtRef = useRef<(x: number) => string | null>(() => null);
+  const dropRef = useRef<(dragged: AppNode[]) => void>(() => {});
 
   // La linterna: qué notas quedan con luz. La clave en texto evita recalcular
   // el conjunto (y repintar todas las notas) mientras arrastras.
-  const litKey = useMemo(() => {
-    const match = lamp ? lanternMatcher(lamp, defs) : null;
-    return match ? nodes.filter((n) => match(n.data)).map((n) => n.id).join(' ') : null;
-  }, [lamp, nodes, defs]);
+  const lens = useMemo(
+    () => (lamp ? parseLens(lamp, { defs, notes: nodes.map((n) => n.data), links: edges }) : null),
+    [lamp, nodes, edges, defs],
+  );
+  const litKey = useMemo(
+    () => (lens?.test ? nodes.filter((n) => lens.test!(n.data)).map((n) => n.id).join(' ') : null),
+    [lens, nodes],
+  );
   const lit = useMemo(() => (litKey === null ? null : new Set(litKey.split(' ').filter(Boolean))), [litKey]);
 
   const report = useCallback((err: unknown) => {
@@ -144,9 +165,10 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   // Carga inicial del perfil: notas, enlaces y dónde dejaste la vista.
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.canvas(profile.id), api.getViewport(profile.id), api.properties(profile.id)]).then(([canvas, viewport, properties]) => {
+    Promise.all([api.canvas(profile.id), api.getViewport(profile.id), api.properties(profile.id), api.lenses(profile.id)]).then(([canvas, viewport, properties, saved]) => {
       if (cancelled) return;
       setDefs(properties);
+      setLenses(saved);
       setNodes(canvas.notes.map(toNode));
       setEdges(canvas.edges.map(toEdge));
       flow.setViewport(viewport);
@@ -348,6 +370,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
 
   const onNodeDragStart = (_: unknown, _node: AppNode, dragged: AppNode[]) => {
     zoneDrag.current.clear();
+    if (mode === 'arrange' && lit) return;
     const draggedIds = new Set(dragged.map((n) => n.id));
     for (const zone of dragged.filter((n) => n.type === 'zone')) {
       zoneDrag.current.set(zone.id, {
@@ -360,7 +383,11 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   };
 
   // Mover una zona arrastra su contenido.
-  const onNodeDrag = (_: unknown, _node: AppNode, dragged: AppNode[]) => {
+  const onNodeDrag = (_: unknown, node: AppNode, dragged: AppNode[]) => {
+    if (arrangementRef.current) {
+      setHoverCol(columnAtRef.current(node.position.x + COL_W / 2));
+      return;
+    }
     if (!zoneDrag.current.size) return;
     const moves = new Map<string, { x: number; y: number }>();
     for (const zone of dragged) {
@@ -374,6 +401,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   };
 
   const onNodeDragStop = (_: unknown, _node: AppNode, dragged: AppNode[]) => {
+    if (arrangementRef.current) return dropRef.current(dragged);
     const current = nodesRef.current;
     const items: LayoutItem[] = [];
     for (const n of dragged) {
@@ -472,7 +500,27 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
         return;
       }
       if (isTyping(e.target) || mod || paletteOpen) return;
+      // ⇧1…⇧9 abren las lentes guardadas.
+      const digit = /^Digit([1-9])$/.exec(e.code);
+      if (e.shiftKey && digit) {
+        const saved = lenses.find((l) => l.slot === Number(digit[1]));
+        if (saved) {
+          e.preventDefault();
+          applyLens(saved);
+        }
+        return;
+      }
+      if (e.key === 'Tab' && lamp) {
+        e.preventDefault();
+        setMode(nextMode(mode));
+        return;
+      }
+      if (e.key === 'Escape' && lamp && !inspectorOpen) {
+        clearLamp();
+        return;
+      }
       if (e.key.toLowerCase() === 'g') {
+        if (arranging) return;
         e.preventDefault();
         groupIntoZone();
       } else if (e.key === 'Enter') {
@@ -495,8 +543,8 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
       } else if (e.key.toLowerCase() === 'f') {
         e.preventDefault();
         setLamp((q) => q ?? '');
-        setLampKey((k) => k + 1);
-      } else if (e.key === '1') {
+        setLampOpen(true);
+      } else if (e.key === '1' && !arranging) {
         flow.fitView({ duration: 400, padding: 0.2 });
       }
     };
@@ -504,24 +552,176 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  // ── Lentes: atenuar, ocultar o colocar en columnas ─────────────
+  const arranging = mode === 'arrange' && !!lit;
+  const groups = useMemo(() => groupOptions(defs), [defs]);
+  const group = groups.some((g) => g.id === groupBy) ? groupBy : 'status';
+
+  // Al entrar en columnas se guarda la vista para volver a ella al salir.
+  useEffect(() => {
+    if (arranging) {
+      savedView.current = flow.getViewport();
+      const box = document.querySelector('.react-flow')!.getBoundingClientRect();
+      setOrigin(flow.screenToFlowPosition({ x: box.left + box.width / 2, y: box.top + box.height * 0.2 }));
+      return;
+    }
+    setOrigin(null);
+    setDragPos(new Map());
+    if (savedView.current) {
+      void flow.setViewport(savedView.current, { duration: 600 });
+      savedView.current = null;
+      // Las notas vuelven a su sitio con transición; después se quita.
+      setSettling(true);
+      const t = setTimeout(() => setSettling(false), 700);
+      return () => clearTimeout(t);
+    }
+  }, [arranging, flow]);
+
+  const arrangement = useMemo(() => {
+    if (!arranging || !origin || !lit) return null;
+    const items = nodes
+      .filter((n) => n.type === 'note' && lit.has(n.id))
+      .map((n) => ({ row: n.data as NoteRow, height: n.measured?.height ?? 80 }));
+    const { columns, keyOf } = columnsFor(group, defs, items.map((i) => i.row));
+    return layout(items, columns, keyOf, origin, group === 'due');
+  }, [arranging, origin, lit, nodes, group, defs]);
+
+  // Encuadra las columnas cuando aparecen o cambia el criterio: a lo ancho y
+  // empezando bajo la lente, a tamaño legible (las largas se recorren bajando).
+  const arrangeCount = arrangement?.cols.length ?? 0;
+  useEffect(() => {
+    if (!arrangeCount || !origin) return;
+    const box = document.querySelector('.react-flow')!.getBoundingClientRect();
+    const width = arrangeCount * COL_W + (arrangeCount - 1) * COL_GAP + 60;
+    const zoom = Math.min(1, (box.width - 48) / width);
+    const top = lampOpen ? 230 : 96;
+    void flow.setViewport({ x: box.width / 2 - origin.x * zoom, y: top - origin.y * zoom, zoom }, { duration: 650 });
+    // Solo al cambiar el número de columnas o el sitio; no al abrir o cerrar la lente.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrangeCount, origin, flow]);
+
+  const columnAt = (x: number) => {
+    if (!arrangement) return null;
+    const i = Math.floor((x - arrangement.left + COL_GAP / 2) / (COL_W + COL_GAP));
+    return arrangement.cols[Math.max(0, Math.min(arrangement.cols.length - 1, i))]?.key ?? null;
+  };
+
+  const displayNodes = useMemo(() => {
+    if (!lit || mode === 'dim') return nodes;
+    const out = (n: AppNode) => ({ ...n, className: `${n.className ?? ''} lens-out`.trim(), selectable: false, draggable: false });
+    if (mode === 'hide' || !arrangement) return nodes.map((n) => (lit.has(n.id) ? n : out(n)));
+    const tallest = Math.max(...arrangement.cols.map((c) => c.bottom - c.y), 200);
+    const columns = arrangement.cols.map(
+      (c) =>
+        ({
+          id: 'col:' + c.key,
+          type: 'column',
+          position: { x: c.x - 14, y: c.y },
+          width: COL_W + 28,
+          measured: colSize.get('col:' + c.key),
+          zIndex: 1,
+          selectable: false,
+          draggable: false,
+          data: { title: c.title, count: c.count, active: hoverCol === c.key, height: tallest + 24 },
+        }) as unknown as AppNode,
+    );
+    return [
+      ...columns,
+      ...nodes.map((n) => {
+        const pos = arrangement.positions.get(n.id);
+        if (!pos) return out(n);
+        return { ...n, position: dragPos.get(n.id) ?? pos, width: COL_W };
+      }),
+    ];
+  }, [nodes, lit, mode, arrangement, dragPos, hoverCol, colSize]);
+
+  // En columnas, mover una nota no toca su posición real en el canvas.
+  const onDisplayNodesChange = (changes: NodeChange<AppNode>[]) => {
+    if (!arrangement) return onNodesChange(changes);
+    const rest: NodeChange<AppNode>[] = [];
+    const moves = new Map(dragPos);
+    const sizes = new Map(colSize);
+    for (const c of changes) {
+      if (c.type === 'position') {
+        if (c.position) moves.set(c.id, c.position);
+      } else if (c.type === 'dimensions' && c.id.startsWith('col:')) {
+        if (c.dimensions) sizes.set(c.id, c.dimensions);
+      } else if (c.type === 'dimensions' && c.dimensions && arrangement.positions.has(c.id)) {
+        // El ancho es el de la columna; solo nos quedamos con la altura real.
+        rest.push({ ...c, dimensions: { ...c.dimensions, width: nodesRef.current.find((n) => n.id === c.id)?.measured?.width ?? c.dimensions.width }, setAttributes: false });
+      } else rest.push(c);
+    }
+    if (moves.size !== dragPos.size || changes.some((c) => c.type === 'position')) setDragPos(moves);
+    if (sizes.size !== colSize.size || changes.some((c) => c.type === 'dimensions' && c.id.startsWith('col:'))) setColSize(sizes);
+    if (rest.length) onNodesChange(rest);
+  };
+
+  const dropInColumn = (dragged: AppNode[]) => {
+    for (const n of dragged) {
+      const pos = dragPos.get(n.id) ?? n.position;
+      const key = columnAt(pos.x + COL_W / 2);
+      const row = nodesRef.current.find((m) => m.id === n.id)?.data;
+      if (!key || !row) continue;
+      const change = dropChange(group, key, defs, row);
+      if (change) updateNote(n.id, change);
+    }
+    setDragPos(new Map());
+    setHoverCol(null);
+  };
+
+  const applyLens = (l: Lens) => {
+    const [m, g] = l.mode.split(':');
+    setLamp(l.query);
+    setMode((m as LensMode) || 'dim');
+    if (g) setGroupBy(g);
+    setLampOpen(false);
+  };
+
+  const saveLens = async () => {
+    if (!lamp?.trim()) return null;
+    const lensRow = { id: ulid(), name: lamp.trim(), query: lamp.trim(), mode: mode === 'arrange' ? `arrange:${group}` : mode };
+    try {
+      const created = await api.createLens(profile.id, lensRow);
+      setLenses((ls) => [...ls.map((l) => (l.slot === created.slot ? { ...l, slot: null } : l)), created].sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99)));
+      return created;
+    } catch (err) {
+      report(err);
+      return null;
+    }
+  };
+
+  arrangementRef.current = arrangement;
+  columnAtRef.current = columnAt;
+  dropRef.current = dropInColumn;
+
+  const clearLamp = () => {
+    setLamp(null);
+    setLampOpen(false);
+    setMode('dim');
+  };
+
   const selectedNotes = nodes.filter((n) => n.selected && n.type === 'note');
   const selectedNote = selectedNotes.length === 1 ? selectedNotes[0].data : null;
 
   const onMoveEnd = (_: unknown, v: Viewport) => {
+    if (savedView.current) return;
     clearTimeout(viewportTimer.current);
     viewportTimer.current = setTimeout(() => void api.saveViewport(profile.id, v), 400);
   };
 
   return (
     <CanvasContext.Provider value={actions}>
-      <div className={`canvas${lit ? ' lamp-on' : ''}`} onDoubleClick={onPaneDoubleClick}>
+      <div
+        className={`canvas${lit ? ` lamp-on lens-${mode}` : ''}${arranging || settling ? ' arranging' : ''}`}
+        onDoubleClick={(e) => !arranging && onPaneDoubleClick(e)}
+      >
         <div className="lamp-dark" aria-hidden="true" />
         <ReactFlow<AppNode>
-          nodes={nodes}
+          nodes={displayNodes}
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          onNodesChange={onNodesChange}
+          onNodesChange={onDisplayNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeDragStart={onNodeDragStart}
           onNodeDrag={onNodeDrag}
@@ -598,11 +798,26 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
       )}
       {lamp !== null && (
         <Lantern
-          key={lampKey}
+          open={lampOpen}
           query={lamp}
           count={lit?.size ?? 0}
+          tokens={lens?.tokens ?? []}
+          mode={mode}
+          groupBy={group}
+          groups={groups}
+          lenses={lenses}
+          onOpen={() => setLampOpen(true)}
+          onFold={() => setLampOpen(false)}
           onChange={setLamp}
-          onClear={() => setLamp(null)}
+          onMode={setMode}
+          onGroup={setGroupBy}
+          onSave={saveLens}
+          onApply={applyLens}
+          onDelete={(l) => {
+            setLenses((ls) => ls.filter((x) => x.id !== l.id));
+            api.deleteLens(l.id).catch(report);
+          }}
+          onClear={clearLamp}
         />
       )}
       {problem && (
