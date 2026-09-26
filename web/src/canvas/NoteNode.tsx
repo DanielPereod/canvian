@@ -4,6 +4,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import { bodyToHtml, extensions, parseBody, titleFrom } from './editor';
 import { useCanvasActions, type NoteData } from './context';
 import { TaskGlyph } from './TaskGlyph';
+import { NoteChips } from './NoteChips';
 import { useExperiments } from '../lab/experiments';
 
 const DAY = 86_400_000;
@@ -49,7 +50,7 @@ function NoteEditor({ id, bodyJson }: { id: string; bodyJson: string | null }) {
 }
 
 function NoteNodeView({ id, data, selected }: NodeProps<NoteNodeType>) {
-  const { editingId, startEditing, resized, cycleStatus, lit } = useCanvasActions();
+  const { editingId, startEditing, resized, cycleStatus, lit, defs, openInspector } = useCanvasActions();
   const exp = useExperiments();
   const editing = editingId === id;
   const html = useMemo(() => bodyToHtml(data.bodyJson), [data.bodyJson]);
@@ -97,6 +98,7 @@ function NoteNodeView({ id, data, selected }: NodeProps<NoteNodeType>) {
       ) : (
         <div className="note-body empty">Nota vacía</div>
       )}
+      {!editing && <NoteChips note={data} defs={defs} onOpen={() => openInspector(id)} />}
     </div>
   );
 }

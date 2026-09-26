@@ -27,7 +27,7 @@ export function Lantern({ query, count, onChange, onClear }: Props) {
         className="field-bare"
         autoFocus
         value={query}
-        placeholder="Alumbrar… (tipo:tarea, estado:pendiente)"
+        placeholder="Alumbrar… (prio:alta, vence:semana, estado:curso)"
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {

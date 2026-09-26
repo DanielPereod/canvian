@@ -1,0 +1,217 @@
+/* ── Panel de propiedades (P) ─────────────────────────── */
+.inspector {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: calc(var(--z-chrome) + 1);
+  width: min(340px, calc(100% - 2 * var(--space-4)));
+  max-height: calc(100% - 2 * var(--space-4) - 40px);
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  /* Más opaco que otros cristales: se lee encima de notas con mucho texto. */
+  background: color-mix(in oklab, var(--bg) 84%, transparent);
+  animation: insp-in var(--dur-slow) var(--ease-spring) both;
+}
+.inspector.is-closing { animation: insp-out 180ms var(--ease-in) forwards; }
+@keyframes insp-in { from { opacity: 0; transform: translateX(28px) scale(0.98); filter: blur(8px); } }
+@keyframes insp-out { to { opacity: 0; transform: translateX(20px); filter: blur(6px); } }
+
+.insp-head { display: flex; align-items: center; justify-content: space-between; }
+.insp-close, .insp-clear {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text-faint);
+  font-size: 17px;
+  line-height: 1;
+  text-decoration: none;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.insp-close:hover, .insp-clear:hover { background: var(--accent-soft); color: var(--text); }
+.insp-empty { margin: var(--space-4) 0 var(--space-2); font-family: var(--font-serif); font-size: var(--text-lg); color: var(--text-ghost); }
+.insp-empty em { color: var(--text-muted); }
+.insp-body { display: grid; gap: var(--space-2); }
+.insp-title {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-serif);
+  font-size: 22px;
+  line-height: var(--leading-snug);
+  color: var(--text);
+  overflow-wrap: anywhere;
+  animation: rise-in var(--dur-base) var(--ease-out) both;
+}
+
+.insp-row {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 34px;
+  animation: rise-in var(--dur-base) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 28ms);
+}
+.insp-label { display: flex; align-items: center; gap: var(--space-1); min-width: 0; font-size: var(--text-sm); color: var(--text-faint); }
+.insp-label-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insp-remove {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--text-ghost);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs);
+  opacity: 0;
+  transition: opacity var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
+}
+.insp-row:hover .insp-remove, .insp-remove:focus-visible, .insp-remove.confirm { opacity: 1; }
+.insp-remove:hover { color: var(--text); }
+.insp-remove.confirm { color: var(--danger); background: color-mix(in oklab, var(--danger) 14%, transparent); }
+.insp-control { min-width: 0; }
+.insp-status { display: flex; align-items: center; gap: var(--space-1); }
+.insp-status .task-glyph { position: static; pointer-events: none; }
+.insp-status .segmented { flex: 1; }
+
+.insp-input {
+  width: 100%;
+  min-height: 30px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  color-scheme: dark;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
+}
+.insp-input:hover { background: rgba(255, 255, 255, 0.055); }
+.insp-input:focus { outline: none; border-color: var(--accent-line); background: rgba(255, 255, 255, 0.05); box-shadow: var(--focus-ring); }
+.insp-input::placeholder { color: var(--text-ghost); }
+.insp-date { display: flex; align-items: center; gap: var(--space-1); }
+.insp-switch { display: inline-flex; padding: 4px 0; }
+
+.insp-options { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; }
+.insp-add-option { width: auto; flex: 1 1 90px; min-height: 26px; }
+.insp-types { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+
+.insp-new {
+  justify-self: start;
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  padding: var(--space-1) var(--space-2);
+  margin-left: calc(-1 * var(--space-2));
+  border-radius: var(--radius-sm);
+  transition: color var(--dur-fast), background var(--dur-fast);
+}
+.insp-new:hover { color: var(--accent-ink); background: var(--accent-soft); }
+.insp-new-form {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  animation: bloom var(--dur-base) var(--ease-out) both;
+}
+.insp-new-actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); }
+.insp-new-actions .btn { min-height: 30px; padding: 0 var(--space-3); font-size: var(--text-sm); }
+.insp-warn { margin-right: auto; font-size: var(--text-sm); color: var(--danger); }
+
+/* ── Selector segmentado con una píldora que se desliza ── */
+.segmented {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.035);
+}
+.segmented-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--n));
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  transform: translateX(calc(100% * var(--at)));
+  transition: transform var(--dur-slow) var(--ease-spring);
+}
+.segmented button {
+  position: relative;
+  min-height: 26px;
+  padding: 0 var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  white-space: nowrap;
+  transition: color var(--dur-base);
+}
+.segmented button:hover { color: var(--text-muted); }
+.segmented button.on { color: var(--text); }
+.segmented button.prio-1.on { color: var(--prio-1); }
+.segmented button.prio-2.on { color: var(--prio-2); }
+.segmented button.prio-3.on { color: var(--prio-3); }
+
+/* ── Chips ─────────────────────────────────────────────── */
+.chip {
+  --chip-color: var(--text-muted);
+  min-height: 24px;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  border: 1px solid var(--line);
+  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast), scale var(--dur-base) var(--ease-spring);
+}
+.chip:hover { color: var(--text); border-color: var(--line-strong); }
+.chip:active { scale: 0.94; }
+.chip.on { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent-line); }
+.chip[style*='--chip'] { color: hsl(var(--chip) 60% 76%); }
+.chip[style*='--chip'].on { background: hsl(var(--chip) 60% 60% / 0.16); border-color: hsl(var(--chip) 60% 60% / 0.45); }
+
+/* ── Chips al pie de la nota ───────────────────────────── */
+.note-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 var(--space-4) var(--space-3);
+  margin-top: calc(-1 * var(--space-1));
+  cursor: pointer;
+}
+.note-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  max-width: 100%;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.045);
+  animation: rise-in var(--dur-base) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.note-chips:hover .note-chip { background: rgba(255, 255, 255, 0.07); }
+.note-chip i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+.chip-prio.prio-1 { color: var(--prio-1); }
+.chip-prio.prio-2 { color: var(--prio-2); }
+.chip-prio.prio-3 { color: var(--prio-3); background: color-mix(in oklab, var(--prio-3) 12%, transparent); }
+.chip-due.soon { color: var(--warning); }
+.chip-due.overdue { color: var(--danger); background: color-mix(in oklab, var(--danger) 13%, transparent); animation: rise-in var(--dur-base) var(--ease-out) both, overdue 2.4s ease-in-out infinite; }
+.chip-option { color: hsl(var(--chip) 60% 76%); background: hsl(var(--chip) 60% 60% / 0.13); }
+.note-chip.more { color: var(--text-ghost); }
+@keyframes overdue { 50% { box-shadow: 0 0 12px -2px color-mix(in oklab, var(--danger) 60%, transparent); } }
+.constellation .note-chips { opacity: 0; }

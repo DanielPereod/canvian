@@ -114,6 +114,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           <kbd>X</kbd> estado
         </span>
         <span>
+          <kbd>P</kbd> propiedades
+        </span>
+        <span>
           <kbd>F</kbd> linterna
         </span>
         <span>
