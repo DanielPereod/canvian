@@ -4,14 +4,15 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { settings } from '../db/schema.js';
 
-// Preferencias de la interfaz (por ahora, los atajos de teclado). Viven en la
+// Preferencias de la interfaz: los atajos de teclado y el tema. Viven en la
 // tabla de ajustes con el prefijo `pref:`, que nunca deja ver lo demás (la
 // contraseña está en la misma tabla).
 
 const PREFIX = 'pref:';
-const KEYS = ['keymap'] as const;
+const KEYS = ['keymap', 'theme'] as const;
 const keymap = z.record(z.string().regex(/^[a-z][a-zA-Z]{1,30}$/), z.string().max(40)).refine((m) => Object.keys(m).length <= 100);
-const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap };
+const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano']);
+const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme };
 
 export function prefRoutes(db: Db) {
   const r = new Hono();

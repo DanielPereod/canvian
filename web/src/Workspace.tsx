@@ -8,6 +8,7 @@ import { BackgroundPicker } from './backgrounds/BackgroundPicker';
 import { Lab } from './lab/Lab';
 import { EXPERIMENTS, useExperiments } from './lab/experiments';
 import { actionFor, keysBlocked, loadKeymap, useKeymap } from './keys';
+import { loadTheme } from './theme';
 import { Keys } from './Kbd';
 import { Settings } from './Settings';
 import { Help } from './Help';
@@ -36,6 +37,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   useEffect(() => {
     void loadKeymap();
+    void loadTheme();
   }, []);
 
   useEffect(() => {

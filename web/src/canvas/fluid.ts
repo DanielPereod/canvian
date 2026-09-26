@@ -306,6 +306,20 @@ type CellEls = { g: SVGGElement; path: SVGPathElement; title: SVGTextElement; me
 
 const STATUS = { todo: '○', doing: '◐', blocked: '⊘', done: '●' } as const;
 
+// Ancho medio de una letra de los títulos, en em. Lo pone el tema (--fl-title-em)
+// porque unas letras son mucho más anchas que otras; con letra ancha los
+// títulos se encogen para que quepan igual.
+const BASE_EM = 0.42;
+let titleEm = BASE_EM;
+const readTitleEm = () => {
+  const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fl-title-em'));
+  titleEm = v > 0 ? v : BASE_EM;
+};
+if (typeof document !== 'undefined') {
+  readTitleEm();
+  new MutationObserver(readTitleEm).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+}
+
 class FluidView {
   root: SVGGElement;
   els = new Map<string, CellEls>();
@@ -359,7 +373,8 @@ class FluidView {
 
       const hidden = hideLabelOf?.id === id ? hideLabelOf.amount : 0;
       const note = c.node.kind === 'note';
-      const fs = note ? Math.max(11, Math.min(30, size / 11)) : Math.max(12, Math.min(64, size / 8));
+      const wide = Math.min(1, BASE_EM / titleEm);
+      const fs = (note ? Math.max(11, Math.min(30, size / 11)) : Math.max(12, Math.min(64, size / 8))) * wide;
       const bigNote = note && size > 230;
       const labelOpacity = smooth(55, 95, size) * (1 - hidden);
       e.title.style.opacity = String(bigNote ? 0 : labelOpacity);
@@ -368,7 +383,7 @@ class FluidView {
       e.title.setAttribute('y', (c.center.y - (note ? 0 : fs * 0.3)).toFixed(1));
       const task = c.node.note?.kind === 'task' ? `${STATUS[c.node.note.status ?? 'todo']} ` : c.node.note?.kind === 'canvas' ? '◫ ' : '';
       const room = bbox(c.drawn).w * 0.82;
-      const maxChars = Math.max(6, Math.floor(room / (fs * (note ? 0.52 : 0.42))));
+      const maxChars = Math.max(6, Math.floor(room / (fs * (note ? 0.52 : 0.42) / wide)));
       const text = task + c.node.title;
       e.title.textContent = text.length > maxChars ? text.slice(0, maxChars - 1) + '…' : text;
 

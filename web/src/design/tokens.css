@@ -120,6 +120,8 @@
   --accent-glow: color-mix(in oklab, var(--accent) 38%, transparent);
 
   --bg: var(--n-950);
+  --ink: 255 255 255; /* canal del texto, para lavados translúcidos: rgb(var(--ink) / 0.05) */
+  --vignette: rgba(0, 0, 0, 0.55);
   --dots: rgba(255, 255, 255, 0.075);
   --grid: rgba(255, 255, 255, 0.035);
   --grid-strong: rgba(255, 255, 255, 0.09);

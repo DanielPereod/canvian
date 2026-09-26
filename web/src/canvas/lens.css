@@ -35,7 +35,7 @@
   animation: chip-pop var(--dur-base) var(--ease-spring) both;
   animation-delay: calc(var(--i, 0) * 25ms);
 }
-.lens-chip.is-text { color: var(--text); background: rgba(255, 255, 255, 0.05); border-color: var(--line); font-family: var(--font-serif); font-style: italic; font-size: 15px; }
+.lens-chip.is-text { color: var(--text); background: rgb(var(--ink) / 0.05); border-color: var(--line); font-family: var(--font-serif); font-style: italic; font-size: 15px; }
 .lens-chip.negated { text-decoration: line-through; text-decoration-color: color-mix(in oklab, currentColor 50%, transparent); }
 .lens-chip.negated:not(.is-text) { color: var(--text-muted); background: transparent; border-style: dashed; text-decoration: none; }
 .lens-chip.is-unknown { color: var(--danger); background: color-mix(in oklab, var(--danger) 10%, transparent); border-color: color-mix(in oklab, var(--danger) 40%, transparent); }
