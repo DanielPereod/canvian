@@ -121,6 +121,8 @@
 
   --bg: var(--n-950);
   --dots: rgba(255, 255, 255, 0.075);
+  --grid: rgba(255, 255, 255, 0.035);
+  --grid-strong: rgba(255, 255, 255, 0.09);
   --pool: color-mix(in oklab, var(--accent) 16%, transparent); /* luz que sube del suelo */
 
   --text: var(--n-100);

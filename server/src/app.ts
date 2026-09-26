@@ -23,7 +23,10 @@ const profileBody = z.object({
   color: z.string().max(20).nullish(),
   icon: z.string().max(40).nullish(),
 });
-const profilePatch = profileBody.partial().extend({ position: z.number().int().optional() });
+export const BACKGROUNDS = ['plain', 'dots', 'grid', 'stars', 'fireflies', 'aurora'] as const;
+const profilePatch = profileBody
+  .partial()
+  .extend({ position: z.number().int().optional(), background: z.enum(BACKGROUNDS).optional() });
 const viewportBody = z.object({ x: z.number(), y: z.number(), zoom: z.number().positive() });
 
 // Mismos valores que --hue-* en web/src/design/tokens.css.

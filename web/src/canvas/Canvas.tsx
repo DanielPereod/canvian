@@ -16,7 +16,7 @@ import {
   type Viewport,
 } from '@xyflow/react';
 import { ulid } from 'ulidx';
-import { api, type EdgeRow, type LayoutItem, type NoteKind, type NoteRow, type Profile } from '../api';
+import { api, type BackgroundKind, type EdgeRow, type LayoutItem, type NoteKind, type NoteRow, type Profile } from '../api';
 import { CanvasContext, type CanvasActions, type NoteContent, type NoteData } from './context';
 import { NoteNode } from './NoteNode';
 import { ZoneNode } from './ZoneNode';
@@ -74,7 +74,7 @@ function zoneAt(nodes: AppNode[], p: { x: number; y: number }): string | null {
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 
-export function Canvas({ profile }: { profile: Profile }) {
+export function Canvas({ profile, background }: { profile: Profile; background: BackgroundKind }) {
   const flow = useReactFlow<AppNode>();
   const [nodes, setNodes, onNodesChange] = useNodesState<AppNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -444,7 +444,12 @@ export function Canvas({ profile }: { profile: Profile }) {
           defaultEdgeOptions={{ type: 'floating', zIndex: 5 }}
           proOptions={{ hideAttribution: true }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={26} size={1.2} color="var(--dots)" />
+          {background === 'dots' && (
+            <Background variant={BackgroundVariant.Dots} gap={26} size={1.2} color="var(--dots)" />
+          )}
+          {background === 'grid' && (
+            <Background variant={BackgroundVariant.Lines} gap={52} lineWidth={1} color="var(--grid)" />
+          )}
         </ReactFlow>
         {nodes.length === 0 && (
           <div className="empty-state">

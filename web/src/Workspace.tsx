@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { api, type Profile } from './api';
+import { api, type BackgroundKind, type Profile } from './api';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { Canvas } from './canvas/Canvas';
 import { Glyph } from './Wordmark';
-import { Fireflies } from './Fireflies';
+import { Ambient } from './backgrounds/Ambient';
+import { BackgroundPicker } from './backgrounds/BackgroundPicker';
 
 const ACTIVE_KEY = 'canvian.activeProfile';
 const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
@@ -21,6 +22,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(readActive);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [previewBg, setPreviewBg] = useState<BackgroundKind | null>(null);
 
   useEffect(() => {
     api.profiles().then(setProfiles, () => onSignedOut());
@@ -43,6 +46,13 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         setSwitcherOpen((open) => !open);
+        return;
+      }
+      const t = e.target as HTMLElement | null;
+      const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+      if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        setPickerOpen(true);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -57,12 +67,23 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   if (!active) return <div className="backdrop" />;
 
+  const background = previewBg ?? active.background ?? 'dots';
+
+  const chooseBackground = (kind: BackgroundKind) => {
+    setPickerOpen(false);
+    setPreviewBg(null);
+    if (kind === active.background) return;
+    setProfiles((list) => list.map((p) => (p.id === active.id ? { ...p, background: kind } : p)));
+    api.updateProfile(active.id, { background: kind }).catch(() => {
+      setProfiles((list) => list.map((p) => (p.id === active.id ? { ...p, background: active.background } : p)));
+    });
+  };
+
   return (
+    <ReactFlowProvider>
     <div className="workspace backdrop">
-      <Fireflies />
-      <ReactFlowProvider>
-        <Canvas key={active.id} profile={active} />
-      </ReactFlowProvider>
+      <Ambient kind={background} />
+      <Canvas key={active.id} profile={active} background={background} />
 
       <div className="chrome-top-left">
         <button className="surface-2 pill" onClick={() => setSwitcherOpen(true)} title="Cambiar de perfil">
@@ -77,6 +98,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         </span>
         <span>
           <kbd>G</kbd> zona
+        </span>
+        <span>
+          <kbd>B</kbd> fondo
         </span>
         <span>
           <kbd>{mod}</kbd>
@@ -106,6 +130,18 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           onClose={() => setSwitcherOpen(false)}
         />
       )}
+      {pickerOpen && (
+        <BackgroundPicker
+          current={active.background ?? 'dots'}
+          onPreview={setPreviewBg}
+          onChoose={chooseBackground}
+          onCancel={() => {
+            setPickerOpen(false);
+            setPreviewBg(null);
+          }}
+        />
+      )}
     </div>
+    </ReactFlowProvider>
   );
 }

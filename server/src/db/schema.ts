@@ -28,6 +28,7 @@ export const profiles = sqliteTable('profiles', {
   name: text('name').notNull(),
   color: text('color'),
   icon: text('icon'),
+  background: text('background').notNull().default('dots'), // plain | dots | grid | stars | fireflies | aurora
   position: integer('position').notNull().default(0),
   createdAt: text('created_at').notNull().default(now),
 });

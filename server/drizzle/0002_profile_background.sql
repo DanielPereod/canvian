@@ -1,0 +1,1 @@
+ALTER TABLE `profiles` ADD `background` text DEFAULT 'dots' NOT NULL;

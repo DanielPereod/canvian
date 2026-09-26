@@ -69,6 +69,10 @@ describe('profiles', () => {
 
     const renamed = await (await call('PATCH', `/api/profiles/${created.id}`, { name: 'Máster' })).json();
     expect(renamed.name).toBe('Máster');
+    expect(created.background).toBe('dots');
+    const starry = await (await call('PATCH', `/api/profiles/${created.id}`, { background: 'stars' })).json();
+    expect(starry.background).toBe('stars');
+    expect((await call('PATCH', `/api/profiles/${created.id}`, { background: 'lava' })).status).toBe(400);
 
     expect((await call('DELETE', `/api/profiles/${created.id}`)).status).toBe(204);
     const [first, second] = await (await call('GET', '/api/profiles')).json();
