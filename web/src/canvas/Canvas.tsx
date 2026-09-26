@@ -15,6 +15,7 @@ import { docText, docToMarkdown, markdownToDoc } from './markdown';
 import { parseBody } from './editor';
 import { hasMedia, isMedia, uploadMedia } from './media';
 import { Inspector } from './Inspector';
+import { TasksView } from './TasksView';
 
 // La vista de Canvian: el mapa de secciones. Aquí viven las notas, los
 // enlaces y todo lo que se guarda; SectionMap solo dibuja y avisa.
@@ -46,6 +47,8 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [focusId, setFocusId] = useState<string | null>(null);
   // La celda desde la que se abrió la nota, para que la hoja salga de ella.
   const [openFrom, setOpenFrom] = useState<OpenFrom | null>(null);
+  // La otra vista: todas las tareas activas en una lista.
+  const [tasksOpen, setTasksOpen] = useState(false);
   const [defs, setDefs] = useState<PropertyDef[]>([]);
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
@@ -259,6 +262,13 @@ export function Canvas({ profile }: { profile: Profile }) {
     openNote(row.id);
   };
 
+  // Tarea nueva desde la vista de tareas: en la sección en la que estabas en el mapa.
+  const newTask = () => {
+    const zoneId = currentZone()?.id ?? null;
+    const row = createNote(spotFor(zoneId), 'task', { zoneId, status: 'todo' });
+    openNote(row.id);
+  };
+
   const newSection = (zoneId: string | null) => {
     const row = createNote(spotFor(zoneId), 'zone', { zoneId, ...ZONE_SIZE });
     setRenaming({ id: row.id, title: '' });
@@ -305,7 +315,12 @@ export function Canvas({ profile }: { profile: Profile }) {
         setInspectId(null);
         return;
       }
-      if (isTyping(e.target) || mod || paletteOpen || focusId) return;
+      if (isTyping(e.target) || mod || paletteOpen || focusId || tasksOpen) return;
+      if (e.key.toLowerCase() === 'a' && !e.shiftKey) {
+        e.preventDefault();
+        setTasksOpen(true);
+        return;
+      }
       // ⇧1…⇧9 abren las lentes guardadas.
       const digit = /^Digit([1-9])$/.exec(e.code);
       if (e.shiftKey && digit) {
@@ -454,7 +469,7 @@ export function Canvas({ profile }: { profile: Profile }) {
       {loaded && (
         <SectionMap
           tree={tree}
-          paused={!!focusId || !!paletteOpen || !!renaming}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen}
           start={mapPath.current}
           onPath={(ids) => (mapPath.current = ids)}
           onOpen={openNote}
@@ -507,6 +522,24 @@ export function Canvas({ profile }: { profile: Profile }) {
             } else newNote(currentZone()?.id ?? null, text);
           }}
           onClose={() => setPaletteOpen(false)}
+        />
+      )}
+      {loaded && !tasksOpen && (
+        <div className="chrome-top-right">
+          <button className="surface-2 pill tasks-pill" onClick={() => setTasksOpen(true)} title="Todas las tareas activas (A)">
+            <span className="pill-name">Tareas</span>
+            <span className="meta">{rows.filter((r) => r.kind === 'task' && r.status !== 'done').length}</span>
+          </button>
+        </div>
+      )}
+      {tasksOpen && (
+        <TasksView
+          rows={rows}
+          paused={!!focusId || !!inspectId || !!paletteOpen}
+          onOpen={(id) => openNote(id)}
+          onCycle={cycleStatus}
+          onNew={newTask}
+          onClose={() => setTasksOpen(false)}
         />
       )}
       {focused && (

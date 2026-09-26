@@ -1,0 +1,206 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { NoteRow } from '../api';
+import { daysUntil, dueLabel } from './dates';
+import { TaskGlyph } from './TaskGlyph';
+import { useExperiments } from '../lab/experiments';
+
+// Otra vista, fuera del mapa: todas las tareas activas (las que no están
+// hechas) del perfil, vengan de la sección que vengan, en una sola lista.
+
+export type TaskGrouping = 'estado' | 'seccion' | 'fecha';
+const GROUPINGS: { id: TaskGrouping; label: string }[] = [
+  { id: 'estado', label: 'Estado' },
+  { id: 'fecha', label: 'Fecha' },
+  { id: 'seccion', label: 'Sección' },
+];
+const GROUP_KEY = 'canvian.tasksGrouping';
+
+function readGrouping(): TaskGrouping {
+  try {
+    const v = localStorage.getItem(GROUP_KEY);
+    return v === 'seccion' || v === 'fecha' ? v : 'estado';
+  } catch {
+    return 'estado';
+  }
+}
+
+// Lo que más urge arriba: en curso, vencida o cerca, prioridad, lo último tocado.
+const urgency = (r: NoteRow) =>
+  (r.status === 'doing' ? 1000 : 0) +
+  (r.dueAt ? 400 - Math.max(-30, Math.min(60, daysUntil(r.dueAt))) * 5 : 0) +
+  (r.priority ?? 0) * 60 +
+  (r.updatedAt ? Date.parse(r.updatedAt) / 1e11 : 0);
+
+function whenGroup(r: NoteRow): [number, string] {
+  if (!r.dueAt) return [5, 'Sin fecha'];
+  const d = daysUntil(r.dueAt);
+  if (d < 0) return [0, 'Vencidas'];
+  if (d === 0) return [1, 'Hoy'];
+  if (d <= 7) return [2, 'Esta semana'];
+  if (d <= 31) return [3, 'Este mes'];
+  return [4, 'Más adelante'];
+}
+
+type Props = {
+  rows: NoteRow[];
+  onOpen: (id: string) => void;
+  onCycle: (id: string) => void;
+  onNew: () => void;
+  onClose: () => void;
+  paused: boolean;
+};
+
+export function TasksView({ rows, onOpen, onCycle, onNew, onClose, paused }: Props) {
+  const { maduran } = useExperiments();
+  const [grouping, setGrouping] = useState<TaskGrouping>(readGrouping);
+  // El cursor sigue a la tarea aunque cambie de grupo; si desaparece, se queda en su sitio.
+  const [cursorId, setCursorId] = useState<string | null>(null);
+  const lastAt = useRef(0);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const choose = (g: TaskGrouping) => {
+    setGrouping(g);
+    try {
+      localStorage.setItem(GROUP_KEY, g);
+    } catch {
+      // Sin almacenamiento local no se recuerda, sin más.
+    }
+  };
+
+  // Ruta de secciones de cada tarea («Casa › Cocina»).
+  const sectionOf = useMemo(() => {
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return (r: NoteRow) => {
+      const names: string[] = [];
+      const seen = new Set<string>();
+      for (let z = r.zoneId ? byId.get(r.zoneId) : undefined; z && z.kind === 'zone' && !seen.has(z.id); z = z.zoneId ? byId.get(z.zoneId) : undefined) {
+        seen.add(z.id);
+        names.unshift(z.title || 'Sin nombre');
+      }
+      return names.join(' › ');
+    };
+  }, [rows]);
+
+  const active = rows.filter((r) => r.kind === 'task' && r.status !== 'done');
+  const doneCount = rows.filter((r) => r.kind === 'task' && r.status === 'done').length;
+
+  const groups = useMemo(() => {
+    const out = new Map<string, { key: number | string; title: string; items: NoteRow[] }>();
+    for (const r of active) {
+      let key: number | string;
+      let title: string;
+      if (grouping === 'estado') [key, title] = r.status === 'doing' ? [0, 'En curso'] : [1, 'Por hacer'];
+      else if (grouping === 'fecha') [key, title] = whenGroup(r);
+      else {
+        title = sectionOf(r) || 'Sin sección';
+        key = sectionOf(r) ? title.toLocaleLowerCase('es') : '￿';
+      }
+      const g = out.get(title) ?? { key, title, items: [] };
+      g.items.push(r);
+      out.set(title, g);
+    }
+    const list = [...out.values()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    for (const g of list) g.items.sort((a, b) => urgency(b) - urgency(a));
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, grouping, sectionOf]);
+
+  const flat = groups.flatMap((g) => g.items);
+  const found = flat.findIndex((r) => r.id === cursorId);
+  const at = found >= 0 ? found : Math.min(lastAt.current, Math.max(0, flat.length - 1));
+  lastAt.current = at;
+  const setCursor = (idx: number) => setCursorId(flat[idx]?.id ?? null);
+
+  useEffect(() => {
+    listRef.current?.querySelector<HTMLElement>('.tasks-row.is-cursor')?.scrollIntoView({ block: 'nearest' });
+  }, [at]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (paused || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const k = e.key.toLowerCase();
+      const cur = flat[at];
+      if (k === 'escape' || k === 'a') onClose();
+      else if (k === 'arrowdown' || k === 'j') setCursor(Math.min(flat.length - 1, at + 1));
+      else if (k === 'arrowup' || k === 'k') setCursor(Math.max(0, at - 1));
+      else if (k === 'enter' && cur) onOpen(cur.id);
+      else if (k === 'x' && cur) onCycle(cur.id);
+      else if (k === 'n') onNew();
+      else if (k === 'tab') choose(GROUPINGS[(GROUPINGS.findIndex((g) => g.id === grouping) + (e.shiftKey ? 2 : 1)) % 3].id);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  });
+
+  let i = 0;
+  return (
+    <div className="tasks-view">
+      <header className="tasks-top">
+        <button className="sheet-back meta" onClick={onClose}>
+          ← Mapa
+        </button>
+        <nav className="tasks-group-by" aria-label="Agrupar por">
+          {GROUPINGS.map((g) => (
+            <button key={g.id} className={`meta${g.id === grouping ? ' is-on' : ''}`} onClick={() => choose(g.id)}>
+              {g.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+      <div className="tasks-body" ref={listRef}>
+        <h1 className="display tasks-title">
+          Tareas <em>activas</em>
+        </h1>
+        <p className="meta tasks-sub">
+          {active.length === 1 ? '1 activa' : `${active.length} activas`}
+          {doneCount > 0 && ` · ${doneCount} hechas`}
+        </p>
+        {!active.length && (
+          <p className="tasks-empty">
+            Nada pendiente. <button className="sheet-link sheet-link-add" onClick={onNew}>+ Tarea</button>
+          </p>
+        )}
+        {groups.map((g) => (
+          <section key={g.title} className="tasks-group">
+            <h2 className="tasks-group-title">
+              {g.title} <span className="meta">{g.items.length}</span>
+            </h2>
+            {g.items.map((r) => {
+              const idx = i++;
+              const where = grouping === 'seccion' ? '' : sectionOf(r);
+              const due = r.dueAt ? daysUntil(r.dueAt) : null;
+              return (
+                <div
+                  key={r.id}
+                  className={`tasks-row${idx === at ? ' is-cursor' : ''}`}
+                  style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}
+                  onMouseEnter={() => setCursor(idx)}
+                  onClick={() => onOpen(r.id)}
+                >
+                  <TaskGlyph status={r.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(r.id)} />
+                  <span className="tasks-row-title">{r.title || 'Tarea sin título'}</span>
+                  {!!r.priority && <span className="tasks-prio" aria-label={`Prioridad ${r.priority}`}>{'•'.repeat(Math.min(3, r.priority))}</span>}
+                  {where && <span className="meta tasks-where">{where}</span>}
+                  {r.dueAt && <span className={`meta tasks-due${due! < 0 ? ' is-late' : due! <= 1 ? ' is-soon' : ''}`}>{dueLabel(r.dueAt)}</span>}
+                </div>
+              );
+            })}
+          </section>
+        ))}
+      </div>
+      <footer className="tasks-keys meta">
+        <span><kbd>↑</kbd><kbd>↓</kbd> moverse</span>
+        <span><kbd>Enter</kbd> abrir</span>
+        <span><kbd>X</kbd> avanzar</span>
+        <span><kbd>N</kbd> tarea</span>
+        <span><kbd>Tab</kbd> agrupar</span>
+        <span><kbd>Esc</kbd> mapa</span>
+      </footer>
+    </div>
+  );
+}
