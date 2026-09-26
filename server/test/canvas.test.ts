@@ -133,3 +133,22 @@ describe('properties', () => {
     expect(await data('GET', `/api/profiles/${personal}/properties`)).toHaveLength(1);
   });
 });
+
+describe('lenses', () => {
+  it('saves lenses with free shortcut slots and moves a slot when reassigned', async () => {
+    const a = await data('POST', `/api/profiles/${personal}/lenses`, { name: 'Abiertas', query: 'tipo:tarea -hecha' });
+    expect(a).toMatchObject({ name: 'Abiertas', mode: 'dim', slot: 1 });
+    const b = await data('POST', `/api/profiles/${personal}/lenses`, { name: 'Kanban', query: 'tipo:tarea', mode: 'arrange:status' });
+    expect(b.slot).toBe(2);
+    expect((await call('POST', `/api/profiles/${personal}/lenses`, { name: 'x', query: 'y', mode: 'rara' })).status).toBe(400);
+
+    await call('PATCH', `/api/lenses/${b.id}`, { slot: 1 });
+    const list = await data('GET', `/api/profiles/${personal}/lenses`);
+    expect(list.find((l: { id: string }) => l.id === a.id).slot).toBeNull();
+    expect(list.find((l: { id: string }) => l.id === b.id).slot).toBe(1);
+    expect(await data('GET', `/api/profiles/${trabajo}/lenses`)).toHaveLength(0);
+
+    expect((await call('DELETE', `/api/lenses/${a.id}`)).status).toBe(204);
+    expect(await data('GET', `/api/profiles/${personal}/lenses`)).toHaveLength(1);
+  });
+});

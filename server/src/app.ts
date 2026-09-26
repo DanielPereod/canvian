@@ -16,6 +16,7 @@ import {
 } from './auth.js';
 import { canvasRoutes } from './routes/canvas.js';
 import { propertyRoutes } from './routes/properties.js';
+import { lensRoutes } from './routes/lenses.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -157,6 +158,7 @@ export function createApp(db: Db) {
 
   api.route('/', canvasRoutes(db));
   api.route('/', propertyRoutes(db));
+  api.route('/', lensRoutes(db));
 
   const app = new Hono();
   app.get('/health', (c) => c.json({ ok: true }));

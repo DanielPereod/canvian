@@ -13,6 +13,7 @@ import './canvas/canvas.css';
 import './app.css';
 import './canvas/properties.css';
 import './lab/experiments.css';
+import './canvas/lens.css';
 import { App } from './App';
 
 createRoot(document.getElementById('root')!).render(

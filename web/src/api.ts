@@ -58,6 +58,8 @@ export type PropertyDef = {
   position: number;
 };
 
+export type Lens = { id: string; profileId: string; name: string; query: string; mode: string; slot: number | null };
+
 export type EdgeRow = {
   id: string;
   profileId: string;
@@ -132,6 +134,11 @@ export const api = {
   updateProperty: (id: string, patch: Partial<Pick<PropertyDef, 'name' | 'options' | 'position'>>) =>
     request<PropertyDef>('PATCH', `/properties/${id}`, patch),
   deleteProperty: (id: string) => request('DELETE', `/properties/${id}`),
+  lenses: (profileId: string) => request<Lens[]>('GET', `/profiles/${profileId}/lenses`),
+  createLens: (profileId: string, lens: { id: string; name: string; query: string; mode: string }) =>
+    request<Lens>('POST', `/profiles/${profileId}/lenses`, lens),
+  updateLens: (id: string, patch: Partial<Pick<Lens, 'name' | 'query' | 'mode' | 'slot'>>) => request<Lens>('PATCH', `/lenses/${id}`, patch),
+  deleteLens: (id: string) => request('DELETE', `/lenses/${id}`),
   search: (profileId: string, q: string) =>
     request<SearchHit[]>('GET', `/profiles/${profileId}/search?q=${encodeURIComponent(q)}`),
 };

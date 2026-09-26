@@ -48,7 +48,9 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` 
 | `T` | Convertir las notas seleccionadas en tareas (o volver a notas) |
 | `X` | Avanzar el estado de la tarea: pendiente → en curso → hecha |
 | `P` | Panel de propiedades de la nota seleccionada: tipo, estado, prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
-| `F` | Linterna: filtra el canvas. Palabras sueltas y `tipo:tarea`, `estado:pendiente\|curso\|hecha`, `prio:alta\|media\|baja`, `vence:hoy\|semana\|vencida\|pronto` o `<propiedad>:<valor>`; `Enter` la fija, `Esc` la apaga |
+| `F` | Lente: filtra el canvas en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea`, `estado:pendiente\|curso\|hecha` (o `-hecha`), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d`, `zona:viaje`, `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
+| `Tab` (con la lente) | Cambia el modo: atenuar, ocultar o columnas. En columnas (por estado, prioridad, fecha o una propiedad de opciones), arrastrar una nota a otra columna le cambia ese valor |
+| `⌘/Ctrl S` (en la lente) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |
 | `E` | Laboratorio: encender o apagar las ideas en prueba |
 | `G` | Agrupar las notas seleccionadas en una zona (o crear una zona vacía) |
 | `Supr` / `Retroceso` | Borrar lo seleccionado |
