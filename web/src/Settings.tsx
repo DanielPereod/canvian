@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { ACTIONS, bind, comboOf, isDefault, keyParts, reserved, resetAll, resetKey, useKeymap, type ActionId } from './keys';
 import { Keys } from './Kbd';
+import { setTheme, THEMES, useTheme } from './theme';
 
-// Página de configuración. Por ahora, los atajos de teclado (se guardan en el
-// servidor, así que valen en todos tus dispositivos) y atajos a otros paneles.
+// Página de configuración: el tema, los atajos de teclado (ambos se guardan en
+// el servidor, así que valen en todos tus dispositivos) y atajos a otros paneles.
 
 type Props = {
   onClose: () => void;
@@ -16,6 +17,7 @@ const GROUPS = [...new Set(ACTIONS.map((a) => a.group))];
 
 export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
   const keymap = useKeymap();
+  const theme = useTheme();
   const [capturing, setCapturing] = useState<ActionId | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const label = (id: ActionId) => ACTIONS.find((a) => a.id === id)!.label;
@@ -61,6 +63,34 @@ export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
       </header>
       <div className="page-body">
         <h1 className="display page-title">Configuración</h1>
+
+        <section className="settings-section">
+          <h2 className="settings-heading">Tema</h2>
+          <p className="meta settings-hint">Cambia el aspecto de todo Canvian; el mapa y tus notas no cambian.</p>
+          <div className="theme-grid" role="radiogroup" aria-label="Tema">
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                role="radio"
+                aria-checked={theme === t.id}
+                className={`theme-card${theme === t.id ? ' is-on' : ''}`}
+                onClick={() => {
+                  setNote(null);
+                  report(setTheme(t.id));
+                }}
+              >
+                <span className={`theme-swatch t-${t.id}`} aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                  <b>Aa</b>
+                </span>
+                <span className="theme-name">{t.name}</span>
+                <span className="theme-hint meta">{t.hint}</span>
+              </button>
+            ))}
+          </div>
+        </section>
 
         <section className="settings-section">
           <h2 className="settings-heading">Atajos de teclado</h2>

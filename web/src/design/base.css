@@ -30,7 +30,7 @@ input { font: inherit; color: inherit; }
   isolation: isolate;
   background:
     radial-gradient(60vmax 32vmax at 50% 112%, var(--pool), transparent 70%),
-    radial-gradient(120vmax 90vmax at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.55) 100%),
+    radial-gradient(120vmax 90vmax at 50% 40%, transparent 55%, var(--vignette) 100%),
     var(--bg);
 }
 .backdrop.dotted::before {

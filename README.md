@@ -37,6 +37,10 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (i
 
 `npm run seed -w server` llena Personal y Trabajo con zonas, notas, tareas y enlaces de ejemplo (añade `-- --extra 400` para cientos de notas más). `npm run seed -w server -- --borrar` quita solo lo que creó.
 
+## Temas
+
+En **Configuración** (`Ctrl ,`) se elige el tema: Jardín nocturno (el de siempre), Papel, Observatorio, Bloques, Piedras de río o Plano. Solo cambia el aspecto; el mapa y las notas son los mismos. Se guarda en el servidor, así que vale en todos tus dispositivos.
+
 ## Atajos
 
 Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que tengas, y en **Configuración** (`Ctrl ,` o el botón junto al perfil) se pueden cambiar; se guardan en el servidor.

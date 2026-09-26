@@ -194,3 +194,32 @@
     var(--bg);
 }
 @media (max-width: 560px) { .bg-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* Tema: tarjetas con una miniatura de cada uno, pintada con sus propios colores */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--space-3); }
+.theme-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--space-2); border-radius: var(--radius-md); border: 1px solid var(--line); text-align: left; transition: border-color var(--dur-fast), background var(--dur-fast), transform var(--dur-base) var(--ease-spring); }
+.theme-card:hover { background: var(--surface-hover); transform: translateY(-2px); }
+.theme-card.is-on { border-color: var(--accent-line); box-shadow: var(--glow); }
+.theme-name { margin-top: var(--space-2); font-size: var(--text-md); padding: 0 var(--space-1); }
+.theme-hint { padding: 0 var(--space-1) var(--space-1); line-height: var(--leading-snug); }
+.theme-swatch { position: relative; width: 100%; height: 92px; border-radius: calc(var(--radius-md) - 4px); overflow: hidden; --c-bg: #060708; --c-cell: rgba(120, 140, 160, 0.1); --c-line: rgba(200, 210, 225, 0.35); --c-text: #eceef1; background: var(--c-bg); }
+.theme-swatch i { position: absolute; background: var(--c-cell); border: 1px solid var(--c-line); border-radius: 38% 62% 54% 46% / 50% 42% 58% 50%; }
+.theme-swatch i:nth-child(1) { left: 6%; top: 10%; width: 46%; height: 60%; }
+.theme-swatch i:nth-child(2) { left: 56%; top: 8%; width: 38%; height: 40%; }
+.theme-swatch i:nth-child(3) { left: 50%; top: 54%; width: 30%; height: 38%; }
+.theme-swatch b { position: absolute; left: 12%; bottom: 12%; font: 400 22px var(--sw-font, 'Instrument Serif', serif); font-style: italic; color: var(--c-text); }
+.theme-swatch.t-papel { --c-bg: #f3eee4; --c-cell: #ebe4d6; --c-line: rgba(31, 27, 22, 0.45); --c-text: #1f1b16; --sw-font: 'Fraunces Variable', serif; }
+.theme-swatch.t-observatorio { --c-bg: #05060a; --c-cell: transparent; --c-line: rgba(232, 199, 122, 0.6); --c-text: #eee9dc; --sw-font: 'Cormorant Garamond', serif; }
+.theme-swatch.t-bloques { --c-bg: #eeece5; --c-cell: #ffffff; --c-line: #111111; --c-text: #111111; --sw-font: 'Archivo Variable', sans-serif; }
+.theme-swatch.t-bloques i { border-width: 2px; border-radius: 0; }
+.theme-swatch.t-bloques i:nth-child(2) { background: #ffd400; }
+.theme-swatch.t-bloques b { font-style: normal; font-weight: 900; }
+.theme-swatch.t-piedras { --c-bg: #e8e0d2; --c-line: transparent; --c-text: #3a332b; --sw-font: 'Young Serif', serif; }
+.theme-swatch.t-piedras i { box-shadow: 0 6px 10px -4px rgba(90, 70, 50, 0.35); }
+.theme-swatch.t-piedras i:nth-child(1) { background: #b7c7a1; }
+.theme-swatch.t-piedras i:nth-child(2) { background: #b7c6d1; }
+.theme-swatch.t-piedras i:nth-child(3) { background: #d9a98e; }
+.theme-swatch.t-piedras b { font-style: normal; }
+.theme-swatch.t-plano { --c-bg: #123a6b; --c-cell: transparent; --c-line: rgba(255, 255, 255, 0.8); --c-text: #f2f7ff; --sw-font: 'JetBrains Mono Variable', monospace; background-image: linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px); background-size: 12px 12px; }
+.theme-swatch.t-plano i { border-radius: 30% 20% 34% 22%; }
+.theme-swatch.t-plano b { font-style: normal; font-size: 18px; }
