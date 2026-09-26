@@ -25,7 +25,7 @@ const profileBody = z.object({
   color: z.string().max(20).nullish(),
   icon: z.string().max(40).nullish(),
 });
-export const BACKGROUNDS = ['plain', 'dots', 'grid', 'stars', 'fireflies', 'aurora'] as const;
+export const BACKGROUNDS = ['plain', 'stars', 'fireflies', 'aurora'] as const;
 const profilePatch = profileBody
   .partial()
   .extend({ position: z.number().int().optional(), background: z.enum(BACKGROUNDS).optional() });
@@ -71,7 +71,7 @@ export function createApp(db: Db) {
     await setPassword(db, body.data.password);
     if (db.select({ n: count() }).from(profiles).get()!.n === 0) {
       db.insert(profiles)
-        .values(DEFAULT_PROFILES.map((p, position) => ({ ...p, id: ulid(), position })))
+        .values(DEFAULT_PROFILES.map((p, position) => ({ ...p, id: ulid(), position, background: 'stars' as const })))
         .run();
     }
     startSession(c);
@@ -111,7 +111,7 @@ export function createApp(db: Db) {
     const position = db.select({ n: count() }).from(profiles).get()!.n;
     const row = db
       .insert(profiles)
-      .values({ id: ulid(), ...body.data, color: body.data.color ?? PROFILE_COLORS[position % PROFILE_COLORS.length], position })
+      .values({ id: ulid(), background: 'stars', ...body.data, color: body.data.color ?? PROFILE_COLORS[position % PROFILE_COLORS.length], position })
       .returning()
       .get();
     return c.json(row, 201);

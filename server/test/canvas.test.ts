@@ -60,12 +60,16 @@ describe('notes', () => {
     expect(note.id).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
   });
 
-  it('detaches notes when their zone is deleted', async () => {
-    const zone = await data('POST', `/api/profiles/${personal}/notes`, { kind: 'zone', x: 0, y: 0, w: 400, h: 300 });
+  it('moves what was inside a deleted section to its parent section', async () => {
+    const outer = await data('POST', `/api/profiles/${personal}/notes`, { kind: 'zone', x: 0, y: 0, w: 800, h: 600 });
+    const zone = await data('POST', `/api/profiles/${personal}/notes`, { kind: 'zone', x: 0, y: 0, w: 400, h: 300, zoneId: outer.id });
     const inner = await data('POST', `/api/profiles/${personal}/notes`, { x: 20, y: 20, zoneId: zone.id });
     await call('DELETE', `/api/notes/${zone.id}`);
     const { notes } = await data('GET', `/api/profiles/${personal}/canvas`);
-    expect(notes).toEqual([expect.objectContaining({ id: inner.id, zoneId: null })]);
+    expect(notes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: inner.id, zoneId: outer.id }), expect.objectContaining({ id: outer.id, zoneId: null })]),
+    );
+    expect(notes).toHaveLength(2);
   });
 });
 

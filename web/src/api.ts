@@ -1,4 +1,4 @@
-export type BackgroundKind = 'plain' | 'dots' | 'grid' | 'stars' | 'fireflies' | 'aurora';
+export type BackgroundKind = 'plain' | 'stars' | 'fireflies' | 'aurora';
 
 export type Profile = {
   id: string;

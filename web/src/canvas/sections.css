@@ -1,8 +1,6 @@
-/* ═══ Mapa de secciones (experimento) ═══════════════════════════════
+/* ═══ Mapa de secciones ═════════════════════════════════════════════
    El dibujo lo hace canvas/fluid.ts en cada fotograma; aquí solo el aspecto.
    Cada celda trae su tinte en --hue. */
-
-.canvas.mapped .react-flow { opacity: 0; pointer-events: none; }
 
 .smap {
   position: absolute;
@@ -12,7 +10,7 @@
   background: radial-gradient(120% 90% at 50% 40%, transparent 45%, color-mix(in oklab, var(--bg) 70%, transparent));
   animation: fade var(--dur-slow) var(--ease-out) both;
 }
-.smap-stage { position: absolute; inset: 0; }
+.smap-stage { position: absolute; inset: 0; user-select: none; -webkit-user-select: none; }
 .smap-stage.pointing { cursor: zoom-in; }
 .fl-svg { position: absolute; inset: 0; overflow: visible; }
 .fl-level { transition: opacity 120ms linear; }
@@ -74,7 +72,6 @@
 .smap-crumb:not(.current):hover { color: var(--text); background: var(--accent-soft); }
 .smap-crumb.current { color: var(--text); cursor: default; }
 .smap-sep { color: var(--text-ghost); }
-.smap-hint { position: absolute; bottom: 52px; left: 0; right: 0; text-align: center; pointer-events: none; }
 
 /* Hoja de nota: la celda crece hasta llenar la pantalla con su mismo tinte. */
 .sheet {
@@ -111,13 +108,16 @@
 @keyframes sheet-content { from { opacity: 0; transform: translateY(14px); filter: blur(6px); } }
 @keyframes sheet-content-out { to { opacity: 0; filter: blur(4px); } }
 .sheet-body .task-glyph { top: 6px; right: 0; }
-.sheet .focus-prose { padding: 0; font-size: 18px; line-height: 1.7; min-height: 30vh; }
-.sheet .focus-prose:focus-visible { box-shadow: none; }
-.sheet .focus-prose > p:first-child strong, .sheet .focus-prose > h1:first-child { font-family: var(--font-serif); font-weight: 400; font-size: clamp(34px, 5vw, 52px); line-height: 1.1; }
+.sheet .sheet-prose { padding: 0; font-size: 18px; line-height: 1.7; min-height: 30vh; }
+.sheet .sheet-prose:focus-visible { box-shadow: none; }
+.sheet .sheet-prose > p:first-child strong, .sheet .sheet-prose > h1:first-child { font-family: var(--font-serif); font-weight: 400; font-size: clamp(34px, 5vw, 52px); line-height: 1.1; }
 .sheet .note-chips { padding: var(--space-4) 0 0; }
 .sheet-links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-8); padding-top: var(--space-4); border-top: 1px solid oklch(0.85 0.05 var(--hue) / 0.14); }
 .sheet-link {
-  padding: 4px var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px var(--space-2) 4px var(--space-3);
   border-radius: 999px;
   color: var(--text-muted);
   background: oklch(0.66 0.05 var(--hue) / 0.1);
@@ -134,5 +134,45 @@
 .sheet-actions { display: flex; gap: var(--space-2); }
 .sheet-back.danger:hover { color: var(--danger, oklch(0.72 0.14 25)); background: oklch(0.6 0.12 25 / 0.14); }
 .fl-cell.lit path { stroke: var(--accent-line); fill: oklch(0.66 0.08 var(--hue) / 0.14); filter: drop-shadow(0 0 14px var(--accent-glow)); }
-/* Sobre la hoja de la nota, el inspector sigue a mano. */
-.exp-secciones .inspector { z-index: calc(var(--z-chrome) + 3); }
+.sheet-link-go { color: inherit; max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.sheet-link-x { color: var(--text-ghost); width: 18px; height: 18px; border-radius: 50%; opacity: 0; transition: opacity var(--dur-fast), color var(--dur-fast), background var(--dur-fast); }
+.sheet-link:hover .sheet-link-x, .sheet-link-x:focus-visible { opacity: 1; }
+.sheet-link-x:hover { color: var(--text); background: oklch(0.66 0.05 var(--hue) / 0.2); }
+.sheet-link-add { padding-right: var(--space-3); color: var(--text-faint); background: transparent; box-shadow: none; outline: 1px dashed oklch(0.85 0.05 var(--hue) / 0.3); outline-offset: -1px; }
+
+/* Arrastrar una celda a otra sección */
+.smap.dragging, .smap.dragging .smap-stage { cursor: grabbing; }
+.fl-cell.dragged { opacity: 0.45 !important; }
+.fl-cell.drop path { stroke: var(--accent-line); stroke-width: 2; fill: oklch(0.66 0.09 var(--hue) / 0.18); }
+.smap-crumb.drop { color: var(--text); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-line); }
+.smap-ghost {
+  position: absolute;
+  z-index: calc(var(--z-chrome) + 4);
+  translate: 14px 10px;
+  padding: 4px var(--space-3);
+  border-radius: 999px;
+  pointer-events: none;
+  white-space: nowrap;
+  color: var(--text);
+  background: color-mix(in oklab, var(--bg) 80%, transparent);
+  box-shadow: 0 0 0 1px var(--accent-line), 0 8px 30px -10px var(--accent-glow);
+  backdrop-filter: blur(8px);
+  animation: fade var(--dur-fast) var(--ease-out) both;
+}
+
+/* Nombre de una sección nueva o renombrada */
+.section-name {
+  position: absolute;
+  top: 64px;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  z-index: calc(var(--z-chrome) + 3);
+  width: min(420px, calc(100% - 2 * var(--space-4)));
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-radius: var(--radius-lg);
+  animation: rise-in var(--dur-base) var(--ease-spring) both;
+}
+.section-name .field { font-family: var(--font-serif); font-style: italic; font-size: 26px; }

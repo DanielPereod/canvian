@@ -188,52 +188,43 @@ export function Styleguide() {
           </div>
         </Section>
 
-        <Section title="Canvas">
+        <Section title="Mapa">
           <div className="sg-canvas">
-            <div className="zone sg-zone">
-              <div className="zone-header">
-                <span className="meta">Zona</span>
-                <span className="zone-title">Viaje a Lisboa</span>
-              </div>
-            </div>
-            <div className="note surface-1 sg-note" style={{ left: 40, top: 70 }}>
-              <div className="note-body prose">
-                <h2>Reservar alojamiento</h2>
-                <ul>
-                  <li>
-                    <p>Alfama o Graça</p>
-                  </li>
-                  <li>
-                    <p>
-                      Máximo <strong>90 €</strong> la noche
-                    </p>
-                  </li>
-                </ul>
-              </div>
-            </div>
-            <div className="note surface-1 selected sg-note" style={{ left: 335, top: 130 }}>
-              <div className="note-body prose">
-                <p>
-                  Comparar vuelos en <code>TAP</code> y Vueling
-                </p>
-              </div>
-            </div>
-            <div className="note surface-1 editing sg-note" style={{ left: 335, top: 235 }}>
-              <div className="note-body prose">
-                <blockquote>
-                  <p>Editando, con halo de luz</p>
-                </blockquote>
-              </div>
-            </div>
+            <svg className="sg-map" viewBox="0 0 620 320" aria-hidden="true">
+              <g className="fl-cell kind-zone" style={{ '--hue': 28 } as CSSProperties}>
+                <path d="M18 24 C120 14 250 16 300 26 C312 90 300 200 276 300 C190 306 90 304 22 296 C12 200 10 100 18 24 Z" />
+                <text className="fl-title" x="156" y="150" style={{ fontSize: 34 }}>
+                  Viaje a Lisboa
+                </text>
+                <text className="fl-meta" x="156" y="186">
+                  9 notas · 2 secc.
+                </text>
+              </g>
+              <g className="fl-cell kind-zone hover" style={{ '--hue': 170 } as CSSProperties}>
+                <path d="M318 26 C420 18 540 20 600 30 C606 90 604 140 598 168 C520 176 420 176 330 170 C322 120 316 70 318 26 Z" />
+                <text className="fl-title" x="460" y="96" style={{ fontSize: 26 }}>
+                  Casa
+                </text>
+                <text className="fl-meta" x="460" y="124">
+                  13 notas
+                </text>
+              </g>
+              <g className="fl-cell kind-note" style={{ '--hue': 250 } as CSSProperties}>
+                <path d="M334 188 C430 182 530 184 598 190 C602 230 600 270 596 300 C500 306 400 306 296 302 C310 260 322 222 334 188 Z" />
+                <text className="fl-title" x="450" y="248" style={{ fontSize: 16 }}>
+                  ◐ Comparar vuelos
+                </text>
+              </g>
+            </svg>
           </div>
         </Section>
 
         <Section title="Movimiento">
           <div className="surface-2 sg-card sg-motion">
             <p className="muted">
-              Todo entra con muelle y sale rápido. Las notas florecen (escala, desenfoque y opacidad), los enlaces crecen
-              como tallos y llevan un pulso de luz al señalarlos, y al cambiar de perfil el color de la luz se funde en
-              casi un segundo.
+              Todo entra con muelle y sale rápido. En el mapa, las secciones respiran despacio y se reparten el espacio
+              como un fluido; una nota se abre creciendo desde su celda hasta llenar la pantalla, y al cambiar de perfil
+              el color de la luz se funde en casi un segundo.
             </p>
             <ul className="sg-motion-list">
               <li><code>--ease-spring</code> entradas, botones, asas</li>

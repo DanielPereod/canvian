@@ -3,7 +3,8 @@
   position: absolute;
   top: var(--space-4);
   right: var(--space-4);
-  z-index: calc(var(--z-chrome) + 1);
+  /* Encima de la hoja de la nota. */
+  z-index: calc(var(--z-chrome) + 3);
   width: min(340px, calc(100% - 2 * var(--space-4)));
   max-height: calc(100% - 2 * var(--space-4) - 40px);
   overflow-y: auto;
@@ -214,4 +215,4 @@
 .chip-option { color: hsl(var(--chip) 60% 76%); background: hsl(var(--chip) 60% 60% / 0.13); }
 .note-chip.more { color: var(--text-ghost); }
 @keyframes overdue { 50% { box-shadow: 0 0 12px -2px color-mix(in oklab, var(--danger) 60%, transparent); } }
-.constellation .note-chips { opacity: 0; }
+

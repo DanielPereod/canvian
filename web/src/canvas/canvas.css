@@ -1,41 +1,14 @@
-.canvas { position: absolute; inset: 0; z-index: 0; isolation: isolate; }
-.react-flow { background: transparent; }
+.canvas { position: absolute; inset: 0; }
 
 .empty-state { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; text-align: center; }
 .empty-state .display { font-size: var(--text-2xl); color: var(--text-muted); animation: bloom var(--dur-grow) var(--ease-out) both; }
 .empty-state .display em { color: var(--text); }
 .empty-state .meta { margin-top: var(--space-3); display: block; }
 
-/* ── Nota ─────────────────────────────────────────────── */
-.note {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 44px;
-  border-radius: var(--radius-md);
-  color: var(--text);
-  transition: border-color var(--dur-base), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
-}
-.react-flow__node:hover .note:not(.editing) { border-color: var(--line-strong); }
-/* Entrada: al abrir el lienzo y en las notas nuevas; no al aparecer por moverte. */
-.canvas:not(.settled) .note, .react-flow__node.born .note { animation: note-in var(--dur-slow) var(--ease-spring) both; }
-.canvas:not(.settled) .zone, .react-flow__node.born .zone { animation: note-in var(--dur-slow) var(--ease-out) both; }
-.canvas:not(.settled) .stem, .react-flow__edge.born .stem { animation: grow var(--dur-grow) var(--ease-out) both; }
-.react-flow__node.dragging .note { transform: scale(1.02) rotate(-0.4deg); box-shadow: var(--highlight), var(--shadow-2); }
-.react-flow__node.is-leaving .note, .react-flow__node.is-leaving .zone { animation: note-out var(--dur-fast) var(--ease-in) forwards; }
-.note.fixed { overflow: hidden; }
-.note.fixed .note-body, .note.fixed .tiptap { height: 100%; overflow: auto; }
-.note.selected { border-color: var(--accent-line); box-shadow: var(--highlight), 0 0 30px -12px var(--accent-glow), var(--shadow-1); }
-.note.editing { border-color: var(--accent-line); box-shadow: var(--highlight), var(--glow), var(--shadow-1); }
+/* ── Texto de las notas ───────────────────────────────── */
+
 .note-body { padding: var(--space-3) var(--space-4); font-size: var(--text-md); line-height: var(--leading-body); outline: none; overflow-wrap: anywhere; }
 .note-body.empty { color: var(--text-ghost); font-family: var(--font-serif); font-style: italic; font-size: var(--text-lg); }
-.cursor-text { cursor: text; }
-
-@keyframes note-in {
-  from { opacity: 0; transform: scale(0.9) translateY(6px); filter: blur(8px); }
-  60% { filter: blur(0); }
-}
-@keyframes note-out { to { opacity: 0; transform: scale(0.92); filter: blur(6px); } }
 
 /* Texto enriquecido: títulos en serif, cuerpo en grotesca */
 .prose > :first-child { margin-top: 0; }
@@ -57,91 +30,3 @@
 .prose blockquote { margin: 0 0 0.45em; padding-left: var(--space-3); border-left: 1px solid var(--accent-line); font-family: var(--font-serif); font-style: italic; font-size: 1.12em; color: var(--text-muted); }
 .prose hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-2) 0; }
 .tiptap p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--text-ghost); float: left; height: 0; pointer-events: none; font-family: var(--font-serif); font-style: italic; font-size: 1.12em; }
-
-/* ── Asas para enlazar: semillas de luz ──────────────── */
-.react-flow__handle.handle {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 0;
-  box-shadow: 0 0 0 3px var(--bg), 0 0 12px 2px var(--accent-glow);
-  opacity: 0;
-  scale: 0.4;
-  transition: opacity var(--dur-fast), scale var(--dur-base) var(--ease-spring);
-}
-.react-flow__node:hover .handle, .react-flow__node.selected .handle, .react-flow__handle.connectingfrom { opacity: 1; scale: 1; }
-.react-flow__handle.handle:hover { scale: 1.4; }
-.note.editing .handle { opacity: 0 !important; }
-
-/* ── Tallos (enlaces) ────────────────────────────────── */
-.stem {
-  fill: none;
-  stroke: var(--stem);
-  stroke-width: 1.25;
-  stroke-linecap: round;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 0;
-  transition: stroke var(--dur-base);
-}
-.stem-pulse {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 0.06 0.94;
-  opacity: 0;
-  filter: drop-shadow(0 0 4px var(--accent));
-  transition: opacity var(--dur-base);
-}
-.react-flow__edge:hover .stem { stroke: var(--stem-hover); }
-.react-flow__edge.selected .stem { stroke: var(--accent-line); }
-.react-flow__edge:hover .stem-pulse, .react-flow__edge.selected .stem-pulse { opacity: 1; animation: flow 1.8s linear infinite; }
-.react-flow__connection-path { fill: none; stroke: var(--accent); stroke-width: 1.25; stroke-dasharray: 2 5; stroke-linecap: round; animation: march 0.6s linear infinite; }
-.react-flow__edge-text { fill: var(--text-muted); font-size: var(--text-xs); }
-.react-flow__edge-textbg { fill: var(--bg); }
-
-@keyframes grow { from { stroke-dashoffset: 1; } }
-@keyframes flow { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-@keyframes march { to { stroke-dashoffset: -7; } }
-
-/* ── Redimensionar ───────────────────────────────────── */
-.resize-line { border-color: transparent !important; }
-.resize-handle {
-  width: 8px !important;
-  height: 8px !important;
-  border-radius: 50% !important;
-  background: var(--bg) !important;
-  border: 1.5px solid var(--accent) !important;
-}
-
-/* ── Zona: un claro en el jardín ─────────────────────── */
-.zone {
-  width: 100%;
-  height: 100%;
-  border-radius: var(--radius-xl);
-  background:
-    radial-gradient(120% 80% at 50% 0%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 70%),
-    rgba(255, 255, 255, 0.012);
-  border: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  transition: border-color var(--dur-base), box-shadow var(--dur-base);
-}
-.zone.selected { border-color: var(--accent-line); box-shadow: 0 0 60px -30px var(--accent-glow); }
-.zone-header { padding: var(--space-3) var(--space-5) var(--space-1); cursor: grab; display: grid; gap: 0; }
-.zone-header:active { cursor: grabbing; }
-.zone-title { font-family: var(--font-serif); font-size: var(--text-xl); line-height: 1.15; color: var(--text); }
-.zone-title.untitled { color: var(--text-ghost); font-style: italic; }
-.zone-title-input { width: min(300px, 100%); min-height: 34px; font-family: var(--font-serif); font-size: 20px; padding: 0 var(--space-2); margin-left: calc(-1 * var(--space-2)); }
-.zone-body { flex: 1; }
-
-/* ── Zoom semántico: de lejos, solo el título ─────────── */
-.titles .note:not(.editing) .note-body > :not(:first-child) { display: none; }
-.titles .note:not(.editing) .note-body > :first-child {
-  font-size: 21px; /* fijo: si dependiera del zoom, las notas se medirían en cada paso */
-  line-height: var(--leading-snug);
-  font-weight: var(--weight-semibold);
-}
-.titles .note:not(.editing) .note-body > ul:first-child > li:not(:first-child) { display: none; }
-.titles .zone-title { font-size: 40px; }

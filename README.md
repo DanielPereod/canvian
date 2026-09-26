@@ -29,7 +29,7 @@ npm start        # sirve todo desde :3210
 | Carpeta   | Qué hay |
 |-----------|---------|
 | `server/` | Hono + better-sqlite3 + Drizzle. Esquema en `src/db/schema.ts`, migraciones en `drizzle/` (se generan con `npm run db:generate -w server`) y se aplican al arrancar. |
-| `web/`    | React 19 + Vite + React Flow. |
+| `web/`    | React 19 + Vite. El mapa de secciones se dibuja en SVG (`web/src/canvas/fluid.ts`). |
 
 Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` (por defecto `web/dist`).
 
@@ -41,24 +41,27 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` 
 
 | Atajo | Acción |
 |-------|--------|
-| Doble clic en el vacío | Crear una nota ahí |
-| Doble clic en una nota | Editarla (`Esc` para salir; si queda vacía, se borra) |
-| Arrastrar desde un punto del borde | Enlazar con otra nota, o crear una nueva enlazada si sueltas en el vacío |
-| `B` | Elegir el fondo del perfil (liso, puntos, cuadrícula, estrellas, luciérnagas, aurora) |
-| `T` | Convertir las notas seleccionadas en tareas (o volver a notas) |
-| `X` | Avanzar el estado de la tarea: pendiente → en curso → hecha |
-| `P` | Panel de propiedades de la nota seleccionada: tipo, estado, prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
-| `F` | Lente: filtra el canvas en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea`, `estado:pendiente\|curso\|hecha` (o `-hecha`), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d`, `zona:viaje`, `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
-| `Tab` (con la lente) | Cambia el modo: atenuar, ocultar o columnas. En columnas (por estado, prioridad, fecha o una propiedad de opciones), arrastrar una nota a otra columna le cambia ese valor |
-| `⌘/Ctrl S` (en la lente) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |
+| Rueda | Acercar la sección o nota señalada; hacia atrás, alejar |
+| Clic en una sección | Entrar en ella |
+| Clic en una nota (o `Enter`) | Acercarse hasta que la celda se abre como hoja a pantalla completa |
+| `Esc` / `Retroceso` | Salir: cierra la hoja o sube un nivel |
+| Clic en una miga de pan | Volver a ese nivel; doble clic en una sección de las migas la renombra |
+| `1` | Volver a Todo |
+| `N` | Nota nueva en la sección señalada o en la que estás |
+| `G` | Sección nueva en la que estás |
+| `R` | Renombrar la sección señalada |
+| Arrastrar una celda | Moverla a otra sección (soltándola sobre ella) o a un nivel de arriba (soltándola en las migas) |
+| `T` | Convertir la nota señalada en tarea (o volver a nota) |
+| `X` | Avanzar el estado de la tarea señalada: pendiente → en curso → hecha |
+| `P` | Propiedades de la nota señalada: tipo, estado, prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
+| `Supr` | Borrar la nota o sección señalada (lo que había dentro de una sección pasa a su madre) |
+| En la hoja de una nota | Escribir; arriba, hacer tarea, propiedades y borrar; abajo, sus enlaces (`+ Enlazar` busca otra nota, `×` quita el enlace) |
+| `F` | Linterna: filtra el mapa en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea`, `estado:pendiente\|curso\|hecha` (o `-hecha`), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d`, `zona:viaje`, `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
+| `Tab` (con la linterna) | Cambia el modo: atenuar (lo demás se apaga) u ocultar (lo demás encoge) |
+| `⌘/Ctrl S` (en la linterna) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |
+| `B` | Elegir el fondo del perfil (liso, estrellas, luciérnagas, aurora) |
 | `E` | Laboratorio: encender o apagar las ideas en prueba |
-| `G` | Agrupar las notas seleccionadas en una zona (o crear una zona vacía) |
-| `Enter` | Modo foco: la nota seleccionada al centro, editable, rodeada de sus enlaces; pulsa una vecina para ir a ella, `Esc` vuelve |
-| `2` | Encajar la vista en la selección |
-| Arrastrar archivos `.md` | Importarlos como notas; los `[[enlaces]]` entre ellas se convierten en enlaces |
+| Arrastrar archivos `.md` | Importarlos como notas en la sección en la que estás; los `[[enlaces]]` entre ellas se convierten en enlaces |
 | `⌘/Ctrl ⇧ E` | Exportar el perfil a JSON Canvas (`.canvas`, se abre en Obsidian) |
-| `Supr` / `Retroceso` | Borrar lo seleccionado |
-| `⇧` + clic | Seleccionar varias notas |
-| `1` | Encajar todo el canvas |
-| `⌘/Ctrl K` | Buscar notas y saltar a ellas, o crear una |
+| `⌘/Ctrl K` | Buscar notas y abrirlas, o crear una |
 | `⌘/Ctrl ⇧ P` | Cambiar de perfil, crear uno o cerrar sesión |
