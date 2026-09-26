@@ -18,7 +18,7 @@ const noteFields = {
   h: z.number().positive().nullable(),
   z: z.number().int(),
   zoneId: z.string().nullable(),
-  status: z.enum(['todo', 'doing', 'done']).nullable(),
+  status: z.enum(['todo', 'doing', 'blocked', 'done']).nullable(),
   priority: z.number().int().min(0).max(3).nullable(),
   dueAt: z.string().max(40).nullable(),
   doneAt: z.string().max(40).nullable(),

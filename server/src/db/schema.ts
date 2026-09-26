@@ -51,7 +51,7 @@ export const notes = sqliteTable(
     h: real('h'),
     z: integer('z').notNull().default(0),
     zoneId: text('zone_id'),
-    status: text('status'), // todo | doing | done (solo tareas)
+    status: text('status'), // todo | doing | blocked | done (solo tareas)
     priority: integer('priority'),
     dueAt: text('due_at'),
     doneAt: text('done_at'),

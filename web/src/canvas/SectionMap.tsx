@@ -11,7 +11,7 @@ import { actionFor, keysBlocked, type ActionId } from '../keys';
 
 // Lo que se pide desde el mapa sobre la celda señalada (o la sección en la
 // que estás, para crear).
-export type MapAction = 'create' | 'section' | 'task' | 'status' | 'props' | 'delete' | 'rename';
+export type MapAction = 'create' | 'section' | 'task' | 'status' | 'block' | 'props' | 'delete' | 'rename';
 
 type Props = {
   tree: MapNode;
@@ -28,8 +28,8 @@ type Props = {
   memoria: boolean;
 };
 
-const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', properties: 'props', deleteCell: 'delete', rename: 'rename' };
-const MAP_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'properties', 'deleteCell', 'rename', 'toRoot', 'newNote', 'newSection'];
+const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename' };
+const MAP_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'toRoot', 'newNote', 'newSection'];
 const DRAG_FROM = 6;
 
 // Sección a la que va lo que se suelta sobre este nodo; undefined si no admite.

@@ -304,7 +304,7 @@ const el = <K extends keyof SVGElementTagNameMap>(tag: K, cls?: string) => {
 
 type CellEls = { g: SVGGElement; path: SVGPathElement; title: SVGTextElement; meta: SVGTextElement; peek: SVGTextElement[]; card?: SVGForeignObjectElement };
 
-const STATUS = { todo: '○', doing: '◐', done: '●' } as const;
+const STATUS = { todo: '○', doing: '◐', blocked: '⊘', done: '●' } as const;
 
 class FluidView {
   root: SVGGElement;
