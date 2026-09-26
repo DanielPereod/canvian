@@ -13,18 +13,19 @@
 .smap-stage { position: absolute; inset: 0; user-select: none; -webkit-user-select: none; }
 .smap-stage.pointing { cursor: zoom-in; }
 .fl-svg { position: absolute; inset: 0; overflow: visible; }
-.fl-level { transition: opacity 120ms linear; }
+.fl-level { will-change: opacity; }
 
-.fl-cell path {
+.fl-cell .fl-shape {
   fill: oklch(0.62 0.07 var(--hue) / 0.075);
   stroke: oklch(0.82 0.06 var(--hue) / 0.34);
   stroke-width: 1.25;
   transition: fill var(--dur-base), stroke var(--dur-base);
 }
-.fl-cell.kind-note path { fill: oklch(0.66 0.05 var(--hue) / 0.06); stroke: oklch(0.85 0.05 var(--hue) / 0.22); }
-.fl-cell.kind-group path { stroke-dasharray: 4 6; }
-.fl-cell.hover path { fill: oklch(0.64 0.08 var(--hue) / 0.15); stroke: oklch(0.88 0.08 var(--hue) / 0.75); }
-.fl-cell.done { filter: saturate(0.3); }
+.fl-cell.kind-note .fl-shape { fill: oklch(0.66 0.05 var(--hue) / 0.06); stroke: oklch(0.85 0.05 var(--hue) / 0.22); }
+.fl-cell.kind-group .fl-shape { stroke-dasharray: 4 6; }
+.fl-cell.hover .fl-shape { fill: oklch(0.64 0.08 var(--hue) / 0.15); stroke: oklch(0.88 0.08 var(--hue) / 0.75); }
+.fl-cell.done .fl-shape { fill: oklch(0.62 0.015 var(--hue) / 0.06); stroke: oklch(0.82 0.015 var(--hue) / 0.26); }
+.fl-shade { fill: none; stroke: none; pointer-events: none; }
 .fl-cell.done .fl-title { fill: var(--text-faint); }
 
 .fl-cell text { text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
@@ -133,7 +134,7 @@
 .sheet-link:hover { color: var(--text); background: oklch(0.66 0.07 var(--hue) / 0.2); }
 .sheet-actions { display: flex; gap: var(--space-2); }
 .sheet-back.danger:hover { color: var(--danger, oklch(0.72 0.14 25)); background: oklch(0.6 0.12 25 / 0.14); }
-.fl-cell.lit path { stroke: var(--accent-line); fill: oklch(0.66 0.08 var(--hue) / 0.14); filter: drop-shadow(0 0 14px var(--accent-glow)); }
+.fl-cell.lit .fl-shape { stroke: var(--accent-line); stroke-width: 2; fill: oklch(0.66 0.08 var(--hue) / 0.14); }
 .sheet-link-go { color: inherit; max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
 .sheet-link-x { color: var(--text-ghost); width: 18px; height: 18px; border-radius: 50%; opacity: 0; transition: opacity var(--dur-fast), color var(--dur-fast), background var(--dur-fast); }
 .sheet-link:hover .sheet-link-x, .sheet-link-x:focus-visible { opacity: 1; }
@@ -143,7 +144,7 @@
 /* Arrastrar una celda a otra sección */
 .smap.dragging, .smap.dragging .smap-stage { cursor: grabbing; }
 .fl-cell.dragged { opacity: 0.45 !important; }
-.fl-cell.drop path { stroke: var(--accent-line); stroke-width: 2; fill: oklch(0.66 0.09 var(--hue) / 0.18); }
+.fl-cell.drop .fl-shape { stroke: var(--accent-line); stroke-width: 2; fill: oklch(0.66 0.09 var(--hue) / 0.18); }
 .smap-crumb.drop { color: var(--text); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-line); }
 .smap-ghost {
   position: absolute;

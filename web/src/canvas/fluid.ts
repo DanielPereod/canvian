@@ -101,24 +101,21 @@ function warp(p: P, t: number, amp: number): P {
 }
 
 function organicPath(poly: P[], t: number, amp: number) {
-  let pts: P[] = [];
+  const pts: P[] = [];
   for (let i = 0; i < poly.length; i++) {
     const p = poly[i];
     const q = poly[(i + 1) % poly.length];
     const steps = Math.max(1, Math.round(Math.hypot(q.x - p.x, q.y - p.y) / 46));
     for (let k = 0; k < steps; k++) pts.push(warp({ x: p.x + ((q.x - p.x) * k) / steps, y: p.y + ((q.y - p.y) * k) / steps }, t, amp));
   }
-  for (let it = 0; it < 3; it++) {
-    const next: P[] = [];
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i];
-      const q = pts[(i + 1) % pts.length];
-      next.push({ x: p.x * 0.75 + q.x * 0.25, y: p.y * 0.75 + q.y * 0.25 }, { x: p.x * 0.25 + q.x * 0.75, y: p.y * 0.25 + q.y * 0.75 });
-    }
-    pts = next;
-  }
-  let d = '';
-  for (let i = 0; i < pts.length; i++) d += (i ? 'L' : 'M') + pts[i].x.toFixed(1) + ',' + pts[i].y.toFixed(1);
+  // La curva a la que tiende recortar esquinas una y otra vez (Chaikin): una
+  // B-spline cuadrática, que se dibuja con una Q por punto, de punto medio a
+  // punto medio. Mismo contorno, ocho veces menos puntos.
+  const n = pts.length;
+  const f = (v: number) => Math.round(v * 10) / 10;
+  const mid = (a: P, b: P) => f((a.x + b.x) / 2) + ',' + f((a.y + b.y) / 2);
+  let d = 'M' + mid(pts[n - 1], pts[0]);
+  for (let i = 0; i < n; i++) d += 'Q' + f(pts[i].x) + ',' + f(pts[i].y) + ' ' + mid(pts[i], pts[(i + 1) % n]);
   return d + 'Z';
 }
 
@@ -302,23 +299,75 @@ const el = <K extends keyof SVGElementTagNameMap>(tag: K, cls?: string) => {
   return e;
 };
 
-type CellEls = { g: SVGGElement; path: SVGPathElement; title: SVGTextElement; meta: SVGTextElement; peek: SVGTextElement[]; card?: SVGForeignObjectElement };
+type CellEls = { g: SVGGElement; shade: SVGPathElement; path: SVGPathElement; title: SVGTextElement; meta: SVGTextElement; peek: SVGTextElement[]; card?: SVGForeignObjectElement };
+
+// Tocar el DOM cuesta aunque el valor sea el mismo (estilo, maquetación del
+// texto): cada elemento recuerda lo último que se le puso y solo se escribe lo
+// que cambia.
+type Memo = Element & { _fl?: Record<string, string> };
+const memo = (e: Element) => ((e as Memo)._fl ??= {});
+function attr(e: Element, name: string, value: string) {
+  const m = memo(e);
+  if (m[name] !== value) {
+    m[name] = value;
+    e.setAttribute(name, value);
+  }
+}
+function css(e: SVGElement | HTMLElement, name: string, value: string) {
+  const m = memo(e);
+  const k = 's:' + name;
+  if (m[k] !== value) {
+    m[k] = value;
+    e.style.setProperty(name, value);
+  }
+}
+function text(e: Element, value: string) {
+  const m = memo(e);
+  if (m.text !== value) {
+    m.text = value;
+    e.textContent = value;
+  }
+}
+function cls(e: Element, name: string, on: boolean) {
+  const m = memo(e);
+  const k = 'c:' + name;
+  const v = on ? '1' : '';
+  if (m[k] !== v) {
+    m[k] = v;
+    e.classList.toggle(name, on);
+  }
+}
+// Opacidades con dos decimales: por debajo no se nota y así casi nunca cambian.
+const op = (v: number) => (Math.round(v * 100) / 100).toString();
 
 const STATUS = { todo: '○', doing: '◐', blocked: '⊘', done: '●' } as const;
 
 // Ancho medio de una letra de los títulos, en em. Lo pone el tema (--fl-title-em)
 // porque unas letras son mucho más anchas que otras; con letra ancha los
 // títulos se encogen para que quepan igual.
+// Y si el tema pinta una sombra bajo cada celda (--fl-shade: 1): una copia del
+// contorno desplazada, sin desenfoque, que cuesta mucho menos que un filtro.
 const BASE_EM = 0.42;
 let titleEm = BASE_EM;
-const readTitleEm = () => {
-  const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fl-title-em'));
+let shadeOn = false;
+const readTheme = () => {
+  const style = getComputedStyle(document.documentElement);
+  const v = parseFloat(style.getPropertyValue('--fl-title-em'));
   titleEm = v > 0 ? v : BASE_EM;
+  shadeOn = style.getPropertyValue('--fl-shade').trim() === '1';
 };
 if (typeof document !== 'undefined') {
-  readTitleEm();
-  new MutationObserver(readTitleEm).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  readTheme();
+  new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
+
+// Las tres subsecciones o notas más importantes, para asomarlas en la celda.
+const kidsCache = new WeakMap<MapNode, MapNode[]>();
+const topKids = (n: MapNode) => {
+  let k = kidsCache.get(n);
+  if (!k) kidsCache.set(n, (k = [...n.children].sort((a, b) => b.importance - a.importance).slice(0, 3)));
+  return k;
+};
 
 class FluidView {
   root: SVGGElement;
@@ -329,7 +378,7 @@ class FluidView {
   }
 
   render(fluid: Fluid, t: number, opacity: number, hover: string | null, hideLabelOf: { id: string; amount: number } | null) {
-    this.root.style.opacity = String(opacity);
+    css(this.root, 'opacity', op(opacity));
     const { lit, memoria, drag, drop } = fluid.lens;
     const today = Date.now();
     const seen = new Set<string>();
@@ -340,36 +389,40 @@ class FluidView {
       if (!e) {
         const g = el('g', `fl-cell kind-${c.node.kind}`);
         g.dataset.id = id;
-        const path = el('path');
+        const shade = el('path', 'fl-shade');
+        const path = el('path', 'fl-shape');
         const title = el('text', 'fl-title');
         const meta = el('text', 'fl-meta');
-        g.append(path, title, meta);
+        g.append(shade, path, title, meta);
         const peek = [0, 1, 2].map(() => {
           const p = el('text', 'fl-peek');
           g.appendChild(p);
           return p;
         });
         this.root.appendChild(g);
-        e = { g, path, title, meta, peek };
+        e = { g, shade, path, title, meta, peek };
         this.els.set(id, e);
       }
-      const visible = c.drawn.length > 2;
-      e.g.style.display = visible ? '' : 'none';
+      const size = c.drawn.length > 2 ? Math.sqrt(Math.abs(polyArea(c.drawn))) : 0;
+      // Lo que no se ve (demasiado pequeño) no se dibuja.
+      const visible = size > 18;
+      css(e.g, 'display', visible ? '' : 'none');
       if (!visible) continue;
-      const size = Math.sqrt(Math.abs(polyArea(c.drawn)));
-      e.g.style.setProperty('--hue', String(c.hue));
+      css(e.g, '--hue', String(Math.round(c.hue)));
       let fade = 1;
       // Luz como memoria: lo que no tocas en un mes se va apagando.
       const touched = c.node.note?.updatedAt;
       if (memoria && touched && hover !== id) fade *= 1 - 0.45 * Math.min(1, Math.max(0, ((today - Date.parse(touched)) / DAY - 1) / 29));
       if (lit && !lit.has(id)) fade *= 0.22;
-      e.g.classList.toggle('lit', !!lit && lit.has(id));
-      e.g.classList.toggle('dragged', drag === id);
-      e.g.classList.toggle('drop', drop === id);
-      e.g.style.opacity = String(Math.min(1, c.alive * 1.2) * smooth(18, 50, size) * fade);
-      e.g.classList.toggle('hover', hover === id);
-      e.g.classList.toggle('done', c.node.note?.kind === 'task' && c.node.note.status === 'done');
-      e.path.setAttribute('d', organicPath(c.drawn, t, Math.min(3.5, size / 50)));
+      cls(e.g, 'lit', !!lit && lit.has(id));
+      cls(e.g, 'dragged', drag === id);
+      cls(e.g, 'drop', drop === id);
+      css(e.g, 'opacity', op(Math.min(1, c.alive * 1.2) * smooth(18, 50, size) * fade));
+      cls(e.g, 'hover', hover === id);
+      cls(e.g, 'done', c.node.note?.kind === 'task' && c.node.note.status === 'done');
+      const d = organicPath(c.drawn, t, Math.min(3.5, size / 50));
+      attr(e.path, 'd', d);
+      attr(e.shade, 'd', shadeOn ? d : '');
 
       const hidden = hideLabelOf?.id === id ? hideLabelOf.amount : 0;
       const note = c.node.kind === 'note';
@@ -377,15 +430,20 @@ class FluidView {
       const fs = (note ? Math.max(11, Math.min(30, size / 11)) : Math.max(12, Math.min(64, size / 8))) * wide;
       const bigNote = note && size > 230;
       const labelOpacity = smooth(55, 95, size) * (1 - hidden);
-      e.title.style.opacity = String(bigNote ? 0 : labelOpacity);
-      e.title.style.fontSize = `${fs}px`;
-      e.title.setAttribute('x', c.center.x.toFixed(1));
-      e.title.setAttribute('y', (c.center.y - (note ? 0 : fs * 0.3)).toFixed(1));
       const task = c.node.note?.kind === 'task' ? `${STATUS[c.node.note.status ?? 'todo']} ` : c.node.note?.kind === 'canvas' ? '◫ ' : '';
-      const room = bbox(c.drawn).w * 0.82;
-      const maxChars = Math.max(6, Math.floor(room / (fs * (note ? 0.52 : 0.42) / wide)));
-      const text = task + c.node.title;
-      e.title.textContent = text.length > maxChars ? text.slice(0, maxChars - 1) + '…' : text;
+      // Un texto invisible no se toca: moverlo obligaría a maquetarlo igual.
+      const titleOn = !bigNote && labelOpacity > 0.01;
+      css(e.title, 'display', titleOn ? '' : 'none');
+      if (titleOn) {
+        css(e.title, 'opacity', op(labelOpacity));
+        css(e.title, 'font-size', `${fs.toFixed(1)}px`);
+        attr(e.title, 'x', c.center.x.toFixed(1));
+        attr(e.title, 'y', (c.center.y - (note ? 0 : fs * 0.3)).toFixed(1));
+        const room = bbox(c.drawn).w * 0.82;
+        const maxChars = Math.max(6, Math.floor(room / (fs * (note ? 0.52 : 0.42) / wide)));
+        const label = task + c.node.title;
+        text(e.title, label.length > maxChars ? label.slice(0, maxChars - 1) + '…' : label);
+      }
 
       const metaText =
         c.node.kind === 'note'
@@ -393,19 +451,27 @@ class FluidView {
           : `${c.node.count} ${c.node.count === 1 ? 'nota' : 'notas'}${
               c.node.children.some((k) => k.kind === 'zone') ? ` · ${c.node.children.filter((k) => k.kind === 'zone').length} secc.` : ''
             }`;
-      e.meta.textContent = metaText;
-      e.meta.setAttribute('x', c.center.x.toFixed(1));
-      e.meta.setAttribute('y', (c.center.y + fs * 0.45 + 8).toFixed(1));
-      e.meta.style.opacity = String(smooth(110, 160, size) * (1 - hidden));
+      const metaOpacity = metaText ? smooth(110, 160, size) * (1 - hidden) : 0;
+      css(e.meta, 'display', metaOpacity > 0.01 ? '' : 'none');
+      if (metaOpacity > 0.01) {
+        text(e.meta, metaText);
+        attr(e.meta, 'x', c.center.x.toFixed(1));
+        attr(e.meta, 'y', (c.center.y + fs * 0.45 + 8).toFixed(1));
+        css(e.meta, 'opacity', op(metaOpacity));
+      }
 
       const peekOn = !note && size > 300;
-      const kids = peekOn ? [...c.node.children].sort((a, b) => b.importance - a.importance).slice(0, 3) : [];
+      const kids = peekOn ? topKids(c.node) : [];
+      const peekOpacity = smooth(300, 380, size) * (1 - hidden);
       e.peek.forEach((p, k) => {
         const kid = kids[k];
-        p.textContent = kid ? (kid.title.length > 34 ? kid.title.slice(0, 33) + '…' : kid.title) : '';
-        p.setAttribute('x', c.center.x.toFixed(1));
-        p.setAttribute('y', (c.center.y + fs * 0.45 + 34 + k * 19).toFixed(1));
-        p.style.opacity = String(smooth(300, 380, size) * (1 - hidden));
+        const on = !!kid && peekOpacity > 0.01;
+        css(p, 'display', on ? '' : 'none');
+        if (!on) return;
+        text(p, kid.title.length > 34 ? kid.title.slice(0, 33) + '…' : kid.title);
+        attr(p, 'x', c.center.x.toFixed(1));
+        attr(p, 'y', (c.center.y + fs * 0.45 + 34 + k * 19).toFixed(1));
+        css(p, 'opacity', op(peekOpacity));
       });
 
       // Una nota grande enseña su texto.
@@ -420,13 +486,13 @@ class FluidView {
         const b = bbox(c.drawn);
         const w = b.w * 0.64;
         const h = b.h * 0.62;
-        e.card.setAttribute('x', (c.center.x - w / 2).toFixed(1));
-        e.card.setAttribute('y', (c.center.y - h / 2).toFixed(1));
-        e.card.setAttribute('width', w.toFixed(1));
-        e.card.setAttribute('height', h.toFixed(1));
-        e.card.style.opacity = String(smooth(230, 300, size) * (1 - hidden));
+        attr(e.card, 'x', (c.center.x - w / 2).toFixed(1));
+        attr(e.card, 'y', (c.center.y - h / 2).toFixed(1));
+        attr(e.card, 'width', w.toFixed(1));
+        attr(e.card, 'height', h.toFixed(1));
+        css(e.card, 'opacity', op(smooth(230, 300, size) * (1 - hidden)));
         const div = e.card.firstChild as HTMLDivElement;
-        div.style.fontSize = `${Math.max(12, Math.min(20, size / 26)).toFixed(1)}px`;
+        css(div, 'font-size', `${Math.max(12, Math.min(20, size / 26)).toFixed(1)}px`);
         const key = `${c.node.title}\u0000${c.node.note?.bodyText ?? ''}`;
         if (div.dataset.key !== key) {
           div.dataset.key = key;
@@ -460,7 +526,9 @@ class FluidView {
 
 /* ── El mapa entero ───────────────────────────────────────────────────── */
 
-type Level = { node: MapNode; fluid: Fluid; view: FluidView };
+// `pending`: pasos de asentamiento que le faltan a un nivel recién creado; se
+// reparten entre fotogramas para que abrir una sección no dé un tirón.
+type Level = { node: MapNode; fluid: Fluid; view: FluidView; pending?: number };
 
 // Lo que la linterna y la memoria cambian en el dibujo. Un solo objeto que
 // comparten todos los niveles.
@@ -487,6 +555,11 @@ export type OpenFrom = { rect: { x: number; y: number; w: number; h: number }; h
 const OPEN_AT = 0.95;
 // Ritmo de la respiración y las ondas: lento, para que el mapa se sienta en calma.
 const TEMPO = 0.4;
+// En calma (sin rueda, ratón ni cambios) el mapa sigue respirando, pero a
+// menos fotogramas: la ondulación es tan lenta que no se nota y la CPU descansa.
+const CALM_FPS = 24;
+const BUSY_MS = 1500;
+const SETTLE_PER_FRAME = 30;
 
 export class FluidMap {
   svg: SVGSVGElement;
@@ -504,6 +577,18 @@ export class FluidMap {
   opened: string | null = null;
   lens: MapLens = { lit: null, hide: false, memoria: false };
   lensArgs: [Set<string> | null, boolean, boolean] = [null, false, false];
+  busyUntil = 0;
+  lastDraw = 0;
+
+  // Algo cambió: unos instantes a todos los fotogramas.
+  wake() {
+    this.busyUntil = performance.now() + BUSY_MS;
+  }
+
+  private moving() {
+    const settling = (l: Level | null) => !!l && (!!l.pending || l.fluid.cells.some((c) => Math.abs(c.sTarget - c.s) > 0.002 || c.alive < 0.99));
+    return settling(this.top()) || settling(this.nested);
+  }
 
   constructor(host: HTMLElement, root: MapNode, events: FluidMapEvents, startPath: string[] = []) {
     this.events = events;
@@ -519,10 +604,10 @@ export class FluidMap {
       if (!cell || !cell.node.children.length) break;
       cell.s = cell.sTarget = 1.02;
       top.fluid.settle(400, 0);
-      top.view.root.style.display = 'none';
+      css(top.view.root, 'display', 'none');
       this.levels.push(this.makeLevel(cell.node, this.frame, cell.hue));
     }
-    this.levels.forEach((l, i) => (l.view.root.style.display = i === this.levels.length - 1 ? '' : 'none'));
+    this.levels.forEach((l, i) => css(l.view.root, 'display', i === this.levels.length - 1 ? '' : 'none'));
     this.top().fluid.settle(400, 0);
     this.emitPath();
     this.loop();
@@ -539,6 +624,7 @@ export class FluidMap {
   }
 
   resize() {
+    this.wake();
     const w = this.svg.parentElement!.clientWidth;
     const h = this.svg.parentElement!.clientHeight;
     this.svg.setAttribute('width', String(w));
@@ -553,6 +639,7 @@ export class FluidMap {
   }
 
   setTree(root: MapNode) {
+    this.wake();
     this.root = root;
     let node = root;
     for (let i = 0; i < this.levels.length; i++) {
@@ -574,7 +661,7 @@ export class FluidMap {
       if (next) this.nested.fluid.setNode(next);
       else this.dropNested();
     }
-    this.levels.forEach((l, i) => (l.view.root.style.display = i === this.levels.length - 1 ? '' : 'none'));
+    this.levels.forEach((l, i) => css(l.view.root, 'display', i === this.levels.length - 1 ? '' : 'none'));
     this.setLens(...this.lensArgs);
     this.emitPath();
   }
@@ -595,7 +682,10 @@ export class FluidMap {
   private loop = () => {
     this.raf = requestAnimationFrame(this.loop);
     if (this.paused) return;
-    const t = ((performance.now() - this.t0) / 1000) * TEMPO;
+    const now = performance.now();
+    if (now > this.busyUntil && !this.moving() && now - this.lastDraw < 1000 / CALM_FPS - 2) return;
+    this.lastDraw = now;
+    const t = ((now - this.t0) / 1000) * TEMPO;
     const top = this.top();
     top.fluid.step(t, this.hover);
     const z = this.zoomed();
@@ -608,17 +698,24 @@ export class FluidMap {
       if (!this.nested || this.nested.node.id !== openable.node.id) {
         this.dropNested();
         this.nested = this.makeLevel(openable.node, openable.drawn, openable.hue);
-        this.nested.fluid.settle(240, t);
+        this.nested.pending = 240;
       }
       this.nested.fluid.frame = openable.drawn;
-      this.nested.fluid.step(t, null);
+      if (this.nested.pending) {
+        const k = Math.min(SETTLE_PER_FRAME, this.nested.pending);
+        this.nested.fluid.settle(k, t);
+        this.nested.pending -= k;
+        // Hasta que no se ha asentado, no se enseña.
+        if (this.nested.pending) nestedOpacity = 0;
+      } else this.nested.fluid.step(t, null);
     } else if (this.nested) this.dropNested();
 
     top.view.render(top.fluid, t, 1, this.hover, openable ? { id: openable.node.id, amount: nestedOpacity } : null);
     if (this.nested) {
       // Encima de su celda, que queda como fondo.
       if (this.svg.lastChild !== this.nested.view.root) this.svg.appendChild(this.nested.view.root);
-      this.nested.view.render(this.nested.fluid, t, nestedOpacity, null, null);
+      css(this.nested.view.root, 'display', nestedOpacity > 0.01 ? '' : 'none');
+      if (nestedOpacity > 0.01) this.nested.view.render(this.nested.fluid, t, nestedOpacity, null, null);
     }
 
     // Entrar: la celda ya llena la pantalla.
@@ -632,7 +729,7 @@ export class FluidMap {
         const level = this.nested;
         this.nested = null;
         level.fluid.frame = this.frame;
-        top.view.root.style.display = 'none';
+        css(top.view.root, 'display', 'none');
         this.levels.push(level);
         this.hover = null;
         this.emitPath();
@@ -642,6 +739,7 @@ export class FluidMap {
 
   // Rueda: hacia delante acerca la celda señalada; hacia atrás, aleja.
   wheel(dy: number, p: P) {
+    this.wake();
     const top = this.top();
     const z = this.zoomed();
     const now = performance.now();
@@ -662,12 +760,13 @@ export class FluidMap {
   // Sube un nivel: el de arriba vuelve con esta sección aún ocupándolo todo y,
   // con la rueda, se va encogiendo; con Esc vuelve del todo a su tamaño.
   up(all = false) {
+    this.wake();
     if (this.levels.length < 2) return;
     const leaving = this.levels.pop()!;
     const top = this.top();
     const cell = top.fluid.cells.find((c) => c.node.id === leaving.node.id);
     this.dropNested();
-    top.view.root.style.display = '';
+    css(top.view.root, 'display', '');
     if (cell) {
       cell.s = 1.02;
       cell.sTarget = all ? 0 : 0.72;
@@ -681,18 +780,20 @@ export class FluidMap {
 
   // Salta al nivel `depth` (0 = todo).
   upTo(depth: number) {
+    this.wake();
     while (this.levels.length - 1 > depth) {
       const leaving = this.levels.pop()!;
       leaving.view.destroy();
     }
     this.dropNested();
     const top = this.top();
-    top.view.root.style.display = '';
+    css(top.view.root, 'display', '');
     for (const c of top.fluid.cells) c.s = c.sTarget = 0;
     this.emitPath();
   }
 
   enter(id: string) {
+    this.wake();
     const cell = this.top().fluid.cells.find((c) => c.node.id === id);
     if (!cell) return;
     for (const c of this.top().fluid.cells) if (c !== cell) c.sTarget = 0;
@@ -702,6 +803,7 @@ export class FluidMap {
   // Linterna: `notes` son las notas que encajan; se alumbran también las
   // secciones que las contienen.
   setLens(notes: Set<string> | null, hide: boolean, memoria: boolean) {
+    this.wake();
     let lit: Set<string> | null = null;
     if (notes) {
       lit = new Set();
@@ -719,18 +821,21 @@ export class FluidMap {
   }
 
   setDrag(id: string | null, target: string | null) {
+    this.wake();
     this.lens.drag = id;
     this.lens.drop = target;
   }
 
   // La hoja de la nota se cerró: la celda se encoge despacio hasta su sitio.
   closed() {
+    this.wake();
     const cell = this.top().fluid.cells.find((c) => c.node.id === this.opened);
     if (cell) cell.sTarget = 0;
     this.opened = null;
   }
 
   relax() {
+    this.wake();
     const top = this.top();
     const any = top.fluid.cells.some((c) => c.sTarget > 0.01);
     if (any) for (const c of top.fluid.cells) c.sTarget = 0;
@@ -738,7 +843,9 @@ export class FluidMap {
   }
 
   pointer(p: P | null) {
-    this.hover = p ? (this.top().fluid.at(p)?.node.id ?? null) : null;
+    const hover = p ? (this.top().fluid.at(p)?.node.id ?? null) : null;
+    if (hover !== this.hover) this.wake();
+    this.hover = hover;
     return this.hover;
   }
 
