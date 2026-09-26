@@ -2,7 +2,7 @@
 
 Canvas infinito de notas y tareas enlazadas, con perfiles (Personal, Trabajo…) y filtros por teclado. Self-hosted: un contenedor y un archivo SQLite.
 
-Estado: **fase 0**. Hay login, perfiles y un canvas vacío que recuerda la vista de cada perfil. Las notas llegan en la fase 1.
+Estado: **fase 1**. Login, perfiles, y notas con texto enriquecido en el canvas: se crean, mueven, redimensionan, enlazan, agrupan en zonas y se buscan con ⌘K.
 
 ## Instalar en CasaOS
 
@@ -37,4 +37,12 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` 
 
 | Atajo | Acción |
 |-------|--------|
+| Doble clic en el vacío | Crear una nota ahí |
+| Doble clic en una nota / `Enter` | Editarla (`Esc` para salir; si queda vacía, se borra) |
+| Arrastrar desde un punto del borde | Enlazar con otra nota, o crear una nueva enlazada si sueltas en el vacío |
+| `G` | Agrupar las notas seleccionadas en una zona (o crear una zona vacía) |
+| `Supr` / `Retroceso` | Borrar lo seleccionado |
+| `⇧` + clic | Seleccionar varias notas |
+| `1` | Encajar todo el canvas |
+| `⌘/Ctrl K` | Buscar notas y saltar a ellas, o crear una |
 | `⌘/Ctrl ⇧ P` | Cambiar de perfil, crear uno o cerrar sesión |

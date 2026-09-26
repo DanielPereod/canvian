@@ -8,6 +8,42 @@ export type Profile = {
 
 export type Viewport = { x: number; y: number; zoom: number };
 
+export type NoteKind = 'text' | 'task' | 'link' | 'image' | 'checklist' | 'code' | 'zone';
+
+export type NoteRow = {
+  id: string;
+  profileId: string;
+  kind: NoteKind;
+  title: string | null;
+  bodyJson: string | null;
+  bodyText: string | null;
+  x: number;
+  y: number;
+  w: number | null;
+  h: number | null;
+  z: number;
+  zoneId: string | null;
+};
+
+export type EdgeRow = {
+  id: string;
+  profileId: string;
+  fromId: string;
+  toId: string;
+  label: string | null;
+};
+
+export type LayoutItem = {
+  id: string;
+  x: number;
+  y: number;
+  w?: number | null;
+  h?: number | null;
+  zoneId?: string | null;
+};
+
+export type SearchHit = { id: string; title: string | null; bodyText: string | null; kind: NoteKind };
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -39,4 +75,17 @@ export const api = {
   createProfile: (name: string) => request<Profile>('POST', '/profiles', { name }),
   getViewport: (id: string) => request<Viewport>('GET', `/profiles/${id}/viewport`),
   saveViewport: (id: string, v: Viewport) => request('PUT', `/profiles/${id}/viewport`, v),
+  canvas: (profileId: string) =>
+    request<{ notes: NoteRow[]; edges: EdgeRow[] }>('GET', `/profiles/${profileId}/canvas`),
+  createNote: (profileId: string, note: Partial<NoteRow> & { id: string; x: number; y: number }) =>
+    request<NoteRow>('POST', `/profiles/${profileId}/notes`, note),
+  patchNote: (id: string, patch: Partial<Omit<NoteRow, 'id' | 'profileId'>>) =>
+    request<NoteRow>('PATCH', `/notes/${id}`, patch),
+  saveLayout: (items: LayoutItem[]) => request('PATCH', '/notes/layout', items),
+  deleteNote: (id: string) => request('DELETE', `/notes/${id}`),
+  createEdge: (profileId: string, edge: { id: string; fromId: string; toId: string }) =>
+    request<EdgeRow>('POST', `/profiles/${profileId}/edges`, edge),
+  deleteEdge: (id: string) => request('DELETE', `/edges/${id}`),
+  search: (profileId: string, q: string) =>
+    request<SearchHit[]>('GET', `/profiles/${profileId}/search?q=${encodeURIComponent(q)}`),
 };
