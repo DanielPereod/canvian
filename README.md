@@ -42,7 +42,7 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` 
 | Atajo | Acción |
 |-------|--------|
 | Doble clic en el vacío | Crear una nota ahí |
-| Doble clic en una nota / `Enter` | Editarla (`Esc` para salir; si queda vacía, se borra) |
+| Doble clic en una nota | Editarla (`Esc` para salir; si queda vacía, se borra) |
 | Arrastrar desde un punto del borde | Enlazar con otra nota, o crear una nueva enlazada si sueltas en el vacío |
 | `B` | Elegir el fondo del perfil (liso, puntos, cuadrícula, estrellas, luciérnagas, aurora) |
 | `T` | Convertir las notas seleccionadas en tareas (o volver a notas) |
@@ -53,6 +53,10 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` 
 | `⌘/Ctrl S` (en la lente) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |
 | `E` | Laboratorio: encender o apagar las ideas en prueba |
 | `G` | Agrupar las notas seleccionadas en una zona (o crear una zona vacía) |
+| `Enter` | Modo foco: la nota seleccionada al centro, editable, rodeada de sus enlaces; pulsa una vecina para ir a ella, `Esc` vuelve |
+| `2` | Encajar la vista en la selección |
+| Arrastrar archivos `.md` | Importarlos como notas; los `[[enlaces]]` entre ellas se convierten en enlaces |
+| `⌘/Ctrl ⇧ E` | Exportar el perfil a JSON Canvas (`.canvas`, se abre en Obsidian) |
 | `Supr` / `Retroceso` | Borrar lo seleccionado |
 | `⇧` + clic | Seleccionar varias notas |
 | `1` | Encajar todo el canvas |

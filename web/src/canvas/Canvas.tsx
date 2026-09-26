@@ -40,6 +40,9 @@ import { Constellation } from './Constellation';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { ColumnNode } from './ColumnNode';
+import { FocusView } from './FocusView';
+import { docText, docToMarkdown, markdownToDoc } from './markdown';
+import { parseBody } from './editor';
 import { COL_GAP, COL_W, columnsFor, dropChange, groupOptions, layout } from './arrange';
 import { Inspector } from './Inspector';
 
@@ -115,6 +118,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const [hoverCol, setHoverCol] = useState<string | null>(null);
   const [colSize, setColSize] = useState(new Map<string, { width: number; height: number }>());
   const [settling, setSettling] = useState(false);
+  const [focusId, setFocusId] = useState<string | null>(null);
   const savedView = useRef<Viewport | null>(null);
   const [defs, setDefs] = useState<PropertyDef[]>([]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -494,12 +498,17 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        exportCanvas();
+        return;
+      }
       if (mod && !e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setPaletteOpen((o) => !o);
         return;
       }
-      if (isTyping(e.target) || mod || paletteOpen) return;
+      if (isTyping(e.target) || mod || paletteOpen || focusId) return;
       // ⇧1…⇧9 abren las lentes guardadas.
       const digit = /^Digit([1-9])$/.exec(e.code);
       if (e.shiftKey && digit) {
@@ -524,11 +533,15 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
         e.preventDefault();
         groupIntoZone();
       } else if (e.key === 'Enter') {
+        // Enter abre el modo foco; el doble clic sigue editando en el sitio.
         const selected = nodesRef.current.filter((n) => n.selected);
         if (selected.length === 1 && selected[0].type === 'note') {
           e.preventDefault();
-          setEditingId(selected[0].id);
+          setFocusId(selected[0].id);
         }
+      } else if (e.key === '2') {
+        const selected = nodesRef.current.filter((n) => n.selected);
+        if (selected.length) void flow.fitView({ nodes: selected.map((n) => ({ id: n.id })), duration: 500, padding: 0.35, maxZoom: 1.4 });
       } else if (e.key.toLowerCase() === 't') {
         e.preventDefault();
         toggleTask();
@@ -700,6 +713,98 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     setMode('dim');
   };
 
+  // ── Importar Markdown (arrastrando archivos) y exportar a JSON Canvas ──
+  const [dropping, setDropping] = useState(false);
+
+  const importMarkdown = async (files: File[], at: { x: number; y: number }) => {
+    const docs = await Promise.all(
+      files.map(async (f) => ({ name: f.name.replace(/\.(md|markdown|txt)$/i, ''), ...markdownToDoc(await f.text()) })),
+    );
+    const COLS = Math.max(1, Math.min(4, Math.ceil(Math.sqrt(docs.length))));
+    const rows = docs.map((d, i): NoteRow => {
+      const bodyText = docText(d.doc);
+      return {
+        id: ulid(),
+        profileId: profile.id,
+        kind: 'text',
+        title: d.heading ?? d.name,
+        bodyJson: JSON.stringify(d.doc),
+        bodyText,
+        x: at.x + (i % COLS) * (NOTE_WIDTH + 60),
+        y: at.y + Math.floor(i / COLS) * 260,
+        w: null,
+        h: null,
+        z: 0,
+        zoneId: zoneAt(nodesRef.current, { x: at.x + (i % COLS) * (NOTE_WIDTH + 60), y: at.y + Math.floor(i / COLS) * 260 }),
+        status: null,
+        priority: null,
+        dueAt: null,
+        doneAt: null,
+        props: '{}',
+        updatedAt: now(),
+      };
+    });
+    setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), ...rows.map((r) => ({ ...toNode(r), selected: true }))]);
+    for (const row of rows) {
+      const request = api.createNote(profile.id, { ...row, props: {} }).catch(report);
+      created.current.set(row.id, request);
+      void request.then(() => created.current.delete(row.id));
+    }
+    // [[Enlaces]] entre notas: por nombre de archivo o por título, sin importar mayúsculas.
+    const byName = new Map<string, string>();
+    for (const n of nodesRef.current) if (n.data.title) byName.set(n.data.title.toLowerCase(), n.id);
+    rows.forEach((r, i) => {
+      byName.set(docs[i].name.toLowerCase(), r.id);
+      if (r.title) byName.set(r.title.toLowerCase(), r.id);
+    });
+    const seen = new Set<string>();
+    rows.forEach((r, i) => {
+      for (const target of docs[i].links) {
+        const to = byName.get(target.toLowerCase());
+        const pair = [r.id, to].sort().join();
+        if (to && to !== r.id && !seen.has(pair)) {
+          seen.add(pair);
+          connect(r.id, to);
+        }
+      }
+    });
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    const files = [...e.dataTransfer.files].filter((f) => /\.(md|markdown|txt)$/i.test(f.name));
+    setDropping(false);
+    if (!files.length) return;
+    e.preventDefault();
+    void importMarkdown(files, flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
+  };
+
+  const exportCanvas = () => {
+    const out = {
+      nodes: nodesRef.current.map((n) => {
+        const { w, h } = size(n);
+        const base = { id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y), width: Math.round(w), height: Math.round(h) };
+        if (n.type === 'zone') return { ...base, type: 'group', label: n.data.title ?? '' };
+        const md = docToMarkdown(parseBody(n.data.bodyJson)) || (n.data.bodyText ?? '');
+        const box = n.data.kind === 'task' ? `- [${n.data.status === 'done' ? 'x' : ' '}] ` : '';
+        return { ...base, type: 'text', text: box + md };
+      }),
+      edges: edges.map((e) => ({ id: e.id, fromNode: e.source, toNode: e.target, ...(e.label ? { label: String(e.label) } : {}) })),
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${profile.name}.canvas`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const focused = focusId ? (nodes.find((n) => n.id === focusId)?.data ?? null) : null;
+  const focusNeighbors = useMemo(() => {
+    if (!focusId) return [];
+    const ids = new Set(edges.flatMap((e) => (e.source === focusId ? [e.target] : e.target === focusId ? [e.source] : [])));
+    return nodes.filter((n) => ids.has(n.id)).map((n) => n.data);
+  }, [focusId, edges, nodes]);
+
   const selectedNotes = nodes.filter((n) => n.selected && n.type === 'note');
   const selectedNote = selectedNotes.length === 1 ? selectedNotes[0].data : null;
 
@@ -714,7 +819,22 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
       <div
         className={`canvas${lit ? ` lamp-on lens-${mode}` : ''}${arranging || settling ? ' arranging' : ''}`}
         onDoubleClick={(e) => !arranging && onPaneDoubleClick(e)}
+        onDragOver={(e) => {
+          if (![...e.dataTransfer.types].includes('Files')) return;
+          e.preventDefault();
+          setDropping(true);
+        }}
+        onDragLeave={(e) => e.currentTarget === e.target && setDropping(false)}
+        onDrop={onDrop}
       >
+        {dropping && (
+          <div className="drop-hint" aria-hidden="true">
+            <p className="display">
+              Suelta tus <em>notas</em>
+            </p>
+            <span className="meta">Archivos .md · los [[enlaces]] se convierten en tallos</span>
+          </div>
+        )}
         <div className="lamp-dark" aria-hidden="true" />
         <ReactFlow<AppNode>
           nodes={displayNodes}
@@ -783,6 +903,26 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
             actions.saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
           }}
           onClose={() => setPaletteOpen(false)}
+        />
+      )}
+      {focused && (
+        <FocusView
+          note={focused}
+          neighbors={focusNeighbors}
+          defs={defs}
+          onNavigate={(id) => {
+            flush(focused.id);
+            setFocusId(id);
+          }}
+          onSave={actions.saveContent}
+          onCycle={actions.cycleStatus}
+          onProps={(id) => actions.openInspector(id)}
+          onClose={() => {
+            const id = focused.id;
+            flush(id);
+            setFocusId(null);
+            focusNote(id);
+          }}
         />
       )}
       {inspectorOpen && (
