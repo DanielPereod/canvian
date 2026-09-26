@@ -13,9 +13,12 @@ const webDir =
   process.env.CANVIAN_WEB_DIR ??
   fileURLToPath(new URL('../../web/dist', import.meta.url));
 
+// Los archivos pegados en las notas viven junto a la base, en el mismo volumen.
+const mediaDir = resolve(process.env.CANVIAN_MEDIA ?? join(dirname(dbPath), 'media'));
+
 mkdirSync(dirname(dbPath), { recursive: true });
 const db = openDb(dbPath);
-const app = createApp(db);
+const app = createApp(db, { mediaDir });
 
 // serveStatic espera una ruta relativa al directorio de trabajo.
 const root = relative(process.cwd(), webDir) || '.';

@@ -176,3 +176,9 @@
   animation: rise-in var(--dur-base) var(--ease-spring) both;
 }
 .section-name .field { font-family: var(--font-serif); font-style: italic; font-size: 26px; }
+
+/* Imágenes, vídeo y audio dentro de una nota. */
+.prose .note-media { display: block; max-width: 100%; margin: 0.6em 0; border-radius: var(--radius-sm); }
+.prose img.note-media, .prose video.note-media { max-height: 70vh; object-fit: contain; background: var(--surface-sunken); }
+.prose audio.note-media { width: 100%; }
+.prose .note-media.ProseMirror-selectednode { outline: 2px solid var(--accent-line); outline-offset: 3px; }

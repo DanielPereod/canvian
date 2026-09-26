@@ -2,6 +2,7 @@ import { getHTMLFromFragment, getSchema, type JSONContent } from '@tiptap/react'
 import { Node as PMNode } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import { Placeholder } from '@tiptap/extensions';
+import { mediaNodes } from './media';
 
 export const extensions = [
   StarterKit.configure({
@@ -9,6 +10,7 @@ export const extensions = [
     link: { openOnClick: false, autolink: true },
   }),
   Placeholder.configure({ placeholder: 'Escribe algo…' }),
+  ...mediaNodes,
 ];
 
 export function parseBody(bodyJson: string | null): JSONContent | null {
