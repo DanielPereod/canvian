@@ -18,6 +18,7 @@ import { canvasRoutes } from './routes/canvas.js';
 import { propertyRoutes } from './routes/properties.js';
 import { lensRoutes } from './routes/lenses.js';
 import { mediaRoutes } from './routes/media.js';
+import { prefRoutes } from './routes/prefs.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -160,6 +161,7 @@ export function createApp(db: Db, opts: { mediaDir?: string } = {}) {
   api.route('/', canvasRoutes(db));
   api.route('/', propertyRoutes(db));
   api.route('/', lensRoutes(db));
+  api.route('/', prefRoutes(db));
   if (opts.mediaDir) api.route('/', mediaRoutes(opts.mediaDir));
 
   const app = new Hono();

@@ -1,5 +1,6 @@
 import { type CSSProperties, type KeyboardEvent } from 'react';
 import { EXPERIMENTS, toggleExperiment, useExperiments } from './experiments';
+import { matches } from '../keys';
 
 // Panel para encender y apagar las ideas en prueba. Los números las alternan, E o Esc cierra.
 export function Lab({ onClose }: { onClose: () => void }) {
@@ -7,7 +8,7 @@ export function Lab({ onClose }: { onClose: () => void }) {
 
   const onKeyDown = (e: KeyboardEvent) => {
     const n = Number(e.key);
-    if (e.key === 'Escape' || e.key.toLowerCase() === 'e') {
+    if (e.key === 'Escape' || matches(e, 'lab')) {
       e.preventDefault();
       onClose();
     } else if (n >= 1 && n <= EXPERIMENTS.length) {

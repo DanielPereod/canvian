@@ -3,6 +3,7 @@ import type { NoteRow } from '../api';
 import { daysUntil, dueLabel } from './dates';
 import { TaskGlyph } from './TaskGlyph';
 import { useExperiments } from '../lab/experiments';
+import { actionFor, keysBlocked } from '../keys';
 
 // Otra vista, fuera del mapa: todas las tareas activas (las que no están
 // hechas) del perfil, vengan de la sección que vengan, en una sola lista.
@@ -117,17 +118,18 @@ export function TasksView({ rows, onOpen, onCycle, onNew, onClose, paused }: Pro
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (paused || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (paused || keysBlocked()) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-      const k = e.key.toLowerCase();
+      const action = actionFor(e, ['tasks', 'cycleStatus', 'newNote']);
+      const k = e.metaKey || e.ctrlKey || e.altKey ? '' : e.key.toLowerCase();
       const cur = flat[at];
-      if (k === 'escape' || k === 'a') onClose();
+      if (k === 'escape' || action === 'tasks') onClose();
+      else if (action === 'cycleStatus') cur && onCycle(cur.id);
+      else if (action === 'newNote') onNew();
       else if (k === 'arrowdown' || k === 'j') setCursor(Math.min(flat.length - 1, at + 1));
       else if (k === 'arrowup' || k === 'k') setCursor(Math.max(0, at - 1));
       else if (k === 'enter' && cur) onOpen(cur.id);
-      else if (k === 'x' && cur) onCycle(cur.id);
-      else if (k === 'n') onNew();
       else if (k === 'tab') choose(GROUPINGS[(GROUPINGS.findIndex((g) => g.id === grouping) + (e.shiftKey ? 2 : 1)) % 3].id);
       else return;
       e.preventDefault();
@@ -193,14 +195,6 @@ export function TasksView({ rows, onOpen, onCycle, onNew, onClose, paused }: Pro
           </section>
         ))}
       </div>
-      <footer className="tasks-keys meta">
-        <span><kbd>↑</kbd><kbd>↓</kbd> moverse</span>
-        <span><kbd>Enter</kbd> abrir</span>
-        <span><kbd>X</kbd> avanzar</span>
-        <span><kbd>N</kbd> tarea</span>
-        <span><kbd>Tab</kbd> agrupar</span>
-        <span><kbd>Esc</kbd> mapa</span>
-      </footer>
     </div>
   );
 }

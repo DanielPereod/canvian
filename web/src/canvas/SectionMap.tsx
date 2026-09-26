@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FluidMap, type OpenFrom } from './fluid';
 import type { MapNode } from './sections';
+import { actionFor, keysBlocked, type ActionId } from '../keys';
 
 // El mapa de secciones: todo Canvian como un mapa vivo. Cada sección ocupa
 // pantalla según la importancia de lo que tiene, y dentro de cada una están
@@ -27,7 +28,8 @@ type Props = {
   memoria: boolean;
 };
 
-const KEYS: Record<string, MapAction> = { t: 'task', x: 'status', p: 'props', delete: 'delete', r: 'rename' };
+const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', properties: 'props', deleteCell: 'delete', rename: 'rename' };
+const MAP_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'properties', 'deleteCell', 'rename', 'toRoot', 'newNote', 'newSection'];
 const DRAG_FROM = 6;
 
 // Sección a la que va lo que se suelta sobre este nodo; undefined si no admite.
@@ -96,26 +98,26 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onAction, onMo
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (paused || !map.current || !here) return;
+      if (paused || !map.current || !here || keysBlocked()) return;
       const target = e.target as HTMLElement | null;
       if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '')) return;
       // Teclas dentro de un panel (inspector, linterna…) son de ese panel.
       if (target && target !== document.body && !host.current?.contains(target)) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
       // Con la linterna o el inspector abiertos, Esc los cierra primero.
       if (e.key === 'Escape' && (lit || document.querySelector('.inspector, .lantern'))) return;
       const hovered = here.children.find((c) => c.id === hover);
-      const key = e.key.toLowerCase();
-      if (KEYS[key]) {
-        if (hovered) onAction(KEYS[key], hovered);
-      } else if (key === '1') map.current.upTo(0);
-      else if (e.key === 'Escape' || e.key === 'Backspace') map.current.relax();
-      // Una nota también se abre acercándose hasta llenar la pantalla.
-      else if (e.key === 'Enter' && hovered) map.current.enter(hovered.id);
+      const action = actionFor(e, MAP_ACTIONS);
+      const plain = !(e.metaKey || e.ctrlKey || e.altKey || e.shiftKey);
+      if (action && KEYS[action]) {
+        if (hovered) onAction(KEYS[action]!, hovered);
+      } else if (action === 'toRoot') map.current.upTo(0);
       // Nota nueva en la sección señalada o, si no, en la que estás.
-      else if (key === 'n') onAction('create', hovered && hovered.kind !== 'note' ? hovered : here);
+      else if (action === 'newNote') onAction('create', hovered && hovered.kind !== 'note' ? hovered : here);
       // Sección nueva en la que estás.
-      else if (key === 'g') onAction('section', here);
+      else if (action === 'newSection') onAction('section', here);
+      else if (plain && (e.key === 'Escape' || e.key === 'Backspace')) map.current.relax();
+      // Una nota también se abre acercándose hasta llenar la pantalla.
+      else if (plain && e.key === 'Enter' && hovered) map.current.enter(hovered.id);
       else return;
       e.preventDefault();
       e.stopPropagation();
