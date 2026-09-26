@@ -30,7 +30,7 @@ function useViewport() {
   return size;
 }
 
-function FocusEditor({ note, onSave }: { note: NoteRow; onSave: Props['onSave'] }) {
+export function FocusEditor({ note, onSave }: { note: NoteRow; onSave: Props['onSave'] }) {
   const editor = useEditor({
     extensions,
     content: parseBody(note.bodyJson) ?? '',

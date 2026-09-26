@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FluidMap } from './fluid';
+import { FluidMap, type OpenFrom } from './fluid';
 import type { MapNode } from './sections';
 
 // Experimento «Secciones»: el lienzo entero como un mapa vivo. Cada sección
@@ -13,7 +13,7 @@ type Props = {
   // Dónde estaba el mapa la última vez (ids desde la raíz).
   start: string[];
   onPath: (ids: string[]) => void;
-  onOpen: (noteId: string) => void;
+  onOpen: (noteId: string, from: OpenFrom) => void;
   onCreate: (zoneId: string | null, near: MapNode) => void;
 };
 
@@ -34,7 +34,7 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate }: Pr
           setPath(p);
           events.current.onPath(p.slice(1).map((n) => n.id));
         },
-        onOpen: (id) => events.current.onOpen(id),
+        onOpen: (id, from) => events.current.onOpen(id, from),
       },
       start,
     );
@@ -52,7 +52,9 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate }: Pr
 
   useEffect(() => map.current?.setTree(tree), [tree]);
   useEffect(() => {
-    if (map.current) map.current.paused = paused;
+    if (!map.current) return;
+    map.current.paused = paused;
+    if (!paused) map.current.closed();
   }, [paused]);
 
   // La rueda del navegador no puede ser pasiva: la usamos para acercar.
@@ -76,10 +78,8 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate }: Pr
       if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '')) return;
       const hovered = here?.children.find((c) => c.id === hover);
       if (e.key === 'Escape' || e.key === 'Backspace') map.current.relax();
-      else if (e.key === 'Enter' && hovered) {
-        if (hovered.kind === 'note') onOpen(hovered.id);
-        else map.current.enter(hovered.id);
-      } else if (e.key.toLowerCase() === 'n' && !e.metaKey && !e.ctrlKey && here) {
+      // Una nota también se abre acercándose hasta llenar la pantalla.
+      else if (e.key === 'Enter' && hovered) map.current.enter(hovered.id); else if (e.key.toLowerCase() === 'n' && !e.metaKey && !e.ctrlKey && here) {
         // Nota nueva en la sección señalada o, si no, en la que estás.
         const into = hovered && hovered.kind !== 'note' ? hovered : here;
         onCreate(into.zoneId, into);
@@ -110,11 +110,6 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate }: Pr
           const id = map.current?.pointer(local(e));
           if (id && here?.children.some((c) => c.id === id)) map.current?.enter(id);
         }}
-        onDoubleClick={(e) => {
-          const id = map.current?.pointer(local(e));
-          const node = here?.children.find((c) => c.id === id);
-          if (node?.kind === 'note') onOpen(node.id);
-        }}
       />
       <nav className="smap-crumbs">
         {path.map((n, i) => (
@@ -130,7 +125,7 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate }: Pr
           </span>
         ))}
       </nav>
-      <p className="smap-hint meta">Rueda para acercar y alejar · clic para entrar · N nota nueva · Esc atrás</p>
+      <p className="smap-hint meta">Rueda para acercar y alejar · clic para entrar o abrir · N nota nueva · Esc atrás</p>
     </div>
   );
 }

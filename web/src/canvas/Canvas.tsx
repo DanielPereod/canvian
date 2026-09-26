@@ -47,6 +47,8 @@ import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { ColumnNode } from './ColumnNode';
 import { FocusView } from './FocusView';
+import { NoteSheet } from './NoteSheet';
+import type { OpenFrom } from './fluid';
 import { docText, docToMarkdown, markdownToDoc } from './markdown';
 import { parseBody } from './editor';
 import { COL_GAP, COL_W, columnsFor, dropChange, groupOptions, layout } from './arrange';
@@ -130,6 +132,8 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const [colSize, setColSize] = useState(new Map<string, { width: number; height: number }>());
   const [settling, setSettling] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
+  // En el mapa: la celda desde la que se abrió la nota.
+  const [openFrom, setOpenFrom] = useState<OpenFrom | null>(null);
   const savedView = useRef<Viewport | null>(null);
   const [defs, setDefs] = useState<PropertyDef[]>([]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -616,6 +620,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     const row = createNote(pos, 'text', { zoneId });
     // Se escribe en el modo foco, no en la nota del lienzo que queda debajo.
     setEditingId(null);
+    setOpenFrom(null);
     setFocusId(row.id);
   };
   const groups = useMemo(() => groupOptions(defs), [defs]);
@@ -849,6 +854,8 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  // En el mapa la nota se abre como hoja a pantalla completa.
+  const FocusSurface = secciones ? NoteSheet : FocusView;
   const focused = focusId ? (nodes.find((n) => n.id === focusId)?.data ?? null) : null;
   const focusNeighbors = useMemo(() => {
     if (!focusId) return [];
@@ -947,7 +954,10 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
             paused={!!focusId || paletteOpen}
             start={mapPath.current}
             onPath={(ids) => (mapPath.current = ids)}
-            onOpen={setFocusId}
+            onOpen={(id, from) => {
+              setOpenFrom(from);
+              setFocusId(id);
+            }}
             onCreate={createFromMap}
           />
         )}
@@ -956,7 +966,10 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
             profileId={profile.id}
             onPick={(id) => {
               setPaletteOpen(false);
-              if (secciones) setFocusId(id);
+              if (secciones) {
+                setOpenFrom(null);
+                setFocusId(id);
+              }
               else focusNote(id);
             }}
             onCreate={(text) => {
@@ -971,7 +984,9 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
           />
         )}
         {focused && (
-          <FocusView
+          <FocusSurface
+            key={secciones ? 'sheet' : 'focus'}
+            from={openFrom}
             note={focused}
             neighbors={focusNeighbors}
             defs={defs}

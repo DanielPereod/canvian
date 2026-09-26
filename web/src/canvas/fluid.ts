@@ -427,8 +427,11 @@ type Level = { node: MapNode; fluid: Fluid; view: FluidView };
 
 export type FluidMapEvents = {
   onPath: (path: MapNode[]) => void;
-  onOpen: (noteId: string) => void;
+  // `from`: la celda de la nota justo al llenar la pantalla, para que la hoja
+  // siga su misma forma y color.
+  onOpen: (noteId: string, from: OpenFrom) => void;
 };
+export type OpenFrom = { rect: { x: number; y: number; w: number; h: number }; hue: number };
 
 const OPEN_AT = 0.95;
 // Ritmo de la respiración y las ondas: lento, para que el mapa se sienta en calma.
@@ -446,6 +449,8 @@ export class FluidMap {
   events: FluidMapEvents;
   root: MapNode;
   wheelLock = 0;
+  // La nota que se abrió al acercarse; al cerrarla vuelve a su sitio.
+  opened: string | null = null;
 
   constructor(host: HTMLElement, root: MapNode, events: FluidMapEvents, startPath: string[] = []) {
     this.events = events;
@@ -564,8 +569,10 @@ export class FluidMap {
     // Entrar: la celda ya llena la pantalla.
     if (z && z.s >= 1 && top.fluid.fraction(z) > OPEN_AT) {
       if (z.node.kind === 'note') {
-        z.sTarget = 0.5;
-        this.events.onOpen(z.node.id);
+        if (this.opened !== z.node.id) {
+          this.opened = z.node.id;
+          this.events.onOpen(z.node.id, { rect: bbox(z.drawn), hue: z.hue });
+        }
       } else if (this.nested) {
         const level = this.nested;
         this.nested = null;
@@ -635,6 +642,13 @@ export class FluidMap {
     if (!cell) return;
     for (const c of this.top().fluid.cells) if (c !== cell) c.sTarget = 0;
     cell.sTarget = 1.06;
+  }
+
+  // La hoja de la nota se cerró: la celda se encoge despacio hasta su sitio.
+  closed() {
+    const cell = this.top().fluid.cells.find((c) => c.node.id === this.opened);
+    if (cell) cell.sTarget = 0;
+    this.opened = null;
   }
 
   relax() {
