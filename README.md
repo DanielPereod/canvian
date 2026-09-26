@@ -40,6 +40,7 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` 
 | Doble clic en el vacío | Crear una nota ahí |
 | Doble clic en una nota / `Enter` | Editarla (`Esc` para salir; si queda vacía, se borra) |
 | Arrastrar desde un punto del borde | Enlazar con otra nota, o crear una nueva enlazada si sueltas en el vacío |
+| `B` | Elegir el fondo del perfil (liso, puntos, cuadrícula, estrellas, luciérnagas, aurora) |
 | `G` | Agrupar las notas seleccionadas en una zona (o crear una zona vacía) |
 | `Supr` / `Retroceso` | Borrar lo seleccionado |
 | `⇧` + clic | Seleccionar varias notas |

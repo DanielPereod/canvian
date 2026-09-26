@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { api, type Profile } from './api';
+import { api, type BackgroundKind, type Profile } from './api';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { Canvas } from './canvas/Canvas';
+import { Glyph } from './Wordmark';
+import { Ambient } from './backgrounds/Ambient';
+import { BackgroundPicker } from './backgrounds/BackgroundPicker';
 
 const ACTIVE_KEY = 'canvian.activeProfile';
 const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
@@ -19,6 +22,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(readActive);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [previewBg, setPreviewBg] = useState<BackgroundKind | null>(null);
 
   useEffect(() => {
     api.profiles().then(setProfiles, () => onSignedOut());
@@ -41,31 +46,61 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         setSwitcherOpen((open) => !open);
+        return;
+      }
+      const t = e.target as HTMLElement | null;
+      const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+      if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        setPickerOpen(true);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // El color del perfil es el acento de toda la interfaz. Va en la raíz porque
+  // los tokens derivados (--accent-soft, --glow-1…) se calculan ahí.
+  useEffect(() => {
+    if (active?.color) document.documentElement.style.setProperty('--accent', active.color);
+  }, [active?.color]);
+
   if (!active) return <div className="backdrop" />;
 
+  const background = previewBg ?? active.background ?? 'dots';
+
+  const chooseBackground = (kind: BackgroundKind) => {
+    setPickerOpen(false);
+    setPreviewBg(null);
+    if (kind === active.background) return;
+    setProfiles((list) => list.map((p) => (p.id === active.id ? { ...p, background: kind } : p)));
+    api.updateProfile(active.id, { background: kind }).catch(() => {
+      setProfiles((list) => list.map((p) => (p.id === active.id ? { ...p, background: active.background } : p)));
+    });
+  };
+
   return (
-    <div className="workspace" style={{ '--profile': active.color ?? 'var(--accent)' } as React.CSSProperties}>
-      <ReactFlowProvider>
-        <Canvas key={active.id} profile={active} />
-      </ReactFlowProvider>
+    <ReactFlowProvider>
+    <div className="workspace backdrop">
+      <Ambient kind={background} />
+      <Canvas key={active.id} profile={active} background={background} />
 
-      <button className="glass profile-pill" onClick={() => setSwitcherOpen(true)}>
-        <span className="dot" />
-        {active.name}
-      </button>
+      <div className="chrome-top-left">
+        <button className="surface-2 pill" onClick={() => setSwitcherOpen(true)} title="Cambiar de perfil">
+          <Glyph className="wordmark-glyph" />
+          <span className="pill-name">{active.name}</span>
+        </button>
+      </div>
 
-      <div className="hint">
+      <div className="hints">
         <span>
           <kbd>2×clic</kbd> nota
         </span>
         <span>
           <kbd>G</kbd> zona
+        </span>
+        <span>
+          <kbd>B</kbd> fondo
         </span>
         <span>
           <kbd>{mod}</kbd>
@@ -95,6 +130,18 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           onClose={() => setSwitcherOpen(false)}
         />
       )}
+      {pickerOpen && (
+        <BackgroundPicker
+          current={active.background ?? 'dots'}
+          onPreview={setPreviewBg}
+          onChoose={chooseBackground}
+          onCancel={() => {
+            setPickerOpen(false);
+            setPreviewBg(null);
+          }}
+        />
+      )}
     </div>
+    </ReactFlowProvider>
   );
 }

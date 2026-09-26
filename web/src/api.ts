@@ -1,8 +1,11 @@
+export type BackgroundKind = 'plain' | 'dots' | 'grid' | 'stars' | 'fireflies' | 'aurora';
+
 export type Profile = {
   id: string;
   name: string;
   color: string | null;
   icon: string | null;
+  background: BackgroundKind;
   position: number;
 };
 
@@ -73,6 +76,8 @@ export const api = {
   logout: () => request('POST', '/auth/logout'),
   profiles: () => request<Profile[]>('GET', '/profiles'),
   createProfile: (name: string) => request<Profile>('POST', '/profiles', { name }),
+  updateProfile: (id: string, patch: Partial<Pick<Profile, 'name' | 'color' | 'background'>>) =>
+    request<Profile>('PATCH', `/profiles/${id}`, patch),
   getViewport: (id: string) => request<Viewport>('GET', `/profiles/${id}/viewport`),
   saveViewport: (id: string, v: Viewport) => request('PUT', `/profiles/${id}/viewport`, v),
   canvas: (profileId: string) =>

@@ -50,9 +50,10 @@ export function ProfileSwitcher({ profiles, activeId, onSelect, onCreate, onSign
 
   return (
     <div className="overlay" onMouseDown={onClose}>
-      <div className="glass palette" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="surface-3 popover" onMouseDown={(e) => e.stopPropagation()}>
         <input
           id="profile-search"
+          className="field field-bare"
           autoFocus
           placeholder="Cambiar de perfil o crear uno"
           value={query}
@@ -62,30 +63,39 @@ export function ProfileSwitcher({ profiles, activeId, onSelect, onCreate, onSign
           }}
           onKeyDown={onKeyDown}
         />
-        <ul role="listbox">
+        <div className="popover-divider" />
+        <ul className="list" role="listbox">
           {items.map((item, i) => (
             <li
               key={item.kind === 'profile' ? item.profile.id : item.kind}
               role="option"
               aria-selected={i === cursor}
-              className={i === cursor ? 'selected' : undefined}
+              className="list-item"
+              style={{ '--i': i } as React.CSSProperties}
               onMouseEnter={() => setCursor(i)}
               onClick={() => run(item)}
             >
               {item.kind === 'profile' && (
                 <>
-                  <span className="dot" style={{ background: item.profile.color ?? 'var(--accent)' }} />
+                  <span className="list-icon">
+                    <span className="dot" style={{ background: item.profile.color ?? 'var(--accent)' }} />
+                  </span>
                   {item.profile.name}
-                  {item.profile.id === activeId && <span className="muted tail">actual</span>}
+                  {item.profile.id === activeId && <span className="trail">actual</span>}
                 </>
               )}
               {item.kind === 'create' && (
                 <>
-                  <span className="dot ghost">+</span>
+                  <span className="list-icon">+</span>
                   Crear perfil «{item.name}»
                 </>
               )}
-              {item.kind === 'signout' && <span className="muted">Cerrar sesión</span>}
+              {item.kind === 'signout' && (
+                <>
+                  <span className="list-icon faint">↩</span>
+                  <span className="muted">Cerrar sesión</span>
+                </>
+              )}
             </li>
           ))}
         </ul>

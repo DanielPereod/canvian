@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from './api';
+import { Wordmark } from './Wordmark';
+import { Fireflies } from './Fireflies';
 
 export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: () => void }) {
   const [password, setPassword] = useState('');
@@ -20,20 +22,31 @@ export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: ()
   };
 
   return (
-    <div className="backdrop center">
-      <form className="glass card" onSubmit={submit}>
-        <div className="brand">
-          <img src="/favicon.svg" alt="" width={28} height={28} />
-          Canvian
+    <div className="backdrop dotted center">
+      <Fireflies />
+      <form className="surface-3 dialog" onSubmit={submit}>
+        <Wordmark className="auth-brand" />
+        <div className="auth-copy">
+          <h1 className="display">
+            {mode === 'setup' ? (
+              <>
+                Planta tu <em>jardín</em>
+              </>
+            ) : (
+              <>
+                Hola de <em>nuevo</em>
+              </>
+            )}
+          </h1>
+          <p className="muted">
+            {mode === 'setup'
+              ? 'Elige una contraseña. Es la única cuenta de esta instalación y empezarás con los perfiles Personal y Trabajo.'
+              : 'Escribe tu contraseña para volver a tus notas.'}
+          </p>
         </div>
-        <h1>{mode === 'setup' ? 'Elige tu contraseña' : 'Hola de nuevo'}</h1>
-        <p className="muted">
-          {mode === 'setup'
-            ? 'Es la única cuenta de esta instalación. Crearemos los perfiles Personal y Trabajo.'
-            : 'Escribe tu contraseña para abrir el canvas.'}
-        </p>
         <input
           id="password"
+          className="field"
           type="password"
           autoFocus
           autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
@@ -41,8 +54,8 @@ export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: ()
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        {error && <p className="error">{error}</p>}
-        <button type="submit" disabled={busy || password.length === 0}>
+        {error && <p className="error-text">{error}</p>}
+        <button className="btn btn-primary" type="submit" disabled={busy || password.length === 0}>
           {mode === 'setup' ? 'Crear y entrar' : 'Entrar'}
         </button>
       </form>

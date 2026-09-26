@@ -23,12 +23,18 @@ const profileBody = z.object({
   color: z.string().max(20).nullish(),
   icon: z.string().max(40).nullish(),
 });
-const profilePatch = profileBody.partial().extend({ position: z.number().int().optional() });
+export const BACKGROUNDS = ['plain', 'dots', 'grid', 'stars', 'fireflies', 'aurora'] as const;
+const profilePatch = profileBody
+  .partial()
+  .extend({ position: z.number().int().optional(), background: z.enum(BACKGROUNDS).optional() });
 const viewportBody = z.object({ x: z.number(), y: z.number(), zoom: z.number().positive() });
 
+// Mismos valores que --hue-* en web/src/design/tokens.css.
+const PROFILE_COLORS = ['#4FD1C5', '#F0B45A', '#F28B82', '#7CB8F2', '#B9A3F0', '#9DC88D'];
+
 const DEFAULT_PROFILES = [
-  { name: 'Personal', color: '#4FD1C5', icon: 'home' },
-  { name: 'Trabajo', color: '#F0B45A', icon: 'briefcase' },
+  { name: 'Personal', color: PROFILE_COLORS[0], icon: 'home' },
+  { name: 'Trabajo', color: PROFILE_COLORS[1], icon: 'briefcase' },
 ];
 
 export function createApp(db: Db) {
@@ -103,7 +109,7 @@ export function createApp(db: Db) {
     const position = db.select({ n: count() }).from(profiles).get()!.n;
     const row = db
       .insert(profiles)
-      .values({ id: ulid(), ...body.data, position })
+      .values({ id: ulid(), ...body.data, color: body.data.color ?? PROFILE_COLORS[position % PROFILE_COLORS.length], position })
       .returning()
       .get();
     return c.json(row, 201);

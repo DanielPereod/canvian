@@ -1,0 +1,167 @@
+/*
+ * Canvian · tokens de diseño
+ *
+ * Dirección: "jardín nocturno". Negro profundo, retícula de puntos, enlaces
+ * orgánicos como tallos, luz que sale de lo importante. Tipografía que mezcla
+ * una grotesca limpia con una serif itálica para los acentos y una pixelada
+ * para la marca.
+ *
+ * Tres niveles:
+ *   1. Primitivos (--n-*, --hue-*): valores en bruto. No se usan en componentes.
+ *   2. Semánticos (--bg, --text, --surface-*, --accent…): lo que usan los componentes.
+ *   3. El acento lo pone el perfil activo y se anima al cambiar de perfil.
+ *
+ * Es un tema oscuro único, a propósito: la luz solo tiene sentido sobre la noche.
+ */
+
+/* Registrar el acento como color permite animarlo al cambiar de perfil. */
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #4fd1c5;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Neutros: casi negro con un punto frío */
+  --n-1000: #030405;
+  --n-950: #060708;
+  --n-900: #0b0d10;
+  --n-850: #101317;
+  --n-800: #161a1f;
+  --n-700: #22272e;
+  --n-600: #333942;
+  --n-500: #535a64;
+  --n-400: #767d88;
+  --n-300: #a4aab3;
+  --n-200: #cdd1d7;
+  --n-100: #eceef1;
+
+  /* Colores de perfil: se usan como luz, no como relleno */
+  --hue-teal: #4fd1c5;
+  --hue-amber: #f0b45a;
+  --hue-coral: #f28b82;
+  --hue-sky: #7cb8f2;
+  --hue-lilac: #b9a3f0;
+  --hue-sage: #9dc88d;
+
+  /* Tipografía */
+  --font-ui: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --font-pixel: 'Silkscreen', var(--font-mono);
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-2xs: 10px;  /* marca pixelada */
+  --text-xs: 12px;   /* etiquetas */
+  --text-sm: 13px;   /* secundario, atajos */
+  --text-md: 14px;   /* cuerpo de las notas */
+  --text-ui: 15px;   /* controles, listas */
+  --text-lg: 18px;   /* campos grandes */
+  --text-xl: 24px;   /* títulos en notas y zonas (serif) */
+  --text-2xl: 34px;  /* titulares de pantalla */
+  --text-3xl: 52px;  /* portada */
+  --leading-tight: 1.1;
+  --leading-snug: 1.3;
+  --leading-body: 1.5;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --tracking-tight: -0.02em;
+  --tracking-label: 0.1em;
+
+  /* Espacio: escala de 4 px */
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-16: 64px;
+
+  /* Radios */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
+  --radius-pill: 999px;
+
+  /* Movimiento: casi todo con muelle; nada lineal */
+  --dur-instant: 90ms;
+  --dur-fast: 160ms;
+  --dur-base: 260ms;
+  --dur-slow: 440ms;
+  --dur-grow: 720ms;
+  --dur-mood: 900ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+  --ease-soft: cubic-bezier(0.45, 0, 0.2, 1);
+
+  /* Capas */
+  --z-ambient: -1;
+  --z-canvas: 0;
+  --z-chrome: 10;
+  --z-overlay: 100;
+  --z-toast: 200;
+
+  --blur-chrome: 18px;
+  --blur-overlay: 32px;
+
+  /* ── Semánticos ─────────────────────────────────────── */
+  --accent-contrast: var(--n-1000);
+  --accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
+  --accent-line: color-mix(in oklab, var(--accent) 50%, transparent);
+  --accent-ink: color-mix(in oklab, var(--accent) 75%, white);
+  --accent-glow: color-mix(in oklab, var(--accent) 38%, transparent);
+
+  --bg: var(--n-950);
+  --dots: rgba(255, 255, 255, 0.075);
+  --grid: rgba(255, 255, 255, 0.035);
+  --grid-strong: rgba(255, 255, 255, 0.09);
+  --pool: color-mix(in oklab, var(--accent) 16%, transparent); /* luz que sube del suelo */
+
+  --text: var(--n-100);
+  --text-muted: var(--n-300);
+  --text-faint: var(--n-400);
+  --text-ghost: var(--n-500);
+
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.13);
+  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+
+  /* Superficies, de más baja a más alta:
+   * 1 · notas: casi opacas y sin blur (hay cientos)
+   * 2 · cromo flotante: glass ligero
+   * 3 · popovers y diálogos: glass denso con filo de luz */
+  --surface-1: rgba(16, 19, 23, 0.94);
+  --surface-2: rgba(18, 21, 26, 0.5);
+  --surface-3: rgba(13, 15, 19, 0.72);
+  --surface-sunken: rgba(255, 255, 255, 0.035);
+  --surface-hover: rgba(255, 255, 255, 0.05);
+
+  --shadow-1: 0 1px 1px rgba(0, 0, 0, 0.4), 0 14px 30px -18px rgba(0, 0, 0, 0.9);
+  --shadow-2: 0 30px 70px -30px rgba(0, 0, 0, 0.95);
+  --glow: 0 0 0 1px var(--accent-line), 0 0 42px -6px var(--accent-glow);
+
+  /* Nácar para la acción principal */
+  --pearl: linear-gradient(115deg, #ffffff 0%, #f4ecff 28%, #e3f3ff 52%, #fff1e6 76%, #ffffff 100%);
+  --pearl-ink: #15171b;
+  --pearl-glow: 0 0 28px -4px rgba(214, 196, 255, 0.45), 0 0 60px -20px rgba(160, 220, 255, 0.5);
+
+  /* Tallos (enlaces) */
+  --stem: rgba(214, 219, 226, 0.34);
+  --stem-hover: rgba(214, 219, 226, 0.6);
+
+  --danger: #ff8a80;
+  --warning: var(--hue-amber);
+  --success: var(--hue-sage);
+
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--accent) 32%, transparent);
+
+  transition: --accent var(--dur-mood) var(--ease-soft);
+}
