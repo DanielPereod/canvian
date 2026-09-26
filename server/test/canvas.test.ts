@@ -107,3 +107,29 @@ describe('search', () => {
     expect(toFtsQuery('   ')).toBeNull();
   });
 });
+
+describe('properties', () => {
+  it('defines custom properties per profile and stores their values on notes', async () => {
+    const zona = await data('POST', `/api/profiles/${personal}/properties`, { name: 'Contexto', type: 'select', options: ['casa', 'calle'] });
+    expect(zona).toMatchObject({ name: 'Contexto', type: 'select', options: ['casa', 'calle'], position: 0 });
+    const horas = await data('POST', `/api/profiles/${personal}/properties`, { name: 'Horas', type: 'number' });
+    expect(horas.position).toBe(1);
+    expect((await call('POST', `/api/profiles/${personal}/properties`, { name: 'contexto', type: 'text' })).status).toBe(409);
+    expect((await call('POST', `/api/profiles/${personal}/properties`, { name: 'Raro', type: 'color' })).status).toBe(400);
+    expect(await data('GET', `/api/profiles/${trabajo}/properties`)).toHaveLength(0);
+
+    const renamed = await data('PATCH', `/api/properties/${zona.id}`, { name: 'Lugar', options: ['casa', 'calle', 'oficina'] });
+    expect(renamed).toMatchObject({ name: 'Lugar', options: ['casa', 'calle', 'oficina'] });
+
+    const note = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, props: { [zona.id]: 'casa', [horas.id]: 2 } });
+    expect(JSON.parse(note.props)).toEqual({ [zona.id]: 'casa', [horas.id]: 2 });
+    const task = await data('PATCH', `/api/notes/${note.id}`, { kind: 'task', priority: 3, dueAt: '2026-10-03' });
+    expect(task).toMatchObject({ priority: 3, dueAt: '2026-10-03' });
+    expect((await call('PATCH', `/api/notes/${note.id}`, { props: { x: { nested: true } } })).status).toBe(400);
+
+    expect((await call('DELETE', `/api/properties/${zona.id}`)).status).toBe(204);
+    const { notes } = await data('GET', `/api/profiles/${personal}/canvas`);
+    expect(JSON.parse(notes[0].props)).toEqual({ [horas.id]: 2 });
+    expect(await data('GET', `/api/profiles/${personal}/properties`)).toHaveLength(1);
+  });
+});

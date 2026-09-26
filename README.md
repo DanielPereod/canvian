@@ -47,7 +47,8 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` 
 | `B` | Elegir el fondo del perfil (liso, puntos, cuadrícula, estrellas, luciérnagas, aurora) |
 | `T` | Convertir las notas seleccionadas en tareas (o volver a notas) |
 | `X` | Avanzar el estado de la tarea: pendiente → en curso → hecha |
-| `F` | Linterna: filtra el canvas (`tipo:tarea`, `estado:pendiente\|curso\|hecha`); `Enter` la fija, `Esc` la apaga |
+| `P` | Panel de propiedades de la nota seleccionada: tipo, estado, prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
+| `F` | Linterna: filtra el canvas. Palabras sueltas y `tipo:tarea`, `estado:pendiente\|curso\|hecha`, `prio:alta\|media\|baja`, `vence:hoy\|semana\|vencida\|pronto` o `<propiedad>:<valor>`; `Enter` la fija, `Esc` la apaga |
 | `E` | Laboratorio: encender o apagar las ideas en prueba |
 | `G` | Agrupar las notas seleccionadas en una zona (o crear una zona vacía) |
 | `Supr` / `Retroceso` | Borrar lo seleccionado |

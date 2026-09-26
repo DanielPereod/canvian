@@ -161,6 +161,11 @@
   --warning: var(--hue-amber);
   --success: var(--hue-sage);
 
+  /* Prioridad de las tareas */
+  --prio-1: var(--hue-sky);
+  --prio-2: var(--hue-amber);
+  --prio-3: var(--hue-coral);
+
   --focus-ring: 0 0 0 3px color-mix(in oklab, var(--accent) 32%, transparent);
 
   transition: --accent var(--dur-mood) var(--ease-soft);

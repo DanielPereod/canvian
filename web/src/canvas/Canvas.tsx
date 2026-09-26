@@ -16,7 +16,19 @@ import {
   type Viewport,
 } from '@xyflow/react';
 import { ulid } from 'ulidx';
-import { api, type BackgroundKind, type EdgeRow, type LayoutItem, type NoteKind, type NoteRow, type Profile, type TaskStatus } from '../api';
+import {
+  api,
+  parseProps,
+  type BackgroundKind,
+  type EdgeRow,
+  type LayoutItem,
+  type NoteInput,
+  type NoteKind,
+  type NoteRow,
+  type Profile,
+  type PropertyDef,
+  type TaskStatus,
+} from '../api';
 import { CanvasContext, type CanvasActions, type NoteContent, type NoteData } from './context';
 import { NoteNode } from './NoteNode';
 import { ZoneNode } from './ZoneNode';
@@ -25,6 +37,7 @@ import { FloatingEdge } from './FloatingEdge';
 import { Constellation } from './Constellation';
 import { Lantern } from './Lantern';
 import { lanternMatcher } from './lanternMatch';
+import { Inspector } from './Inspector';
 
 type AppNode = Node<NoteData>;
 
@@ -89,6 +102,8 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const [problem, setProblem] = useState<string | null>(null);
   const [lamp, setLamp] = useState<string | null>(null);
   const [lampKey, setLampKey] = useState(0);
+  const [defs, setDefs] = useState<PropertyDef[]>([]);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
@@ -104,9 +119,9 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   // La linterna: qué notas quedan con luz. La clave en texto evita recalcular
   // el conjunto (y repintar todas las notas) mientras arrastras.
   const litKey = useMemo(() => {
-    const match = lamp ? lanternMatcher(lamp) : null;
+    const match = lamp ? lanternMatcher(lamp, defs) : null;
     return match ? nodes.filter((n) => match(n.data)).map((n) => n.id).join(' ') : null;
-  }, [lamp, nodes]);
+  }, [lamp, nodes, defs]);
   const lit = useMemo(() => (litKey === null ? null : new Set(litKey.split(' ').filter(Boolean))), [litKey]);
 
   const report = useCallback((err: unknown) => {
@@ -129,8 +144,9 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   // Carga inicial del perfil: notas, enlaces y dónde dejaste la vista.
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.canvas(profile.id), api.getViewport(profile.id)]).then(([canvas, viewport]) => {
+    Promise.all([api.canvas(profile.id), api.getViewport(profile.id), api.properties(profile.id)]).then(([canvas, viewport, properties]) => {
       if (cancelled) return;
+      setDefs(properties);
       setNodes(canvas.notes.map(toNode));
       setEdges(canvas.edges.map(toEdge));
       flow.setViewport(viewport);
@@ -212,11 +228,12 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
         priority: null,
         dueAt: null,
         doneAt: null,
+        props: '{}',
         updatedAt: now(),
         ...extra,
       };
       setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), { ...toNode(row), selected: true }]);
-      const request = api.createNote(profile.id, row).catch(report);
+      const request = api.createNote(profile.id, { ...row, props: parseProps(row.props) }).catch(report);
       created.current.set(row.id, request);
       void request.then(() => created.current.delete(row.id));
       if (kind !== 'zone') setEditingId(row.id);
@@ -225,14 +242,20 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     [profile.id, report, setNodes],
   );
 
-  const patchNotes = (targets: AppNode[], patch: (n: AppNode) => Partial<NoteRow>) => {
-    for (const n of targets) {
-      const change = patch(n);
-      patchData(n.id, { ...change, updatedAt: now() });
-      ready(n.id)
-        .then(() => api.patchNote(n.id, change))
+  // Cambia campos de una nota: al momento en pantalla y después en el servidor.
+  const updateNote = useCallback(
+    (id: string, change: NoteInput) => {
+      const { props, ...rest } = change;
+      patchData(id, { ...rest, ...(props ? { props: JSON.stringify(props) } : {}), updatedAt: now() });
+      ready(id)
+        .then(() => api.patchNote(id, change))
         .catch(report);
-    }
+    },
+    [patchData, report],
+  );
+
+  const patchNotes = (targets: AppNode[], patch: (n: AppNode) => NoteInput) => {
+    for (const n of targets) updateNote(n.id, patch(n));
   };
 
   const setStatus = (targets: AppNode[], status: TaskStatus) =>
@@ -306,8 +329,14 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
         if (node) setStatus([node], NEXT[node.data.status ?? 'todo']);
       },
       lit,
+      defs,
+      updateNote,
+      openInspector: (id) => {
+        setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === id })));
+        setInspectorOpen(true);
+      },
     }),
-    [editingId, flush, patchData, removeNotes, report, lit],
+    [editingId, flush, patchData, removeNotes, report, lit, defs, updateNote, setNodes],
   );
 
   const onPaneDoubleClick = (e: ReactMouseEvent) => {
@@ -458,6 +487,11 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
       } else if (e.key.toLowerCase() === 'x') {
         e.preventDefault();
         advanceTasks();
+      } else if (e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setInspectorOpen((o) => !o);
+      } else if (e.key === 'Escape' && inspectorOpen) {
+        setInspectorOpen(false);
       } else if (e.key.toLowerCase() === 'f') {
         e.preventDefault();
         setLamp((q) => q ?? '');
@@ -469,6 +503,9 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+
+  const selectedNotes = nodes.filter((n) => n.selected && n.type === 'note');
+  const selectedNote = selectedNotes.length === 1 ? selectedNotes[0].data : null;
 
   const onMoveEnd = (_: unknown, v: Viewport) => {
     clearTimeout(viewportTimer.current);
@@ -546,6 +583,17 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
             actions.saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
           }}
           onClose={() => setPaletteOpen(false)}
+        />
+      )}
+      {inspectorOpen && (
+        <Inspector
+          note={selectedNote}
+          defs={defs}
+          onChange={updateNote}
+          onDefsChange={setDefs}
+          profileId={profile.id}
+          onError={report}
+          onClose={() => setInspectorOpen(false)}
         />
       )}
       {lamp !== null && (

@@ -1,4 +1,4 @@
-.canvas { position: absolute; inset: 0; }
+.canvas { position: absolute; inset: 0; z-index: 0; isolation: isolate; }
 .react-flow { background: transparent; }
 
 .empty-state { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; text-align: center; }

@@ -229,7 +229,8 @@ function doc(title: string, body?: string | string[]) {
 }
 
 // Altura aproximada de una nota para colocarlas sin que se pisen.
-const heightOf = (it: Item) => 56 + (typeof it.body === 'string' ? 22 * Math.ceil(it.body.length / 30) : (it.body?.length ?? 0) * 24);
+const heightOf = (it: Item) =>
+  64 + (it.task ? 30 : 0) + (typeof it.body === 'string' ? 24 * Math.ceil(it.body.length / 28) : (it.body?.length ?? 0) * 26);
 
 const args = process.argv.slice(2);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -258,6 +259,10 @@ const extraIdx = args.indexOf('--extra');
 const extra = extraIdx >= 0 ? Number(args[extraIdx + 1]) || 0 : 0;
 
 const random = rng(42);
+const dueIn = (days: number) => {
+  const d = new Date(Date.now() + days * 86_400_000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const DAY = 86_400_000;
 const NOTE_W = 250;
 const GAP = 36;
@@ -311,6 +316,8 @@ function seedProfile(profileId: string, zones: Zone[], loose: string[], extraCou
         zoneId,
         status: it.task ?? null,
         doneAt: it.task === 'done' ? updatedAt : null,
+        priority: it.task && random() < 0.6 ? 1 + Math.floor(random() * 3) : null,
+        dueAt: it.task && random() < 0.5 ? dueIn(Math.round(random() * 24) - 5) : null,
         props,
         createdAt: updatedAt,
         updatedAt,
