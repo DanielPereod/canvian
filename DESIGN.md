@@ -23,3 +23,15 @@ La muestra viva está en la propia app: abre `http://localhost:5173/#sistema`.
 - **Movimiento.** Entradas con `--ease-spring`, salidas rápidas con `--ease-in`, desvanecidos con `--ease-out`. Las notas florecen (escala + desenfoque + opacidad), los tallos crecen al crearse y llevan un pulso de luz al señalarlos. Todo respeta `prefers-reduced-motion`.
 - **Fondos por perfil** (`B`): liso, puntos y cuadrícula se dibujan dentro del lienzo y se mueven con él; estrellas (canvas con paralaje), luciérnagas y aurora son capas ambientales detrás (`web/src/backgrounds/`).
 - **Tema oscuro único**, a propósito.
+
+## Experimentos
+
+Ideas en prueba, cada una detrás de una clase `exp-*` en `.workspace` que se
+enciende desde el laboratorio (`E`, `web/src/lab/`). Se guardan en el navegador.
+Si una se queda, su CSS sale de `lab/experiments.css` hacia su sitio definitivo.
+
+- **Luz como memoria** (`memoria`): `--age` apaga y desatura lo que no tocas en un mes.
+- **Filtro linterna** (`linterna`): con `F`, lo que coincide brilla y el resto se hunde en sombra.
+- **Tareas que maduran** (`maduran`): semilla, brote y flor en lugar del círculo que se llena.
+- **Modo constelación** (`constelacion`): por debajo de zoom 0,45 las notas son estrellas y los enlaces, líneas rectas.
+- **Notas que florecen** (`florecen`): `--bloom` (enlaces, hasta 6) agranda la nota y le da luz.

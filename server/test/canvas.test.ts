@@ -46,6 +46,15 @@ describe('notes', () => {
     expect((await call('PATCH', `/api/notes/${note.id}`, { title: 'x' })).status).toBe(404);
   });
 
+  it('turns a note into a task and moves it through its states', async () => {
+    const note = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, title: 'Comprar pan' });
+    const task = await data('PATCH', `/api/notes/${note.id}`, { kind: 'task', status: 'todo' });
+    expect(task).toMatchObject({ kind: 'task', status: 'todo' });
+    const done = await data('PATCH', `/api/notes/${note.id}`, { status: 'done', doneAt: '2026-09-26T12:00:00.000Z' });
+    expect(done).toMatchObject({ status: 'done', doneAt: '2026-09-26T12:00:00.000Z' });
+    expect((await call('PATCH', `/api/notes/${note.id}`, { status: 'quizás' })).status).toBe(400);
+  });
+
   it('accepts client-generated ids so the UI can create optimistically', async () => {
     const note = await data('POST', `/api/profiles/${personal}/notes`, { id: '01JABCDEFGHJKMNPQRSTVWXYZ0', x: 0, y: 0 });
     expect(note.id).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');

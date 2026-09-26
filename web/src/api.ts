@@ -11,6 +11,8 @@ export type Profile = {
 
 export type Viewport = { x: number; y: number; zoom: number };
 
+export type TaskStatus = 'todo' | 'doing' | 'done';
+
 export type NoteKind = 'text' | 'task' | 'link' | 'image' | 'checklist' | 'code' | 'zone';
 
 export type NoteRow = {
@@ -26,6 +28,11 @@ export type NoteRow = {
   h: number | null;
   z: number;
   zoneId: string | null;
+  status: TaskStatus | null;
+  priority: number | null;
+  dueAt: string | null;
+  doneAt: string | null;
+  updatedAt: string;
 };
 
 export type EdgeRow = {
@@ -84,7 +91,7 @@ export const api = {
     request<{ notes: NoteRow[]; edges: EdgeRow[] }>('GET', `/profiles/${profileId}/canvas`),
   createNote: (profileId: string, note: Partial<NoteRow> & { id: string; x: number; y: number }) =>
     request<NoteRow>('POST', `/profiles/${profileId}/notes`, note),
-  patchNote: (id: string, patch: Partial<Omit<NoteRow, 'id' | 'profileId'>>) =>
+  patchNote: (id: string, patch: Partial<Omit<NoteRow, 'id' | 'profileId' | 'updatedAt'>>) =>
     request<NoteRow>('PATCH', `/notes/${id}`, patch),
   saveLayout: (items: LayoutItem[]) => request('PATCH', '/notes/layout', items),
   deleteNote: (id: string) => request('DELETE', `/notes/${id}`),

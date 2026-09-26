@@ -33,6 +33,10 @@ npm start        # sirve todo desde :3210
 
 Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` (por defecto `web/dist`).
 
+## Datos de ejemplo
+
+`npm run seed -w server` llena Personal y Trabajo con zonas, notas, tareas y enlaces de ejemplo (añade `-- --extra 400` para cientos de notas más). `npm run seed -w server -- --borrar` quita solo lo que creó.
+
 ## Atajos
 
 | Atajo | Acción |
@@ -41,6 +45,10 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_WEB_DIR` 
 | Doble clic en una nota / `Enter` | Editarla (`Esc` para salir; si queda vacía, se borra) |
 | Arrastrar desde un punto del borde | Enlazar con otra nota, o crear una nueva enlazada si sueltas en el vacío |
 | `B` | Elegir el fondo del perfil (liso, puntos, cuadrícula, estrellas, luciérnagas, aurora) |
+| `T` | Convertir las notas seleccionadas en tareas (o volver a notas) |
+| `X` | Avanzar el estado de la tarea: pendiente → en curso → hecha |
+| `F` | Linterna: filtra el canvas (`tipo:tarea`, `estado:pendiente\|curso\|hecha`); `Enter` la fija, `Esc` la apaga |
+| `E` | Laboratorio: encender o apagar las ideas en prueba |
 | `G` | Agrupar las notas seleccionadas en una zona (o crear una zona vacía) |
 | `Supr` / `Retroceso` | Borrar lo seleccionado |
 | `⇧` + clic | Seleccionar varias notas |

@@ -1,4 +1,7 @@
-import { Position, getBezierPath, useInternalNode, type EdgeProps, type InternalNode } from '@xyflow/react';
+import { Position, getBezierPath, getStraightPath, useInternalNode, useStore, type EdgeProps, type InternalNode } from '@xyflow/react';
+import { useCanvasActions } from './context';
+import { useExperiments } from '../lab/experiments';
+import { CONSTELLATION_ZOOM } from './Constellation';
 
 // Los enlaces salen del borde más cercano de cada nota en vez de un asa fija
 // y se dibujan como tallos: crecen al aparecer y dejan pasar un pulso de luz
@@ -29,7 +32,23 @@ function borderPoint(from: InternalNode, to: InternalNode) {
 export function FloatingEdge({ id, source, target }: EdgeProps) {
   const s = useInternalNode(source);
   const t = useInternalNode(target);
+  const { lit } = useCanvasActions();
+  const { constelacion } = useExperiments();
+  const far = useStore((st) => st.transform[2] < CONSTELLATION_ZOOM);
   if (!s || !t) return null;
+  const dim = lit && !(lit.has(source) && lit.has(target)) ? ' shadowed' : '';
+  // En modo constelación los enlaces son líneas rectas entre estrellas (centros).
+  if (constelacion && far) {
+    const a = box(s);
+    const b = box(t);
+    const [line] = getStraightPath({ sourceX: a.cx, sourceY: a.cy, targetX: b.cx, targetY: b.cy });
+    return (
+      <>
+        <path id={id} className={`react-flow__edge-path stem star-line${dim}`} d={line} pathLength={1} />
+        <path className="react-flow__edge-interaction" d={line} fill="none" strokeOpacity={0} strokeWidth={18} />
+      </>
+    );
+  }
   const from = borderPoint(s, t);
   const to = borderPoint(t, s);
   const [path] = getBezierPath({
@@ -43,8 +62,8 @@ export function FloatingEdge({ id, source, target }: EdgeProps) {
   });
   return (
     <>
-      <path id={id} className="react-flow__edge-path stem" d={path} pathLength={1} />
-      <path className="stem-pulse" d={path} pathLength={1} />
+      <path id={id} className={`react-flow__edge-path stem${dim}`} d={path} pathLength={1} />
+      <path className={`stem-pulse${dim}`} d={path} pathLength={1} />
       <path className="react-flow__edge-interaction" d={path} fill="none" strokeOpacity={0} strokeWidth={18} />
     </>
   );

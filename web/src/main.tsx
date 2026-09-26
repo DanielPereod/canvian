@@ -11,6 +11,7 @@ import './design/base.css';
 import './design/components.css';
 import './canvas/canvas.css';
 import './app.css';
+import './lab/experiments.css';
 import { App } from './App';
 
 createRoot(document.getElementById('root')!).render(

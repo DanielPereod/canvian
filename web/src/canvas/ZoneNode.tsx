@@ -5,7 +5,7 @@ import { useCanvasActions, type NoteData } from './context';
 export type ZoneNodeType = Node<NoteData, 'zone'>;
 
 function ZoneNodeView({ id, data, selected }: NodeProps<ZoneNodeType>) {
-  const { renameZone, resized } = useCanvasActions();
+  const { renameZone, resized, lit } = useCanvasActions();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(data.title ?? '');
 
@@ -16,7 +16,7 @@ function ZoneNodeView({ id, data, selected }: NodeProps<ZoneNodeType>) {
   };
 
   return (
-    <div className={`zone${selected ? ' selected' : ''}`}>
+    <div className={`zone${selected ? ' selected' : ''}${lit ? (lit.has(id) ? ' lit' : ' shadowed') : ''}`}>
       <NodeResizer
         isVisible={selected}
         minWidth={200}
