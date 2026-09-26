@@ -56,6 +56,7 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (i
 | `P` | Propiedades de la nota señalada: tipo, estado, prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
 | `Supr` | Borrar la nota o sección señalada (lo que había dentro de una sección pasa a su madre) |
 | En la hoja de una nota | Escribir; arriba, hacer tarea, propiedades y borrar; abajo, sus enlaces (`+ Enlazar` busca otra nota, `×` quita el enlace) |
+| `A` | Vista de tareas: todas las tareas activas del perfil en una lista, agrupadas por estado, fecha o sección (`Tab` cambia). `↑`/`↓` para moverse, `Enter` abre, `X` avanza el estado, `N` crea una tarea, `Esc` vuelve al mapa |
 | `F` | Linterna: filtra el mapa en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea`, `estado:pendiente\|curso\|hecha` (o `-hecha`), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d`, `zona:viaje`, `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
 | `Tab` (con la linterna) | Cambia el modo: atenuar (lo demás se apaga) u ocultar (lo demás encoge) |
 | `⌘/Ctrl S` (en la linterna) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |

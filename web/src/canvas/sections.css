@@ -182,3 +182,52 @@
 .prose img.note-media, .prose video.note-media { max-height: 70vh; object-fit: contain; background: var(--surface-sunken); }
 .prose audio.note-media { width: 100%; }
 .prose .note-media.ProseMirror-selectednode { outline: 2px solid var(--accent-line); outline-offset: 3px; }
+
+/* ── Vista de tareas activas ─────────────────────────────────────── */
+.chrome-top-right { position: absolute; top: var(--space-4); right: var(--space-4); z-index: var(--z-chrome); animation: rise-in var(--dur-slow) var(--ease-out) both; }
+.tasks-pill { display: inline-flex; align-items: baseline; gap: var(--space-2); }
+.tasks-view {
+  position: absolute;
+  inset: 0;
+  z-index: calc(var(--z-chrome) + 1);
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(80% 60% at 50% 20%, var(--accent-soft), transparent 70%), var(--bg);
+  animation: tasks-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes tasks-in { from { opacity: 0; transform: scale(1.015); } }
+.tasks-top { display: flex; justify-content: space-between; align-items: center; padding: var(--space-4) var(--space-5); }
+.tasks-group-by { display: flex; gap: var(--space-1); }
+.tasks-group-by button { background: none; border: 1px solid transparent; border-radius: 999px; padding: 4px 12px; color: var(--text-ghost); cursor: pointer; transition: color var(--dur-fast), border-color var(--dur-fast); }
+.tasks-group-by button:hover { color: var(--text-muted); }
+.tasks-group-by button.is-on { color: var(--text); border-color: var(--line-strong); }
+.tasks-body { flex: 1; overflow-y: auto; width: 100%; max-width: 760px; margin: 0 auto; padding: var(--space-4) var(--space-5) 120px; }
+.tasks-title { font-family: var(--font-serif); font-weight: 400; font-size: clamp(34px, 5vw, 52px); line-height: 1.1; margin: 0; }
+.tasks-title em { color: var(--accent-ink); }
+.tasks-sub { margin: var(--space-2) 0 var(--space-6); }
+.tasks-empty { font-family: var(--font-serif); font-style: italic; font-size: var(--text-lg); color: var(--text-muted); display: flex; gap: var(--space-3); align-items: center; }
+.tasks-group { margin-bottom: var(--space-6); }
+.tasks-group-title { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 22px; margin: 0 0 var(--space-2); display: flex; align-items: baseline; gap: var(--space-2); }
+.tasks-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 12px 10px 44px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast);
+  animation: tasks-row-in 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 18ms);
+}
+@keyframes tasks-row-in { from { opacity: 0; transform: translateY(6px); } }
+.tasks-row.is-cursor { background: var(--surface-sunken); }
+.tasks-row .task-glyph { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); }
+.tasks-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-md); }
+.tasks-prio { color: var(--accent-ink); letter-spacing: 2px; }
+.tasks-where { max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tasks-due.is-soon { color: var(--accent-ink); }
+.tasks-due.is-late { color: var(--danger, #f28b82); }
+.tasks-keys { position: absolute; bottom: var(--space-4); left: 50%; transform: translateX(-50%); display: flex; gap: var(--space-4); flex-wrap: wrap; justify-content: center; }
+.tasks-keys span { display: inline-flex; gap: var(--space-1); align-items: center; }
+@media (max-width: 640px) { .tasks-where { display: none; } .tasks-keys { display: none; } .tasks-top { padding: var(--space-3) var(--space-4); } }
