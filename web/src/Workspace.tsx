@@ -1,16 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Background,
-  BackgroundVariant,
-  ReactFlow,
-  ReactFlowProvider,
-  useReactFlow,
-  type Viewport,
-} from '@xyflow/react';
+import { useEffect, useState } from 'react';
+import { ReactFlowProvider } from '@xyflow/react';
 import { api, type Profile } from './api';
 import { ProfileSwitcher } from './ProfileSwitcher';
+import { Canvas } from './canvas/Canvas';
 
 const ACTIVE_KEY = 'canvian.activeProfile';
+const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
 
 function readActive(): string | null {
   try {
@@ -18,44 +13,6 @@ function readActive(): string | null {
   } catch {
     return null;
   }
-}
-
-function Canvas({ profile }: { profile: Profile }) {
-  const flow = useReactFlow();
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  // Cada perfil recuerda dónde lo dejaste.
-  useEffect(() => {
-    let cancelled = false;
-    api.getViewport(profile.id).then((v) => {
-      if (!cancelled) flow.setViewport(v, { duration: 250 });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [profile.id, flow]);
-
-  const onMoveEnd = useCallback(
-    (_: unknown, v: Viewport) => {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => void api.saveViewport(profile.id, v), 400);
-    },
-    [profile.id],
-  );
-
-  return (
-    <ReactFlow
-      nodes={[]}
-      edges={[]}
-      onMoveEnd={onMoveEnd}
-      minZoom={0.1}
-      maxZoom={3}
-      zoomOnDoubleClick={false}
-      proOptions={{ hideAttribution: true }}
-    >
-      <Background variant={BackgroundVariant.Dots} gap={24} size={1.4} color="var(--dots)" />
-    </ReactFlow>
-  );
 }
 
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
@@ -95,7 +52,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   return (
     <div className="workspace" style={{ '--profile': active.color ?? 'var(--accent)' } as React.CSSProperties}>
       <ReactFlowProvider>
-        <Canvas profile={active} />
+        <Canvas key={active.id} profile={active} />
       </ReactFlowProvider>
 
       <button className="glass profile-pill" onClick={() => setSwitcherOpen(true)}>
@@ -104,9 +61,21 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       </button>
 
       <div className="hint">
-        <kbd>{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}</kbd>
-        <kbd>⇧</kbd>
-        <kbd>P</kbd> perfiles
+        <span>
+          <kbd>2×clic</kbd> nota
+        </span>
+        <span>
+          <kbd>G</kbd> zona
+        </span>
+        <span>
+          <kbd>{mod}</kbd>
+          <kbd>K</kbd> buscar
+        </span>
+        <span>
+          <kbd>{mod}</kbd>
+          <kbd>⇧</kbd>
+          <kbd>P</kbd> perfiles
+        </span>
       </div>
 
       {switcherOpen && (

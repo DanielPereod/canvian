@@ -14,6 +14,7 @@ import {
   isValidSession,
   setPassword,
 } from './auth.js';
+import { canvasRoutes } from './routes/canvas.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -146,6 +147,8 @@ export function createApp(db: Db) {
       .run();
     return c.body(null, 204);
   });
+
+  api.route('/', canvasRoutes(db));
 
   const app = new Hono();
   app.get('/health', (c) => c.json({ ok: true }));
