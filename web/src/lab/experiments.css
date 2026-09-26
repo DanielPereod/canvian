@@ -1,69 +1,8 @@
-/* ═══ Experimentos ═══════════════════════════════════════════════════
+/* ═══ Experimentos y piezas compartidas ═══════════════════════════════
    Cada idea se activa con una clase exp-* en .workspace (laboratorio, tecla E).
-   Las variables por nota las pone NoteNode: --age (0 reciente → 1 olvidada)
-   y --bloom (0 sin enlaces → 1 con seis o más). Valen 0 si la idea está apagada. */
+   Luz como memoria la dibuja el mapa (fluid.ts). */
 
-.note {
-  --o-mem: calc(1 - 0.45 * var(--age, 0));
-  --o-lamp: 1;
-  opacity: calc(var(--o-mem) * var(--o-lamp));
-  scale: calc(1 + 0.15 * var(--bloom, 0));
-  transition:
-    border-color var(--dur-base),
-    box-shadow var(--dur-slow) var(--ease-out),
-    transform var(--dur-base) var(--ease-out),
-    opacity var(--dur-mood) var(--ease-out),
-    scale var(--dur-slow) var(--ease-spring);
-}
-
-/* ── 1. Luz como memoria: al señalarla vuelve a encenderse ── */
-.react-flow__node:hover .note,
-.note.selected,
-.note.editing { --o-mem: 1; }
-
-/* ── 5. Notas que florecen: más enlaces, más presencia ── */
-.note:not(.selected):not(.editing) {
-  border-color: color-mix(in oklab, var(--accent) calc(var(--bloom, 0) * 45%), var(--line));
-  box-shadow:
-    var(--highlight),
-    0 0 calc(var(--bloom, 0) * 56px) calc(var(--bloom, 0) * -6px) var(--accent-glow),
-    var(--shadow-1);
-}
-.react-flow__node:hover .note:not(.editing):not(.selected) { border-color: var(--line-strong); }
-
-/* ── 2. Linterna (F): lo que buscas brilla, lo demás queda en sombra ── */
-.note.shadowed { --o-lamp: 0.3; }
-.zone.shadowed { opacity: 0.45; transition: opacity var(--dur-mood) var(--ease-out); }
-.stem.shadowed, .stem-pulse.shadowed { opacity: 0.2; }
-.stem { transition: stroke var(--dur-base), opacity var(--dur-mood) var(--ease-out); }
-
-.lamp-dark {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(90vmax 70vmax at 50% 45%, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.7));
-  transition: opacity var(--dur-mood) var(--ease-out);
-}
-.react-flow__background { transition: opacity var(--dur-mood) var(--ease-out); }
-
-.exp-linterna .lamp-on .lamp-dark { opacity: 1; }
-.exp-linterna .lamp-on .react-flow__background { opacity: 0.25; }
-/* El filtro solo en las notas en sombra: en todas a la vez hacía lento el lienzo. */
-.exp-linterna .note.shadowed { --o-lamp: 0.13; filter: grayscale(0.9) blur(1.5px); }
-.exp-linterna .zone.shadowed { opacity: 0.25; }
-.exp-linterna .stem.shadowed, .exp-linterna .stem-pulse.shadowed { opacity: 0.06; }
-.exp-linterna .note.lit {
-  --o-mem: 1;
-  border-color: var(--accent-line);
-  box-shadow: var(--highlight), 0 0 0 1px var(--accent-line), 0 0 70px -10px var(--accent-glow), var(--shadow-1);
-  animation: note-in var(--dur-slow) var(--ease-spring) both, ignite var(--dur-grow) var(--ease-out);
-}
-.exp-linterna .zone.lit { border-color: var(--accent-line); box-shadow: 0 0 80px -30px var(--accent-glow); }
-@keyframes ignite {
-  0% { box-shadow: var(--highlight), 0 0 0 1px transparent, 0 0 0 0 transparent, var(--shadow-1); }
-  40% { box-shadow: var(--highlight), 0 0 0 1px var(--accent), 0 0 110px 0 var(--accent-glow), var(--shadow-1); }
-}
+/* ── Linterna (F) ── */
 
 .lantern {
   position: absolute;
@@ -87,9 +26,8 @@
 .lantern-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px 2px var(--accent-glow); animation: breathe 2.4s ease-in-out infinite; }
 @keyframes breathe { 50% { box-shadow: 0 0 22px 5px var(--accent-glow); } }
 
-/* ── 3. Tareas: estado en la esquina ── */
-.note.task .note-body { padding-right: calc(var(--space-4) + 26px); }
-.note.task.is-done .note-body { color: var(--text-faint); }
+/* ── Tareas: estado en la esquina ── */
+
 .task-glyph {
   position: absolute;
   top: 7px;
@@ -134,8 +72,7 @@
 .task-glyph.ripe.is-done .g-flower { rotate: 0deg; }
 .task-glyph.ripe .g-flower ellipse { fill: color-mix(in oklab, var(--accent) 70%, white); opacity: 0.92; }
 .task-glyph.ripe .g-flower .core { fill: var(--hue-amber); }
-/* La semilla se mece al señalarla (cientos meciéndose a la vez pesaban demasiado). */
-.react-flow__node:hover .task-glyph.ripe.is-todo, .focus-card .task-glyph.ripe.is-todo { animation: sway 3.2s ease-in-out infinite; }
+
 .task-glyph.ripe.is-doing svg { filter: drop-shadow(0 0 5px var(--accent-glow)); }
 .task-glyph.ripe.is-done::after {
   content: '';
@@ -149,41 +86,6 @@
 }
 @keyframes sway { 50% { rotate: 8deg; } }
 @keyframes burst { from { opacity: 0.9; scale: 0.6; } to { opacity: 0; scale: 2.6; } }
-.exp-maduran .note.task.is-doing:not(.selected):not(.editing) { border-color: color-mix(in oklab, var(--accent) 35%, var(--line)); }
-
-/* ── 4. Constelación: de lejos, cada nota es una estrella ──
-   Las estrellas y sus nombres los dibuja StarLayer en un <canvas>; las notas
-   quedan transparentes debajo para poder señalarlas, seleccionarlas y moverlas. */
-.star-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--dur-slow) var(--ease-out);
-}
-.star-layer.on { opacity: 1; }
-.note > * { transition: opacity var(--dur-slow) var(--ease-out); }
-
-.constellation .note {
-  background: transparent;
-  border-color: transparent !important;
-  box-shadow: none !important;
-  overflow: visible;
-}
-.constellation .note > * { opacity: 0; pointer-events: none; }
-.constellation .zone { background: transparent; border-style: dashed; border-color: rgba(255, 255, 255, 0.06); }
-.constellation .zone .meta { opacity: 0; }
-.constellation .zone-title { color: var(--text-faint); }
-.star-line {
-  stroke: color-mix(in oklab, var(--accent) 55%, white);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-  stroke-dasharray: none;
-  opacity: 0.55;
-  animation: fade var(--dur-slow) var(--ease-out) both;
-}
-.react-flow__edge:hover .star-line, .react-flow__edge.selected .star-line { opacity: 1; stroke: var(--accent-ink); }
 
 /* ── Laboratorio (E) ── */
 .lab { width: min(460px, 100%); padding: var(--space-3); gap: var(--space-2); outline: none; }

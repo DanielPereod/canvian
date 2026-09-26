@@ -5,7 +5,6 @@ import '@fontsource/instrument-serif/400.css';
 import '@fontsource/instrument-serif/400-italic.css';
 import '@fontsource/silkscreen/400.css';
 import '@fontsource-variable/jetbrains-mono';
-import '@xyflow/react/dist/base.css';
 import './design/tokens.css';
 import './design/base.css';
 import './design/components.css';
@@ -14,7 +13,6 @@ import './app.css';
 import './canvas/properties.css';
 import './lab/experiments.css';
 import './canvas/lens.css';
-import './canvas/focus.css';
 import './canvas/sections.css';
 import { App } from './App';
 

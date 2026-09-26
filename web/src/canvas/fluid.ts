@@ -219,6 +219,10 @@ export class Fluid {
         (hide && lit && !lit.has(c.node.id) ? 0.04 : 1),
     );
     const zoomed = this.cells.reduce<Cell | null>((m, c) => (c.s > (m?.s ?? 0.001) ? c : m), null);
+    // Nada se queda tan pequeño que no se pueda leer ni señalar (una sección
+    // recién creada, por ejemplo), salvo lo que la linterna oculta.
+    const mean = base.reduce((a, b) => a + b, 0) / (base.length || 1);
+    for (let i = 0; i < base.length; i++) if (!(hide && lit && !lit.has(this.cells[i].node.id))) base[i] = Math.max(base[i], mean * 0.45);
     const sum = base.reduce((a, b) => a + b, 0) || 1;
     const frac = base.map((b) => b / sum);
     if (zoomed) {
@@ -312,7 +316,7 @@ class FluidView {
 
   render(fluid: Fluid, t: number, opacity: number, hover: string | null, hideLabelOf: { id: string; amount: number } | null) {
     this.root.style.opacity = String(opacity);
-    const { lit, memoria } = fluid.lens;
+    const { lit, memoria, drag, drop } = fluid.lens;
     const today = Date.now();
     const seen = new Set<string>();
     for (const c of fluid.cells) {
@@ -346,6 +350,8 @@ class FluidView {
       if (memoria && touched && hover !== id) fade *= 1 - 0.45 * Math.min(1, Math.max(0, ((today - Date.parse(touched)) / DAY - 1) / 29));
       if (lit && !lit.has(id)) fade *= 0.22;
       e.g.classList.toggle('lit', !!lit && lit.has(id));
+      e.g.classList.toggle('dragged', drag === id);
+      e.g.classList.toggle('drop', drop === id);
       e.g.style.opacity = String(Math.min(1, c.alive * 1.2) * smooth(18, 50, size) * fade);
       e.g.classList.toggle('hover', hover === id);
       e.g.classList.toggle('done', c.node.note?.kind === 'task' && c.node.note.status === 'done');
@@ -449,6 +455,9 @@ export type MapLens = {
   // Ocultar: lo que no encaja encoge hasta casi desaparecer.
   hide: boolean;
   memoria: boolean;
+  // Arrastre: la celda que se mueve y la sección sobre la que se soltaría.
+  drag?: string | null;
+  drop?: string | null;
 };
 const DAY = 86_400_000;
 
@@ -692,6 +701,11 @@ export class FluidMap {
     // Mismo objeto para todos los niveles.
     Object.assign(this.lens, { lit, hide: hide && !!notes, memoria });
     this.lensArgs = [notes, hide, memoria];
+  }
+
+  setDrag(id: string | null, target: string | null) {
+    this.lens.drag = id;
+    this.lens.drop = target;
   }
 
   // La hoja de la nota se cerró: la celda se encoge despacio hasta su sitio.

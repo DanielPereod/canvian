@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { ReactFlowProvider } from '@xyflow/react';
 import { api, type BackgroundKind, type Profile } from './api';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { Canvas } from './canvas/Canvas';
@@ -75,7 +74,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   if (!active) return <div className="backdrop" />;
 
-  const background = previewBg ?? active.background ?? 'dots';
+  const background = previewBg ?? active.background ?? 'plain';
 
   const chooseBackground = (kind: BackgroundKind) => {
     setPickerOpen(false);
@@ -88,10 +87,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   };
 
   return (
-    <ReactFlowProvider>
     <div className={`workspace backdrop ${EXPERIMENTS.filter((x) => experiments[x.id]).map((x) => `exp-${x.id}`).join(' ')}`}>
       <Ambient kind={background} />
-      <Canvas key={active.id} profile={active} background={background} />
+      <Canvas key={active.id} profile={active} />
 
       <div className="chrome-top-left">
         <button className="surface-2 pill" onClick={() => setSwitcherOpen(true)} title="Cambiar de perfil">
@@ -100,83 +98,45 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         </button>
       </div>
 
-      {experiments.secciones ? (
-        <div className="hints">
-          <span>
-            <kbd>rueda</kbd> acercar
-          </span>
-          <span>
-            <kbd>clic</kbd> entrar
-          </span>
-          <span>
-            <kbd>N</kbd> nota
-          </span>
-          <span>
-            <kbd>T</kbd> tarea
-          </span>
-          <span>
-            <kbd>X</kbd> estado
-          </span>
-          <span>
-            <kbd>P</kbd> propiedades
-          </span>
-          <span>
-            <kbd>F</kbd> linterna
-          </span>
-          <span>
-            <kbd>Esc</kbd> atrás
-          </span>
-          <span>
-            <kbd>1</kbd> inicio
-          </span>
-          <span>
-            <kbd>B</kbd> fondo
-          </span>
-          <span>
-            <kbd>E</kbd> laboratorio
-          </span>
-          <span>
-            <kbd>{mod}</kbd>
-            <kbd>K</kbd> buscar
-          </span>
-        </div>
-      ) : (
-        <div className="hints">
-          <span>
-            <kbd>2×clic</kbd> nota
-          </span>
-          <span>
-            <kbd>G</kbd> zona
-          </span>
-          <span>
-            <kbd>T</kbd> tarea
-          </span>
-          <span>
-            <kbd>X</kbd> estado
-          </span>
-          <span>
-            <kbd>P</kbd> propiedades
-          </span>
-          <span>
-            <kbd>F</kbd> linterna
-          </span>
-          <span>
-            <kbd>B</kbd> fondo
-          </span>
-          <span>
-            <kbd>E</kbd> laboratorio
-          </span>
-          <span>
-            <kbd>{mod}</kbd>
-            <kbd>K</kbd> buscar
-          </span>
-          <span>
-            <kbd>{mod}</kbd>
-            <kbd>⇧</kbd>
-            <kbd>P</kbd> perfiles
-          </span>
-        </div>
-      )}
+      <div className="hints">
+        <span>
+          <kbd>rueda</kbd> acercar
+        </span>
+        <span>
+          <kbd>clic</kbd> entrar
+        </span>
+        <span>
+          <kbd>arrastrar</kbd> mover
+        </span>
+        <span>
+          <kbd>N</kbd> nota
+        </span>
+        <span>
+          <kbd>G</kbd> sección
+        </span>
+        <span>
+          <kbd>T</kbd> tarea
+        </span>
+        <span>
+          <kbd>P</kbd> propiedades
+        </span>
+        <span>
+          <kbd>F</kbd> linterna
+        </span>
+        <span>
+          <kbd>Esc</kbd> atrás
+        </span>
+        <span>
+          <kbd>B</kbd> fondo
+        </span>
+        <span>
+          <kbd>E</kbd> laboratorio
+        </span>
+        <span>
+          <kbd>{mod}</kbd>
+          <kbd>K</kbd> buscar
+        </span>
+      </div>
 
       {switcherOpen && (
         <ProfileSwitcher
@@ -197,7 +157,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       )}
       {pickerOpen && (
         <BackgroundPicker
-          current={active.background ?? 'dots'}
+          current={active.background ?? 'plain'}
           onPreview={setPreviewBg}
           onChoose={chooseBackground}
           onCancel={() => {
@@ -208,6 +168,5 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       )}
       {labOpen && <Lab onClose={() => setLabOpen(false)} />}
     </div>
-    </ReactFlowProvider>
   );
 }

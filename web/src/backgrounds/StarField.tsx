@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { useStore } from '@xyflow/react';
 
 type Star = { x: number; y: number; r: number; depth: number; phase: number; speed: number };
 
@@ -26,13 +25,10 @@ function makeStars(count: number): Star[] {
 
 const STARS = makeStars(420);
 
-// Cielo en <canvas>: las estrellas titilan y se desplazan con el lienzo a
-// distintas velocidades según su profundidad (paralaje).
+// Cielo en <canvas>: las estrellas titilan y derivan muy despacio, las
+// cercanas un poco más rápido que las lejanas (paralaje).
 export function StarField() {
   const ref = useRef<HTMLCanvasElement>(null);
-  const transform = useStore((s) => s.transform);
-  const view = useRef(transform);
-  view.current = transform;
 
   useEffect(() => {
     const canvas = ref.current!;
@@ -52,7 +48,8 @@ export function StarField() {
     const draw = (t: number) => {
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
-      const [vx, vy] = view.current;
+      const vx = -t * 0.004;
+      const vy = -t * 0.0015;
       ctx.clearRect(0, 0, w, h);
       for (const s of STARS) {
         const k = 0.02 + s.depth * 0.08;

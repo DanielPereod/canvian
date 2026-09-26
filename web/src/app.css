@@ -75,24 +75,16 @@
 .sg-static { position: static; transform: none; width: auto; animation: none; }
 .sg-canvas {
   position: relative;
-  height: 340px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
   overflow: hidden;
-  background-image: radial-gradient(var(--dots) 1.2px, transparent 1.2px);
-  background-size: 26px 26px;
+  padding: var(--space-3);
 }
-.sg-zone { position: absolute; left: 305px; top: 30px; width: 310px; height: 290px; }
-.sg-note { position: absolute; width: 240px; height: auto; }
+.sg-map { display: block; width: 100%; height: auto; }
 .sg-motion { display: grid; gap: var(--space-3); max-width: 70ch; }
 .sg-motion-list { margin: 0; padding-left: 1.1em; display: grid; gap: var(--space-1); color: var(--text-muted); font-size: var(--text-md); }
 @media (max-width: 680px) {
   .sg-title { font-size: var(--text-2xl); }
-  .sg-canvas { height: 540px; }
-  .sg-zone { left: 16px; top: 250px; width: calc(100% - 32px); }
-  .sg-note:nth-of-type(3), .sg-note:nth-of-type(4) { left: 40px !important; }
-  .sg-note:nth-of-type(3) { top: 320px !important; }
-  .sg-note:nth-of-type(4) { top: 420px !important; }
 }
 
 /* ── Fondos ──────────────────────────────────────────── */

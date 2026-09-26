@@ -6,6 +6,7 @@ type Props = {
   onPick: (id: string) => void;
   onCreate: (text: string) => void;
   onClose: () => void;
+  placeholder?: string;
 };
 
 type Item = { kind: 'note'; hit: SearchHit } | { kind: 'create'; text: string };
@@ -16,7 +17,7 @@ function snippet(hit: SearchHit): string {
   return rest.slice(0, 90);
 }
 
-export function CommandPalette({ profileId, onPick, onCreate, onClose }: Props) {
+export function CommandPalette({ profileId, onPick, onCreate, onClose, placeholder = 'Buscar notas o crear una' }: Props) {
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [cursor, setCursor] = useState(0);
@@ -66,7 +67,7 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose }: Props) 
           id="note-search"
           className="field field-bare"
           autoFocus
-          placeholder="Buscar notas o crear una"
+          placeholder={placeholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}

@@ -1,14 +1,12 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { Lens } from '../api';
 import type { LensToken } from './lanternMatch';
-import type { GroupBy } from './arrange';
 
-export type LensMode = 'dim' | 'hide' | 'arrange';
+export type LensMode = 'dim' | 'hide';
 
 const MODES: { id: LensMode; name: string }[] = [
   { id: 'dim', name: 'Atenuar' },
   { id: 'hide', name: 'Ocultar' },
-  { id: 'arrange', name: 'Columnas' },
 ];
 
 type Props = {
@@ -17,20 +15,15 @@ type Props = {
   count: number;
   tokens: LensToken[];
   mode: LensMode;
-  groupBy: string;
-  groups: GroupBy[];
   lenses: Lens[];
   onOpen: () => void;
   onFold: () => void;
   onChange: (q: string) => void;
   onMode: (m: LensMode) => void;
-  onGroup: (g: string) => void;
   onSave: () => Promise<Lens | null>;
   onApply: (lens: Lens) => void;
   onDelete: (lens: Lens) => void;
   onClear: () => void;
-  // El mapa de secciones no tiene columnas.
-  noColumns?: boolean;
 };
 
 export const nextMode = (m: LensMode): LensMode => MODES[(MODES.findIndex((x) => x.id === m) + 1) % MODES.length].id;
@@ -47,8 +40,8 @@ function Chips({ tokens }: { tokens: LensToken[] }) {
   );
 }
 
-// La lente (F): escribes una consulta y el canvas reacciona en vivo. Tab cambia
-// entre atenuar, ocultar y columnas; Enter la pliega en una píldora; Esc la apaga.
+// La lente (F): escribes una consulta y el mapa reacciona en vivo. Tab cambia
+// entre atenuar y ocultar; Enter la pliega en una píldora; Esc la apaga.
 export function Lantern(p: Props) {
   const [saved, setSaved] = useState<string | null>(null);
   useEffect(() => {
@@ -64,7 +57,6 @@ export function Lantern(p: Props) {
   };
 
   const modeName = MODES.find((m) => m.id === p.mode)!.name;
-  const groupName = p.groups.find((g) => g.id === p.groupBy)?.name;
 
   if (!p.open)
     return (
@@ -74,7 +66,7 @@ export function Lantern(p: Props) {
           <Chips tokens={p.tokens} />
         </button>
         <button className="lantern-mode" onClick={() => p.onMode(nextMode(p.mode))} title="Cambiar modo (Tab)">
-          {p.mode === 'arrange' && groupName ? `Columnas · ${groupName}` : modeName}
+          {modeName}
         </button>
         <span className="faint">{p.count}</span>
         <button className="lantern-x" onClick={p.onClear} aria-label="Apagar lente">
@@ -124,7 +116,7 @@ export function Lantern(p: Props) {
       {!empty && (
         <div className="lantern-tools">
           <div className="lantern-modes" role="radiogroup" aria-label="Modo">
-            {MODES.filter((m) => !(p.noColumns && m.id === 'arrange')).map((m) => (
+            {MODES.map((m) => (
               <button key={m.id} role="radio" aria-checked={p.mode === m.id} className={`chip${p.mode === m.id ? ' on' : ''}`} onClick={() => p.onMode(m.id)}>
                 {m.name}
               </button>
@@ -133,17 +125,6 @@ export function Lantern(p: Props) {
           <button className="chip" onClick={() => void save()} title="Guardar lente (⌘/Ctrl S)">
             Guardar
           </button>
-        </div>
-      )}
-
-      {!empty && p.mode === 'arrange' && !p.noColumns && (
-        <div className="lantern-groups">
-          <span className="faint">Columnas por</span>
-          {p.groups.map((g) => (
-            <button key={g.id} className={`chip${p.groupBy === g.id ? ' on' : ''}`} onClick={() => p.onGroup(g.id)}>
-              {g.name}
-            </button>
-          ))}
         </div>
       )}
 

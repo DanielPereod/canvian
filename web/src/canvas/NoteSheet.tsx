@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
+import { EditorContent, useEditor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
-import type { NoteContent } from './context';
 import type { OpenFrom } from './fluid';
-import { FocusEditor } from './FocusView';
+import { extensions, parseBody, titleFrom } from './editor';
 import { NoteChips } from './NoteChips';
 import { TaskGlyph } from './TaskGlyph';
 import { useExperiments } from '../lab/experiments';
@@ -13,7 +13,24 @@ import { useExperiments } from '../lab/experiments';
 
 const OPEN_MS = 620;
 const CLOSE_MS = 420;
-const MAX_LINKS = 12;
+const MAX_LINKS = 24;
+
+export type NoteContent = { bodyJson: string; bodyText: string; title: string | null };
+
+function SheetEditor({ note, onSave }: { note: NoteRow; onSave: (id: string, content: NoteContent) => void }) {
+  const editor = useEditor({
+    extensions,
+    content: parseBody(note.bodyJson) ?? '',
+    // Abrir una nota es para escribir: el cursor ya está al final.
+    autofocus: 'end',
+    editorProps: { attributes: { class: 'note-body prose sheet-prose' } },
+    onUpdate: ({ editor }) => {
+      const bodyText = editor.getText({ blockSeparator: '\n' });
+      onSave(note.id, { bodyJson: JSON.stringify(editor.getJSON()), bodyText, title: titleFrom(bodyText) });
+    },
+  });
+  return <EditorContent editor={editor} className="sheet-editor" />;
+}
 
 type Props = {
   note: NoteRow;
@@ -24,8 +41,10 @@ type Props = {
   onSave: (id: string, content: NoteContent) => void;
   onCycle: (id: string) => void;
   onProps: (id: string) => void;
-  onTask?: (id: string) => void;
-  onDelete?: (id: string) => void;
+  onTask: () => void;
+  onLink: () => void;
+  onUnlink: (id: string) => void;
+  onDelete: (id: string) => void;
   onClose: () => void;
 };
 
@@ -45,7 +64,7 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onDelete, onClose }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onLink, onUnlink, onDelete, onClose }: Props) {
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -77,8 +96,8 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Con el inspector abierto, Esc lo cierra a él y no a la hoja.
-      if (e.key === 'Escape' && !document.querySelector('.inspector')) {
+      // Con el inspector o el buscador abiertos, Esc los cierra a ellos y no a la hoja.
+      if (e.key === 'Escape' && !document.querySelector('.inspector, .overlay')) {
         e.preventDefault();
         e.stopPropagation();
         close();
@@ -95,36 +114,38 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
           ← Volver
         </button>
         <span className="sheet-actions">
-          {onTask && (
-            <button className="sheet-back" onClick={() => onTask(note.id)}>
-              {note.kind === 'task' ? 'Quitar tarea' : 'Hacer tarea'}
-            </button>
-          )}
+          <button className="sheet-back" onClick={onTask}>
+            {note.kind === 'task' ? 'Quitar tarea' : 'Hacer tarea'}
+          </button>
           <button className="sheet-back" onClick={() => onProps(note.id)}>
             Propiedades
           </button>
-          {onDelete && (
-            <button className="sheet-back danger" onClick={() => close(() => onDelete(note.id))}>
-              Borrar
-            </button>
-          )}
+          <button className="sheet-back danger" onClick={() => close(() => onDelete(note.id))}>
+            Borrar
+          </button>
         </span>
       </header>
       <article className="sheet-body" key={note.id}>
         {note.kind === 'task' && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}
-        <FocusEditor note={note} onSave={onSave} />
+        <SheetEditor note={note} onSave={onSave} />
         <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
-        {shown.length > 0 && (
-          <nav className="sheet-links">
-            <span className="meta">{neighbors.length === 1 ? '1 enlace' : `${neighbors.length} enlaces`}</span>
-            {shown.map((n, i) => (
-              <button key={n.id} className="sheet-link" style={{ '--i': i } as CSSProperties} onClick={() => onNavigate(n.id)}>
+        <nav className="sheet-links">
+          <span className="meta">{neighbors.length === 0 ? 'Sin enlaces' : neighbors.length === 1 ? '1 enlace' : `${neighbors.length} enlaces`}</span>
+          {shown.map((n, i) => (
+            <span key={n.id} className="sheet-link" style={{ '--i': i } as CSSProperties}>
+              <button className="sheet-link-go" onClick={() => onNavigate(n.id)}>
                 {n.title || 'Nota sin título'}
               </button>
-            ))}
-            {neighbors.length > MAX_LINKS && <span className="meta">+{neighbors.length - MAX_LINKS} más</span>}
-          </nav>
-        )}
+              <button className="sheet-link-x" onClick={() => onUnlink(n.id)} aria-label={`Quitar el enlace con ${n.title || 'esta nota'}`} title="Quitar enlace">
+                ×
+              </button>
+            </span>
+          ))}
+          {neighbors.length > MAX_LINKS && <span className="meta">+{neighbors.length - MAX_LINKS} más</span>}
+          <button className="sheet-link sheet-link-add" style={{ '--i': shown.length } as CSSProperties} onClick={onLink}>
+            + Enlazar
+          </button>
+        </nav>
       </article>
     </div>
   );

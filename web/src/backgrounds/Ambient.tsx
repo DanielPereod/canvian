@@ -2,8 +2,7 @@ import type { BackgroundKind } from '../api';
 import { Fireflies } from '../Fireflies';
 import { StarField } from './StarField';
 
-// Capa ambiental detrás del lienzo. Puntos y cuadrícula no van aquí: se
-// dibujan dentro del canvas para moverse con él.
+// Capa ambiental detrás del mapa.
 export function Ambient({ kind }: { kind: BackgroundKind }) {
   return (
     <div key={kind} className="ambient-layer">

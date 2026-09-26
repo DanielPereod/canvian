@@ -143,7 +143,8 @@ export function canvasRoutes(db: Db) {
     db.transaction((tx) => {
       tx.update(notes).set({ deletedAt: nowIso() }).where(eq(notes.id, id)).run();
       tx.delete(edges).where(or(eq(edges.fromId, id), eq(edges.toId, id))).run();
-      if (note.kind === 'zone') tx.update(notes).set({ zoneId: null }).where(eq(notes.zoneId, id)).run();
+      // Lo que había dentro de una sección borrada pasa a su sección madre.
+      if (note.kind === 'zone') tx.update(notes).set({ zoneId: note.zoneId }).where(eq(notes.zoneId, id)).run();
     });
     return c.body(null, 204);
   });
