@@ -1,0 +1,44 @@
+name: canvian
+services:
+  canvian:
+    image: ghcr.io/danielpereod/canvian:latest
+    container_name: canvian
+    restart: unless-stopped
+    ports:
+      - "3210:3210"
+    volumes:
+      - /DATA/AppData/canvian:/data
+    environment:
+      TZ: Europe/Madrid
+    x-casaos:
+      envs:
+        - container: TZ
+          description:
+            en_us: Time zone
+      ports:
+        - container: "3210"
+          description:
+            en_us: Web UI
+      volumes:
+        - container: /data
+          description:
+            en_us: Database (canvian.db)
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: canvian
+  author: DanielPereod
+  developer: DanielPereod
+  category: Productivity
+  title:
+    en_us: Canvian
+  tagline:
+    en_us: Canvas de notas y tareas enlazadas
+  description:
+    en_us: Un canvas infinito para notas y tareas, con perfiles y filtros por teclado.
+  icon: https://raw.githubusercontent.com/DanielPereod/canvian/main/web/public/favicon.svg
+  index: /
+  port_map: "3210"
+  scheme: http
