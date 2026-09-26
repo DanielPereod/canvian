@@ -42,7 +42,7 @@ import { Constellation, CONSTELLATION_ZOOM, DEEP_ZOOM, TITLES_ZOOM } from './Con
 import { useExperiments } from '../lab/experiments';
 import { StarLayer } from './StarLayer';
 import { SectionMap } from './SectionMap';
-import { buildSections, pathAt, type Section } from './sections';
+import { buildTree, type MapNode } from './sections';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { ColumnNode } from './ColumnNode';
@@ -56,8 +56,6 @@ type AppNode = Node<NoteData>;
 
 const NOTE_WIDTH = 240;
 const ZONE_SIZE = { w: 480, h: 320 };
-// Por debajo de este zoom, con el experimento de secciones, se abre el mapa.
-const SECTIONS_ZOOM = 0.3;
 const ZONE_PADDING = 40;
 const nodeTypes: NodeTypes = { note: NoteNode, zone: ZoneNode, column: ColumnNode };
 const edgeTypes: EdgeTypes = { floating: FloatingEdge };
@@ -604,31 +602,21 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   // ── Lentes: atenuar, ocultar o colocar en columnas ─────────────
   const arranging = mode === 'arrange' && !!lit;
 
-  // Mapa de secciones (laboratorio): muy de lejos, las zonas se ven como territorios.
-  const mapZoom = useStore((s) => s.transform[2] < SECTIONS_ZOOM);
-  const [mapDismissed, setMapDismissed] = useState(false);
-  useEffect(() => {
-    if (!mapZoom) setMapDismissed(false);
-  }, [mapZoom]);
-  const sections = useMemo(
-    () =>
-      secciones && mapZoom
-        ? buildSections(
-            nodes.map((n) => ({ id: n.id, kind: n.data.kind, title: n.data.title, rect: { x: n.position.x, y: n.position.y, ...size(n) } })),
-          )
-        : [],
-    [secciones, mapZoom, nodes],
+  // Mapa de secciones (laboratorio): con el experimento encendido, el lienzo
+  // se ve siempre como un mapa de secciones que fluyen.
+  const mapTree = useMemo(
+    () => (secciones ? buildTree(nodes.map((n) => ({ row: n.data, rect: { x: n.position.x, y: n.position.y, ...size(n) } })), edges) : null),
+    [secciones, nodes, edges],
   );
-  const mapOpen = sections.length > 0 && !mapDismissed && !arranging && !focusId;
-  const mapStart = () => {
-    const { x, y, zoom } = flow.getViewport();
-    const box = document.querySelector('.react-flow')!.getBoundingClientRect();
-    return pathAt(sections, { x: (box.width / 2 - x) / zoom, y: (box.height / 2 - y) / zoom });
-  };
-  const landIn = (section: Section) => {
-    setMapDismissed(true);
-    const r = section.rect;
-    void flow.fitBounds({ x: r.x, y: r.y, width: r.w, height: r.h }, { padding: 0.12, duration: 750 });
+  const mapPath = useRef<string[]>([]);
+  const createFromMap = (zoneId: string | null, near: MapNode) => {
+    const zone = zoneId ? nodesRef.current.find((n) => n.id === zoneId) : null;
+    const r = zone ? { x: zone.position.x, y: zone.position.y, ...size(zone) } : near.rect;
+    const pos = { x: r.x + 40 + Math.random() * Math.max(0, r.w - NOTE_WIDTH - 80), y: r.y + 90 + Math.random() * Math.max(0, r.h - 160) };
+    const row = createNote(pos, 'text', { zoneId });
+    // Se escribe en el modo foco, no en la nota del lienzo que queda debajo.
+    setEditingId(null);
+    setFocusId(row.id);
   };
   const groups = useMemo(() => groupOptions(defs), [defs]);
   const group = groups.some((g) => g.id === groupBy) ? groupBy : 'status';
@@ -881,7 +869,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     <CanvasContext.Provider value={actions}>
       <DegreeContext.Provider value={degrees}>
         <div
-          className={`canvas${zoomClass}${settled ? ' settled' : ''}${lit ? ` lamp-on lens-${mode}` : ''}${arranging || settling ? ' arranging' : ''}`}
+          className={`canvas${mapTree ? ' mapped' : ''}${zoomClass}${settled ? ' settled' : ''}${lit ? ` lamp-on lens-${mode}` : ''}${arranging || settling ? ' arranging' : ''}`}
           onDoubleClick={(e) => !arranging && onPaneDoubleClick(e)}
           onDragOver={(e) => {
             if (![...e.dataTransfer.types].includes('Files')) return;
@@ -953,13 +941,23 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
             </div>
           )}
         </div>
-        {mapOpen && <SectionMap sections={sections} start={mapStart()} onLand={landIn} onDismiss={() => setMapDismissed(true)} />}
+        {mapTree && (
+          <SectionMap
+            tree={mapTree}
+            paused={!!focusId || paletteOpen}
+            start={mapPath.current}
+            onPath={(ids) => (mapPath.current = ids)}
+            onOpen={setFocusId}
+            onCreate={createFromMap}
+          />
+        )}
         {paletteOpen && (
           <CommandPalette
             profileId={profile.id}
             onPick={(id) => {
               setPaletteOpen(false);
-              focusNote(id);
+              if (secciones) setFocusId(id);
+              else focusNote(id);
             }}
             onCreate={(text) => {
               setPaletteOpen(false);
@@ -988,7 +986,9 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
               const id = focused.id;
               flush(id);
               setFocusId(null);
-              focusNote(id);
+              if (!secciones) focusNote(id);
+              // En el mapa, una nota nueva que se queda vacía no se guarda.
+              else if (!focused.bodyText?.trim()) removeNotes([id]);
             }}
           />
         )}

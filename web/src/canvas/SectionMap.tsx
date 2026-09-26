@@ -1,213 +1,136 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { layoutCells, type Cell, type Section } from './sections';
+import { useEffect, useRef, useState } from 'react';
+import { FluidMap } from './fluid';
+import type { MapNode } from './sections';
 
-// Experimento «Secciones»: de lejos, el lienzo se ve como un mapa de
-// territorios que ocupan toda la pantalla. Acercarte a uno (rueda o clic)
-// abre sus subsecciones; cuando ya no hay más, aterrizas en sus notas.
-
-const DIVE_MS = 520;
-const RISE_MS = 300;
-const WHEEL_STEP = 40;
+// Experimento «Secciones»: el lienzo entero como un mapa vivo. Cada sección
+// ocupa pantalla según la importancia de lo que tiene, y dentro de cada una
+// están sus subsecciones y, al fondo, sus notas. La rueda acerca y aleja sin
+// saltos; los bordes fluyen y las vecinas se apartan.
 
 type Props = {
-  sections: Section[];
-  // Camino por el que se entra: se muestra el nivel del último.
-  start: Section[];
-  onLand: (section: Section) => void;
-  onDismiss: () => void;
+  tree: MapNode;
+  paused: boolean;
+  // Dónde estaba el mapa la última vez (ids desde la raíz).
+  start: string[];
+  onPath: (ids: string[]) => void;
+  onOpen: (noteId: string) => void;
+  onCreate: (zoneId: string | null, near: MapNode) => void;
 };
 
-function useFrame() {
-  const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
-  useEffect(() => {
-    const on = () => setSize({ w: window.innerWidth, h: window.innerHeight });
-    window.addEventListener('resize', on);
-    return () => window.removeEventListener('resize', on);
-  }, []);
-  return size;
-}
-
-const hueOf = (id: string) => {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
-  return h;
-};
-
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-export function SectionMap({ sections, start, onLand, onDismiss }: Props) {
-  const { w, h } = useFrame();
-  // Las secciones del camino se buscan de nuevo en el árbol actual por id.
-  const [stackIds, setStackIds] = useState(() => start.slice(0, -1).map((s) => s.id));
-  const [came, setCame] = useState<string | null>(() => start.at(-1)?.id ?? null);
+export function SectionMap({ tree, paused, start, onPath, onOpen, onCreate }: Props) {
+  const host = useRef<HTMLDivElement>(null);
+  const map = useRef<FluidMap | null>(null);
+  const [path, setPath] = useState<MapNode[]>([]);
   const [hover, setHover] = useState<string | null>(null);
-  const [motion, setMotion] = useState<{ kind: 'dive'; cell: Cell } | { kind: 'rise' } | null>(null);
-  const [leaving, setLeaving] = useState(false);
-  // Al abrirse, la rueda espera un poco: el mismo gesto que alejó el lienzo no
-  // debe seguir actuando sobre el mapa.
-  const wheel = useRef({ sum: 0, last: 0, lockUntil: performance.now() + 500 });
+  const events = useRef({ onOpen, onPath });
+  events.current = { onOpen, onPath };
 
-  const stack = useMemo(() => {
-    const out: Section[] = [];
-    let level = sections;
-    for (const id of stackIds) {
-      const s = level.find((x) => x.id === id);
-      if (!s) break;
-      out.push(s);
-      level = s.children;
-    }
-    return out;
-  }, [sections, stackIds]);
-  const level = stack.at(-1)?.children ?? sections;
-  const frame = useMemo(() => ({ x: 0, y: 64, w, h: h - 64 - 84 }), [w, h]);
-  const cells = useMemo(() => layoutCells(level, frame), [level, frame]);
+  useEffect(() => {
+    const m = new FluidMap(
+      host.current!,
+      tree,
+      {
+        onPath: (p) => {
+          setPath(p);
+          events.current.onPath(p.slice(1).map((n) => n.id));
+        },
+        onOpen: (id) => events.current.onOpen(id),
+      },
+      start,
+    );
+    map.current = m;
+    const onResize = () => m.resize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      m.destroy();
+      map.current = null;
+    };
+    // El mapa se crea una vez; el árbol nuevo le llega por setTree.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const enter = (cell: Cell) => {
-    if (motion) return;
-    setMotion({ kind: 'dive', cell });
-    setTimeout(() => {
-      if (cell.section.children.length) {
-        setStackIds((ids) => [...ids, cell.section.id]);
-        setCame(null);
-        setMotion(null);
-      } else {
-        setLeaving(true);
-        onLand(cell.section);
-      }
-    }, DIVE_MS);
-  };
+  useEffect(() => map.current?.setTree(tree), [tree]);
+  useEffect(() => {
+    if (map.current) map.current.paused = paused;
+  }, [paused]);
 
-  const up = (to = stack.length - 1) => {
-    if (motion) return;
-    if (!stack.length) return onDismiss();
-    setMotion({ kind: 'rise' });
-    setTimeout(() => {
-      setCame(stack[to]?.id ?? null);
-      setStackIds((ids) => ids.slice(0, Math.max(0, to)));
-      setMotion(null);
-    }, RISE_MS);
-  };
+  // La rueda del navegador no puede ser pasiva: la usamos para acercar.
+  useEffect(() => {
+    const el = host.current!;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      map.current?.wheel(e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY, { x: e.clientX - r.left, y: e.clientY - r.top });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
-  const hovered = cells.find((c) => c.section.id === hover) ?? null;
+  const here = path.at(-1);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || e.key === 'Backspace') {
-        e.preventDefault();
-        e.stopPropagation();
-        up();
-      } else if (e.key === 'Enter' && hovered) {
-        e.preventDefault();
-        e.stopPropagation();
-        enter(hovered);
-      }
+      if (paused || !map.current) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '')) return;
+      const hovered = here?.children.find((c) => c.id === hover);
+      if (e.key === 'Escape' || e.key === 'Backspace') map.current.relax();
+      else if (e.key === 'Enter' && hovered) {
+        if (hovered.kind === 'note') onOpen(hovered.id);
+        else map.current.enter(hovered.id);
+      } else if (e.key.toLowerCase() === 'n' && !e.metaKey && !e.ctrlKey && here) {
+        // Nota nueva en la sección señalada o, si no, en la que estás.
+        const into = hovered && hovered.kind !== 'note' ? hovered : here;
+        onCreate(into.zoneId, into);
+      } else return;
+      e.preventDefault();
+      e.stopPropagation();
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   });
 
-  // La rueda acumula hasta un umbral y luego se bloquea un momento, para que la
-  // inercia del trackpad no atraviese varios niveles de golpe.
-  const onWheel = (e: React.WheelEvent) => {
-    const now = performance.now();
-    const st = wheel.current;
-    if (now < st.lockUntil) {
-      st.lockUntil = Math.max(st.lockUntil, now + 120);
-      return;
-    }
-    if (now - st.last > 250) st.sum = 0;
-    st.last = now;
-    st.sum += e.deltaY;
-    if (st.sum <= -WHEEL_STEP) {
-      st.sum = 0;
-      const target =
-        hovered ??
-        cells.find((c) => {
-          const b = c.box;
-          return e.clientX >= b.x && e.clientX <= b.x + b.w && e.clientY >= b.y && e.clientY <= b.y + b.h;
-        });
-      if (target) {
-        st.lockUntil = now + DIVE_MS + 250;
-        enter(target);
-      }
-    } else if (st.sum >= WHEEL_STEP && stack.length) {
-      // En la raíz, alejarse no hace nada; para volver al lienzo, Esc.
-      st.sum = 0;
-      st.lockUntil = now + RISE_MS + 250;
-      up();
-    }
-  };
-
-  const diveStyle = (cell: Cell): CSSProperties | undefined => {
-    if (motion?.kind !== 'dive' || motion.cell !== cell) return undefined;
-    const k = Math.max(w / cell.box.w, h / cell.box.h) * 1.15;
-    const dx = w / 2 - (cell.box.x + cell.box.w / 2);
-    const dy = h / 2 - (cell.box.y + cell.box.h / 2);
-    return { transform: `translate(${dx}px, ${dy}px) scale(${k})` };
+  const local = (e: React.MouseEvent) => {
+    const r = host.current!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
   return (
-    <div
-      className={`smap${motion ? ` is-${motion.kind}` : ''}${leaving ? ' is-leaving' : ''}`}
-      onWheel={onWheel}
-      onMouseLeave={() => setHover(null)}
-    >
+    <div className="smap">
+      <div
+        ref={host}
+        className={`smap-stage${hover ? ' pointing' : ''}`}
+        onMouseMove={(e) => setHover(map.current?.pointer(local(e)) ?? null)}
+        onMouseLeave={() => {
+          map.current?.pointer(null);
+          setHover(null);
+        }}
+        onClick={(e) => {
+          const id = map.current?.pointer(local(e));
+          if (id && here?.children.some((c) => c.id === id)) map.current?.enter(id);
+        }}
+        onDoubleClick={(e) => {
+          const id = map.current?.pointer(local(e));
+          const node = here?.children.find((c) => c.id === id);
+          if (node?.kind === 'note') onOpen(node.id);
+        }}
+      />
       <nav className="smap-crumbs">
-        <button className={stack.length ? 'smap-crumb' : 'smap-crumb current'} onClick={() => stack.length && up(0)}>
-          Todo
-        </button>
-        {stack.map((s, i) => (
-          <span key={s.id} className="smap-crumb-wrap">
-            <span className="smap-sep" aria-hidden="true">
-              ›
-            </span>
-            <button className={i === stack.length - 1 ? 'smap-crumb current' : 'smap-crumb'} onClick={() => i < stack.length - 1 && up(i + 1)}>
-              {s.title}
+        {path.map((n, i) => (
+          <span key={n.id} className="smap-crumb-wrap">
+            {i > 0 && (
+              <span className="smap-sep" aria-hidden="true">
+                ›
+              </span>
+            )}
+            <button className={i === path.length - 1 ? 'smap-crumb current' : 'smap-crumb'} onClick={() => i < path.length - 1 && map.current?.upTo(i)}>
+              {n.title}
             </button>
           </span>
         ))}
       </nav>
-
-      <svg className="smap-svg" width={w} height={h} key={stackIds.join('/')}>
-        {cells.map((cell, i) => {
-          const s = cell.section;
-          const hue = hueOf(s.id);
-          const size = Math.max(18, Math.min(56, Math.sqrt(cell.area) / 9));
-          const small = Math.sqrt(cell.area) < 220;
-          const peek = s.children.length ? s.children.map((c) => c.title) : s.peek;
-          const diving = motion?.kind === 'dive' && motion.cell === cell;
-          return (
-            <g
-              key={s.id}
-              className={`smap-cell${s.loose ? ' loose' : ''}${hover === s.id ? ' hover' : ''}${came === s.id ? ' came' : ''}${diving ? ' diving' : ''}`}
-              style={{ '--i': i, '--hue': hue, ...diveStyle(cell) } as CSSProperties}
-              onMouseEnter={() => setHover(s.id)}
-              onClick={() => enter(cell)}
-            >
-              <path d={cell.d} />
-              <g className="smap-label" transform={`translate(${cell.center.x} ${cell.center.y})`}>
-                <text className="smap-title" y={small ? 0 : -size * 0.35} style={{ fontSize: size }}>
-                  {s.title}
-                </text>
-                <text className="smap-meta" y={small ? 20 : size * 0.35 + 8}>
-                  {plural(s.total, 'nota', 'notas')}
-                  {s.children.length ? ` · ${plural(s.children.filter((c) => !c.loose).length, 'sección', 'secciones')}` : ''}
-                </text>
-                {!small &&
-                  peek.slice(0, 3).map((t, k) => (
-                    <text key={k} className="smap-peek" y={size * 0.35 + 34 + k * 19}>
-                      {t.length > 34 ? t.slice(0, 33) + '…' : t}
-                    </text>
-                  ))}
-              </g>
-            </g>
-          );
-        })}
-      </svg>
-
-      <p className="smap-hint meta">
-        {stack.length ? 'Rueda o clic para entrar · rueda atrás o Esc para salir' : 'Rueda o clic para entrar en una sección · Esc para volver al lienzo'}
-      </p>
+      <p className="smap-hint meta">Rueda para acercar y alejar · clic para entrar · N nota nueva · Esc atrás</p>
     </div>
   );
 }
