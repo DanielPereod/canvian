@@ -14,10 +14,13 @@
   min-height: 44px;
   border-radius: var(--radius-md);
   color: var(--text);
-  animation: note-in var(--dur-slow) var(--ease-spring) both;
   transition: border-color var(--dur-base), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 .react-flow__node:hover .note:not(.editing) { border-color: var(--line-strong); }
+/* Entrada: al abrir el lienzo y en las notas nuevas; no al aparecer por moverte. */
+.canvas:not(.settled) .note, .react-flow__node.born .note { animation: note-in var(--dur-slow) var(--ease-spring) both; }
+.canvas:not(.settled) .zone, .react-flow__node.born .zone { animation: note-in var(--dur-slow) var(--ease-out) both; }
+.canvas:not(.settled) .stem, .react-flow__edge.born .stem { animation: grow var(--dur-grow) var(--ease-out) both; }
 .react-flow__node.dragging .note { transform: scale(1.02) rotate(-0.4deg); box-shadow: var(--highlight), var(--shadow-2); }
 .react-flow__node.is-leaving .note, .react-flow__node.is-leaving .zone { animation: note-out var(--dur-fast) var(--ease-in) forwards; }
 .note.fixed { overflow: hidden; }
@@ -79,7 +82,6 @@
   stroke-linecap: round;
   stroke-dasharray: 1;
   stroke-dashoffset: 0;
-  animation: grow var(--dur-grow) var(--ease-out) both;
   transition: stroke var(--dur-base);
 }
 .stem-pulse {
@@ -124,7 +126,6 @@
   border: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  animation: note-in var(--dur-slow) var(--ease-out) both;
   transition: border-color var(--dur-base), box-shadow var(--dur-base);
 }
 .zone.selected { border-color: var(--accent-line); box-shadow: 0 0 60px -30px var(--accent-glow); }
