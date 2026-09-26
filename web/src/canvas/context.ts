@@ -10,6 +10,9 @@ export type CanvasActions = {
   saveContent: (id: string, content: NoteContent) => void;
   renameZone: (id: string, title: string) => void;
   resized: (id: string, rect: { x: number; y: number; width: number; height: number }) => void;
+  cycleStatus: (id: string) => void;
+  // Notas que alumbra la linterna; null cuando no hay filtro.
+  lit: Set<string> | null;
 };
 
 export const CanvasContext = createContext<CanvasActions | null>(null);

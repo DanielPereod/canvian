@@ -1,8 +1,19 @@
-import { memo, useMemo } from 'react';
-import { Handle, NodeResizer, Position, type Node, type NodeProps } from '@xyflow/react';
+import { memo, useCallback, useMemo, type CSSProperties } from 'react';
+import { Handle, NodeResizer, Position, useStore, type Node, type NodeProps, type ReactFlowState } from '@xyflow/react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { bodyToHtml, extensions, parseBody, titleFrom } from './editor';
 import { useCanvasActions, type NoteData } from './context';
+import { TaskGlyph } from './TaskGlyph';
+import { useExperiments } from '../lab/experiments';
+
+const DAY = 86_400_000;
+
+// 0 si la tocaste hoy, 1 si lleva un mes o más sin cambios.
+function ageOf(updatedAt: string | undefined, now: number) {
+  if (!updatedAt) return 0;
+  const days = (now - Date.parse(updatedAt)) / DAY;
+  return Math.min(1, Math.max(0, (days - 1) / 29));
+}
 
 export type NoteNodeType = Node<NoteData, 'note'>;
 
@@ -38,13 +49,27 @@ function NoteEditor({ id, bodyJson }: { id: string; bodyJson: string | null }) {
 }
 
 function NoteNodeView({ id, data, selected }: NodeProps<NoteNodeType>) {
-  const { editingId, startEditing, resized } = useCanvasActions();
+  const { editingId, startEditing, resized, cycleStatus, lit } = useCanvasActions();
+  const exp = useExperiments();
   const editing = editingId === id;
   const html = useMemo(() => bodyToHtml(data.bodyJson), [data.bodyJson]);
+  const degree = useStore(
+    useCallback((s: ReactFlowState) => s.edges.reduce((c, e) => c + (e.source === id || e.target === id ? 1 : 0), 0), [id]),
+  );
+  const task = data.kind === 'task';
+  const status = data.status ?? 'todo';
+  const age = useMemo(() => ageOf(data.updatedAt, Date.now()), [data.updatedAt]);
+  const lamp = lit ? (lit.has(id) ? ' lit' : ' shadowed') : '';
+
+  const vars = {
+    '--age': exp.memoria ? age.toFixed(3) : 0,
+    '--bloom': exp.florecen ? (Math.min(degree, 6) / 6).toFixed(3) : 0,
+  } as CSSProperties;
 
   return (
     <div
-      className={`note surface-1${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.h ? ' fixed' : ''}`}
+      className={`note surface-1${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.h ? ' fixed' : ''}${task ? ` task is-${status}` : ''}${lamp}`}
+      style={vars}
       onDoubleClick={(e) => {
         e.stopPropagation();
         startEditing(id);
@@ -61,6 +86,10 @@ function NoteNodeView({ id, data, selected }: NodeProps<NoteNodeType>) {
       {SIDES.map((side) => (
         <Handle key={side} id={side} type="source" position={side} className="handle" />
       ))}
+      {task && <TaskGlyph status={status} ripe={exp.maduran} onCycle={() => cycleStatus(id)} />}
+      <span className="star-label" aria-hidden="true">
+        {data.title || 'Nota'}
+      </span>
       {editing ? (
         <NoteEditor id={id} bodyJson={data.bodyJson} />
       ) : html && data.bodyText?.trim() ? (

@@ -16,12 +16,15 @@ import {
   type Viewport,
 } from '@xyflow/react';
 import { ulid } from 'ulidx';
-import { api, type BackgroundKind, type EdgeRow, type LayoutItem, type NoteKind, type NoteRow, type Profile } from '../api';
+import { api, type BackgroundKind, type EdgeRow, type LayoutItem, type NoteKind, type NoteRow, type Profile, type TaskStatus } from '../api';
 import { CanvasContext, type CanvasActions, type NoteContent, type NoteData } from './context';
 import { NoteNode } from './NoteNode';
 import { ZoneNode } from './ZoneNode';
 import { CommandPalette } from './CommandPalette';
 import { FloatingEdge } from './FloatingEdge';
+import { Constellation } from './Constellation';
+import { Lantern } from './Lantern';
+import { lanternMatcher } from './lanternMatch';
 
 type AppNode = Node<NoteData>;
 
@@ -71,6 +74,9 @@ function zoneAt(nodes: AppNode[], p: { x: number; y: number }): string | null {
   return best?.id ?? null;
 }
 
+const NEXT: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', done: 'todo' };
+const now = () => new Date().toISOString();
+
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 
@@ -81,6 +87,8 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [lamp, setLamp] = useState<string | null>(null);
+  const [lampKey, setLampKey] = useState(0);
 
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
@@ -92,6 +100,14 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
   const ready = (...ids: string[]) => Promise.all(ids.map((id) => created.current.get(id)));
   const zoneDrag = useRef(new Map<string, { start: { x: number; y: number }; children: { id: string; x: number; y: number }[] }>());
   const viewportTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // La linterna: qué notas quedan con luz. La clave en texto evita recalcular
+  // el conjunto (y repintar todas las notas) mientras arrastras.
+  const litKey = useMemo(() => {
+    const match = lamp ? lanternMatcher(lamp) : null;
+    return match ? nodes.filter((n) => match(n.data)).map((n) => n.id).join(' ') : null;
+  }, [lamp, nodes]);
+  const lit = useMemo(() => (litKey === null ? null : new Set(litKey.split(' ').filter(Boolean))), [litKey]);
 
   const report = useCallback((err: unknown) => {
     console.error(err);
@@ -192,6 +208,11 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
         h: null,
         z: 0,
         zoneId: kind === 'zone' ? null : zoneAt(nodesRef.current, pos),
+        status: null,
+        priority: null,
+        dueAt: null,
+        doneAt: null,
+        updatedAt: now(),
         ...extra,
       };
       setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), { ...toNode(row), selected: true }]);
@@ -203,6 +224,36 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
     },
     [profile.id, report, setNodes],
   );
+
+  const patchNotes = (targets: AppNode[], patch: (n: AppNode) => Partial<NoteRow>) => {
+    for (const n of targets) {
+      const change = patch(n);
+      patchData(n.id, { ...change, updatedAt: now() });
+      ready(n.id)
+        .then(() => api.patchNote(n.id, change))
+        .catch(report);
+    }
+  };
+
+  const setStatus = (targets: AppNode[], status: TaskStatus) =>
+    patchNotes(targets, () => ({ status, doneAt: status === 'done' ? now() : null }));
+
+  // T convierte las notas seleccionadas en tareas (o las devuelve a notas).
+  const toggleTask = () => {
+    const selected = nodesRef.current.filter((n) => n.selected && n.type === 'note');
+    if (!selected.length) return;
+    const toTask = selected.some((n) => n.data.kind !== 'task');
+    patchNotes(selected, (n) =>
+      toTask ? { kind: 'task', status: n.data.status ?? 'todo' } : { kind: 'text' },
+    );
+  };
+
+  // X hace avanzar el estado: pendiente → en curso → hecha.
+  const advanceTasks = () => {
+    const selected = nodesRef.current.filter((n) => n.selected && n.data.kind === 'task');
+    if (!selected.length) return;
+    setStatus(selected, NEXT[selected[0].data.status ?? 'todo']);
+  };
 
   const actions = useMemo<CanvasActions>(
     () => ({
@@ -216,7 +267,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
         if (!text?.trim()) removeNotes([id]);
       },
       saveContent: (id, content) => {
-        patchData(id, content);
+        patchData(id, { ...content, updatedAt: now() });
         pending.current.set(id, content);
         clearTimeout(timers.current.get(id));
         timers.current.set(id, setTimeout(() => flush(id), 600));
@@ -250,8 +301,13 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
           .then(() => api.saveLayout(items))
           .catch(report);
       },
+      cycleStatus: (id) => {
+        const node = nodesRef.current.find((n) => n.id === id);
+        if (node) setStatus([node], NEXT[node.data.status ?? 'todo']);
+      },
+      lit,
     }),
-    [editingId, flush, patchData, removeNotes, report],
+    [editingId, flush, patchData, removeNotes, report, lit],
   );
 
   const onPaneDoubleClick = (e: ReactMouseEvent) => {
@@ -305,7 +361,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
       }
     }
     zoneDrag.current.clear();
-    for (const i of items) patchData(i.id, { x: i.x, y: i.y });
+    for (const i of items) patchData(i.id, { x: i.x, y: i.y, updatedAt: now() });
     if (items.length)
       ready(...items.map((i) => i.id))
         .then(() => api.saveLayout(items))
@@ -396,6 +452,16 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
           e.preventDefault();
           setEditingId(selected[0].id);
         }
+      } else if (e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        toggleTask();
+      } else if (e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        advanceTasks();
+      } else if (e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setLamp((q) => q ?? '');
+        setLampKey((k) => k + 1);
       } else if (e.key === '1') {
         flow.fitView({ duration: 400, padding: 0.2 });
       }
@@ -411,7 +477,8 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
 
   return (
     <CanvasContext.Provider value={actions}>
-      <div className="canvas" onDoubleClick={onPaneDoubleClick}>
+      <div className={`canvas${lit ? ' lamp-on' : ''}`} onDoubleClick={onPaneDoubleClick}>
+        <div className="lamp-dark" aria-hidden="true" />
         <ReactFlow<AppNode>
           nodes={nodes}
           edges={edges}
@@ -444,6 +511,7 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
           defaultEdgeOptions={{ type: 'floating', zIndex: 5 }}
           proOptions={{ hideAttribution: true }}
         >
+          <Constellation />
           {background === 'dots' && (
             <Background variant={BackgroundVariant.Dots} gap={26} size={1.2} color="var(--dots)" />
           )}
@@ -478,6 +546,15 @@ export function Canvas({ profile, background }: { profile: Profile; background: 
             actions.saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
           }}
           onClose={() => setPaletteOpen(false)}
+        />
+      )}
+      {lamp !== null && (
+        <Lantern
+          key={lampKey}
+          query={lamp}
+          count={lit?.size ?? 0}
+          onChange={setLamp}
+          onClear={() => setLamp(null)}
         />
       )}
       {problem && (

@@ -6,6 +6,8 @@ import { Canvas } from './canvas/Canvas';
 import { Glyph } from './Wordmark';
 import { Ambient } from './backgrounds/Ambient';
 import { BackgroundPicker } from './backgrounds/BackgroundPicker';
+import { Lab } from './lab/Lab';
+import { EXPERIMENTS, useExperiments } from './lab/experiments';
 
 const ACTIVE_KEY = 'canvian.activeProfile';
 const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
@@ -24,6 +26,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [previewBg, setPreviewBg] = useState<BackgroundKind | null>(null);
+  const [labOpen, setLabOpen] = useState(false);
+  const experiments = useExperiments();
 
   useEffect(() => {
     api.profiles().then(setProfiles, () => onSignedOut());
@@ -50,9 +54,13 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       }
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
-      if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'b') {
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key.toLowerCase() === 'b') {
         e.preventDefault();
         setPickerOpen(true);
+      } else if (e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        setLabOpen(true);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -81,7 +89,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   return (
     <ReactFlowProvider>
-    <div className="workspace backdrop">
+    <div className={`workspace backdrop ${EXPERIMENTS.filter((x) => experiments[x.id]).map((x) => `exp-${x.id}`).join(' ')}`}>
       <Ambient kind={background} />
       <Canvas key={active.id} profile={active} background={background} />
 
@@ -100,7 +108,19 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           <kbd>G</kbd> zona
         </span>
         <span>
+          <kbd>T</kbd> tarea
+        </span>
+        <span>
+          <kbd>X</kbd> estado
+        </span>
+        <span>
+          <kbd>F</kbd> linterna
+        </span>
+        <span>
           <kbd>B</kbd> fondo
+        </span>
+        <span>
+          <kbd>E</kbd> laboratorio
         </span>
         <span>
           <kbd>{mod}</kbd>
@@ -141,6 +161,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           }}
         />
       )}
+      {labOpen && <Lab onClose={() => setLabOpen(false)} />}
     </div>
     </ReactFlowProvider>
   );
