@@ -10,8 +10,6 @@ import {
   type PropValue,
   type TaskStatus,
 } from '../api';
-import { TaskGlyph } from './TaskGlyph';
-import { useExperiments } from '../lab/experiments';
 
 export const PRIORITIES = ['Sin prioridad', 'Baja', 'Media', 'Alta'] as const;
 const STATUSES: { id: TaskStatus; name: string }[] = [
@@ -41,7 +39,6 @@ type Props = {
 
 // Panel lateral con las propiedades de la nota seleccionada (tecla P).
 export function Inspector({ note, defs, profileId, onChange, onDefsChange, onError, onClose }: Props) {
-  const { maduran } = useExperiments();
   const [closing, setClosing] = useState(false);
 
   const close = () => {
@@ -106,9 +103,8 @@ export function Inspector({ note, defs, profileId, onChange, onDefsChange, onErr
           </Row>
 
           {task && (
-            <Row label="Estado" i={1}>
+            <Row label="Estado" i={1} wide>
               <div className="insp-status">
-                <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => {}} />
                 <Segmented
                   value={note.status ?? 'todo'}
                   options={STATUSES}
@@ -155,7 +151,7 @@ export function Inspector({ note, defs, profileId, onChange, onDefsChange, onErr
   );
 }
 
-function Row({ label, i, children, onRemove }: { label: string; i: number; children: ReactNode; onRemove?: () => void }) {
+function Row({ label, i, children, onRemove, wide }: { label: string; i: number; children: ReactNode; onRemove?: () => void; wide?: boolean }) {
   const [confirm, setConfirm] = useState(false);
   useEffect(() => {
     if (!confirm) return;
@@ -163,7 +159,7 @@ function Row({ label, i, children, onRemove }: { label: string; i: number; child
     return () => clearTimeout(t);
   }, [confirm]);
   return (
-    <div className="insp-row" style={{ '--i': i } as CSSProperties}>
+    <div className={`insp-row${wide ? ' insp-row-wide' : ''}`} style={{ '--i': i } as CSSProperties}>
       <span className="insp-label">
         <span className="insp-label-text">{label}</span>
         {onRemove && (

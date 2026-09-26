@@ -185,7 +185,9 @@
 
 /* ── Vista de tareas activas ─────────────────────────────────────── */
 .chrome-top-right { position: absolute; top: var(--space-4); right: var(--space-4); z-index: var(--z-chrome); animation: rise-in var(--dur-slow) var(--ease-out) both; }
-.tasks-pill { display: inline-flex; align-items: baseline; gap: var(--space-2); }
+.tasks-pill { padding: 0 var(--space-4); gap: var(--space-2); }
+.tasks-pill .pill-name, .tasks-pill .meta { line-height: 1; display: block; }
+.tasks-pill .meta { padding-top: 2px; }
 .tasks-view {
   position: absolute;
   inset: 0;
