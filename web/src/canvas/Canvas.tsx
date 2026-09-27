@@ -363,14 +363,33 @@ export function Canvas({ profile }: { profile: Profile }) {
   };
 
   // Modo nodo: cierra la nota y la pone en el centro de la vista de nodos.
-  const toNodes = (id: string) => {
-    flush(id);
+  // Es un interruptor: se recuerda de dónde se vino para volver con Ctrl G.
+  const nodesFrom = useRef<'note' | 'foco' | null>(null);
+  const focoCursor = useRef<string | null>(null);
+  const onFocoCursor = useCallback((id: string | null) => {
+    focoCursor.current = id;
+  }, []);
+  const toNodes = (id: string | null, from: 'note' | 'foco' = 'note') => {
+    nodesFrom.current = from;
+    if (id) flush(id);
     setFocusId(null);
     setTasksOpen(false);
     setOrganizeOpen(false);
     setCenter(id);
     setMapOpen(true);
     if (celdas) toggleExperiment('celdas');
+  };
+
+  // Ctrl G desde cualquier sitio: una nota abierta o la lista van a los nodos;
+  // en los nodos, se vuelve a donde se estaba (a la nota del centro, si se vino de una).
+  const toggleNodes = () => {
+    if (focusId) return toNodes(focusId);
+    if (showFocus) return toNodes(focoCursor.current, 'foco');
+    const here = center && center !== LOOSE ? center : null;
+    const from = nodesFrom.current;
+    nodesFrom.current = null;
+    if (from === 'foco' || (!from && foco)) setMapOpen(false);
+    else if (here) openNote(here);
   };
 
   const onAction = (action: MapAction, node: MapNode) => act(action, node.note ? noteIdOf(node) : null, node.zoneId);
@@ -414,9 +433,9 @@ export function Canvas({ profile }: { profile: Profile }) {
         exportCanvas();
         return;
       }
-      if (action === 'nodes' && focusId && (chord || !isTyping(e.target))) {
+      if (action === 'nodes' && (chord || !isTyping(e.target))) {
         e.preventDefault();
-        toNodes(focusId);
+        toggleNodes();
         return;
       }
       if (action === 'search' && (chord || !isTyping(e.target))) {
@@ -619,6 +638,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           }}
           onCreate={(text) => newNote(null, text)}
           onCreatePath={newAtPath}
+          onCursor={onFocoCursor}
           onMap={() => {
             mapPath.current = [];
             setCenter(null);

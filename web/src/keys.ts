@@ -44,7 +44,7 @@ export const ACTIONS: KeyAction[] = [
   { id: 'toRoot', label: 'Volver a la raíz del mapa', group: 'Mapa', key: '1' },
   { id: 'tasks', label: 'Vista de tareas activas', group: 'Vistas y paneles', key: 'a' },
   { id: 'organize', label: 'Ordenar notas en secciones', group: 'Vistas y paneles', key: 'o' },
-  { id: 'nodes', label: 'Modo nodo: la nota abierta en el centro, con sus relaciones', group: 'Vistas y paneles', key: 'mod+g' },
+  { id: 'nodes', label: 'Modo nodo (activar o quitar): la nota abierta o señalada en el centro, con sus relaciones', group: 'Vistas y paneles', key: 'mod+g' },
   { id: 'lantern', label: 'Linterna (filtrar)', group: 'Vistas y paneles', key: 'f' },
   { id: 'search', label: 'Buscar o crear notas', group: 'Vistas y paneles', key: 'mod+p' },
   { id: 'commands', label: 'Paleta de comandos', group: 'Vistas y paneles', key: 'mod+shift+p' },

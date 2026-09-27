@@ -16,6 +16,8 @@ type Props = {
   // Crear con ruta «Padre>Hijo>Nota»: las secciones que falten, dentro de `zoneId`, y la nota al final.
   onCreatePath: (zoneId: string | null, sections: string[], title: string) => void;
   onMap: () => void;
+  // La nota señalada: Ctrl G la pone en el centro de la vista de nodos.
+  onCursor?: (id: string | null) => void;
 };
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
@@ -61,7 +63,7 @@ function Marked({ text, words }: { text: string; words: string[] }) {
   return <>{parts.map((p, i) => (p.m ? <mark key={i}>{p.t}</mark> : <span key={i}>{p.t}</span>))}</>;
 }
 
-export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreatePath, onMap }: Props) {
+export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreatePath, onMap, onCursor }: Props) {
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   // «Padre>Hijo>texto»: los tramos antes del último «>» son secciones y lo
@@ -159,6 +161,10 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
 
   const at = Math.min(cursor, Math.max(0, hits.length - 1));
   const cur = hits[at];
+  const curId = cur?.row.id ?? null;
+  useEffect(() => {
+    onCursor?.(curId);
+  }, [curId, onCursor]);
 
   // La lista se desliza hacia el cursor con calma, no de golpe.
   const [pos, setPos] = useState(0);

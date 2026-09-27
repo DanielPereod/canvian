@@ -48,7 +48,7 @@ Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que te
 | Atajo | Acción |
 |-------|--------|
 | Vista de nodos | La nota del centro con sus hijas en anillo (línea), sus enlaces (discontinua), su madre arriba y sus hermanas alrededor. Clic en un nodo lo trae al centro; clic en el centro o `Enter` abre la nota; `←`/`→` recorren el anillo; `Esc` sube a la madre; arrastrar un nodo sobre otro lo mete dentro |
-| `⌘/Ctrl G` | Modo nodo: la nota abierta pasa al centro de la vista de nodos (también con el botón «Nodos») |
+| `⌘/Ctrl G` | Modo nodo, desde cualquier sitio: la nota abierta (o la señalada en la lista) pasa al centro de la vista de nodos; otra vez `⌘/Ctrl G` vuelve a donde estabas (también con el botón «Nodos») |
 | Rueda (mapa de celdas, en el Laboratorio) | Acercar la celda señalada; hacia atrás, alejar |
 | Clic en una nota con hijas | Entrar en ella (dentro, si tiene texto propio, hay una celda para abrirla) |
 | Clic en una nota (o `Enter`) | Acercarse hasta que la celda se abre como hoja a pantalla completa |
