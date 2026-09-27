@@ -12,6 +12,8 @@ type Props = {
   onOpen: (id: string) => void;
   onSection: (id: string) => void;
   onCreate: (text: string) => void;
+  // Crear con ruta «Padre>Hijo>Nota»: las secciones que falten, dentro de `zoneId`, y la nota al final.
+  onCreatePath: (zoneId: string | null, sections: string[], title: string) => void;
   onMap: () => void;
 };
 
@@ -58,15 +60,39 @@ function Marked({ text, words }: { text: string; words: string[] }) {
   return <>{parts.map((p, i) => (p.m ? <mark key={i}>{p.t}</mark> : <span key={i}>{p.t}</span>))}</>;
 }
 
-export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onMap }: Props) {
+export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreatePath, onMap }: Props) {
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
-  const words = useMemo(() => norm(query).split(/\s+/).filter(Boolean), [query]);
+  // «Padre>Hijo>texto»: los tramos antes del último «>» son secciones y lo
+  // último es lo que se busca (o el título de la nota nueva).
+  const segs = query.split('>');
+  const last = segs[segs.length - 1];
+  const prefixKey = segs.slice(0, -1).join('>');
+  const words = useMemo(() => norm(last).split(/\s+/).filter(Boolean), [last]);
+
+  // Hasta dónde existe la ruta escrita: las secciones encontradas y los nombres que faltan.
+  const route = useMemo(() => {
+    if (!prefixKey && segs.length < 2) return null;
+    const names = prefixKey.split('>').map((n) => n.trim()).filter(Boolean);
+    const found: NoteRow[] = [];
+    let parent: string | null = null;
+    let i = 0;
+    for (; i < names.length; i++) {
+      const want = norm(names[i]);
+      const z = rows.find((r) => r.kind === 'zone' && (r.zoneId ?? null) === parent && norm(r.title ?? '') === want);
+      if (!z) break;
+      found.push(z);
+      parent = z.id;
+    }
+    return { found, missing: names.slice(i), zoneId: parent };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefixKey, segs.length > 1, rows]);
 
   // La lista es el árbol: cada sección y, sangradas debajo, sus notas y
   // subsecciones. Sin escribir, lo tocado hace poco arriba; buscando, las
   // ramas con lo más parecido arriba, con sus secciones como contexto.
   const hits = useMemo<Hit[]>(() => {
+    if (route && route.missing.length) return [];
     const t = (r: NoteRow) => (r.updatedAt ? Date.parse(r.updatedAt) : 0);
     const titleOf = (r: NoteRow) => r.title || (r.kind === 'zone' ? 'Sección sin nombre' : r.kind === 'task' ? 'Tarea sin título' : 'Nota sin título');
     const zoneIds = new Set(rows.filter((r) => r.kind === 'zone').map((r) => r.id));
@@ -104,6 +130,11 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onMap }: 
         if (r.kind === 'zone') walk(r.id, depth + 1, path ? `${path} › ${titleOf(r)}` : titleOf(r));
       }
     };
+    // Con ruta, solo lo que hay dentro de la última sección.
+    if (route && route.zoneId) {
+      walk(route.zoneId, 0, route.found.map(titleOf).join(' › '));
+      return out;
+    }
     // En la raíz, las secciones primero y lo suelto al final.
     const roots = (kids.get(null) ?? []).filter((r) => !words.length || weigh(r) > 0);
     const zones = roots.filter((r) => r.kind === 'zone').sort((a, b) => weigh(b) - weigh(a));
@@ -123,14 +154,14 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onMap }: 
       for (const r of loose) out.push({ row: r, title: titleOf(r), score: 0, path: '', depth: 0 });
     }
     return out;
-  }, [rows, words]);
+  }, [rows, words, route]);
 
   // Buscando, el cursor empieza en la primera coincidencia, no en su sección.
   useEffect(() => {
     if (words.length) setCursor(Math.max(0, hits.findIndex((h) => h.score > 0)));
     else setCursor(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [words]);
+  }, [words, prefixKey]);
 
   const at = Math.min(cursor, Math.max(0, hits.length - 1));
   const cur = hits[at];
@@ -150,7 +181,30 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onMap }: 
     return () => cancelAnimationFrame(raf);
   }, [at]);
 
+  // Ruta completa de una fila, como se escribe: «Viaje a Japón>Qué ver>».
+  const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
+  const pathOf = (r: NoteRow) => {
+    const names: string[] = [];
+    const seen = new Set<string>();
+    for (let z = r.zoneId ? byId.get(r.zoneId) : undefined; z && !seen.has(z.id); z = z.zoneId ? byId.get(z.zoneId) : undefined) {
+      seen.add(z.id);
+      names.unshift(z.title ?? '');
+    }
+    return names.map((n) => `${n}>`).join('') + (r.title ?? '') + (r.kind === 'zone' ? '>' : '');
+  };
+
+  // Con ruta, Enter crea salvo que lo señalado se llame justo así.
+  const title = last.trim();
+  const creating = !!route && !!title && !(cur && norm(cur.title) === norm(title));
+
   const open = () => {
+    if (route && (creating || (!cur && !title))) {
+      if (title) onCreatePath(route.zoneId, route.missing, title);
+      else if (!route.missing.length && route.zoneId) onSection(route.zoneId);
+      else if (route.missing.length) onCreatePath(route.zoneId, route.missing, '');
+      setQuery('');
+      return;
+    }
     if (cur) {
       if (cur.row.kind === 'zone') onSection(cur.row.id);
       else onOpen(cur.row.id);
@@ -173,6 +227,10 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onMap }: 
       else if (e.key === 'PageDown') setCursor(Math.min(hits.length - 1, at + 8));
       else if (e.key === 'PageUp') setCursor(Math.max(0, at - 8));
       else if (e.key === 'Enter') open();
+      else if (e.key === 'Tab' && !mod) {
+        // Completa con lo señalado; una sección queda abierta con «>» para seguir.
+        if (cur) setQuery(pathOf(cur.row));
+      }
       else if (e.key === 'Escape') {
         if (query) setQuery('');
         else onMap();
@@ -250,16 +308,26 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onMap }: 
         })}
         {!hits.length && (
           <div className="focus-item is-here focus-empty" style={{ transform: 'translate(-50%, -50%)' }}>
-            <span className="focus-title">Nada se llama así</span>
+            <span className="focus-title">{route ? title || route.missing[route.missing.length - 1] || 'Aquí no hay nada todavía' : 'Nada se llama así'}</span>
             <span className="focus-meta">
-              <span className="meta">Enter crea una nota con «{query.trim()}»</span>
+              <span className="meta">{route ? whereText(route, title) : `Enter crea una nota con «${query.trim()}»`}</span>
             </span>
           </div>
         )}
       </div>
+      {route && creating && hits.length > 0 && <p className="meta focus-where">{whereText(route, title)}</p>}
       <p className="meta focus-foot">
-        {words.length ? `${hits.length} ${hits.length === 1 ? 'coincidencia' : 'coincidencias'} · ` : ''}↑↓ moverse · Enter abrir · Esc {query ? 'borrar' : 'mapa'}
+        {words.length ? `${hits.length} ${hits.length === 1 ? 'coincidencia' : 'coincidencias'} · ` : ''}↑↓ moverse · Tab completar · Enter abrir · {'>'} dentro de · Esc {query ? 'borrar' : 'mapa'}
       </p>
     </div>
   );
+}
+
+// «Enter crea «Templos» en Viaje a Japón › Qué ver (nueva)».
+function whereText(route: { found: NoteRow[]; missing: string[] }, title: string) {
+  const parts = [...route.found.map((z) => z.title || 'Sección sin nombre'), ...route.missing.map((n) => `${n} (nueva)`)];
+  const where = parts.length ? parts.join(' › ') : 'la raíz';
+  if (title) return `Enter crea «${title}» en ${where}`;
+  if (route.missing.length) return `Enter crea la sección ${where}`;
+  return `Enter entra en ${where}`;
 }

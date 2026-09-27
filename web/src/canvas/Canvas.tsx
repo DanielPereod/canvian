@@ -293,6 +293,13 @@ export function Canvas({ profile }: { profile: Profile }) {
     openNote(row.id);
   };
 
+  // Desde Foco, «Padre>Hijo>Nota»: crea las secciones que falten y la nota dentro.
+  const newAtPath = (zoneId: string | null, sections: string[], title: string) => {
+    let parent = zoneId;
+    for (const name of sections) parent = createNote(spotFor(parent), 'zone', { zoneId: parent, title: name, ...ZONE_SIZE }).id;
+    if (title) newNote(parent, title);
+  };
+
   const newSection = (zoneId: string | null) => {
     const row = createNote(spotFor(zoneId), 'zone', { zoneId, ...ZONE_SIZE });
     setRenaming({ id: row.id, title: '' });
@@ -556,6 +563,7 @@ export function Canvas({ profile }: { profile: Profile }) {
             setMapOpen(true);
           }}
           onCreate={(text) => newNote(null, text)}
+          onCreatePath={newAtPath}
           onMap={() => {
             mapPath.current = [];
             setMapOpen(true);

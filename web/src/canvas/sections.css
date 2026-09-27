@@ -404,6 +404,7 @@
 .focus-query .focus-hint { color: var(--text-ghost); transition: opacity 600ms; }
 .focus-caret { width: 1.5px; height: 1.1em; margin-left: 2px; background: var(--accent-ink); align-self: center; animation: focus-blink 1.1s steps(1) infinite; }
 @keyframes focus-blink { 50% { opacity: 0; } }
+.focus-where { position: absolute; left: 0; right: 0; bottom: calc(var(--space-5) + 50px); text-align: center; color: var(--text-faint); animation: rise-in 400ms var(--ease-out) both; }
 .focus-foot { position: absolute; left: 0; right: 0; bottom: var(--space-5); text-align: center; color: var(--text-ghost); }
 @media (max-width: 640px) {
   .focus-title { font-size: 18px; }
