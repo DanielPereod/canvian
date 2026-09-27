@@ -412,3 +412,37 @@
 }
 .focus-kind-zone .focus-title { font-family: var(--font-serif); font-style: italic; }
 .focus-item.is-context { color: var(--text-ghost); }
+
+/* ── Vista de nodos ─────────────────────────────────────────────── */
+.nodes { position: absolute; inset: 0; z-index: var(--z-canvas); overflow: hidden; animation: tasks-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.nodes-svg { position: absolute; inset: 0; display: block; }
+.nodes-line { stroke: var(--line-strong); stroke-width: 1; vector-effect: non-scaling-stroke; transform-origin: 0 0; transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1), stroke 300ms, opacity 400ms; animation: nodes-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.nodes-line.role-link { stroke-dasharray: 3 5; }
+.nodes-line.role-sibling { stroke: var(--line); }
+.nodes-line.on { stroke: var(--accent-line); }
+.nodes-node { cursor: pointer; transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1), opacity 400ms; animation: nodes-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.nodes-dot { fill: var(--bg); stroke: var(--text-faint); stroke-width: 1.2; transition: fill 300ms, stroke 300ms, r 600ms var(--ease-out); }
+.nodes-node.has-kids .nodes-dot { fill: color-mix(in oklab, var(--text) 10%, var(--bg)); stroke: var(--text-muted); }
+.nodes-node.is-task .nodes-dot { stroke-dasharray: 2 2; }
+.nodes-node.is-done { opacity: 0.45; }
+.nodes-node.role-center .nodes-dot { fill: var(--text); stroke: none; filter: drop-shadow(0 0 18px var(--accent-soft)); }
+.nodes-node.role-parent .nodes-dot { fill: none; stroke: var(--text-faint); }
+.nodes-node.ring-2 { opacity: 0.55; }
+.nodes-node.role-sibling { opacity: 0.4; }
+.nodes-node.on, .nodes-node.on.ring-2, .nodes-node.on.role-sibling { opacity: 1; }
+.nodes-node.on .nodes-dot { stroke: var(--text); fill: color-mix(in oklab, var(--text) 18%, var(--bg)); }
+.nodes-node.role-center.on .nodes-dot { fill: var(--text); }
+.nodes-node.drop .nodes-dot { stroke: var(--accent-ink); stroke-width: 2.5; }
+.nodes-title { font-family: var(--font-ui); font-size: 14px; fill: var(--text-muted); transition: fill 300ms; }
+.nodes-hit { fill: transparent; }
+.nodes-node.on .nodes-title { fill: var(--text); }
+.nodes-node.ring-2 .nodes-title, .nodes-node.role-sibling .nodes-title { font-size: 12px; }
+.nodes-title.center { font-family: var(--font-serif); font-style: italic; font-size: 30px; fill: var(--text); letter-spacing: -0.01em; }
+.nodes-title.more { font-size: 12px; fill: var(--text-ghost); }
+.nodes-count { fill: var(--text-ghost); font-size: 11px; }
+.nodes-snippet { font-family: var(--font-ui); font-size: 13px; fill: var(--text-faint); pointer-events: none; }
+.nodes .dim { opacity: 0.18; }
+.nodes.hide-dim .dim { opacity: 0; pointer-events: none; }
+.nodes-empty { position: absolute; left: 0; right: 0; top: 50%; text-align: center; color: var(--text-ghost); }
+@keyframes nodes-in { from { opacity: 0; } }
+[data-theme='minimo'] .nodes-title.center { font-style: normal; font-weight: 500; letter-spacing: -0.03em; }

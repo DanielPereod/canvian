@@ -46,6 +46,8 @@ type Props = {
   onProps: (id: string) => void;
   onTask: () => void;
   onBlock: () => void;
+  // Modo nodo: la nota en el centro de la vista de nodos.
+  onNodes: () => void;
   onLink: () => void;
   onUnlink: (id: string) => void;
   onDelete: (id: string) => void;
@@ -76,7 +78,7 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote }: Props) {
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -162,6 +164,9 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
               {note.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
             </button>
           )}
+          <button className="sheet-back" onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
+            Nodos
+          </button>
           <button className="sheet-back" onClick={() => onProps(note.id)}>
             Propiedades
           </button>

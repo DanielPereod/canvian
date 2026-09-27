@@ -3,8 +3,9 @@ import { ulid } from 'ulidx';
 import { api, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type TaskStatus } from '../api';
 import type { NoteContent } from './NoteSheet';
 import { CommandPalette } from './CommandPalette';
-import { useExperiments } from '../lab/experiments';
+import { toggleExperiment, useExperiments } from '../lab/experiments';
 import { SectionMap, type MapAction } from './SectionMap';
+import { NodeView, LOOSE } from './NodeView';
 import { buildTree, findPath, noteIdOf, parentMap, rectOf, type MapNode, type Rect } from './sections';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
@@ -61,11 +62,13 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const [dropping, setDropping] = useState(false);
-  const { memoria, foco } = useExperiments();
+  const { memoria, foco, celdas } = useExperiments();
   // Con «Foco», la portada es la lista; el mapa se abre desde ella (Esc) y se
   // vuelve con Esc desde la raíz del mapa.
   const [mapOpen, setMapOpen] = useState(false);
   const showFocus = foco && !mapOpen;
+  // Nota del centro en la vista de nodos (null: la raíz).
+  const [center, setCenter] = useState<string | null>(null);
 
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
@@ -252,6 +255,7 @@ export function Canvas({ profile }: { profile: Profile }) {
 
   // La nota madre en la que estás (o null en la raíz).
   const currentZone = (): NoteRow | null => {
+    if (!celdas) return center && center !== LOOSE ? (rowsRef.current.find((r) => r.id === center) ?? null) : null;
     const path = findPath(tree, mapPath.current.at(-1) ?? 'root') ?? [tree];
     const zoneId = [...path].reverse().find((n) => n.kind === 'zone')?.id;
     return zoneId ? (rowsRef.current.find((r) => r.id === zoneId) ?? null) : null;
@@ -358,12 +362,26 @@ export function Canvas({ profile }: { profile: Profile }) {
       .catch(report);
   };
 
-  const onAction = (action: MapAction, node: MapNode) => {
-    const row = node.note ? rowsRef.current.find((r) => r.id === noteIdOf(node)) : undefined;
-    if (action === 'create') newNote(node.zoneId);
-    else if (action === 'createCanvas') newCanvas(node.zoneId);
+  // Modo nodo: cierra la nota y la pone en el centro de la vista de nodos.
+  const toNodes = (id: string) => {
+    flush(id);
+    setFocusId(null);
+    setTasksOpen(false);
+    setOrganizeOpen(false);
+    setCenter(id);
+    setMapOpen(true);
+    if (celdas) toggleExperiment('celdas');
+  };
+
+  const onAction = (action: MapAction, node: MapNode) => act(action, node.note ? noteIdOf(node) : null, node.zoneId);
+
+  // Lo que se pide desde el mapa o los nodos sobre una nota (o, para crear, dentro de `zoneId`).
+  const act = (action: MapAction, noteId: string | null, zoneId: string | null) => {
+    const row = noteId ? rowsRef.current.find((r) => r.id === noteId) : undefined;
+    if (action === 'create') newNote(zoneId);
+    else if (action === 'createCanvas') newCanvas(zoneId);
     // Nota nueva dentro de la señalada (o de donde estás).
-    else if (action === 'section') newNote(row ? row.id : node.zoneId);
+    else if (action === 'section') newNote(row ? row.id : zoneId);
     else if (!row) return;
     // Un canvas solo cambia de tipo desde Propiedades: T aplanaría su lienzo.
     else if (action === 'task' && row.kind !== 'canvas') toggleTask(row);
@@ -389,11 +407,16 @@ export function Canvas({ profile }: { profile: Profile }) {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
-      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern']);
+      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
       if (action === 'exportCanvas' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         exportCanvas();
+        return;
+      }
+      if (action === 'nodes' && focusId && (chord || !isTyping(e.target))) {
+        e.preventDefault();
+        toNodes(focusId);
         return;
       }
       if (action === 'search' && (chord || !isTyping(e.target))) {
@@ -580,17 +603,34 @@ export function Canvas({ profile }: { profile: Profile }) {
           onOpen={(id) => openNote(id)}
           onSection={(id) => {
             mapPath.current = (findPath(tree, id) ?? []).slice(1).map((n) => n.id);
+            setCenter(id);
             setMapOpen(true);
           }}
           onCreate={(text) => newNote(null, text)}
           onCreatePath={newAtPath}
           onMap={() => {
             mapPath.current = [];
+            setCenter(null);
             setMapOpen(true);
           }}
         />
       )}
-      {loaded && !showFocus && (
+      {loaded && !showFocus && !celdas && (
+        <NodeView
+          rows={rows}
+          links={links}
+          center={center}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
+          onCenter={setCenter}
+          onOpen={(id) => openNote(id)}
+          onAction={act}
+          onMove={moveTo}
+          lit={lit}
+          hide={mode === 'hide'}
+          onLeave={foco ? () => setMapOpen(false) : undefined}
+        />
+      )}
+      {loaded && !showFocus && celdas && (
         <SectionMap
           tree={tree}
           paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
@@ -605,7 +645,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           onLeave={foco ? () => setMapOpen(false) : undefined}
         />
       )}
-      {loaded && !showFocus && rows.length === 0 && (
+      {loaded && !showFocus && celdas && rows.length === 0 && (
         <div className="empty-state">
           <div>
             <p className="display">
@@ -719,6 +759,7 @@ export function Canvas({ profile }: { profile: Profile }) {
             setPaletteOpen('card');
           }}
           onBlock={() => toggleBlocked(focused.id)}
+          onNodes={() => toNodes(focused.id)}
           onLink={() => setPaletteOpen('link')}
           onUnlink={(id) => unlink(focused.id, id)}
           onDelete={(id) => {
