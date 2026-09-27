@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
-import { ACTIONS, useKeymap, type ActionId } from './keys';
+import { ACTIONS, useKeymap } from './keys';
 import { Keys } from './Kbd';
+import { MODES, setMode, useAppearance } from './theme';
 
 // Paleta de comandos: todas las acciones con su atajo. Elegir una la ejecuta
 // como si se hubiera pulsado su tecla, así cada vista la atiende como siempre.
@@ -38,18 +39,25 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
   const words = norm(query).split(/\s+/).filter(Boolean);
   // Primero las que coinciden en el nombre corto, sin lo que va entre paréntesis.
   const short = (label: string) => norm(label.split(' (')[0]);
-  const items = ACTIONS.filter((a) => a.id !== 'commands')
+  const { mode } = useAppearance();
+  // Las acciones con atajo y, además, órdenes sin tecla (como elegir el modo).
+  type Entry = { key: string; label: string; group: string; combo?: string; run: () => void; on?: boolean };
+  const entries: Entry[] = [
+    ...ACTIONS.filter((a) => a.id !== 'commands').map((a) => ({ key: a.id, label: a.label, group: a.group, combo: keymap[a.id], run: () => setTimeout(() => pressAction(keymap[a.id]), 0) })),
+    ...MODES.map((m) => ({ key: `mode-${m.id}`, label: `Modo ${m.name.toLowerCase()}${m.id === 'auto' ? ' (según el sistema)' : ''}`, group: 'Aspecto tema claro oscuro', run: () => void setMode(m.id).catch(() => {}), on: mode === m.id })),
+  ];
+  const items = entries
     .filter((a) => words.every((w) => norm(`${a.label} ${a.group}`).includes(w)))
-    .map((a, i) => ({ a, rank: (words.every((w) => short(a.label).includes(w)) ? 0 : 1) * 100 + i }))
+    .map((a, i) => ({ a, rank: (short(a.label).startsWith(norm(query.trim())) ? 0 : words.every((w) => short(a.label).includes(w)) ? 1 : 2) * 100 + i }))
     .sort((x, y) => x.rank - y.rank)
     .map((x) => x.a);
   const at = Math.min(cursor, Math.max(0, items.length - 1));
 
-  const run = (id: ActionId | undefined) => {
-    if (!id) return;
+  // Tras cerrar, para que la pulsación llegue a la vista y no a este campo.
+  const run = (entry: Entry | undefined) => {
+    if (!entry) return;
     onClose();
-    // Tras cerrar, para que la pulsación llegue a la vista y no a este campo.
-    setTimeout(() => pressAction(keymap[id]), 0);
+    entry.run();
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -60,7 +68,7 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setCursor(Math.max(at - 1, 0));
-    } else if (e.key === 'Enter') run(items[at]?.id);
+    } else if (e.key === 'Enter') run(items[at]);
   };
 
   return (
@@ -81,19 +89,17 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
         <ul className="list" role="listbox">
           {items.map((a, i) => (
             <li
-              key={a.id}
+              key={a.key}
               role="option"
               aria-selected={i === at}
               ref={i === at ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
               className="list-item"
               style={{ '--i': i } as React.CSSProperties}
               onMouseEnter={() => setCursor(i)}
-              onClick={() => run(a.id)}
+              onClick={() => run(a)}
             >
               {a.label}
-              <span className="trail">
-                <Keys combo={keymap[a.id]} />
-              </span>
+              <span className="trail">{a.combo ? <Keys combo={a.combo} /> : a.on ? <span className="meta">Activo</span> : null}</span>
             </li>
           ))}
           {!items.length && <li className="list-item static">Ningún comando se llama así</li>}

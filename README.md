@@ -39,7 +39,7 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (i
 
 ## Temas
 
-En **Configuración** (`Ctrl ,`) se elige el tema: Jardín nocturno (el de siempre), Papel, Observatorio, Bloques, Piedras de río o Plano. Solo cambia el aspecto; el mapa y las notas son los mismos. Se guarda en el servidor, así que vale en todos tus dispositivos.
+**Configuración** (`Ctrl ,`) está ordenada como Obsidian: secciones a la izquierda (General, Aspecto, Atajos de teclado, Laboratorio) y sus ajustes a la derecha. En **Aspecto** se elige el modo (claro, oscuro o automático, que sigue al sistema) y un tema para cada tono: oscuros Jardín nocturno, Observatorio, Plano y Mínimo; claros Papel, Bloques, Piedras de río y Mínimo claro. El modo también se cambia con `Ctrl Mayús L` o desde la paleta de comandos (`Ctrl Mayús P`, «Modo claro/oscuro/automático»). Todo se guarda en el servidor, así que vale en todos tus dispositivos.
 
 ## Atajos
 

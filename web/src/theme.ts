@@ -1,76 +1,138 @@
 import { useSyncExternalStore } from 'react';
 import { api } from './api';
 
-// Tema de la interfaz: solo cambia el aspecto (colores, letras, celdas del
-// mapa). Se guarda en el servidor para todos los dispositivos, y en este
+// Aspecto de la interfaz: un modo (claro, oscuro o automático, que sigue al
+// sistema) y un tema para cada tono. Solo cambia colores, letras y celdas del
+// mapa. Se guarda en el servidor para todos los dispositivos, y en este
 // navegador para pintarlo bien desde el primer fotograma.
 
-export type ThemeId = 'jardin' | 'papel' | 'observatorio' | 'bloques' | 'piedras' | 'plano' | 'minimo';
+export type ThemeId = 'jardin' | 'papel' | 'observatorio' | 'bloques' | 'piedras' | 'plano' | 'minimo' | 'minimo-claro';
+export type Tone = 'dark' | 'light';
+export type Mode = Tone | 'auto';
 
-export const THEMES: { id: ThemeId; name: string; hint: string }[] = [
-  { id: 'jardin', name: 'Jardín nocturno', hint: 'El de siempre: noche, luz del color del perfil' },
-  { id: 'papel', name: 'Papel', hint: 'Claro, tinta sobre papel, como un cuaderno' },
-  { id: 'observatorio', name: 'Observatorio', hint: 'Noche profunda, órbitas finas, letra clásica' },
-  { id: 'bloques', name: 'Bloques', hint: 'Brutalista: negro, hueso y amarillo' },
-  { id: 'piedras', name: 'Piedras de río', hint: 'Arena cálida y piedras de colores suaves' },
-  { id: 'plano', name: 'Plano', hint: 'Papel de plano azul con líneas blancas' },
-  { id: 'minimo', name: 'Mínimo', hint: 'Negro, grises y una letra sans; nada más' },
+export const THEMES: { id: ThemeId; name: string; hint: string; tone: Tone }[] = [
+  { id: 'jardin', name: 'Jardín nocturno', hint: 'Noche, luz del color del perfil', tone: 'dark' },
+  { id: 'observatorio', name: 'Observatorio', hint: 'Noche profunda, órbitas finas, letra clásica', tone: 'dark' },
+  { id: 'plano', name: 'Plano', hint: 'Papel de plano azul con líneas blancas', tone: 'dark' },
+  { id: 'minimo', name: 'Mínimo', hint: 'Negro, grises y una letra sans; nada más', tone: 'dark' },
+  { id: 'papel', name: 'Papel', hint: 'Tinta sobre papel, como un cuaderno', tone: 'light' },
+  { id: 'bloques', name: 'Bloques', hint: 'Brutalista: hueso, negro y amarillo', tone: 'light' },
+  { id: 'piedras', name: 'Piedras de río', hint: 'Arena cálida y piedras de colores suaves', tone: 'light' },
+  { id: 'minimo-claro', name: 'Mínimo claro', hint: 'Blanco, grises y una letra sans', tone: 'light' },
 ];
 
-const LOCAL = 'canvian:theme';
-const isTheme = (v: unknown): v is ThemeId => THEMES.some((t) => t.id === v);
+export const MODES: { id: Mode; name: string }[] = [
+  { id: 'light', name: 'Claro' },
+  { id: 'dark', name: 'Oscuro' },
+  { id: 'auto', name: 'Automático' },
+];
 
-let current: ThemeId = 'jardin';
+export type Appearance = { mode: Mode; dark: ThemeId; light: ThemeId };
+
+const LOCAL = 'canvian:appearance';
+const LEGACY = 'canvian:theme';
+const toneOf = (id: ThemeId) => THEMES.find((t) => t.id === id)!.tone;
+const isTheme = (v: unknown, tone?: Tone): v is ThemeId => THEMES.some((t) => t.id === v && (!tone || t.tone === tone));
+const isMode = (v: unknown): v is Mode => MODES.some((m) => m.id === v);
+
+// Del tema de antes (uno solo) al aspecto: su tono pasa a ser el modo.
+function fromLegacy(theme: unknown): Appearance {
+  if (!isTheme(theme)) return { mode: 'dark', dark: 'jardin', light: 'papel' };
+  const pair: ThemeId = theme === 'minimo' ? 'minimo-claro' : theme === 'minimo-claro' ? 'minimo' : toneOf(theme) === 'dark' ? 'papel' : 'jardin';
+  return toneOf(theme) === 'dark' ? { mode: 'dark', dark: theme, light: pair } : { mode: 'light', dark: pair, light: theme };
+}
+
+function clean(v: unknown): Appearance | null {
+  const a = v as Partial<Appearance> | null;
+  if (!a || !isMode(a.mode) || !isTheme(a.dark, 'dark') || !isTheme(a.light, 'light')) return null;
+  return { mode: a.mode, dark: a.dark, light: a.light };
+}
+
+const system = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+let current: Appearance = { mode: 'dark', dark: 'jardin', light: 'papel' };
+let active = 'jardin' as ThemeId;
+let snapshot: Appearance & { active: ThemeId } = { ...current, active };
 const listeners = new Set<() => void>();
 
-function apply(id: ThemeId) {
-  current = id;
-  if (id === 'jardin') delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = id;
-  try {
-    localStorage.setItem(LOCAL, id);
-  } catch {
-    // Sin almacenamiento local, el tema llega igual desde el servidor.
-  }
+const resolve = (a: Appearance): ThemeId => {
+  const tone: Tone = a.mode === 'auto' ? (system?.matches === false ? 'light' : 'dark') : a.mode;
+  return tone === 'dark' ? a.dark : a.light;
+};
+
+function paint() {
+  active = resolve(current);
+  if (active === 'jardin') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = active;
+  snapshot = { ...current, active };
   listeners.forEach((l) => l());
 }
 
-// Antes de pintar: el último tema usado en este navegador.
-export function startTheme() {
-  let saved: string | null = null;
+function apply(a: Appearance) {
+  current = a;
+  paint();
   try {
-    saved = localStorage.getItem(LOCAL);
+    localStorage.setItem(LOCAL, JSON.stringify(a));
+  } catch {
+    // Sin almacenamiento local, el aspecto llega igual desde el servidor.
+  }
+}
+
+// En automático, seguir al sistema cuando cambia (p. ej. al anochecer).
+system?.addEventListener?.('change', () => current.mode === 'auto' && paint());
+
+// Antes de pintar: lo último usado en este navegador.
+export function startTheme() {
+  let saved: Appearance | null = null;
+  try {
+    const raw = localStorage.getItem(LOCAL);
+    saved = raw ? clean(JSON.parse(raw)) : null;
+    if (!saved && localStorage.getItem(LEGACY)) saved = fromLegacy(localStorage.getItem(LEGACY));
   } catch {
     saved = null;
   }
-  if (isTheme(saved)) apply(saved);
+  if (saved) apply(saved);
 }
 
-// Tras entrar: el que diga el servidor.
+// Tras entrar: lo que diga el servidor (o el tema de antes, si aún no hay aspecto).
 export function loadTheme() {
   return api
     .prefs()
     .then((p) => {
-      if (isTheme(p.theme)) apply(p.theme);
+      const saved = clean(p.appearance);
+      if (saved) apply(saved);
+      else if (p.theme) apply(fromLegacy(p.theme));
     })
     .catch(() => {});
 }
 
-export function setTheme(id: ThemeId) {
+function save(next: Appearance) {
   const before = current;
-  apply(id);
-  return api.savePref('theme', id).catch((e) => {
+  apply(next);
+  return api.savePref('appearance', next).catch((e) => {
     apply(before);
     throw e;
   });
 }
 
-export function useTheme() {
+export const setMode = (mode: Mode) => save({ ...current, mode });
+
+// Elegir un tema lo pone para su tono; si el modo es fijo, pasa a ese tono para verlo.
+export function setTheme(id: ThemeId) {
+  const tone = toneOf(id);
+  return save({ ...current, [tone]: id, mode: current.mode === 'auto' ? 'auto' : tone });
+}
+
+// Claro ↔ oscuro según lo que se ve ahora (sale de automático).
+export const toggleMode = () => setMode(toneOf(active) === 'dark' ? 'light' : 'dark');
+
+export function useAppearance() {
   return useSyncExternalStore(
     (l) => {
       listeners.add(l);
       return () => listeners.delete(l);
     },
-    () => current,
+    () => snapshot,
   );
 }
+
+export const useTheme = () => useAppearance().active;
