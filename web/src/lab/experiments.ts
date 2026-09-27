@@ -2,17 +2,18 @@ import { useSyncExternalStore } from 'react';
 
 // Ideas en prueba. Cada una se enciende y apaga desde el laboratorio (tecla E)
 // para compararlas; lo que se elija aquí solo vive en este navegador.
-export type ExperimentId = 'memoria' | 'maduran';
+export type ExperimentId = 'memoria' | 'maduran' | 'foco';
 
 export const EXPERIMENTS: { id: ExperimentId; name: string; hint: string }[] = [
   { id: 'memoria', name: 'Luz como memoria', hint: 'Lo que no tocas se apaga poco a poco' },
   { id: 'maduran', name: 'Tareas que maduran', hint: 'Semilla, brote y flor en vez de casillas' },
+  { id: 'foco', name: 'Foco', hint: 'La portada es una lista que se funde; escribe y encuentra. Esc lleva al mapa' },
 ];
 
 export type Experiments = Record<ExperimentId, boolean>;
 
 const KEY = 'canvian.experiments';
-const DEFAULTS: Experiments = { memoria: true, maduran: true };
+const DEFAULTS: Experiments = { memoria: true, maduran: true, foco: false };
 
 function load(): Experiments {
   try {

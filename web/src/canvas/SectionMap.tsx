@@ -26,6 +26,8 @@ type Props = {
   lit: Set<string> | null;
   hide: boolean;
   memoria: boolean;
+  // Esc en la raíz: salir del mapa (con el experimento «Foco», a la lista).
+  onLeave?: () => void;
 };
 
 const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename' };
@@ -36,7 +38,7 @@ const DRAG_FROM = 6;
 const dropZone = (n: MapNode): string | null | undefined =>
   n.kind === 'zone' ? n.id : n.kind === 'root' || n.id === 'loose' ? null : undefined;
 
-export function SectionMap({ tree, paused, start, onPath, onOpen, onAction, onMove, lit, hide, memoria }: Props) {
+export function SectionMap({ tree, paused, start, onPath, onOpen, onAction, onMove, lit, hide, memoria, onLeave }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const map = useRef<FluidMap | null>(null);
   const [path, setPath] = useState<MapNode[]>([]);
@@ -116,6 +118,7 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onAction, onMo
       else if (action === 'newCanvas') onAction('createCanvas', hovered && hovered.kind !== 'note' ? hovered : here);
       // Sección nueva en la que estás.
       else if (action === 'newSection') onAction('section', here);
+      else if (plain && e.key === 'Escape' && onLeave && path.length <= 1) onLeave();
       else if (plain && (e.key === 'Escape' || e.key === 'Backspace')) map.current.relax();
       // Una nota también se abre acercándose hasta llenar la pantalla.
       else if (plain && e.key === 'Enter' && hovered) map.current.enter(hovered.id);

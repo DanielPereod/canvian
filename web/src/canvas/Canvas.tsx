@@ -17,6 +17,7 @@ import { hasMedia, isMedia, uploadMedia } from './media';
 import { emptyBoard, kindChange, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
 import { TasksView } from './TasksView';
+import { FocusHome } from './FocusHome';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
 
@@ -61,7 +62,11 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const [dropping, setDropping] = useState(false);
-  const { memoria } = useExperiments();
+  const { memoria, foco } = useExperiments();
+  // Con «Foco», la portada es la lista; el mapa se abre desde ella (Esc) y se
+  // vuelve con Esc desde la raíz del mapa.
+  const [mapOpen, setMapOpen] = useState(false);
+  const showFocus = foco && !mapOpen;
 
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
@@ -541,7 +546,23 @@ export function Canvas({ profile }: { profile: Profile }) {
           <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la sección en la que estás</span>
         </div>
       )}
-      {loaded && (
+      {loaded && showFocus && (
+        <FocusHome
+          rows={rows}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen || !!inspectId}
+          onOpen={(id) => openNote(id)}
+          onSection={(id) => {
+            mapPath.current = (findPath(tree, id) ?? []).slice(1).map((n) => n.id);
+            setMapOpen(true);
+          }}
+          onCreate={(text) => newNote(null, text)}
+          onMap={() => {
+            mapPath.current = [];
+            setMapOpen(true);
+          }}
+        />
+      )}
+      {loaded && !showFocus && (
         <SectionMap
           tree={tree}
           paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
@@ -553,9 +574,10 @@ export function Canvas({ profile }: { profile: Profile }) {
           lit={lit}
           hide={mode === 'hide'}
           memoria={memoria}
+          onLeave={foco ? () => setMapOpen(false) : undefined}
         />
       )}
-      {loaded && rows.length === 0 && (
+      {loaded && !showFocus && rows.length === 0 && (
         <div className="empty-state">
           <div>
             <p className="display">
@@ -606,7 +628,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           onClose={() => setPaletteOpen(false)}
         />
       )}
-      {loaded && !tasksOpen && !organizeOpen && (
+      {loaded && !showFocus && !tasksOpen && !organizeOpen && (
         <div className="chrome-top-right">
           <button className="surface-2 pill tasks-pill" onClick={() => setTasksOpen(true)} title="Todas las tareas activas">
             <span className="pill-name">Tareas</span>
