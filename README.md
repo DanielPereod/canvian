@@ -71,7 +71,7 @@ Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que te
 | `Tab` (con la linterna) | Cambia el modo: atenuar (lo demás se apaga) u ocultar (lo demás encoge) |
 | `⌘/Ctrl S` (en la linterna) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |
 | `B` | Elegir el fondo del perfil (liso, estrellas, luciérnagas, aurora) |
-| `E` | Laboratorio: encender o apagar las ideas en prueba |
+| `E` | Laboratorio: encender o apagar las ideas en prueba (se guarda en el servidor, igual en cualquier navegador) |
 | Arrastrar archivos `.md` | Importarlos como notas dentro de la nota en la que estás; los `[[enlaces]]` entre ellas se convierten en enlaces, y las tablas en tablas de verdad |
 | Pegar o arrastrar imágenes, vídeo o audio | Dentro de una nota abierta, se añaden donde está el cursor o donde los sueltas. Sobre el mapa, crean una nota nueva con ellos. Hasta 200 MB por archivo |
 | `⌘/Ctrl ⇧ E` | Exportar el perfil a JSON Canvas (`.canvas`, se abre en Obsidian) |
