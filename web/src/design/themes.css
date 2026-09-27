@@ -251,7 +251,8 @@
   --surface-hover: rgba(255, 255, 255, 0.05);
   --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.06);
   --shadow-2: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 30px 60px -30px rgba(0, 0, 0, 0.9);
-  /* Sin color: el acento del perfil se vuelve blanco. */
+  /* Sin color: el acento del perfil se vuelve blanco (gana al que pone el perfil en línea). */
+  --accent: #e6e6e6 !important;
   --accent-contrast: #0a0a0a;
   --accent-soft: rgba(255, 255, 255, 0.06);
   --accent-line: rgba(255, 255, 255, 0.4);
