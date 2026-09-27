@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FluidMap, type OpenFrom } from './fluid';
-import type { MapNode } from './sections';
+import { SELF, type MapNode } from './sections';
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 
 // El mapa de secciones: todo Canvian como un mapa vivo. Cada sección ocupa
@@ -19,9 +19,9 @@ type Props = {
   // Dónde estaba el mapa la última vez (ids desde la raíz).
   start: string[];
   onPath: (ids: string[]) => void;
-  onOpen: (noteId: string, from: OpenFrom) => void;
+  onOpen: (noteId: string, from: OpenFrom | null) => void;
   onAction: (action: MapAction, node: MapNode) => void;
-  // Mover una nota o sección a otra sección (null: a la raíz).
+  // Mover una nota dentro de otra (null: a la raíz).
   onMove: (id: string, zoneId: string | null) => void;
   lit: Set<string> | null;
   hide: boolean;
@@ -34,9 +34,10 @@ const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleSt
 const MAP_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
 const DRAG_FROM = 6;
 
-// Sección a la que va lo que se suelta sobre este nodo; undefined si no admite.
+// Nota madre de lo que se suelta sobre este nodo (cualquier nota admite
+// hijas); null es la raíz y undefined, que no admite.
 const dropZone = (n: MapNode): string | null | undefined =>
-  n.kind === 'zone' ? n.id : n.kind === 'root' || n.id === 'loose' ? null : undefined;
+  n.kind === 'root' || n.id === 'loose' ? null : n.kind === 'group' || n.id.startsWith(SELF) ? undefined : n.id;
 
 export function SectionMap({ tree, paused, start, onPath, onOpen, onAction, onMove, lit, hide, memoria, onLeave }: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -116,8 +117,8 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onAction, onMo
       // Nota nueva en la sección señalada o, si no, en la que estás.
       else if (action === 'newNote') onAction('create', hovered && hovered.kind !== 'note' ? hovered : here);
       else if (action === 'newCanvas') onAction('createCanvas', hovered && hovered.kind !== 'note' ? hovered : here);
-      // Sección nueva en la que estás.
-      else if (action === 'newSection') onAction('section', here);
+      // Nota nueva dentro de la señalada o, si no, de donde estás.
+      else if (action === 'newSection') onAction('section', hovered && !hovered.id.startsWith(SELF) && hovered.kind !== 'group' ? hovered : here);
       else if (plain && e.key === 'Escape' && onLeave && path.length <= 1) onLeave();
       else if (plain && (e.key === 'Escape' || e.key === 'Backspace')) map.current.relax();
       // Una nota también se abre acercándose hasta llenar la pantalla.
@@ -190,7 +191,8 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onAction, onMo
           e.preventDefault();
           dragged.current = false;
           const id = map.current?.pointer(local(e));
-          press.current = id && here?.children.some((c) => c.id === id) ? { x: e.clientX, y: e.clientY, id } : null;
+          // La celda de la propia nota madre no se arrastra: ya está donde está.
+          press.current = id && !id.startsWith(SELF) && here?.children.some((c) => c.id === id) ? { x: e.clientX, y: e.clientY, id } : null;
         }}
         onClick={(e) => {
           // Soltar después de arrastrar no cuenta como clic.
@@ -210,9 +212,10 @@ export function SectionMap({ tree, paused, start, onPath, onOpen, onAction, onMo
             <button
               data-crumb={i}
               className={`smap-crumb${i === path.length - 1 ? ' current' : ''}${drag?.target?.id === 'crumb:' + n.id ? ' drop' : ''}`}
-              onClick={() => i < path.length - 1 && map.current?.upTo(i)}
-              onDoubleClick={() => n.kind === 'zone' && onAction('rename', n)}
-              title={n.kind === 'zone' ? 'Doble clic para renombrar' : undefined}
+              // La miga de donde estás abre esa nota; las de antes vuelven atrás.
+              onClick={() => (i < path.length - 1 ? map.current?.upTo(i) : n.note && onOpen(n.note.id, null))}
+              onDoubleClick={() => n.note && onAction('rename', n)}
+              title={n.note ? (i === path.length - 1 ? 'Clic para abrirla, doble clic para renombrar' : 'Doble clic para renombrar') : undefined}
             >
               {n.title}
             </button>

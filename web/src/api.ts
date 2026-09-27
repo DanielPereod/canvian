@@ -13,7 +13,7 @@ export type Viewport = { x: number; y: number; zoom: number };
 
 export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
 
-export type NoteKind = 'text' | 'task' | 'canvas' | 'link' | 'image' | 'checklist' | 'code' | 'zone';
+export type NoteKind = 'text' | 'task' | 'canvas' | 'link' | 'image' | 'checklist' | 'code';
 
 export type NoteRow = {
   id: string;

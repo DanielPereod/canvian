@@ -3,9 +3,10 @@ import { ulid } from 'ulidx';
 import { api, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type TaskStatus } from '../api';
 import type { NoteContent } from './NoteSheet';
 import { CommandPalette } from './CommandPalette';
-import { useExperiments } from '../lab/experiments';
+import { toggleExperiment, useExperiments } from '../lab/experiments';
 import { SectionMap, type MapAction } from './SectionMap';
-import { buildTree, findPath, rectOf, type MapNode, type Rect } from './sections';
+import { NodeView, LOOSE } from './NodeView';
+import { buildTree, findPath, noteIdOf, parentMap, rectOf, type MapNode, type Rect } from './sections';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { NoteSheet } from './NoteSheet';
@@ -27,7 +28,6 @@ import { actionFor, keysBlocked } from '../keys';
 export type Link = { id: string; source: string; target: string };
 
 const NOTE_W = 240;
-const ZONE_SIZE = { w: 480, h: 320 };
 // X avanza; una tarea bloqueada vuelve a pendiente al desbloquearla.
 const NEXT: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', blocked: 'todo', done: 'todo' };
 const now = () => new Date().toISOString();
@@ -62,11 +62,13 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const [dropping, setDropping] = useState(false);
-  const { memoria, foco } = useExperiments();
+  const { memoria, foco, celdas } = useExperiments();
   // Con «Foco», la portada es la lista; el mapa se abre desde ella (Esc) y se
   // vuelve con Esc desde la raíz del mapa.
   const [mapOpen, setMapOpen] = useState(false);
   const showFocus = foco && !mapOpen;
+  // Nota del centro en la vista de nodos (null: la raíz).
+  const [center, setCenter] = useState<string | null>(null);
 
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
@@ -80,7 +82,7 @@ export function Canvas({ profile }: { profile: Profile }) {
   const mapPath = useRef<string[]>([]);
 
   // La linterna: qué notas quedan con luz.
-  const notes = useMemo(() => rows.filter((r) => r.kind !== 'zone'), [rows]);
+  const notes = rows;
   const lens = useMemo(() => (lamp ? parseLens(lamp, { defs, notes: rows, links }) : null), [lamp, rows, links, defs]);
   const litKey = useMemo(() => (lens?.test ? notes.filter((r) => lens.test!(r)).map((r) => r.id).join(' ') : null), [lens, notes]);
   const lit = useMemo(() => (litKey === null ? null : new Set(litKey.split(' ').filter(Boolean))), [litKey]);
@@ -251,14 +253,15 @@ export function Canvas({ profile }: { profile: Profile }) {
   // ── El árbol del mapa y lo que se hace desde él ─────────────────────
   const tree = useMemo(() => buildTree(rows, links), [rows, links]);
 
-  // La sección en la que estás (o null en la raíz).
+  // La nota madre en la que estás (o null en la raíz).
   const currentZone = (): NoteRow | null => {
+    if (!celdas) return center && center !== LOOSE ? (rowsRef.current.find((r) => r.id === center) ?? null) : null;
     const path = findPath(tree, mapPath.current.at(-1) ?? 'root') ?? [tree];
     const zoneId = [...path].reverse().find((n) => n.kind === 'zone')?.id;
     return zoneId ? (rowsRef.current.find((r) => r.id === zoneId) ?? null) : null;
   };
 
-  // Hueco para algo nuevo en una sección: dentro de su rectángulo o, en la
+  // Hueco para algo nuevo dentro de una nota madre: junto a ella o, en la
   // raíz, a un lado de todo lo demás.
   const spotFor = (zoneId: string | null) => {
     const zone = zoneId ? rowsRef.current.find((r) => r.id === zoneId) : null;
@@ -296,16 +299,40 @@ export function Canvas({ profile }: { profile: Profile }) {
   // Desde Foco, «Padre>Hijo>Nota»: crea las secciones que falten y la nota dentro.
   const newAtPath = (zoneId: string | null, sections: string[], title: string) => {
     let parent = zoneId;
-    for (const name of sections) parent = createNote(spotFor(parent), 'zone', { zoneId: parent, title: name, ...ZONE_SIZE }).id;
+    for (const name of sections) parent = titled(parent, name).id;
     if (title) newNote(parent, title);
   };
 
+  // Nota con solo un título, en negrita como primera línea (las madres que se crean por el camino).
+  const titled = (zoneId: string | null, title: string) => {
+    const row = createNote(spotFor(zoneId), 'text', { zoneId });
+    const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', marks: [{ type: 'bold' }], text: title }] }] });
+    saveContent(row.id, { bodyJson, bodyText: title, title: title.slice(0, 120) });
+    return row;
+  };
+
+  // Nota nueva con nombre dentro de otra (vista de ordenar).
   const newSection = (zoneId: string | null) => {
-    const row = createNote(spotFor(zoneId), 'zone', { zoneId, ...ZONE_SIZE });
+    const row = createNote(spotFor(zoneId), 'text', { zoneId });
     setRenaming({ id: row.id, title: '' });
   };
 
-  const rename = (id: string, title: string) => updateNote(id, { title: title.trim() || null });
+  // El título de una nota es su primera línea: renombrar cambia esa línea.
+  const rename = (id: string, title: string) => {
+    const row = rowsRef.current.find((r) => r.id === id);
+    const t = title.trim();
+    if (!row) return;
+    if (row.kind === 'canvas') return updateNote(id, { title: t || null });
+    const doc = parseBody(row.bodyJson) ?? { type: 'doc', content: [] };
+    const content = [...(doc.content ?? [])];
+    const first = content[0];
+    const marks = first?.content?.[0]?.marks;
+    const line = t ? [{ type: 'text', text: t, ...(marks ? { marks } : {}) }] : [];
+    if (first && (first.type === 'paragraph' || first.type === 'heading')) content[0] = { ...first, content: line };
+    else content.unshift({ type: 'paragraph', content: line });
+    const rest = (row.bodyText ?? '').split('\n').slice(row.title ? 1 : 0);
+    saveContent(id, { bodyJson: JSON.stringify({ ...doc, content }), bodyText: [t, ...rest].join('\n').trim(), title: t ? t.slice(0, 120) : null });
+  };
 
   // Mover a otra sección: cambia su madre y su sitio dentro de ella.
   const moveTo = (id: string, zoneId: string | null) => {
@@ -335,19 +362,53 @@ export function Canvas({ profile }: { profile: Profile }) {
       .catch(report);
   };
 
-  const onAction = (action: MapAction, node: MapNode) => {
-    const row = rowsRef.current.find((r) => r.id === node.id);
-    if (action === 'create') newNote(node.zoneId);
-    else if (action === 'createCanvas') newCanvas(node.zoneId);
-    else if (action === 'section') newSection(node.zoneId);
+  // Modo nodo: cierra la nota y la pone en el centro de la vista de nodos.
+  // Es un interruptor: se recuerda de dónde se vino para volver con Ctrl G.
+  const nodesFrom = useRef<'note' | 'foco' | null>(null);
+  const focoCursor = useRef<string | null>(null);
+  const onFocoCursor = useCallback((id: string | null) => {
+    focoCursor.current = id;
+  }, []);
+  const toNodes = (id: string | null, from: 'note' | 'foco' = 'note') => {
+    nodesFrom.current = from;
+    if (id) flush(id);
+    setFocusId(null);
+    setTasksOpen(false);
+    setOrganizeOpen(false);
+    setCenter(id);
+    setMapOpen(true);
+    if (celdas) toggleExperiment('celdas');
+  };
+
+  // Ctrl G desde cualquier sitio: una nota abierta o la lista van a los nodos;
+  // en los nodos, se vuelve a donde se estaba (a la nota del centro, si se vino de una).
+  const toggleNodes = () => {
+    if (focusId) return toNodes(focusId);
+    if (showFocus) return toNodes(focoCursor.current, 'foco');
+    const here = center && center !== LOOSE ? center : null;
+    const from = nodesFrom.current;
+    nodesFrom.current = null;
+    if (from === 'foco' || (!from && foco)) setMapOpen(false);
+    else if (here) openNote(here);
+  };
+
+  const onAction = (action: MapAction, node: MapNode) => act(action, node.note ? noteIdOf(node) : null, node.zoneId);
+
+  // Lo que se pide desde el mapa o los nodos sobre una nota (o, para crear, dentro de `zoneId`).
+  const act = (action: MapAction, noteId: string | null, zoneId: string | null) => {
+    const row = noteId ? rowsRef.current.find((r) => r.id === noteId) : undefined;
+    if (action === 'create') newNote(zoneId);
+    else if (action === 'createCanvas') newCanvas(zoneId);
+    // Nota nueva dentro de la señalada (o de donde estás).
+    else if (action === 'section') newNote(row ? row.id : zoneId);
     else if (!row) return;
     // Un canvas solo cambia de tipo desde Propiedades: T aplanaría su lienzo.
-    else if (action === 'task' && row.kind !== 'zone' && row.kind !== 'canvas') toggleTask(row);
+    else if (action === 'task' && row.kind !== 'canvas') toggleTask(row);
     else if (action === 'status') cycleStatus(row.id);
     else if (action === 'block') toggleBlocked(row.id);
-    else if (action === 'props' && row.kind !== 'zone') setInspectId(row.id);
+    else if (action === 'props') setInspectId(row.id);
     else if (action === 'delete') removeNotes([row.id]);
-    else if (action === 'rename' && row.kind === 'zone') setRenaming({ id: row.id, title: row.title ?? '' });
+    else if (action === 'rename') setRenaming({ id: row.id, title: row.title ?? '' });
   };
 
   // Desde Configuración también se llega a la vista de ordenar.
@@ -365,11 +426,16 @@ export function Canvas({ profile }: { profile: Profile }) {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
-      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern']);
+      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
       if (action === 'exportCanvas' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         exportCanvas();
+        return;
+      }
+      if (action === 'nodes' && (chord || !isTyping(e.target))) {
+        e.preventDefault();
+        toggleNodes();
         return;
       }
       if (action === 'search' && (chord || !isTyping(e.target))) {
@@ -448,7 +514,18 @@ export function Canvas({ profile }: { profile: Profile }) {
     const docs = await Promise.all(files.map(async (f) => ({ name: f.name.replace(/\.(md|markdown|txt)$/i, ''), ...markdownToDoc(await f.text()) })));
     // Lo importado entra en la sección en la que estás.
     const zoneId = currentZone()?.id ?? null;
-    const made = docs.map((d) => createNote(spotFor(zoneId), 'text', { zoneId, title: d.heading ?? d.name, bodyJson: JSON.stringify(d.doc), bodyText: docText(d.doc) }));
+    // El nombre del archivo es el título: va como primera línea, salvo que el
+    // documento ya empiece con ese mismo encabezado.
+    const withTitle = (d: (typeof docs)[number]) => {
+      const first = d.doc.content?.[0];
+      const same = first?.type === 'heading' && docText({ type: 'doc', content: [first] }).trim().toLowerCase() === d.name.trim().toLowerCase();
+      if (same || !d.name.trim()) return d.doc;
+      return { ...d.doc, content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: d.name.trim() }] }, ...(d.doc.content ?? [])] };
+    };
+    const made = docs.map((d) => {
+      const doc = withTitle(d);
+      return createNote(spotFor(zoneId), 'text', { zoneId, title: d.name.trim() || d.heading, bodyJson: JSON.stringify(doc), bodyText: docText(doc) });
+    });
     // [[Enlaces]] entre notas: por nombre de archivo o por título, sin importar mayúsculas.
     const byName = new Map<string, string>();
     for (const r of rowsRef.current) if (r.title) byName.set(r.title.toLowerCase(), r.id);
@@ -495,7 +572,6 @@ export function Canvas({ profile }: { profile: Profile }) {
       nodes: rowsRef.current.map((r) => {
         const { x, y, w, h } = rectOf(r);
         const base = { id: r.id, x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) };
-        if (r.kind === 'zone') return { ...base, type: 'group', label: r.title ?? '' };
         const md = (r.kind === 'canvas' ? '' : docToMarkdown(parseBody(r.bodyJson))) || (r.bodyText ?? '');
         const box = r.kind === 'task' ? `- [${r.status === 'done' ? 'x' : ' '}] ` : '';
         return { ...base, type: 'text', text: box + md };
@@ -516,21 +592,18 @@ export function Canvas({ profile }: { profile: Profile }) {
     const ids = new Set(links.flatMap((l) => (l.source === focusId ? [l.target] : l.target === focusId ? [l.source] : [])));
     return rows.filter((r) => ids.has(r.id));
   }, [focusId, links, rows]);
-  // Todas las secciones con su ruta («Casa › Cocina»), para mover la nota abierta.
+  // Todas las notas con su ruta («Casa › Cocina»), como madres posibles al mover.
   const sectionOptions = useMemo(() => {
     const byId = new Map(rows.map((r) => [r.id, r]));
+    const parent = parentMap(rows);
     const pathOf = (r: NoteRow) => {
       const names: string[] = [];
-      const seen = new Set<string>();
-      for (let z: NoteRow | undefined = r; z && z.kind === 'zone' && !seen.has(z.id); z = z.zoneId ? byId.get(z.zoneId) : undefined) {
-        seen.add(z.id);
-        names.unshift(z.title || 'Sin nombre');
-      }
+      for (let z: NoteRow | undefined = r; z; z = byId.get(parent.get(z.id) ?? '')) names.unshift(z.title || 'Nota sin título');
       return names.join(' › ');
     };
-    const zones = rows.filter((r) => r.kind === 'zone').map((z) => ({ id: z.id as string | null, path: pathOf(z) }));
-    zones.sort((a, b) => a.path.localeCompare(b.path, 'es'));
-    return [{ id: null, path: 'Sin sección' }, ...zones];
+    const all = rows.map((z) => ({ id: z.id as string | null, path: pathOf(z) }));
+    all.sort((a, b) => a.path.localeCompare(b.path, 'es'));
+    return [{ id: null, path: 'Arriba del todo' }, ...all];
   }, [rows]);
   const inspected = inspectId ? (rows.find((r) => r.id === inspectId) ?? null) : null;
 
@@ -550,7 +623,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           <p className="display">
             Suelta tus <em>notas</em>
           </p>
-          <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la sección en la que estás</span>
+          <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la nota en la que estás</span>
         </div>
       )}
       {loaded && showFocus && (
@@ -560,17 +633,35 @@ export function Canvas({ profile }: { profile: Profile }) {
           onOpen={(id) => openNote(id)}
           onSection={(id) => {
             mapPath.current = (findPath(tree, id) ?? []).slice(1).map((n) => n.id);
+            setCenter(id);
             setMapOpen(true);
           }}
           onCreate={(text) => newNote(null, text)}
           onCreatePath={newAtPath}
+          onCursor={onFocoCursor}
           onMap={() => {
             mapPath.current = [];
+            setCenter(null);
             setMapOpen(true);
           }}
         />
       )}
-      {loaded && !showFocus && (
+      {loaded && !showFocus && !celdas && (
+        <NodeView
+          rows={rows}
+          links={links}
+          center={center}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
+          onCenter={setCenter}
+          onOpen={(id) => openNote(id)}
+          onAction={act}
+          onMove={moveTo}
+          lit={lit}
+          hide={mode === 'hide'}
+          onLeave={foco ? () => setMapOpen(false) : undefined}
+        />
+      )}
+      {loaded && !showFocus && celdas && (
         <SectionMap
           tree={tree}
           paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
@@ -585,13 +676,13 @@ export function Canvas({ profile }: { profile: Profile }) {
           onLeave={foco ? () => setMapOpen(false) : undefined}
         />
       )}
-      {loaded && !showFocus && rows.length === 0 && (
+      {loaded && !showFocus && celdas && rows.length === 0 && (
         <div className="empty-state">
           <div>
             <p className="display">
               Un lienzo en <em>calma</em>
             </p>
-            <span className="meta">N para la primera nota · G para una sección</span>
+            <span className="meta">N para la primera nota</span>
           </div>
         </div>
       )}
@@ -600,7 +691,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           initial={renaming.title}
           onDone={(title) => {
             const row = rowsRef.current.find((r) => r.id === renaming.id);
-            // Una sección nueva sin nombre no se queda.
+            // Una nota nueva sin nombre no se queda.
             if (!title.trim() && row && !row.title) removeNotes([row.id]);
             else if (title.trim() !== (row?.title ?? '')) rename(renaming.id, title);
             setRenaming(null);
@@ -612,6 +703,15 @@ export function Canvas({ profile }: { profile: Profile }) {
           profileId={profile.id}
           placeholder={paletteOpen === 'link' ? 'Enlazar con…' : paletteOpen === 'card' ? 'Añadir al canvas…' : undefined}
           exclude={paletteOpen === 'open' ? undefined : focused?.id}
+          rows={rows}
+          onCreatePath={
+            paletteOpen === 'open'
+              ? (zoneId, sections, title) => {
+                  setPaletteOpen(false);
+                  newAtPath(zoneId, sections, title);
+                }
+              : undefined
+          }
           onPick={(id) => {
             setPaletteOpen(false);
             if (paletteOpen === 'card') pickCard.current?.(id);
@@ -690,6 +790,7 @@ export function Canvas({ profile }: { profile: Profile }) {
             setPaletteOpen('card');
           }}
           onBlock={() => toggleBlocked(focused.id)}
+          onNodes={() => toNodes(focused.id)}
           onLink={() => setPaletteOpen('link')}
           onUnlink={(id) => unlink(focused.id, id)}
           onDelete={(id) => {

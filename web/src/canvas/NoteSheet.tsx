@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
 import type { OpenFrom } from './fluid';
@@ -46,6 +46,8 @@ type Props = {
   onProps: (id: string) => void;
   onTask: () => void;
   onBlock: () => void;
+  // Modo nodo: la nota en el centro de la vista de nodos.
+  onNodes: () => void;
   onLink: () => void;
   onUnlink: (id: string) => void;
   onDelete: (id: string) => void;
@@ -76,21 +78,30 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote }: Props) {
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
   const [moving, setMoving] = useState(false);
   const where = sections.find((o) => o.id === note.zoneId)?.path ?? null;
+  // Ella y todo lo que cuelga de ella: no puede ir dentro de sí misma.
+  const family = useMemo(() => {
+    const out = new Set([note.id]);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const r of rows) if (r.zoneId && out.has(r.zoneId) && !out.has(r.id)) grew = !!out.add(r.id);
+    }
+    return out;
+  }, [rows, note.id]);
   const isCanvas = note.kind === 'canvas';
   const whereButton = (
-    <button className="sheet-where meta" onClick={() => setMoving(true)} title="Mover a otra sección">
+    <button className="sheet-where meta" onClick={() => setMoving(true)} title="Mover dentro de otra nota">
       {where ? where.split(' › ').map((p, i) => (
         <span key={i}>
           {i > 0 && <span className="sheet-where-sep">›</span>}
           {p}
         </span>
-      )) : <span>Sin sección</span>}
+      )) : <span>Arriba del todo</span>}
       <span className="sheet-where-move">Mover</span>
     </button>
   );
@@ -153,6 +164,9 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
               {note.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
             </button>
           )}
+          <button className="sheet-back" onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
+            Nodos
+          </button>
           <button className="sheet-back" onClick={() => onProps(note.id)}>
             Propiedades
           </button>
@@ -214,6 +228,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
         <SectionPicker
           options={sections}
           current={note.zoneId}
+          exclude={family}
           onPick={(zoneId) => {
             setMoving(false);
             onMove(zoneId);

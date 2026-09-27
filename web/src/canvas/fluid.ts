@@ -448,9 +448,7 @@ class FluidView {
       const metaText =
         c.node.kind === 'note'
           ? ''
-          : `${c.node.count} ${c.node.count === 1 ? 'nota' : 'notas'}${
-              c.node.children.some((k) => k.kind === 'zone') ? ` · ${c.node.children.filter((k) => k.kind === 'zone').length} secc.` : ''
-            }`;
+          : `${c.node.count} ${c.node.count === 1 ? 'nota' : 'notas'}`;
       const metaOpacity = metaText ? smooth(110, 160, size) * (1 - hidden) : 0;
       css(e.meta, 'display', metaOpacity > 0.01 ? '' : 'none');
       if (metaOpacity > 0.01) {
@@ -723,7 +721,7 @@ export class FluidMap {
       if (z.node.kind === 'note') {
         if (this.opened !== z.node.id) {
           this.opened = z.node.id;
-          this.events.onOpen(z.node.id, { rect: bbox(z.drawn), hue: z.hue });
+          this.events.onOpen(z.node.note?.id ?? z.node.id, { rect: bbox(z.drawn), hue: z.hue });
         }
       } else if (this.nested) {
         const level = this.nested;
@@ -808,7 +806,8 @@ export class FluidMap {
     if (notes) {
       lit = new Set();
       const walk = (n: MapNode): boolean => {
-        let any = n.kind === 'note' && notes.has(n.id);
+        // Una nota madre también se enciende por sí misma, no solo por sus hijas.
+        let any = !!n.note && notes.has(n.note.id);
         for (const c of n.children) if (walk(c)) any = true;
         if (any) lit!.add(n.id);
         return any;
