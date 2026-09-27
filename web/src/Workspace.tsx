@@ -12,6 +12,7 @@ import { loadTheme } from './theme';
 import { Keys } from './Kbd';
 import { Settings } from './Settings';
 import { Help } from './Help';
+import { ActionPalette } from './ActionPalette';
 
 const ACTIVE_KEY = 'canvian.activeProfile';
 
@@ -27,6 +28,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(readActive);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [commandsOpen, setCommandsOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [previewBg, setPreviewBg] = useState<BackgroundKind | null>(null);
   const [labOpen, setLabOpen] = useState(false);
@@ -59,14 +61,15 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
-      const action = actionFor(e, ['profiles', 'background', 'lab', 'help', 'settings']);
+      const action = actionFor(e, ['commands', 'profiles', 'background', 'lab', 'help', 'settings']);
       if (!action) return;
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
       // Escribiendo, solo valen las combinaciones con Ctrl/⌘ o Alt.
       if (typing && !(e.metaKey || e.ctrlKey || e.altKey)) return;
       e.preventDefault();
-      if (action === 'profiles') setSwitcherOpen((open) => !open);
+      if (action === 'commands') setCommandsOpen((open) => !open);
+      else if (action === 'profiles') setSwitcherOpen((open) => !open);
       else if (action === 'background') setPickerOpen(true);
       else if (action === 'lab') setLabOpen(true);
       else if (action === 'help') setHelpOpen(true);
@@ -119,6 +122,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         <Keys combo={keymap.help} /> atajos
       </button>
 
+      {commandsOpen && <ActionPalette onClose={() => setCommandsOpen(false)} />}
       {switcherOpen && (
         <ProfileSwitcher
           profiles={profiles}

@@ -62,9 +62,9 @@ describe('notes', () => {
     expect(note.id).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
   });
 
-  it('moves what was inside a deleted section to its parent section', async () => {
-    const outer = await data('POST', `/api/profiles/${personal}/notes`, { kind: 'zone', x: 0, y: 0, w: 800, h: 600 });
-    const zone = await data('POST', `/api/profiles/${personal}/notes`, { kind: 'zone', x: 0, y: 0, w: 400, h: 300, zoneId: outer.id });
+  it('moves the children of a deleted note to its parent', async () => {
+    const outer = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0 });
+    const zone = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, zoneId: outer.id });
     const inner = await data('POST', `/api/profiles/${personal}/notes`, { x: 20, y: 20, zoneId: zone.id });
     await call('DELETE', `/api/notes/${zone.id}`);
     const { notes } = await data('GET', `/api/profiles/${personal}/canvas`);
@@ -156,5 +156,10 @@ describe('lenses', () => {
 
     expect((await call('DELETE', `/api/lenses/${a.id}`)).status).toBe(204);
     expect(await data('GET', `/api/profiles/${personal}/lenses`)).toHaveLength(1);
+  });
+
+  it('no longer accepts zones', async () => {
+    const res = await call('POST', `/api/profiles/${personal}/notes`, { kind: 'zone', x: 0, y: 0 });
+    expect(res.status).toBe(400);
   });
 });

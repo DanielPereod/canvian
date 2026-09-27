@@ -18,8 +18,10 @@ export type ActionId =
   | 'toRoot'
   | 'tasks'
   | 'organize'
+  | 'nodes'
   | 'lantern'
   | 'search'
+  | 'commands'
   | 'profiles'
   | 'background'
   | 'lab'
@@ -31,20 +33,22 @@ export type KeyAction = { id: ActionId; label: string; group: 'Mapa' | 'Vistas y
 
 export const ACTIONS: KeyAction[] = [
   { id: 'newNote', label: 'Nota nueva (en la vista de tareas, tarea nueva)', group: 'Mapa', key: 'n' },
-  { id: 'newSection', label: 'Sección nueva', group: 'Mapa', key: 'g' },
+  { id: 'newSection', label: 'Nota dentro de la señalada', group: 'Mapa', key: 'g' },
   { id: 'newCanvas', label: 'Canvas nuevo (tarjetas libres y flechas)', group: 'Mapa', key: 'c' },
   { id: 'toggleTask', label: 'Convertir en tarea o en nota', group: 'Mapa', key: 't' },
   { id: 'cycleStatus', label: 'Avanzar el estado de una tarea', group: 'Mapa', key: 'x' },
   { id: 'blockTask', label: 'Bloquear o desbloquear una tarea', group: 'Mapa', key: 'shift+x' },
   { id: 'properties', label: 'Propiedades', group: 'Mapa', key: 'p' },
   { id: 'deleteCell', label: 'Borrar lo señalado', group: 'Mapa', key: 'delete' },
-  { id: 'rename', label: 'Renombrar la sección señalada', group: 'Mapa', key: 'r' },
+  { id: 'rename', label: 'Renombrar la nota señalada', group: 'Mapa', key: 'r' },
   { id: 'toRoot', label: 'Volver a la raíz del mapa', group: 'Mapa', key: '1' },
   { id: 'tasks', label: 'Vista de tareas activas', group: 'Vistas y paneles', key: 'a' },
   { id: 'organize', label: 'Ordenar notas en secciones', group: 'Vistas y paneles', key: 'o' },
+  { id: 'nodes', label: 'Modo nodo (activar o quitar): la nota abierta o señalada en el centro, con sus relaciones', group: 'Vistas y paneles', key: 'mod+g' },
   { id: 'lantern', label: 'Linterna (filtrar)', group: 'Vistas y paneles', key: 'f' },
-  { id: 'search', label: 'Buscar o crear notas', group: 'Vistas y paneles', key: 'mod+k' },
-  { id: 'profiles', label: 'Cambiar de perfil', group: 'Vistas y paneles', key: 'mod+shift+p' },
+  { id: 'search', label: 'Buscar o crear notas', group: 'Vistas y paneles', key: 'mod+p' },
+  { id: 'commands', label: 'Paleta de comandos', group: 'Vistas y paneles', key: 'mod+shift+p' },
+  { id: 'profiles', label: 'Cambiar de perfil', group: 'Vistas y paneles', key: 'mod+alt+p' },
   { id: 'background', label: 'Fondo', group: 'Vistas y paneles', key: 'b' },
   { id: 'lab', label: 'Laboratorio', group: 'Vistas y paneles', key: 'e' },
   { id: 'exportCanvas', label: 'Exportar a JSON Canvas', group: 'Vistas y paneles', key: 'mod+shift+e' },

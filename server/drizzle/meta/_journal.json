@@ -29,6 +29,13 @@
       "when": 1790500000000,
       "tag": "0003_section_tree",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790510000000,
+      "tag": "0004_notes_tree",
+      "breakpoints": true
     }
   ]
 }

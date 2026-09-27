@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { edges, notes, profiles } from '../db/schema.js';
 
-const KINDS = ['text', 'task', 'canvas', 'link', 'image', 'checklist', 'code', 'zone'] as const;
+const KINDS = ['text', 'task', 'canvas', 'link', 'image', 'checklist', 'code'] as const;
 
 const noteFields = {
   kind: z.enum(KINDS),
@@ -143,8 +143,8 @@ export function canvasRoutes(db: Db) {
     db.transaction((tx) => {
       tx.update(notes).set({ deletedAt: nowIso() }).where(eq(notes.id, id)).run();
       tx.delete(edges).where(or(eq(edges.fromId, id), eq(edges.toId, id))).run();
-      // Lo que había dentro de una sección borrada pasa a su sección madre.
-      if (note.kind === 'zone') tx.update(notes).set({ zoneId: note.zoneId }).where(eq(notes.zoneId, id)).run();
+      // Las hijas de una nota borrada pasan a su madre.
+      tx.update(notes).set({ zoneId: note.zoneId }).where(eq(notes.zoneId, id)).run();
     });
     return c.body(null, 204);
   });
@@ -195,7 +195,7 @@ export function canvasRoutes(db: Db) {
   r.get('/profiles/:id/search', (c) => {
     const profileId = c.req.param('id');
     const q = toFtsQuery(c.req.query('q') ?? '');
-    const base = and(eq(notes.profileId, profileId), isNull(notes.deletedAt), sql`${notes.kind} != 'zone'`);
+    const base = and(eq(notes.profileId, profileId), isNull(notes.deletedAt));
     const columns = { id: notes.id, title: notes.title, bodyText: notes.bodyText, kind: notes.kind };
     if (!q) {
       return c.json(db.select(columns).from(notes).where(base).orderBy(sql`${notes.updatedAt} desc`).limit(12).all());

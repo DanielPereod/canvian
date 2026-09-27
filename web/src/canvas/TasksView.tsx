@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { parentMap } from './sections';
 import type { NoteRow } from '../api';
 import { daysUntil, dueLabel } from './dates';
 import { TaskGlyph } from './TaskGlyph';
@@ -12,7 +13,7 @@ export type TaskGrouping = 'estado' | 'seccion' | 'fecha';
 const GROUPINGS: { id: TaskGrouping; label: string }[] = [
   { id: 'estado', label: 'Estado' },
   { id: 'fecha', label: 'Fecha' },
-  { id: 'seccion', label: 'Sección' },
+  { id: 'seccion', label: 'Dentro de' },
 ];
 const GROUP_KEY = 'canvian.tasksGrouping';
 
@@ -69,16 +70,13 @@ export function TasksView({ rows, onOpen, onCycle, onBlock, onNew, onClose, paus
     }
   };
 
-  // Ruta de secciones de cada tarea («Casa › Cocina»).
+  // Ruta de notas madre de cada tarea («Casa › Cocina»).
   const sectionOf = useMemo(() => {
     const byId = new Map(rows.map((r) => [r.id, r]));
+    const parent = parentMap(rows);
     return (r: NoteRow) => {
       const names: string[] = [];
-      const seen = new Set<string>();
-      for (let z = r.zoneId ? byId.get(r.zoneId) : undefined; z && z.kind === 'zone' && !seen.has(z.id); z = z.zoneId ? byId.get(z.zoneId) : undefined) {
-        seen.add(z.id);
-        names.unshift(z.title || 'Sin nombre');
-      }
+      for (let z = byId.get(parent.get(r.id) ?? ''); z; z = byId.get(parent.get(z.id) ?? '')) names.unshift(z.title || 'Nota sin título');
       return names.join(' › ');
     };
   }, [rows]);
@@ -94,7 +92,7 @@ export function TasksView({ rows, onOpen, onCycle, onBlock, onNew, onClose, paus
       if (grouping === 'estado') [key, title] = r.status === 'doing' ? [0, 'En curso'] : r.status === 'blocked' ? [2, 'Bloqueadas'] : [1, 'Por hacer'];
       else if (grouping === 'fecha') [key, title] = whenGroup(r);
       else {
-        title = sectionOf(r) || 'Sin sección';
+        title = sectionOf(r) || 'Arriba del todo';
         key = sectionOf(r) ? title.toLocaleLowerCase('es') : '￿';
       }
       const g = out.get(title) ?? { key, title, items: [] };
