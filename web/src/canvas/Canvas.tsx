@@ -17,6 +17,7 @@ import { hasMedia, isMedia, uploadMedia } from './media';
 import { emptyBoard, kindChange, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
 import { TasksView } from './TasksView';
+import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
 
 // La vista de Canvian: el mapa de secciones. Aquí viven las notas, los
@@ -54,6 +55,8 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [openFrom, setOpenFrom] = useState<OpenFrom | null>(null);
   // La otra vista: todas las tareas activas en una lista.
   const [tasksOpen, setTasksOpen] = useState(false);
+  // Y la de ordenar: el árbol de secciones y sus notas, para mover en bloque.
+  const [organizeOpen, setOrganizeOpen] = useState(false);
   const [defs, setDefs] = useState<PropertyDef[]>([]);
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
@@ -301,6 +304,25 @@ export function Canvas({ profile }: { profile: Profile }) {
     updateNote(id, { zoneId, ...spotFor(zoneId) });
   };
 
+  // Mover varias de golpe (vista de ordenar): una sola petición al servidor.
+  const moveMany = (moves: Move[]) => {
+    const byId = new Map(rowsRef.current.map((r) => [r.id, r]));
+    const inside = (zoneId: string | null, id: string) => {
+      for (let z = zoneId; z; z = byId.get(z)?.zoneId ?? null) if (z === id) return true;
+      return false;
+    };
+    const items = moves
+      .filter((m) => byId.has(m.id) && !deleted.current.has(m.id) && !inside(m.zoneId, m.id))
+      .map((m) => ({ id: m.id, zoneId: m.zoneId, ...spotFor(m.zoneId) }));
+    if (!items.length) return;
+    const change = new Map(items.map((it) => [it.id, it]));
+    const at = now();
+    setRows((rs) => rs.map((r) => (change.has(r.id) ? { ...r, ...change.get(r.id)!, updatedAt: at } : r)));
+    ready(...items.map((it) => it.id))
+      .then(() => api.saveLayout(items))
+      .catch(report);
+  };
+
   const onAction = (action: MapAction, node: MapNode) => {
     const row = rowsRef.current.find((r) => r.id === node.id);
     if (action === 'create') newNote(node.zoneId);
@@ -316,12 +338,22 @@ export function Canvas({ profile }: { profile: Profile }) {
     else if (action === 'rename' && row.kind === 'zone') setRenaming({ id: row.id, title: row.title ?? '' });
   };
 
+  // Desde Configuración también se llega a la vista de ordenar.
+  useEffect(() => {
+    const open = () => {
+      setTasksOpen(false);
+      setOrganizeOpen(true);
+    };
+    window.addEventListener(OPEN_ORGANIZE, open);
+    return () => window.removeEventListener(OPEN_ORGANIZE, open);
+  }, []);
+
   // ── Teclado de la vista (el mapa tiene el suyo) ─────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
-      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'lantern']);
+      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
       if (action === 'exportCanvas' && (chord || !isTyping(e.target))) {
         e.preventDefault();
@@ -337,7 +369,12 @@ export function Canvas({ profile }: { profile: Profile }) {
         setInspectId(null);
         return;
       }
-      if (isTyping(e.target) || paletteOpen || focusId || tasksOpen) return;
+      if (isTyping(e.target) || paletteOpen || focusId || tasksOpen || organizeOpen) return;
+      if (action === 'organize') {
+        e.preventDefault();
+        setOrganizeOpen(true);
+        return;
+      }
       if (action === 'tasks') {
         e.preventDefault();
         setTasksOpen(true);
@@ -507,7 +544,7 @@ export function Canvas({ profile }: { profile: Profile }) {
       {loaded && (
         <SectionMap
           tree={tree}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
           start={mapPath.current}
           onPath={(ids) => (mapPath.current = ids)}
           onOpen={openNote}
@@ -569,13 +606,24 @@ export function Canvas({ profile }: { profile: Profile }) {
           onClose={() => setPaletteOpen(false)}
         />
       )}
-      {loaded && !tasksOpen && (
+      {loaded && !tasksOpen && !organizeOpen && (
         <div className="chrome-top-right">
           <button className="surface-2 pill tasks-pill" onClick={() => setTasksOpen(true)} title="Todas las tareas activas">
             <span className="pill-name">Tareas</span>
             <span className="meta">{rows.filter((r) => r.kind === 'task' && r.status !== 'done').length}</span>
           </button>
         </div>
+      )}
+      {organizeOpen && (
+        <OrganizeView
+          rows={rows}
+          sections={sectionOptions}
+          paused={!!focusId || !!inspectId || !!paletteOpen || !!renaming}
+          onOpen={(id) => openNote(id)}
+          onMove={moveMany}
+          onNewSection={newSection}
+          onClose={() => setOrganizeOpen(false)}
+        />
       )}
       {tasksOpen && (
         <TasksView

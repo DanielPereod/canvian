@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ACTIONS, bind, comboOf, isDefault, keyParts, reserved, resetAll, resetKey, useKeymap, type ActionId } from './keys';
 import { Keys } from './Kbd';
 import { setTheme, THEMES, useTheme } from './theme';
+import { openOrganize } from './canvas/OrganizeView';
 
 // Página de configuración: el tema, los atajos de teclado (ambos se guardan en
 // el servidor, así que valen en todos tus dispositivos) y atajos a otros paneles.
@@ -138,6 +139,15 @@ export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
         <section className="settings-section">
           <h2 className="settings-heading">Más</h2>
           <div className="settings-links">
+            <button
+              className="sheet-link"
+              onClick={() => {
+                onClose();
+                openOrganize();
+              }}
+            >
+              Ordenar notas
+            </button>
             <button className="sheet-link" onClick={onBackground}>
               Fondo del perfil
             </button>

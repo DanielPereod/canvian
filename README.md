@@ -64,6 +64,7 @@ Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que te
 | `Supr` | Borrar la nota o sección señalada (lo que había dentro de una sección pasa a su madre) |
 | En la hoja de una nota | Escribir; arriba, hacer tarea, propiedades y borrar; abajo, sus enlaces (`+ Enlazar` busca otra nota, `×` quita el enlace) |
 | `A` | Vista de tareas: todas las tareas activas del perfil en una lista, agrupadas por estado, fecha o sección (`Tab` cambia). `↑`/`↓` para moverse, `Enter` abre, `X` avanza el estado, `N` crea una tarea, `Esc` vuelve al mapa |
+| `O` | Ordenar: el árbol de secciones a un lado y las notas de la elegida al otro (también desde Configuración). Clic o `Espacio` marca, `⇧` marca seguidas; se mueven arrastrándolas a una sección, con `M` o aceptando la sección sugerida (`S`). `←`/`→` cambia de sección, `/` busca en todas, `Z` deshace, `Esc` vuelve |
 | `F` | Linterna: filtra el mapa en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea` (o `nota`, `canvas`), `estado:pendiente\|curso\|bloqueada\|hecha` (o `-hecha`), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d`, `zona:viaje`, `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
 | `Tab` (con la linterna) | Cambia el modo: atenuar (lo demás se apaga) u ocultar (lo demás encoge) |
 | `⌘/Ctrl S` (en la linterna) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |
