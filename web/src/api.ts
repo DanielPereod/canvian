@@ -32,6 +32,8 @@ export type NoteRow = {
   priority: number | null;
   dueAt: string | null;
   doneAt: string | null;
+  // Archivada: oculta en todas las vistas salvo al mostrar las ocultas.
+  archivedAt?: string | null;
   // JSON con los valores de las propiedades personalizadas, por id de propiedad.
   props: string;
   updatedAt: string;

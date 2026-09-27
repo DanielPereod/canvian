@@ -59,6 +59,8 @@ Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que te
 | `C` | Canvas nuevo: una nota que es un lienzo libre, como los de Obsidian. Doble clic en el vacío crea una tarjeta; desde los bordes de una tarjeta se tiran flechas a otra; abajo se añaden tarjetas, notas existentes (doble clic las abre), grupos e imágenes (también pegando o soltando). `Supr` borra lo seleccionado. Se guarda en formato JSON Canvas |
 | `G` | Nota nueva dentro de la señalada (así se anidan) |
 | `R` | Renombrar la nota señalada (cambia su primera línea) |
+| `⌘/Ctrl Mayús X` | Archivar o desarchivar la nota abierta o señalada: se oculta con todo lo que cuelga de ella (también con el botón «Archivar») |
+| `⌘/Ctrl Mayús H` | Mostrar u ocultar las notas archivadas |
 | Arrastrar una celda | Meterla dentro de otra nota (soltándola sobre ella) o subirla de nivel (soltándola en las migas) |
 | `T` | Convertir la nota señalada en tarea (o volver a nota) |
 | `X` | Avanzar el estado de la tarea señalada: pendiente → en curso → hecha |

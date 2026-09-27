@@ -62,6 +62,16 @@ describe('notes', () => {
     expect(note.id).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
   });
 
+  it('archives and unarchives a note without losing it', async () => {
+    const note = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, title: 'Vieja' });
+    expect(note.archivedAt).toBeNull();
+    const at = '2026-09-27T10:00:00.000Z';
+    expect(await data('PATCH', `/api/notes/${note.id}`, { archivedAt: at })).toMatchObject({ archivedAt: at });
+    const { notes } = await data('GET', `/api/profiles/${personal}/canvas`);
+    expect(notes[0]).toMatchObject({ id: note.id, archivedAt: at });
+    expect(await data('PATCH', `/api/notes/${note.id}`, { archivedAt: null })).toMatchObject({ archivedAt: null });
+  });
+
   it('moves the children of a deleted note to its parent', async () => {
     const outer = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0 });
     const zone = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, zoneId: outer.id });

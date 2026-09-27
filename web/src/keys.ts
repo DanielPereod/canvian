@@ -15,6 +15,8 @@ export type ActionId =
   | 'properties'
   | 'deleteCell'
   | 'rename'
+  | 'archive'
+  | 'showArchived'
   | 'toRoot'
   | 'tasks'
   | 'organize'
@@ -41,6 +43,8 @@ export const ACTIONS: KeyAction[] = [
   { id: 'properties', label: 'Propiedades', group: 'Mapa', key: 'p' },
   { id: 'deleteCell', label: 'Borrar lo señalado', group: 'Mapa', key: 'delete' },
   { id: 'rename', label: 'Renombrar la nota señalada', group: 'Mapa', key: 'r' },
+  { id: 'archive', label: 'Archivar o desarchivar la nota abierta o señalada (se oculta con lo que cuelga de ella)', group: 'Mapa', key: 'mod+shift+x' },
+  { id: 'showArchived', label: 'Mostrar u ocultar las notas archivadas', group: 'Vistas y paneles', key: 'mod+shift+h' },
   { id: 'toRoot', label: 'Volver a la raíz del mapa', group: 'Mapa', key: '1' },
   { id: 'tasks', label: 'Vista de tareas activas', group: 'Vistas y paneles', key: 'a' },
   { id: 'organize', label: 'Ordenar notas en secciones', group: 'Vistas y paneles', key: 'o' },

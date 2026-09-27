@@ -22,6 +22,7 @@ const noteFields = {
   priority: z.number().int().min(0).max(3).nullable(),
   dueAt: z.string().max(40).nullable(),
   doneAt: z.string().max(40).nullable(),
+  archivedAt: z.string().max(40).nullable(),
   // Valores de las propiedades personalizadas, por id de propiedad.
   props: z
     .record(z.string().max(40), z.union([z.string().max(2000), z.number(), z.boolean(), z.null()]))

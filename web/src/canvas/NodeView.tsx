@@ -32,8 +32,8 @@ export const LOOSE = 'loose';
 const RING1 = 18;
 const RING2 = 28;
 const SIBLINGS = 6;
-const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename' };
-const NODE_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'toRoot', 'newNote', 'newSection'];
+const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
+const NODE_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newSection'];
 
 const titleOf = (r: NoteRow) => r.title || (r.kind === 'task' ? 'Tarea sin título' : 'Nota sin título');
 
@@ -285,7 +285,7 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
           return (
             <line
               key={`l:${p.id}`}
-              className={`nodes-line role-${p.role}${focusOn === p.id ? ' on' : ''}${dim(p) ? ' dim' : ''}`}
+              className={`nodes-line role-${p.role}${focusOn === p.id ? ' on' : ''}${dim(p) ? ' dim' : ''}${p.row?.archivedAt ? ' is-archived' : ''}`}
               x1={0}
               y1={0}
               x2={1}

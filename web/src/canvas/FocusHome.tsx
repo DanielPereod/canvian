@@ -275,7 +275,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
               key={h.row.id}
               role="option"
               aria-selected={here}
-              className={`focus-item${here ? ' is-here' : ''} focus-kind-${branches.has(h.row.id) ? 'zone' : h.row.kind}${h.row.status === 'done' ? ' is-done' : ''}${words.length && !h.score ? ' is-context' : ''}`}
+              className={`focus-item${here ? ' is-here' : ''} focus-kind-${branches.has(h.row.id) ? 'zone' : h.row.kind}${h.row.status === 'done' ? ' is-done' : ''}${words.length && !h.score ? ' is-context' : ''}${h.row.archivedAt ? ' is-archived' : ''}`}
               style={{
                 transform: `translate(-50%, calc(-50% + ${d * STEP}px)) scale(${Math.max(0.55, 1 - a * 0.07)})`,
                 opacity: Math.max(0, 1 - a * 0.14),

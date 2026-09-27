@@ -55,6 +55,7 @@ export const notes = sqliteTable(
     priority: integer('priority'),
     dueAt: text('due_at'),
     doneAt: text('done_at'),
+    archivedAt: text('archived_at'), // archivada: oculta salvo que se pidan las ocultas
     createdAt: text('created_at').notNull().default(now),
     updatedAt: text('updated_at').notNull().default(now),
     deletedAt: text('deleted_at'),

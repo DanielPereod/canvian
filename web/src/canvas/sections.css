@@ -446,3 +446,8 @@
 .nodes-empty { position: absolute; left: 0; right: 0; top: 50%; text-align: center; color: var(--text-ghost); }
 @keyframes nodes-in { from { opacity: 0; } }
 [data-theme='minimo'] .nodes-title.center { font-style: normal; font-weight: 500; letter-spacing: -0.03em; }
+
+/* Archivadas, cuando se muestran: presentes pero en segundo plano. */
+.focus-item.is-archived .focus-title,
+.nodes-node.is-archived { opacity: 0.4; }
+.focus-item.is-archived .focus-title::after { content: ' · archivada'; font-size: var(--text-2xs); color: var(--text-faint); }

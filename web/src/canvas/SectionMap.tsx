@@ -11,7 +11,7 @@ import { actionFor, keysBlocked, type ActionId } from '../keys';
 
 // Lo que se pide desde el mapa sobre la celda señalada (o la sección en la
 // que estás, para crear).
-export type MapAction = 'create' | 'createCanvas' | 'section' | 'task' | 'status' | 'block' | 'props' | 'delete' | 'rename';
+export type MapAction = 'create' | 'createCanvas' | 'section' | 'task' | 'status' | 'block' | 'props' | 'delete' | 'rename' | 'archive';
 
 type Props = {
   tree: MapNode;
@@ -30,8 +30,8 @@ type Props = {
   onLeave?: () => void;
 };
 
-const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename' };
-const MAP_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
+const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
+const MAP_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
 const DRAG_FROM = 6;
 
 // Nota madre de lo que se suelta sobre este nodo (cualquier nota admite
