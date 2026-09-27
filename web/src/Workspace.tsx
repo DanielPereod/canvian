@@ -6,7 +6,7 @@ import { Glyph } from './Wordmark';
 import { Ambient } from './backgrounds/Ambient';
 import { BackgroundPicker } from './backgrounds/BackgroundPicker';
 import { Lab } from './lab/Lab';
-import { EXPERIMENTS, useExperiments } from './lab/experiments';
+import { EXPERIMENTS, loadExperiments, useExperiments } from './lab/experiments';
 import { actionFor, keysBlocked, loadKeymap, useKeymap } from './keys';
 import { loadTheme } from './theme';
 import { Keys } from './Kbd';
@@ -39,6 +39,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   useEffect(() => {
     void loadKeymap();
+    void loadExperiments();
     void loadTheme();
   }, []);
 

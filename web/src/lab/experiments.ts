@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from 'react';
+import { api } from '../api';
 
 // Ideas en prueba. Cada una se enciende y apaga desde el laboratorio (tecla E)
-// para compararlas; lo que se elija aquí solo vive en este navegador.
+// para compararlas. La elección se guarda en el servidor, como el tema, y el
+// navegador guarda una copia para arrancar sin esperar.
 export type ExperimentId = 'memoria' | 'maduran' | 'foco' | 'celdas';
 
 export const EXPERIMENTS: { id: ExperimentId; name: string; hint: string }[] = [
@@ -14,7 +16,7 @@ export const EXPERIMENTS: { id: ExperimentId; name: string; hint: string }[] = [
 export type Experiments = Record<ExperimentId, boolean>;
 
 const KEY = 'canvian.experiments';
-const DEFAULTS: Experiments = { memoria: true, maduran: true, foco: false, celdas: false };
+const DEFAULTS: Experiments = { memoria: true, maduran: true, foco: true, celdas: false };
 
 function load(): Experiments {
   try {
@@ -27,14 +29,32 @@ function load(): Experiments {
 let state = load();
 const listeners = new Set<() => void>();
 
-export function toggleExperiment(id: ExperimentId) {
-  state = { ...state, [id]: !state[id] };
+function keep(next: Experiments) {
+  state = next;
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch {
-    // Sin almacenamiento local la elección dura hasta recargar.
+    // Sin almacenamiento local vale lo que diga el servidor al cargar.
   }
   for (const l of listeners) l();
+}
+
+// Al entrar: manda lo guardado en el servidor. Si aún no hay nada allí, sube
+// lo que este navegador tenía elegido.
+export function loadExperiments() {
+  return api
+    .prefs()
+    .then((p) => {
+      const saved = p.experiments as Partial<Experiments> | undefined;
+      if (saved) keep({ ...DEFAULTS, ...saved });
+      else if (localStorage.getItem(KEY)) return api.savePref('experiments', state);
+    })
+    .catch(() => {});
+}
+
+export function toggleExperiment(id: ExperimentId) {
+  keep({ ...state, [id]: !state[id] });
+  api.savePref('experiments', state).catch(() => {});
 }
 
 export function useExperiments(): Experiments {
