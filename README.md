@@ -2,7 +2,7 @@
 
 Canvas infinito de notas y tareas enlazadas, con perfiles (Personal, Trabajo…) y filtros por teclado. Self-hosted: un contenedor y un archivo SQLite.
 
-Estado: **fase 1**. Login, perfiles, y notas con texto enriquecido en el canvas: se crean, mueven, redimensionan, enlazan, agrupan en zonas y se buscan con ⌘K.
+Estado: **fase 1**. Login, perfiles, y notas con texto enriquecido en el canvas: se crean, mueven, redimensionan, enlazan, agrupan en zonas y se buscan con ⌘P.
 
 ## Instalar en CasaOS
 
@@ -73,5 +73,6 @@ Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que te
 | Arrastrar archivos `.md` | Importarlos como notas en la sección en la que estás; los `[[enlaces]]` entre ellas se convierten en enlaces, y las tablas en tablas de verdad |
 | Pegar o arrastrar imágenes, vídeo o audio | Dentro de una nota abierta, se añaden donde está el cursor o donde los sueltas. Sobre el mapa, crean una nota nueva con ellos. Hasta 200 MB por archivo |
 | `⌘/Ctrl ⇧ E` | Exportar el perfil a JSON Canvas (`.canvas`, se abre en Obsidian) |
-| `⌘/Ctrl K` | Buscar notas y abrirlas, o crear una |
-| `⌘/Ctrl ⇧ P` | Cambiar de perfil, crear uno o cerrar sesión |
+| `⌘/Ctrl P` | Buscar notas y abrirlas, o crear una |
+| `⌘/Ctrl ⇧ P` | Paleta de comandos: todas las acciones, se ejecutan al elegirlas |
+| `⌘/Ctrl ⌥/Alt P` | Cambiar de perfil, crear uno o cerrar sesión |

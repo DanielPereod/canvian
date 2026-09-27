@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NoteRow } from '../api';
+import { FROM_PALETTE } from '../ActionPalette';
 
 // Experimento «Foco»: en vez del mapa, una sola lista en el centro que se
 // funde arriba y abajo. Sin escribir, lo último que tocaste; al teclear,
@@ -160,10 +161,10 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onMap }: 
   };
 
   // Todo lo que se teclea es la búsqueda; las combinaciones con Ctrl/⌘ siguen
-  // yendo a sus atajos (⌘K, configuración…).
+  // yendo a sus atajos (Ctrl P, configuración…).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (paused) return;
+      if (paused || FROM_PALETTE in e) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       const mod = e.metaKey || e.ctrlKey || e.altKey;

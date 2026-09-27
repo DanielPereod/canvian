@@ -327,3 +327,4 @@
 [data-theme='minimo'] .chrome-top-right .pill:hover { color: var(--text); transform: none; border-color: transparent; }
 [data-theme='minimo'] .chrome-top-left .wordmark-glyph { display: none; }
 [data-theme='minimo'] .pill-name { font-size: var(--text-sm); font-weight: 400; letter-spacing: 0; color: inherit; }
+[data-theme='minimo'] .list-item[aria-selected='true']::before { display: none; }

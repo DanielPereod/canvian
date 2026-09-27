@@ -20,6 +20,7 @@ export type ActionId =
   | 'organize'
   | 'lantern'
   | 'search'
+  | 'commands'
   | 'profiles'
   | 'background'
   | 'lab'
@@ -43,8 +44,9 @@ export const ACTIONS: KeyAction[] = [
   { id: 'tasks', label: 'Vista de tareas activas', group: 'Vistas y paneles', key: 'a' },
   { id: 'organize', label: 'Ordenar notas en secciones', group: 'Vistas y paneles', key: 'o' },
   { id: 'lantern', label: 'Linterna (filtrar)', group: 'Vistas y paneles', key: 'f' },
-  { id: 'search', label: 'Buscar o crear notas', group: 'Vistas y paneles', key: 'mod+k' },
-  { id: 'profiles', label: 'Cambiar de perfil', group: 'Vistas y paneles', key: 'mod+shift+p' },
+  { id: 'search', label: 'Buscar o crear notas', group: 'Vistas y paneles', key: 'mod+p' },
+  { id: 'commands', label: 'Paleta de comandos', group: 'Vistas y paneles', key: 'mod+shift+p' },
+  { id: 'profiles', label: 'Cambiar de perfil', group: 'Vistas y paneles', key: 'mod+alt+p' },
   { id: 'background', label: 'Fondo', group: 'Vistas y paneles', key: 'b' },
   { id: 'lab', label: 'Laboratorio', group: 'Vistas y paneles', key: 'e' },
   { id: 'exportCanvas', label: 'Exportar a JSON Canvas', group: 'Vistas y paneles', key: 'mod+shift+e' },
