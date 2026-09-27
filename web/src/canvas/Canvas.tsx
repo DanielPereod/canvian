@@ -6,7 +6,7 @@ import { CommandPalette } from './CommandPalette';
 import { toggleExperiment, useExperiments } from '../lab/experiments';
 import { SectionMap, type MapAction } from './SectionMap';
 import { NodeView, LOOSE } from './NodeView';
-import { buildTree, findPath, noteIdOf, parentMap, rectOf, type MapNode, type Rect } from './sections';
+import { buildTree, findPath, noteIdOf, parentMap, rectOf, visibleRows, type MapNode, type Rect } from './sections';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { NoteSheet } from './NoteSheet';
@@ -40,7 +40,10 @@ const isTyping = (target: EventTarget | null) =>
 const spotIn = (r: Rect) => ({ x: r.x + 40 + Math.random() * Math.max(0, r.w - NOTE_W - 80), y: r.y + 90 + Math.random() * Math.max(0, r.h - 160) });
 
 export function Canvas({ profile }: { profile: Profile }) {
-  const [rows, setRows] = useState<NoteRow[]>([]);
+  const [allRows, setRows] = useState<NoteRow[]>([]);
+  // Las archivadas (y lo que cuelga de ellas) no se ven salvo que se pidan.
+  const [showArchived, setShowArchived] = useState(false);
+  const rows = useMemo(() => (showArchived ? allRows : visibleRows(allRows)), [allRows, showArchived]);
   const [links, setLinks] = useState<Link[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState<false | 'open' | 'link' | 'card'>(false);
@@ -70,8 +73,8 @@ export function Canvas({ profile }: { profile: Profile }) {
   // Nota del centro en la vista de nodos (null: la raíz).
   const [center, setCenter] = useState<string | null>(null);
 
-  const rowsRef = useRef(rows);
-  rowsRef.current = rows;
+  const rowsRef = useRef(allRows);
+  rowsRef.current = allRows;
   const pending = useRef(new Map<string, NoteContent>());
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const deleted = useRef(new Set<string>());
@@ -91,6 +94,19 @@ export function Canvas({ profile }: { profile: Profile }) {
     console.error(err);
     setProblem('No se pudo guardar el último cambio. Revisa que el servidor sigue en marcha.');
   }, []);
+
+  // Avisos breves (archivar, mostrar archivadas).
+  const [notice, setNoticeText] = useState<string | null>(null);
+  const [noticeKey, setNoticeKey] = useState(0);
+  const setNotice = useCallback((text: string) => {
+    setNoticeText(text);
+    setNoticeKey((k) => k + 1);
+  }, []);
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNoticeText(null), 2600);
+    return () => clearTimeout(t);
+  }, [notice, noticeKey]);
 
   useEffect(() => {
     if (!problem) return;
@@ -409,6 +425,19 @@ export function Canvas({ profile }: { profile: Profile }) {
     else if (action === 'props') setInspectId(row.id);
     else if (action === 'delete') removeNotes([row.id]);
     else if (action === 'rename') setRenaming({ id: row.id, title: row.title ?? '' });
+    else if (action === 'archive') toggleArchive(row);
+  };
+
+  // Archivar oculta la nota con todo lo que cuelga de ella; desarchivar la devuelve.
+  const toggleArchive = (row: NoteRow) => {
+    const archiving = !row.archivedAt;
+    if (archiving && focusId === row.id) {
+      flush(row.id);
+      setFocusId(null);
+    }
+    if (archiving && center === row.id) setCenter(row.zoneId);
+    updateNote(row.id, { archivedAt: archiving ? now() : null });
+    setNotice(archiving ? 'Archivada · Ctrl Mayús H muestra las archivadas' : 'Desarchivada');
   };
 
   // Desde Configuración también se llega a la vista de ordenar.
@@ -426,11 +455,26 @@ export function Canvas({ profile }: { profile: Profile }) {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
-      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes']);
+      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
       if (action === 'exportCanvas' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         exportCanvas();
+        return;
+      }
+      if (action === 'showArchived' && (chord || !isTyping(e.target))) {
+        e.preventDefault();
+        setShowArchived((v) => !v);
+        setNotice(showArchived ? 'Archivadas ocultas' : 'Mostrando las archivadas');
+        return;
+      }
+      if (action === 'archive' && (chord || !isTyping(e.target))) {
+        // La nota abierta, la señalada en Foco o la del centro de los nodos.
+        const id = focusId ?? (showFocus ? focoCursor.current : center && center !== LOOSE ? center : null);
+        const row = id ? rowsRef.current.find((r) => r.id === id) : undefined;
+        if (!row) return;
+        e.preventDefault();
+        toggleArchive(row);
         return;
       }
       if (action === 'nodes' && (chord || !isTyping(e.target))) {
@@ -586,7 +630,7 @@ export function Canvas({ profile }: { profile: Profile }) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const focused = focusId ? (rows.find((r) => r.id === focusId) ?? null) : null;
+  const focused = focusId ? (allRows.find((r) => r.id === focusId) ?? null) : null;
   const focusNeighbors = useMemo(() => {
     if (!focusId) return [];
     const ids = new Set(links.flatMap((l) => (l.source === focusId ? [l.target] : l.target === focusId ? [l.source] : [])));
@@ -605,7 +649,7 @@ export function Canvas({ profile }: { profile: Profile }) {
     all.sort((a, b) => a.path.localeCompare(b.path, 'es'));
     return [{ id: null, path: 'Arriba del todo' }, ...all];
   }, [rows]);
-  const inspected = inspectId ? (rows.find((r) => r.id === inspectId) ?? null) : null;
+  const inspected = inspectId ? (allRows.find((r) => r.id === inspectId) ?? null) : null;
 
   return (
     <div
@@ -791,6 +835,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           }}
           onBlock={() => toggleBlocked(focused.id)}
           onNodes={() => toNodes(focused.id)}
+          onArchive={() => toggleArchive(focused)}
           onLink={() => setPaletteOpen('link')}
           onUnlink={(id) => unlink(focused.id, id)}
           onDelete={(id) => {
@@ -838,6 +883,11 @@ export function Canvas({ profile }: { profile: Profile }) {
           }}
           onClear={clearLamp}
         />
+      )}
+      {notice && (
+        <div key={notice + noticeKey} className="surface-3 toast" role="status">
+          {notice}
+        </div>
       )}
       {problem && (
         <div className="surface-3 toast toast-danger" role="status">

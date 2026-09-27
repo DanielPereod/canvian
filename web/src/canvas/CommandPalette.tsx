@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { api, type NoteRow, type SearchHit } from '../api';
 import { parentMap, pathText, resolvePath, routeText } from './sections';
 
@@ -29,6 +29,9 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [cursor, setCursor] = useState(0);
+  // La búsqueda del servidor no sabe de archivadas: se queda solo con las que se ven.
+  const visible = useRef<Set<string> | null>(null);
+  visible.current = rows ? new Set(rows.map((r) => r.id)) : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -36,7 +39,7 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
       api.search(profileId, query).then(
         (rows) => {
           if (cancelled) return;
-          setHits(rows);
+          setHits(visible.current ? rows.filter((h) => visible.current!.has(h.id)) : rows);
           setCursor(0);
         },
         () => !cancelled && setHits([]),

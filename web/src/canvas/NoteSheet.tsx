@@ -48,6 +48,7 @@ type Props = {
   onBlock: () => void;
   // Modo nodo: la nota en el centro de la vista de nodos.
   onNodes: () => void;
+  onArchive: () => void;
   onLink: () => void;
   onUnlink: (id: string) => void;
   onDelete: (id: string) => void;
@@ -78,7 +79,7 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onArchive, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote }: Props) {
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -166,6 +167,9 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
           )}
           <button className="sheet-back" onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
             Nodos
+          </button>
+          <button className="sheet-back" onClick={onArchive} title="Archivar: se oculta con lo que cuelga de ella (Ctrl Mayús X)">
+            {note.archivedAt ? 'Desarchivar' : 'Archivar'}
           </button>
           <button className="sheet-back" onClick={() => onProps(note.id)}>
             Propiedades

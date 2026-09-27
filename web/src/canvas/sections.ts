@@ -273,3 +273,21 @@ export function findPath(root: MapNode, id: string): MapNode[] | null {
   }
   return null;
 }
+
+// Sin las archivadas ni lo que cuelga de ellas.
+export function visibleRows(rows: NoteRow[]): NoteRow[] {
+  if (!rows.some((r) => r.archivedAt)) return rows;
+  const parent = parentMap(rows);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const hidden = new Map<string, boolean>();
+  const isHidden = (id: string): boolean => {
+    const known = hidden.get(id);
+    if (known !== undefined) return known;
+    const r = byId.get(id);
+    const up = parent.get(id);
+    const out = !!r?.archivedAt || (!!up && isHidden(up));
+    hidden.set(id, out);
+    return out;
+  };
+  return rows.filter((r) => !isHidden(r.id));
+}
