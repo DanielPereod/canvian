@@ -22,10 +22,9 @@ export type MapNode = {
 };
 
 // Más de esto en un nivel no se lee: las notas se agrupan por cercanía.
-const MAX_PER_LEVEL = 24;
+const MAX_PER_LEVEL = 40;
 const DAY = 86_400_000;
 
-const mid = (r: Rect) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 export const bounds = (rs: Rect[]): Rect => {
   if (!rs.length) return { x: 0, y: 0, w: 1, h: 1 };
   const x = Math.min(...rs.map((r) => r.x));
@@ -101,34 +100,46 @@ export function buildTree(rows: NoteRow[], links: { source: string; target: stri
     note: it.row,
   });
 
-  // Reparte muchas notas en grupos por cercanía en el lienzo (franjas).
+  // Muchas notas en un nivel no se leen, así que se agrupan por algo con
+  // sentido (la posición en el lienzo antiguo ya no lo tiene):
+  // - si sobran pocas, se ven las más importantes y el resto va a «Otras N»;
+  // - si sobran muchas, por cuándo se tocaron («Esta semana», «agosto»…);
+  // - si todas son de la misma época, por orden alfabético («A – F»).
+  const makeGroup = (id: string, title: string, chunk: MapNode[], zoneId: string | null): MapNode => {
+    const children = group(chunk, zoneId, id, MAX_PER_LEVEL);
+    return { id: `group:${id}`, kind: 'group', title, rect: bounds(chunk.map((n) => n.rect)), importance: sectionImportance(children), children, count: chunk.length, zoneId };
+  };
   const group = (notes: MapNode[], zoneId: string | null, key: string, room: number): MapNode[] => {
     if (notes.length <= room) return notes;
+    const byImportance = [...notes].sort((a, b) => b.importance - a.importance);
+    if (notes.length <= room * 2) {
+      const rest = byImportance.slice(room - 1);
+      return [...byImportance.slice(0, room - 1), makeGroup(`${key}.otras`, `Otras ${rest.length} notas`, rest, zoneId)];
+    }
+    const buckets = new Map<string, { order: number; title: string; items: MapNode[] }>();
+    for (const n of notes) {
+      const [order, title] = whenBucket(n.note?.updatedAt ?? null);
+      const b = buckets.get(title) ?? { order, title, items: [] };
+      b.items.push(n);
+      buckets.set(title, b);
+    }
+    let list = [...buckets.values()].sort((a, b) => a.order - b.order);
+    if (list.length > room) {
+      const old = list.slice(room - 1);
+      list = [...list.slice(0, room - 1), { order: 1e6, title: 'Antes', items: old.flatMap((b) => b.items) }];
+    }
+    if (list.length > 1) return list.map((b) => makeGroup(`${key}.${b.title}`, b.title, b.items, zoneId));
+    // Todas de la misma época: por orden alfabético, en tramos iguales.
+    const byName = [...notes].sort((a, b) => a.title.localeCompare(b.title, 'es'));
     const k = Math.min(room, Math.ceil(notes.length / MAX_PER_LEVEL));
-    const cols = Math.ceil(Math.sqrt(k));
-    const byX = [...notes].sort((a, b) => mid(a.rect).x - mid(b.rect).x);
-    const perCol = Math.ceil(byX.length / cols);
+    const per = Math.ceil(byName.length / k);
+    const initial = (n: MapNode) => (n.title.trim()[0] ?? '·').toLocaleUpperCase('es');
     const out: MapNode[] = [];
-    for (let c = 0; c < cols; c++) {
-      const col = byX.slice(c * perCol, (c + 1) * perCol).sort((a, b) => mid(a.rect).y - mid(b.rect).y);
-      const rows = Math.ceil(k / cols);
-      const perRow = Math.ceil(col.length / rows);
-      for (let r = 0; r < rows; r++) {
-        const chunk = col.slice(r * perRow, (r + 1) * perRow);
-        if (!chunk.length) continue;
-        const top = [...chunk].sort((a, b) => b.importance - a.importance)[0];
-        const children = group(chunk, zoneId, `${key}.${c}.${r}`, MAX_PER_LEVEL);
-        out.push({
-          id: `group:${key}.${c}.${r}`,
-          kind: 'group',
-          title: chunk.length > 1 ? `${top.title} y ${chunk.length - 1} más` : top.title,
-          rect: bounds(chunk.map((n) => n.rect)),
-          importance: sectionImportance(children),
-          children,
-          count: chunk.length,
-          zoneId,
-        });
-      }
+    for (let i = 0; i < byName.length; i += per) {
+      const chunk = byName.slice(i, i + per);
+      const a = initial(chunk[0]);
+      const z = initial(chunk[chunk.length - 1]);
+      out.push(makeGroup(`${key}.abc${i}`, a === z ? a : `${a} – ${z}`, chunk, zoneId));
     }
     return out;
   };
@@ -180,6 +191,20 @@ export function buildTree(rows: NoteRow[], links: { source: string; target: stri
     count: children.reduce((t, c) => t + c.count, 0),
     zoneId: null,
   };
+}
+
+// Época de una nota por su último cambio, para agrupar: [orden, nombre].
+const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+export function whenBucket(updatedAt: string | null, now = new Date()): [number, string] {
+  const t = updatedAt ? Date.parse(updatedAt) : NaN;
+  if (Number.isNaN(t)) return [1e5, 'Sin fecha'];
+  const days = (now.getTime() - t) / DAY;
+  if (days < 7) return [0, 'Esta semana'];
+  if (days < 31) return [1, 'Este mes'];
+  const d = new Date(t);
+  const monthsAgo = (now.getFullYear() - d.getFullYear()) * 12 + now.getMonth() - d.getMonth();
+  if (monthsAgo < 12) return [2 + monthsAgo, d.getFullYear() === now.getFullYear() ? MONTHS[d.getMonth()] : `${MONTHS[d.getMonth()]} ${d.getFullYear()}`];
+  return [100 + now.getFullYear() - d.getFullYear(), String(d.getFullYear())];
 }
 
 // Una sección pesa lo que sus notas, pero sin crecer sin control.

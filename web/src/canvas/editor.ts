@@ -2,6 +2,7 @@ import { getHTMLFromFragment, getSchema, type JSONContent } from '@tiptap/react'
 import { Node as PMNode } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import { Placeholder } from '@tiptap/extensions';
+import { TableKit } from '@tiptap/extension-table';
 import { mediaNodes } from './media';
 
 export const extensions = [
@@ -10,6 +11,8 @@ export const extensions = [
     link: { openOnClick: false, autolink: true },
   }),
   Placeholder.configure({ placeholder: 'Escribe algo…' }),
+  // Tablas: sobre todo las que llegan importadas de Markdown.
+  TableKit.configure({ table: { resizable: false } }),
   ...mediaNodes,
 ];
 
