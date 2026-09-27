@@ -223,3 +223,5 @@
 .theme-swatch.t-plano { --c-bg: #123a6b; --c-cell: transparent; --c-line: rgba(255, 255, 255, 0.8); --c-text: #f2f7ff; --sw-font: 'JetBrains Mono Variable', monospace; background-image: linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px); background-size: 12px 12px; }
 .theme-swatch.t-plano i { border-radius: 30% 20% 34% 22%; }
 .theme-swatch.t-plano b { font-style: normal; font-size: 18px; }
+.theme-swatch.t-minimo { --c-bg: #0a0a0a; --c-cell: rgba(255, 255, 255, 0.03); --c-line: rgba(255, 255, 255, 0.18); --c-text: #f2f2f2; --sw-font: 'Inter Variable', sans-serif; background: radial-gradient(80% 90% at 0% 0%, rgba(255, 255, 255, 0.08), transparent 60%), #0a0a0a; }
+.theme-swatch.t-minimo b { font-style: normal; font-weight: 500; font-size: 19px; letter-spacing: -0.03em; }

@@ -11,7 +11,7 @@ import { settings } from '../db/schema.js';
 const PREFIX = 'pref:';
 const KEYS = ['keymap', 'theme'] as const;
 const keymap = z.record(z.string().regex(/^[a-z][a-zA-Z]{1,30}$/), z.string().max(40)).refine((m) => Object.keys(m).length <= 100);
-const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano']);
+const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano', 'minimo']);
 const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme };
 
 export function prefRoutes(db: Db) {
