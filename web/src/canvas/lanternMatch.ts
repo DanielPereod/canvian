@@ -31,10 +31,9 @@ function textOf(r: NoteRow) {
 
 const KIND: Record<string, Test> = {
   tarea: (r) => r.kind === 'task',
-  nota: (r) => r.kind !== 'task' && r.kind !== 'zone' && r.kind !== 'canvas',
+  nota: (r) => r.kind !== 'task' && r.kind !== 'canvas',
   canvas: (r) => r.kind === 'canvas',
   lienzo: (r) => r.kind === 'canvas',
-  zona: (r) => r.kind === 'zone',
 };
 const STATUS: Record<string, 'todo' | 'doing' | 'blocked' | 'done'> = { pendiente: 'todo', curso: 'doing', encurso: 'doing', bloqueada: 'blocked', bloqueo: 'blocked', hecha: 'done' };
 const STATUS_LABEL = { todo: 'pendientes', doing: 'en curso', blocked: 'bloqueadas', done: 'hechas' };
@@ -60,7 +59,7 @@ const unquote = (s: string) => s.replace(/^"|"$/g, '');
 
 // Las notas a como mucho `depth` saltos de las que coinciden con `anchor`.
 function around(ctx: LensContext, anchor: string, depth: number) {
-  const starts = ctx.notes.filter((n) => n.kind !== 'zone' && fold(n.title ?? n.bodyText ?? '').includes(anchor)).map((n) => n.id);
+  const starts = ctx.notes.filter((n) => fold(n.title ?? n.bodyText ?? '').includes(anchor)).map((n) => n.id);
   const adjacent = new Map<string, string[]>();
   for (const l of ctx.links) {
     adjacent.set(l.source, [...(adjacent.get(l.source) ?? []), l.target]);
@@ -100,7 +99,7 @@ export function parseLens(query: string, ctx: LensContext): { test: Test | null;
       if (!value) continue;
       if (value.startsWith('#') && value.length > 1) {
         const tag = value.slice(1);
-        const zones = new Set(ctx.notes.filter((n) => n.kind === 'zone' && key(n.title ?? '').startsWith(tag)).map((n) => n.id));
+        const zones = new Set(ctx.notes.filter((n) => key(n.title ?? '').startsWith(tag)).map((n) => n.id));
         test = (r) => textOf(r).words.some((w) => w.startsWith(value)) || (!!r.zoneId && zones.has(r.zoneId));
         label = `#${tag}`;
       } else if (STATUS[value]) {
@@ -136,10 +135,10 @@ export function parseLens(query: string, ctx: LensContext): { test: Test | null;
         const hit = value ? pick(DUE, value) : undefined;
         [label, test] = hit ?? ['con fecha', (r: NoteRow) => !!r.dueAt];
       }
-    } else if (name === 'zona') {
-      const zones = new Set(ctx.notes.filter((n) => n.kind === 'zone' && fold(n.title ?? '').startsWith(value)).map((n) => n.id));
+    } else if (name === 'zona' || name === 'en' || name === 'dentro') {
+      const zones = new Set(ctx.notes.filter((n) => fold(n.title ?? '').startsWith(value)).map((n) => n.id));
       test = (r) => (!!r.zoneId && zones.has(r.zoneId)) || zones.has(r.id);
-      label = `en ${value || 'una zona'}`;
+      label = `en ${value || 'otra nota'}`;
       if (!value) test = (r) => !!r.zoneId;
       else if (!zones.size) kind = 'unknown';
     } else if (name === 'enlazado' || name === 'enlace') {

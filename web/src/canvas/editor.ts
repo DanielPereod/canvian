@@ -49,7 +49,7 @@ export function bodyToHtml(bodyJson: string | null): string {
   return html;
 }
 
-// El título de una nota es su primera línea con texto; sirve para buscar y para ⌘K.
+// El título de una nota es su primera línea con texto; sirve para buscar y para Ctrl P.
 export function titleFrom(text: string): string | null {
   const line = text.split('\n').find((l) => l.trim().length > 0);
   return line ? line.trim().slice(0, 120) : null;
