@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NoteRow } from '../api';
-import { parentMap } from './sections';
+import { parentMap, pathText, resolvePath, routeText } from './sections';
 import { FROM_PALETTE } from '../ActionPalette';
 
 // Experimento «Foco»: en vez del mapa, una sola lista en el centro que se
@@ -78,22 +78,9 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
   // Hasta dónde existe la ruta escrita: las notas encontradas y los nombres que faltan.
   const route = useMemo(() => {
     if (!prefixKey && segs.length < 2) return null;
-    const names = prefixKey.split('>').map((n) => n.trim()).filter(Boolean);
-    const found: NoteRow[] = [];
-    let at: string | null = null;
-    let i = 0;
-    for (; i < names.length; i++) {
-      const want = norm(names[i]);
-      // Con dos del mismo nombre, mejor la que ya tiene hijas.
-      const same = rows.filter((r) => (parent.get(r.id) ?? null) === at && norm(r.title ?? '') === want);
-      const z = same.find((r) => branches.has(r.id)) ?? same[0];
-      if (!z) break;
-      found.push(z);
-      at = z.id;
-    }
-    return { found, missing: names.slice(i), zoneId: at };
+    return resolvePath(rows, parent, prefixKey.split('>').map((n) => n.trim()).filter(Boolean));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefixKey, segs.length > 1, rows, parent, branches]);
+  }, [prefixKey, segs.length > 1, rows, parent]);
 
   // La lista es el árbol: cada sección y, sangradas debajo, sus notas y
   // subsecciones. Sin escribir, lo tocado hace poco arriba; buscando, las
@@ -190,15 +177,8 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
 
   // Ruta completa de una fila, como se escribe: «Viaje a Japón>Qué ver>».
   const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
-  const pathOf = (r: NoteRow) => {
-    const names: string[] = [];
-    const seen = new Set<string>();
-    for (let z = byId.get(parent.get(r.id) ?? ''); z && !seen.has(z.id); z = byId.get(parent.get(z.id) ?? '')) {
-      seen.add(z.id);
-      names.unshift(z.title ?? '');
-    }
-    return names.map((n) => `${n}>`).join('') + (r.title ?? '') + (branches.has(r.id) ? '>' : '');
-  };
+  const pathOf = (r: NoteRow) => pathText(r, byId, parent, branches.has(r.id));
+
 
   // Con ruta, Enter crea salvo que lo señalado se llame justo así.
   const title = last.trim();
@@ -317,12 +297,12 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
           <div className="focus-item is-here focus-empty" style={{ transform: 'translate(-50%, -50%)' }}>
             <span className="focus-title">{route ? title || route.missing[route.missing.length - 1] || 'Aquí no hay nada todavía' : 'Nada se llama así'}</span>
             <span className="focus-meta">
-              <span className="meta">{route ? whereText(route, title) : `Enter crea una nota con «${query.trim()}»`}</span>
+              <span className="meta">{route ? routeText(route, title) : `Enter crea una nota con «${query.trim()}»`}</span>
             </span>
           </div>
         )}
       </div>
-      {route && creating && hits.length > 0 && <p className="meta focus-where">{whereText(route, title)}</p>}
+      {route && creating && hits.length > 0 && <p className="meta focus-where">{routeText(route, title)}</p>}
       <p className="meta focus-foot">
         {words.length ? `${hits.length} ${hits.length === 1 ? 'coincidencia' : 'coincidencias'} · ` : ''}↑↓ moverse · Tab completar · Enter abrir · {'>'} dentro de · Esc {query ? 'borrar' : 'mapa'}
       </p>
@@ -330,11 +310,3 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
   );
 }
 
-// «Enter crea «Templos» en Viaje a Japón › Qué ver (nueva)».
-function whereText(route: { found: NoteRow[]; missing: string[] }, title: string) {
-  const parts = [...route.found.map((z) => z.title || 'Nota sin título'), ...route.missing.map((n) => `${n} (nueva)`)];
-  const where = parts.length ? parts.join(' › ') : 'la raíz';
-  if (title) return `Enter crea «${title}» en ${where}`;
-  if (route.missing.length) return `Enter crea ${where}`;
-  return `Enter entra en ${where}`;
-}

@@ -632,6 +632,15 @@ export function Canvas({ profile }: { profile: Profile }) {
           profileId={profile.id}
           placeholder={paletteOpen === 'link' ? 'Enlazar con…' : paletteOpen === 'card' ? 'Añadir al canvas…' : undefined}
           exclude={paletteOpen === 'open' ? undefined : focused?.id}
+          rows={rows}
+          onCreatePath={
+            paletteOpen === 'open'
+              ? (zoneId, sections, title) => {
+                  setPaletteOpen(false);
+                  newAtPath(zoneId, sections, title);
+                }
+              : undefined
+          }
           onPick={(id) => {
             setPaletteOpen(false);
             if (paletteOpen === 'card') pickCard.current?.(id);

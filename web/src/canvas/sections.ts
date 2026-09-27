@@ -79,6 +79,44 @@ export function parentMap(rows: NoteRow[]): Map<string, string | null> {
   return out;
 }
 
+const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
+// Una ruta escrita «Padre>Hijo»: las notas que existen, desde la raíz, y los
+// nombres que faltan. Con dos del mismo nombre, mejor la que ya tiene hijas.
+export type Route = { found: NoteRow[]; missing: string[]; zoneId: string | null };
+export function resolvePath(rows: NoteRow[], parent: Map<string, string | null>, names: string[]): Route {
+  const branches = new Set([...parent.values()].filter(Boolean));
+  const found: NoteRow[] = [];
+  let at: string | null = null;
+  let i = 0;
+  for (; i < names.length; i++) {
+    const want = fold(names[i]);
+    const same = rows.filter((r) => (parent.get(r.id) ?? null) === at && fold(r.title ?? '') === want);
+    const z = same.find((r) => branches.has(r.id)) ?? same[0];
+    if (!z) break;
+    found.push(z);
+    at = z.id;
+  }
+  return { found, missing: names.slice(i), zoneId: at };
+}
+
+// La ruta completa de una nota como se escribe: «Viaje a Japón>Qué ver>»
+// (con «>» al final si tiene hijas, para seguir escribiendo dentro).
+export function pathText(r: NoteRow, byId: Map<string, NoteRow>, parent: Map<string, string | null>, hasKids: boolean) {
+  const names: string[] = [];
+  for (let z = byId.get(parent.get(r.id) ?? ''); z; z = byId.get(parent.get(z.id) ?? '')) names.unshift(z.title ?? '');
+  return names.map((n) => `${n}>`).join('') + (r.title ?? '') + (hasKids ? '>' : '');
+}
+
+// «Enter crea «Templos» en Viaje a Japón › Qué ver (nueva)».
+export function routeText(route: Route, title: string) {
+  const parts = [...route.found.map((z) => z.title || 'Nota sin título'), ...route.missing.map((n) => `${n} (nueva)`)];
+  const where = parts.length ? parts.join(' › ') : 'la raíz';
+  if (title) return `Enter crea «${title}» en ${where}`;
+  if (route.missing.length) return `Enter crea ${where}`;
+  return `Enter entra en ${where}`;
+}
+
 // Notas que tienen alguna hija.
 export function parentsOf(rows: NoteRow[]): Set<string> {
   const out = new Set<string>();
