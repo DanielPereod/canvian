@@ -342,7 +342,7 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
               ) : (
                 <text className="nodes-title" x={right ? p.r + 10 : -p.r - 10} y={4} textAnchor={right ? 'start' : 'end'}>
                   {label}
-                  {p.kids > 0 && p.role !== 'sibling' && <tspan className="nodes-count"> {p.kids}</tspan>}
+                  {p.kids > 0 && <tspan className="nodes-count"> {p.kids}</tspan>}
                 </text>
               )}
             </g>

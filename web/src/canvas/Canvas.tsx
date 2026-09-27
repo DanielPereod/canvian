@@ -495,7 +495,18 @@ export function Canvas({ profile }: { profile: Profile }) {
     const docs = await Promise.all(files.map(async (f) => ({ name: f.name.replace(/\.(md|markdown|txt)$/i, ''), ...markdownToDoc(await f.text()) })));
     // Lo importado entra en la sección en la que estás.
     const zoneId = currentZone()?.id ?? null;
-    const made = docs.map((d) => createNote(spotFor(zoneId), 'text', { zoneId, title: d.heading ?? d.name, bodyJson: JSON.stringify(d.doc), bodyText: docText(d.doc) }));
+    // El nombre del archivo es el título: va como primera línea, salvo que el
+    // documento ya empiece con ese mismo encabezado.
+    const withTitle = (d: (typeof docs)[number]) => {
+      const first = d.doc.content?.[0];
+      const same = first?.type === 'heading' && docText({ type: 'doc', content: [first] }).trim().toLowerCase() === d.name.trim().toLowerCase();
+      if (same || !d.name.trim()) return d.doc;
+      return { ...d.doc, content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: d.name.trim() }] }, ...(d.doc.content ?? [])] };
+    };
+    const made = docs.map((d) => {
+      const doc = withTitle(d);
+      return createNote(spotFor(zoneId), 'text', { zoneId, title: d.name.trim() || d.heading, bodyJson: JSON.stringify(doc), bodyText: docText(doc) });
+    });
     // [[Enlaces]] entre notas: por nombre de archivo o por título, sin importar mayúsculas.
     const byName = new Map<string, string>();
     for (const r of rowsRef.current) if (r.title) byName.set(r.title.toLowerCase(), r.id);
