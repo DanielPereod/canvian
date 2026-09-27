@@ -29,6 +29,14 @@ describe('prefs', () => {
     expect(await (await call('GET', '/api/prefs')).json()).toEqual({});
   });
 
+  it('saves the appearance: mode and a theme per tone', async () => {
+    const look = { mode: 'auto', dark: 'minimo', light: 'minimo-claro' };
+    expect((await call('PUT', '/api/prefs/appearance', look)).status).toBe(204);
+    expect(await (await call('GET', '/api/prefs')).json()).toEqual({ appearance: look });
+    expect((await call('PUT', '/api/prefs/appearance', { ...look, mode: 'noche' })).status).toBe(400);
+    expect((await call('DELETE', '/api/prefs/appearance')).status).toBe(204);
+  });
+
   it('saves the lab experiments', async () => {
     expect((await call('PUT', '/api/prefs/experiments', { foco: true, celdas: false })).status).toBe(204);
     expect(await (await call('GET', '/api/prefs')).json()).toEqual({ experiments: { foco: true, celdas: false } });

@@ -228,7 +228,7 @@
 
 /* ── 6 · Mínimo: negro, grises, una sola letra sans ─────────────── */
 
-:root[data-theme='minimo'] {
+:root[data-theme^='minimo'] {
   --bg: #0a0a0a;
   --n-950: #0a0a0a;
   --ink: 255 255 255;
@@ -275,57 +275,106 @@
   --blur-chrome: 12px;
   --fl-title-em: 0.5;
 }
-:root[data-theme='minimo'] .ambient-layer { display: none; }
+:root[data-theme^='minimo'] .ambient-layer { display: none; }
 /* Solo dos luces grises y suaves en las esquinas. */
-[data-theme='minimo'] .backdrop,
-[data-theme='minimo'] .page-view {
+[data-theme^='minimo'] .backdrop,
+[data-theme^='minimo'] .page-view {
   background:
     radial-gradient(60vmax 50vmax at 0% 0%, rgba(255, 255, 255, 0.045), transparent 60%),
     radial-gradient(60vmax 50vmax at 100% 100%, rgba(255, 255, 255, 0.035), transparent 60%),
     var(--bg);
 }
-[data-theme='minimo'] .backdrop.dotted::before { display: none; }
+[data-theme^='minimo'] .backdrop.dotted::before { display: none; }
 /* Una sola letra, sin cursivas decorativas ni etiquetas pixeladas. */
-[data-theme='minimo'] .display em,
-[data-theme='minimo'] .serif { font-style: normal; font-weight: 500; letter-spacing: -0.02em; }
-[data-theme='minimo'] .display { letter-spacing: -0.03em; font-weight: 500; }
-[data-theme='minimo'] .meta { font-size: var(--text-xs); letter-spacing: 0; text-transform: none; }
+[data-theme^='minimo'] .display em,
+[data-theme^='minimo'] .serif { font-style: normal; font-weight: 500; letter-spacing: -0.02em; }
+[data-theme^='minimo'] .display { letter-spacing: -0.03em; font-weight: 500; }
+[data-theme^='minimo'] .meta { font-size: var(--text-xs); letter-spacing: 0; text-transform: none; }
 /* Celdas del mapa: grafito con un filo fino, sin tinte. */
-[data-theme='minimo'] .fl-cell .fl-shape { fill: rgba(255, 255, 255, 0.025); stroke: rgba(255, 255, 255, 0.14); stroke-width: 1; }
-[data-theme='minimo'] .fl-cell.kind-note .fl-shape { fill: rgba(255, 255, 255, 0.015); stroke: rgba(255, 255, 255, 0.08); }
-[data-theme='minimo'] .fl-cell.kind-group .fl-shape { stroke-dasharray: 2 5; }
-[data-theme='minimo'] .fl-cell.hover .fl-shape { fill: rgba(255, 255, 255, 0.06); stroke: rgba(255, 255, 255, 0.55); }
-[data-theme='minimo'] .fl-cell.done .fl-shape { fill: transparent; stroke: rgba(255, 255, 255, 0.06); }
-[data-theme='minimo'] .fl-cell.lit .fl-shape,
-[data-theme='minimo'] .fl-cell.drop .fl-shape { fill: rgba(255, 255, 255, 0.07); stroke: rgba(255, 255, 255, 0.6); stroke-width: 1.5; }
-[data-theme='minimo'] .fl-title { font-style: normal; font-weight: 500; letter-spacing: -0.025em; }
-[data-theme='minimo'] .fl-cell.kind-note .fl-title { font-weight: 400; letter-spacing: -0.01em; }
-[data-theme='minimo'] .smap { background: none; }
-[data-theme='minimo'] .sheet { background: #0d0d0d; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
+[data-theme^='minimo'] .fl-cell .fl-shape { fill: rgba(255, 255, 255, 0.025); stroke: rgba(255, 255, 255, 0.14); stroke-width: 1; }
+[data-theme^='minimo'] .fl-cell.kind-note .fl-shape { fill: rgba(255, 255, 255, 0.015); stroke: rgba(255, 255, 255, 0.08); }
+[data-theme^='minimo'] .fl-cell.kind-group .fl-shape { stroke-dasharray: 2 5; }
+[data-theme^='minimo'] .fl-cell.hover .fl-shape { fill: rgba(255, 255, 255, 0.06); stroke: rgba(255, 255, 255, 0.55); }
+[data-theme^='minimo'] .fl-cell.done .fl-shape { fill: transparent; stroke: rgba(255, 255, 255, 0.06); }
+[data-theme^='minimo'] .fl-cell.lit .fl-shape,
+[data-theme^='minimo'] .fl-cell.drop .fl-shape { fill: rgba(255, 255, 255, 0.07); stroke: rgba(255, 255, 255, 0.6); stroke-width: 1.5; }
+[data-theme^='minimo'] .fl-title { font-style: normal; font-weight: 500; letter-spacing: -0.025em; }
+[data-theme^='minimo'] .fl-cell.kind-note .fl-title { font-weight: 400; letter-spacing: -0.01em; }
+[data-theme^='minimo'] .smap { background: none; }
+[data-theme^='minimo'] .sheet { background: #0d0d0d; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
 /* Botón principal: una píldora blanca, sin brillo. */
-[data-theme='minimo'] .btn-primary { background: #f2f2f2; color: #0a0a0a; box-shadow: none; border-radius: var(--radius-pill); }
-[data-theme='minimo'] .btn-primary:hover:not(:disabled) { background: #ffffff; }
-[data-theme='minimo'] .btn-ghost { border-radius: var(--radius-pill); }
+[data-theme^='minimo'] .btn-primary { background: #f2f2f2; color: #0a0a0a; box-shadow: none; border-radius: var(--radius-pill); }
+[data-theme^='minimo'] .btn-primary:hover:not(:disabled) { background: #ffffff; }
+[data-theme^='minimo'] .btn-ghost { border-radius: var(--radius-pill); }
 /* Foco: sin serif, solo peso y gris. */
-[data-theme='minimo'] .focus-query .display,
-[data-theme='minimo'] .focus-kind-zone .focus-title { font-style: normal; letter-spacing: -0.02em; }
-[data-theme='minimo'] .focus-query .display { font-weight: 400; letter-spacing: 0; }
-[data-theme='minimo'] .focus-kind-zone .focus-title { font-weight: 500; }
+[data-theme^='minimo'] .focus-query .display,
+[data-theme^='minimo'] .focus-kind-zone .focus-title { font-style: normal; letter-spacing: -0.02em; }
+[data-theme^='minimo'] .focus-query .display { font-weight: 400; letter-spacing: 0; }
+[data-theme^='minimo'] .focus-kind-zone .focus-title { font-weight: 500; }
 /* Nada de cursivas ni etiquetas en versalitas; el texto de las notas sí las conserva. */
-[data-theme='minimo'] :not(em, i, .prose *) { font-style: normal; }
-[data-theme='minimo'] .label,
-[data-theme='minimo'] .settings-subheading { letter-spacing: 0.02em; text-transform: none; font-family: var(--font-ui); font-size: var(--text-xs); }
-[data-theme='minimo'] .wordmark-glyph { color: var(--text); }
-[data-theme='minimo'] .wordmark-text .c { font-size: 1em; font-weight: 600; letter-spacing: -0.02em; }
-[data-theme='minimo'] .wordmark-text .rest { text-transform: lowercase; font-size: 1em; font-weight: 600; letter-spacing: -0.02em; }
-[data-theme='minimo'] .surface-3::before,
-[data-theme='minimo'] .fireflies { display: none; }
+[data-theme^='minimo'] :not(em, i, .prose *) { font-style: normal; }
+[data-theme^='minimo'] .label,
+[data-theme^='minimo'] .settings-subheading { letter-spacing: 0.02em; text-transform: none; font-family: var(--font-ui); font-size: var(--text-xs); }
+[data-theme^='minimo'] .wordmark-glyph { color: var(--text); }
+[data-theme^='minimo'] .wordmark-text .c { font-size: 1em; font-weight: 600; letter-spacing: -0.02em; }
+[data-theme^='minimo'] .wordmark-text .rest { text-transform: lowercase; font-size: 1em; font-weight: 600; letter-spacing: -0.02em; }
+[data-theme^='minimo'] .surface-3::before,
+[data-theme^='minimo'] .fireflies { display: none; }
 /* Perfil, ajustes y tareas: solo texto e icono, sin cápsula. */
-[data-theme='minimo'] .chrome-top-left { gap: var(--space-1); }
-[data-theme='minimo'] .chrome-top-left .pill,
-[data-theme='minimo'] .chrome-top-right .pill { background: none; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; height: 30px; padding: 0 var(--space-2); color: var(--text-faint); transition: color var(--dur-base); }
-[data-theme='minimo'] .chrome-top-left .pill:hover,
-[data-theme='minimo'] .chrome-top-right .pill:hover { color: var(--text); transform: none; border-color: transparent; }
-[data-theme='minimo'] .chrome-top-left .wordmark-glyph { display: none; }
-[data-theme='minimo'] .pill-name { font-size: var(--text-sm); font-weight: 400; letter-spacing: 0; color: inherit; }
-[data-theme='minimo'] .list-item[aria-selected='true']::before { display: none; }
+[data-theme^='minimo'] .chrome-top-left { gap: var(--space-1); }
+[data-theme^='minimo'] .chrome-top-left .pill,
+[data-theme^='minimo'] .chrome-top-right .pill { background: none; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; height: 30px; padding: 0 var(--space-2); color: var(--text-faint); transition: color var(--dur-base); }
+[data-theme^='minimo'] .chrome-top-left .pill:hover,
+[data-theme^='minimo'] .chrome-top-right .pill:hover { color: var(--text); transform: none; border-color: transparent; }
+[data-theme^='minimo'] .chrome-top-left .wordmark-glyph { display: none; }
+[data-theme^='minimo'] .pill-name { font-size: var(--text-sm); font-weight: 400; letter-spacing: 0; color: inherit; }
+[data-theme^='minimo'] .list-item[aria-selected='true']::before { display: none; }
+
+/* ── Mínimo claro: lo mismo en blanco, gris y tinta ─────────────── */
+
+:root[data-theme='minimo-claro'] {
+  color-scheme: light;
+  --bg: #fafafa;
+  --n-950: #fafafa;
+  --ink: 10 10 10;
+  --grid-strong: rgba(0, 0, 0, 0.06);
+  --text: #111111;
+  --text-muted: #4a4a4a;
+  --text-faint: #7a7a7a;
+  --text-ghost: #a3a3a3;
+  --line: rgba(0, 0, 0, 0.08);
+  --line-strong: rgba(0, 0, 0, 0.16);
+  --surface-1: #ffffff;
+  --surface-2: rgba(255, 255, 255, 0.85);
+  --surface-3: #ffffff;
+  --surface-sunken: rgba(0, 0, 0, 0.03);
+  --surface-hover: rgba(0, 0, 0, 0.04);
+  --shadow-1: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-2: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 30px 60px -30px rgba(0, 0, 0, 0.25);
+  --accent: #1a1a1a !important;
+  --accent-contrast: #fafafa;
+  --accent-soft: rgba(0, 0, 0, 0.05);
+  --accent-line: rgba(0, 0, 0, 0.4);
+  --accent-ink: #111111;
+  --glow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --pearl: #111111;
+  --pearl-ink: #fafafa;
+  --stem: rgba(0, 0, 0, 0.2);
+  --stem-hover: rgba(0, 0, 0, 0.5);
+}
+[data-theme='minimo-claro'] .backdrop,
+[data-theme='minimo-claro'] .page-view {
+  background:
+    radial-gradient(60vmax 50vmax at 0% 0%, rgba(0, 0, 0, 0.035), transparent 60%),
+    radial-gradient(60vmax 50vmax at 100% 100%, rgba(0, 0, 0, 0.025), transparent 60%),
+    var(--bg);
+}
+[data-theme='minimo-claro'] .fl-cell .fl-shape { fill: rgba(0, 0, 0, 0.02); stroke: rgba(0, 0, 0, 0.14); }
+[data-theme='minimo-claro'] .fl-cell.kind-note .fl-shape { fill: rgba(0, 0, 0, 0.01); stroke: rgba(0, 0, 0, 0.08); }
+[data-theme='minimo-claro'] .fl-cell.hover .fl-shape { fill: rgba(0, 0, 0, 0.05); stroke: rgba(0, 0, 0, 0.5); }
+[data-theme='minimo-claro'] .fl-cell.done .fl-shape { stroke: rgba(0, 0, 0, 0.06); }
+[data-theme='minimo-claro'] .fl-cell.lit .fl-shape,
+[data-theme='minimo-claro'] .fl-cell.drop .fl-shape { fill: rgba(0, 0, 0, 0.06); stroke: rgba(0, 0, 0, 0.6); }
+[data-theme='minimo-claro'] .sheet { background: #ffffff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); }
+[data-theme='minimo-claro'] .btn-primary { background: #111111; color: #fafafa; }
+[data-theme='minimo-claro'] .btn-primary:hover:not(:disabled) { background: #000000; }

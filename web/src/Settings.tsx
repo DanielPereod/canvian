@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ACTIONS, bind, comboOf, isDefault, keyParts, reserved, resetAll, resetKey, useKeymap, type ActionId } from './keys';
 import { Keys } from './Kbd';
-import { setTheme, THEMES, useTheme } from './theme';
+import { MODES, setMode, setTheme, THEMES, useAppearance, type Tone } from './theme';
+import { EXPERIMENTS, toggleExperiment, useExperiments } from './lab/experiments';
 import { openOrganize } from './canvas/OrganizeView';
 
-// Página de configuración: el tema, los atajos de teclado (ambos se guardan en
-// el servidor, así que valen en todos tus dispositivos) y atajos a otros paneles.
+// Configuración con la forma de Obsidian: a la izquierda las secciones, a la
+// derecha los ajustes de la elegida, cada uno con su nombre y explicación a la
+// izquierda y el control a la derecha. Todo se guarda en el servidor.
 
 type Props = {
   onClose: () => void;
@@ -14,16 +16,64 @@ type Props = {
   onProfiles: () => void;
 };
 
+type SectionId = 'general' | 'aspecto' | 'atajos' | 'laboratorio';
+
+const SECTIONS: { id: SectionId; name: string }[] = [
+  { id: 'general', name: 'General' },
+  { id: 'aspecto', name: 'Aspecto' },
+  { id: 'atajos', name: 'Atajos de teclado' },
+  { id: 'laboratorio', name: 'Laboratorio' },
+];
+
+const LAST = 'canvian:settings-section';
 const GROUPS = [...new Set(ACTIONS.map((a) => a.group))];
+const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
+function Row({ name, hint, children }: { name: string; hint?: string; children?: ReactNode }) {
+  return (
+    <div className="set-row">
+      <div className="set-info">
+        <div className="set-name">{name}</div>
+        {hint && <div className="set-hint">{hint}</div>}
+      </div>
+      <div className="set-control">{children}</div>
+    </div>
+  );
+}
+
+function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
+  return <button role="switch" aria-checked={on} aria-label={label} className={`set-toggle${on ? ' is-on' : ''}`} onClick={onChange} />;
+}
 
 export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
   const keymap = useKeymap();
-  const theme = useTheme();
+  const look = useAppearance();
+  const experiments = useExperiments();
+  const [section, setSection] = useState<SectionId>(() => {
+    try {
+      const saved = localStorage.getItem(LAST);
+      return SECTIONS.some((s) => s.id === saved) ? (saved as SectionId) : 'general';
+    } catch {
+      return 'general';
+    }
+  });
   const [capturing, setCapturing] = useState<ActionId | null>(null);
+  const [filter, setFilter] = useState('');
   const [note, setNote] = useState<string | null>(null);
   const label = (id: ActionId) => ACTIONS.find((a) => a.id === id)!.label;
 
   const report = (p: Promise<unknown>) => p.catch(() => setNote('No se ha podido guardar en el servidor. Vuelve a intentarlo.'));
+
+  const go = (id: SectionId) => {
+    setSection(id);
+    setNote(null);
+    setCapturing(null);
+    try {
+      localStorage.setItem(LAST, id);
+    } catch {
+      // Sin almacenamiento local se abre siempre en General.
+    }
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -54,111 +104,182 @@ export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
   });
 
   const custom = ACTIONS.some((a) => !isDefault(a.id));
+  const words = norm(filter).split(/\s+/).filter(Boolean);
+  const shown = ACTIONS.filter((a) => words.every((w) => norm(`${a.label} ${keyParts(keymap[a.id]).join(' ')}`).includes(w)));
+
+  const themes = (tone: Tone) => (
+    <div className="theme-grid" role="radiogroup" aria-label={tone === 'dark' ? 'Tema oscuro' : 'Tema claro'}>
+      {THEMES.filter((t) => t.tone === tone).map((t) => {
+        const on = look[tone] === t.id;
+        return (
+          <button
+            key={t.id}
+            role="radio"
+            aria-checked={on}
+            className={`theme-card${on ? ' is-on' : ''}`}
+            onClick={() => {
+              setNote(null);
+              report(setTheme(t.id));
+            }}
+          >
+            <span className={`theme-swatch t-${t.id}`} aria-hidden="true">
+              <i />
+              <i />
+              <i />
+              <b>Aa</b>
+            </span>
+            <span className="theme-name">{t.name}</span>
+            <span className="theme-hint meta">{t.hint}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="page-view settings-view" data-keys-modal>
-      <header className="page-top">
-        <button className="sheet-back meta" onClick={onClose}>
-          ← Volver
-        </button>
-      </header>
-      <div className="page-body">
-        <h1 className="display page-title">Configuración</h1>
+      <div className="set-shell">
+        <nav className="set-nav" aria-label="Secciones">
+          <button className="sheet-back meta set-back" onClick={onClose}>
+            ← Volver
+          </button>
+          <div className="set-nav-title">Configuración</div>
+          {SECTIONS.map((s) => (
+            <button key={s.id} className={`set-nav-item${section === s.id ? ' is-on' : ''}`} aria-current={section === s.id} onClick={() => go(s.id)}>
+              {s.name}
+            </button>
+          ))}
+          <div className="set-nav-title">Más</div>
+          <button className="set-nav-item" onClick={onProfiles}>
+            Perfiles y sesión
+          </button>
+          <button className="set-nav-item" onClick={onBackground}>
+            Fondo del perfil
+          </button>
+        </nav>
 
-        <section className="settings-section">
-          <h2 className="settings-heading">Tema</h2>
-          <p className="meta settings-hint">Cambia el aspecto de todo Canvian; el mapa y tus notas no cambian.</p>
-          <div className="theme-grid" role="radiogroup" aria-label="Tema">
-            {THEMES.map((t) => (
-              <button
-                key={t.id}
-                role="radio"
-                aria-checked={theme === t.id}
-                className={`theme-card${theme === t.id ? ' is-on' : ''}`}
-                onClick={() => {
-                  setNote(null);
-                  report(setTheme(t.id));
-                }}
-              >
-                <span className={`theme-swatch t-${t.id}`} aria-hidden="true">
-                  <i />
-                  <i />
-                  <i />
-                  <b>Aa</b>
-                </span>
-                <span className="theme-name">{t.name}</span>
-                <span className="theme-hint meta">{t.hint}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="settings-section">
-          <h2 className="settings-heading">Atajos de teclado</h2>
-          <p className="meta settings-hint">Pulsa un atajo para cambiarlo. Se guardan en tu servidor y valen en todos tus dispositivos.</p>
+        <main className="set-main" key={section}>
+          <h1 className="set-title">{SECTIONS.find((s) => s.id === section)!.name}</h1>
           {note && (
             <p className="settings-note" role="status">
               {note}
             </p>
           )}
-          {GROUPS.map((g) => (
-            <div key={g} className="settings-group">
-              <h3 className="settings-subheading">{g}</h3>
-              {ACTIONS.filter((a) => a.group === g).map((a) => (
-                <div key={a.id} className={`settings-row${capturing === a.id ? ' is-capturing' : ''}`}>
-                  <span className="settings-label">{a.label}</span>
-                  <button
-                    className="settings-key"
-                    onClick={() => {
-                      setNote(null);
-                      setCapturing(capturing === a.id ? null : a.id);
-                    }}
-                    aria-label={`Cambiar el atajo de ${a.label}`}
-                  >
-                    {capturing === a.id ? <span className="meta">Pulsa la combinación · Esc cancela</span> : <Keys combo={keymap[a.id]} />}
-                  </button>
-                  <button
-                    className="settings-reset meta"
-                    style={{ visibility: isDefault(a.id) ? 'hidden' : 'visible' }}
-                    onClick={() => report(resetKey(a.id))}
-                    title={`Volver a ${keyParts(a.key).join(' ')}`}
-                  >
-                    Restablecer
-                  </button>
-                </div>
-              ))}
-            </div>
-          ))}
-          {custom && (
-            <button className="sheet-link sheet-link-add" onClick={() => report(resetAll())}>
-              Restablecer todos los atajos
-            </button>
-          )}
-        </section>
 
-        <section className="settings-section">
-          <h2 className="settings-heading">Más</h2>
-          <div className="settings-links">
-            <button
-              className="sheet-link"
-              onClick={() => {
-                onClose();
-                openOrganize();
-              }}
-            >
-              Ordenar notas
-            </button>
-            <button className="sheet-link" onClick={onBackground}>
-              Fondo del perfil
-            </button>
-            <button className="sheet-link" onClick={onLab}>
-              Laboratorio
-            </button>
-            <button className="sheet-link" onClick={onProfiles}>
-              Perfiles y sesión
-            </button>
-          </div>
-        </section>
+          {section === 'general' && (
+            <>
+              <Row name="Ordenar notas" hint="Revisa las notas sueltas y mételas dentro de otras.">
+                <button
+                  className="set-button"
+                  onClick={() => {
+                    onClose();
+                    openOrganize();
+                  }}
+                >
+                  Abrir
+                </button>
+              </Row>
+              <Row name="Perfiles y sesión" hint="Cambia de perfil, crea otros o cierra la sesión.">
+                <button className="set-button" onClick={onProfiles}>
+                  Abrir
+                </button>
+              </Row>
+              <Row name="Fondo del perfil" hint="El fondo que se ve detrás del mapa en este perfil.">
+                <button className="set-button" onClick={onBackground}>
+                  Elegir
+                </button>
+              </Row>
+              <Row name="Dónde se guarda" hint="La configuración vive en tu servidor y es la misma en todos tus dispositivos." />
+            </>
+          )}
+
+          {section === 'aspecto' && (
+            <>
+              <Row name="Modo" hint="Automático sigue al sistema: claro de día, oscuro de noche. También con Ctrl Mayús L o desde la paleta de comandos.">
+                <div className="set-segmented" role="radiogroup" aria-label="Modo">
+                  {MODES.map((m) => (
+                    <button key={m.id} role="radio" aria-checked={look.mode === m.id} className={look.mode === m.id ? 'is-on' : ''} onClick={() => report(setMode(m.id))}>
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <div className="set-block">
+                <div className="set-name">Tema oscuro</div>
+                <div className="set-hint">El que se usa en modo oscuro.</div>
+                {themes('dark')}
+              </div>
+              <div className="set-block">
+                <div className="set-name">Tema claro</div>
+                <div className="set-hint">El que se usa en modo claro.</div>
+                {themes('light')}
+              </div>
+            </>
+          )}
+
+          {section === 'atajos' && (
+            <>
+              <div className="set-toolbar">
+                <input className="field set-search" placeholder="Filtrar atajos…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+                {custom && (
+                  <button className="set-button" onClick={() => report(resetAll())}>
+                    Restablecer todos
+                  </button>
+                )}
+              </div>
+              {GROUPS.map((g) => {
+                const list = shown.filter((a) => a.group === g);
+                if (!list.length) return null;
+                return (
+                  <div key={g} className="settings-group">
+                    <h3 className="settings-subheading">{g}</h3>
+                    {list.map((a) => (
+                      <div key={a.id} className={`set-row${capturing === a.id ? ' is-capturing' : ''}`}>
+                        <div className="set-info">
+                          <div className="set-name">{a.label}</div>
+                        </div>
+                        <div className="set-control">
+                          {!isDefault(a.id) && (
+                            <button className="settings-reset meta" onClick={() => report(resetKey(a.id))} title={`Volver a ${keyParts(a.key).join(' ')}`}>
+                              Restablecer
+                            </button>
+                          )}
+                          <button
+                            className="settings-key"
+                            onClick={() => {
+                              setNote(null);
+                              setCapturing(capturing === a.id ? null : a.id);
+                            }}
+                            aria-label={`Cambiar el atajo de ${a.label}`}
+                          >
+                            {capturing === a.id ? <span className="meta">Pulsa la combinación · Esc cancela</span> : <Keys combo={keymap[a.id]} />}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+              {!shown.length && <p className="set-hint">Ningún atajo se llama así.</p>}
+            </>
+          )}
+
+          {section === 'laboratorio' && (
+            <>
+              <p className="set-hint set-intro">Ideas en prueba. Enciéndelas o apágalas para compararlas; se guardan en tu servidor.</p>
+              {EXPERIMENTS.map((x) => (
+                <Row key={x.id} name={x.name} hint={x.hint}>
+                  <Toggle on={experiments[x.id]} label={x.name} onChange={() => toggleExperiment(x.id)} />
+                </Row>
+              ))}
+              <Row name="Panel del laboratorio" hint="El mismo panel que abre la tecla E.">
+                <button className="set-button" onClick={onLab}>
+                  Abrir
+                </button>
+              </Row>
+            </>
+          )}
+        </main>
       </div>
     </div>
   );

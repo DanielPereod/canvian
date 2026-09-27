@@ -8,7 +8,7 @@ import { BackgroundPicker } from './backgrounds/BackgroundPicker';
 import { Lab } from './lab/Lab';
 import { EXPERIMENTS, loadExperiments, useExperiments } from './lab/experiments';
 import { actionFor, keysBlocked, loadKeymap, useKeymap } from './keys';
-import { loadTheme } from './theme';
+import { loadTheme, toggleMode } from './theme';
 import { Keys } from './Kbd';
 import { Settings } from './Settings';
 import { Help } from './Help';
@@ -62,7 +62,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
-      const action = actionFor(e, ['commands', 'profiles', 'background', 'lab', 'help', 'settings']);
+      const action = actionFor(e, ['commands', 'profiles', 'background', 'lab', 'toggleMode', 'help', 'settings']);
       if (!action) return;
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
@@ -73,6 +73,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       else if (action === 'profiles') setSwitcherOpen((open) => !open);
       else if (action === 'background') setPickerOpen(true);
       else if (action === 'lab') setLabOpen(true);
+      else if (action === 'toggleMode') void toggleMode().catch(() => {});
       else if (action === 'help') setHelpOpen(true);
       else setSettingsOpen(true);
     };

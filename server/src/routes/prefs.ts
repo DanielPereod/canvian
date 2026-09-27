@@ -4,16 +4,18 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { settings } from '../db/schema.js';
 
-// Preferencias de la interfaz: los atajos de teclado, el tema y los experimentos del laboratorio. Viven en la
+// Preferencias de la interfaz: los atajos de teclado, el aspecto (modo y temas) y los experimentos del laboratorio. Viven en la
 // tabla de ajustes con el prefijo `pref:`, que nunca deja ver lo demás (la
 // contraseña está en la misma tabla).
 
 const PREFIX = 'pref:';
-const KEYS = ['keymap', 'theme', 'experiments'] as const;
+const KEYS = ['keymap', 'theme', 'experiments', 'appearance'] as const;
 const keymap = z.record(z.string().regex(/^[a-z][a-zA-Z]{1,30}$/), z.string().max(40)).refine((m) => Object.keys(m).length <= 100);
-const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano', 'minimo']);
+const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano', 'minimo', 'minimo-claro']);
+// Modo claro, oscuro o automático, y el tema de cada tono.
+const appearance = z.object({ mode: z.enum(['light', 'dark', 'auto']), dark: theme, light: theme });
 const experiments = z.record(z.string().regex(/^[a-z][a-zA-Z]{1,30}$/), z.boolean()).refine((m) => Object.keys(m).length <= 50);
-const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme, experiments };
+const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme, experiments, appearance };
 
 export function prefRoutes(db: Db) {
   const r = new Hono();
