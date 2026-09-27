@@ -308,6 +308,7 @@
 /* Foco: sin serif, solo peso y gris. */
 [data-theme='minimo'] .focus-query .display,
 [data-theme='minimo'] .focus-kind-zone .focus-title { font-style: normal; letter-spacing: -0.02em; }
+[data-theme='minimo'] .focus-query .display { font-weight: 400; letter-spacing: 0; }
 [data-theme='minimo'] .focus-kind-zone .focus-title { font-weight: 500; }
 /* Nada de cursivas ni etiquetas en versalitas; el texto de las notas sí las conserva. */
 [data-theme='minimo'] :not(em, i, .prose *) { font-style: normal; }

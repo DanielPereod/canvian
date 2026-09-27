@@ -351,13 +351,13 @@
 .focus-list {
   position: absolute;
   inset: 0;
-  -webkit-mask-image: linear-gradient(transparent 30%, #000 47%, #000 62%, transparent 94%);
-  mask-image: linear-gradient(transparent 30%, #000 47%, #000 62%, transparent 94%);
+  -webkit-mask-image: linear-gradient(transparent 6%, #000 38%, #000 62%, transparent 86%);
+  mask-image: linear-gradient(transparent 6%, #000 38%, #000 62%, transparent 86%);
 }
 .focus-item {
   position: absolute;
   left: 50%;
-  top: 54%;
+  top: 50%;
   width: min(640px, calc(100% - 2 * var(--space-5)));
   display: grid;
   grid-template-columns: 14px minmax(0, 1fr);
@@ -382,19 +382,20 @@
 .focus-kind-canvas .focus-glyph { border-radius: 2px; }
 .focus-kind-task .focus-glyph { box-shadow: inset 0 0 0 1.5px var(--accent-line); }
 .focus-empty { cursor: default; }
+.focus-empty .focus-title { grid-column: 2; }
 .focus-query {
   position: absolute;
   left: 50%;
-  top: 27%;
+  bottom: calc(var(--space-5) + 26px);
   transform: translateX(-50%);
   width: min(640px, calc(100% - 2 * var(--space-5)));
-  padding-left: calc(14px + var(--space-3));
   display: flex;
+  justify-content: center;
   align-items: baseline;
-  font-size: 20px;
+  font-size: var(--text-sm);
   z-index: 1;
 }
-.focus-query .display { font-family: var(--font-serif); font-style: italic; color: var(--text-muted); white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.focus-query .display { font-family: var(--font-serif); font-style: italic; font-size: inherit; letter-spacing: 0; color: var(--text-muted); white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .focus-query .focus-hint { color: var(--text-ghost); transition: opacity 600ms; }
 .focus-caret { width: 1.5px; height: 1.1em; margin-left: 2px; background: var(--accent-ink); align-self: center; animation: focus-blink 1.1s steps(1) infinite; }
 @keyframes focus-blink { 50% { opacity: 0; } }
