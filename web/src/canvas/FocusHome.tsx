@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NoteRow } from '../api';
+import { parentMap } from './sections';
 import { FROM_PALETTE } from '../ActionPalette';
 
 // Experimento «Foco»: en vez del mapa, una sola lista en el centro que se
@@ -70,23 +71,29 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
   const prefixKey = segs.slice(0, -1).join('>');
   const words = useMemo(() => norm(last).split(/\s+/).filter(Boolean), [last]);
 
-  // Hasta dónde existe la ruta escrita: las secciones encontradas y los nombres que faltan.
+  // Madre de cada nota y cuáles tienen hijas (esas se ven como secciones).
+  const parent = useMemo(() => parentMap(rows), [rows]);
+  const branches = useMemo(() => new Set([...parent.values()].filter((p): p is string => !!p)), [parent]);
+
+  // Hasta dónde existe la ruta escrita: las notas encontradas y los nombres que faltan.
   const route = useMemo(() => {
     if (!prefixKey && segs.length < 2) return null;
     const names = prefixKey.split('>').map((n) => n.trim()).filter(Boolean);
     const found: NoteRow[] = [];
-    let parent: string | null = null;
+    let at: string | null = null;
     let i = 0;
     for (; i < names.length; i++) {
       const want = norm(names[i]);
-      const z = rows.find((r) => r.kind === 'zone' && (r.zoneId ?? null) === parent && norm(r.title ?? '') === want);
+      // Con dos del mismo nombre, mejor la que ya tiene hijas.
+      const same = rows.filter((r) => (parent.get(r.id) ?? null) === at && norm(r.title ?? '') === want);
+      const z = same.find((r) => branches.has(r.id)) ?? same[0];
       if (!z) break;
       found.push(z);
-      parent = z.id;
+      at = z.id;
     }
-    return { found, missing: names.slice(i), zoneId: parent };
+    return { found, missing: names.slice(i), zoneId: at };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefixKey, segs.length > 1, rows]);
+  }, [prefixKey, segs.length > 1, rows, parent, branches]);
 
   // La lista es el árbol: cada sección y, sangradas debajo, sus notas y
   // subsecciones. Sin escribir, lo tocado hace poco arriba; buscando, las
@@ -94,17 +101,17 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
   const hits = useMemo<Hit[]>(() => {
     if (route && route.missing.length) return [];
     const t = (r: NoteRow) => (r.updatedAt ? Date.parse(r.updatedAt) : 0);
-    const titleOf = (r: NoteRow) => r.title || (r.kind === 'zone' ? 'Sección sin nombre' : r.kind === 'task' ? 'Tarea sin título' : 'Nota sin título');
-    const zoneIds = new Set(rows.filter((r) => r.kind === 'zone').map((r) => r.id));
+    const titleOf = (r: NoteRow) => r.title || (r.kind === 'task' ? 'Tarea sin título' : 'Nota sin título');
+    const isBranch = (r: NoteRow) => branches.has(r.id);
     const kids = new Map<string | null, NoteRow[]>();
     for (const r of rows) {
-      const p = r.zoneId && zoneIds.has(r.zoneId) && r.zoneId !== r.id ? r.zoneId : null;
+      const p = parent.get(r.id) ?? null;
       kids.set(p, [...(kids.get(p) ?? []), r]);
     }
     const score = new Map<string, number>();
     if (words.length) for (const r of rows) {
       const s = scoreOf(norm(titleOf(r)), norm(r.bodyText ?? ''), words);
-      if (s) score.set(r.id, s + (r.kind === 'zone' ? 0.5 : 0));
+      if (s) score.set(r.id, s + (isBranch(r) ? 0.5 : 0));
     }
     // Lo que pesa una rama: su mejor coincidencia o, sin buscar, lo último tocado.
     const weight = new Map<string, number>();
@@ -114,7 +121,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
       if (seen.has(r.id)) return 0;
       seen.add(r.id);
       let w = words.length ? (score.get(r.id) ?? 0) : t(r);
-      if (r.kind === 'zone') for (const c of kids.get(r.id) ?? []) w = Math.max(w, weigh(c));
+      for (const c of kids.get(r.id) ?? []) w = Math.max(w, weigh(c));
       weight.set(r.id, w);
       return w;
     };
@@ -123,11 +130,11 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
       const list = (kids.get(parent) ?? []).filter((r) => !words.length || weigh(r) > 0);
       // Buscando, lo más parecido primero; si no, las notas del nivel y después las subsecciones.
       if (words.length) list.sort((a, b) => weigh(b) - weigh(a) || t(b) - t(a));
-      else list.sort((a, b) => Number(a.kind === 'zone') - Number(b.kind === 'zone') || weigh(b) - weigh(a) || t(b) - t(a));
+      else list.sort((a, b) => Number(isBranch(a)) - Number(isBranch(b)) || weigh(b) - weigh(a) || t(b) - t(a));
       for (const r of list) {
         if (out.length >= 600) return;
         out.push({ row: r, title: titleOf(r), score: score.get(r.id) ?? 0, path, depth });
-        if (r.kind === 'zone') walk(r.id, depth + 1, path ? `${path} › ${titleOf(r)}` : titleOf(r));
+        if (isBranch(r)) walk(r.id, depth + 1, path ? `${path} › ${titleOf(r)}` : titleOf(r));
       }
     };
     // Con ruta, solo lo que hay dentro de la última sección.
@@ -137,14 +144,14 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
     }
     // En la raíz, las secciones primero y lo suelto al final.
     const roots = (kids.get(null) ?? []).filter((r) => !words.length || weigh(r) > 0);
-    const zones = roots.filter((r) => r.kind === 'zone').sort((a, b) => weigh(b) - weigh(a));
-    const loose = roots.filter((r) => r.kind !== 'zone').sort((a, b) => weigh(b) - weigh(a) || t(b) - t(a));
+    const zones = roots.filter(isBranch).sort((a, b) => weigh(b) - weigh(a));
+    const loose = roots.filter((r) => !isBranch(r)).sort((a, b) => weigh(b) - weigh(a) || t(b) - t(a));
     if (words.length) {
       // Buscando, manda la relevancia: lo suelto entra entre las ramas según su puntuación.
       const all = [...zones, ...loose].sort((a, b) => weigh(b) - weigh(a));
       for (const r of all) {
         out.push({ row: r, title: titleOf(r), score: score.get(r.id) ?? 0, path: '', depth: 0 });
-        if (r.kind === 'zone') walk(r.id, 1, titleOf(r));
+        if (isBranch(r)) walk(r.id, 1, titleOf(r));
       }
     } else {
       for (const z of zones) {
@@ -154,7 +161,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
       for (const r of loose) out.push({ row: r, title: titleOf(r), score: 0, path: '', depth: 0 });
     }
     return out;
-  }, [rows, words, route]);
+  }, [rows, words, route, parent, branches]);
 
   // Buscando, el cursor empieza en la primera coincidencia, no en su sección.
   useEffect(() => {
@@ -186,11 +193,11 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
   const pathOf = (r: NoteRow) => {
     const names: string[] = [];
     const seen = new Set<string>();
-    for (let z = r.zoneId ? byId.get(r.zoneId) : undefined; z && !seen.has(z.id); z = z.zoneId ? byId.get(z.zoneId) : undefined) {
+    for (let z = byId.get(parent.get(r.id) ?? ''); z && !seen.has(z.id); z = byId.get(parent.get(z.id) ?? '')) {
       seen.add(z.id);
       names.unshift(z.title ?? '');
     }
-    return names.map((n) => `${n}>`).join('') + (r.title ?? '') + (r.kind === 'zone' ? '>' : '');
+    return names.map((n) => `${n}>`).join('') + (r.title ?? '') + (branches.has(r.id) ? '>' : '');
   };
 
   // Con ruta, Enter crea salvo que lo señalado se llame justo así.
@@ -206,7 +213,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
       return;
     }
     if (cur) {
-      if (cur.row.kind === 'zone') onSection(cur.row.id);
+      if (branches.has(cur.row.id)) onSection(cur.row.id);
       else onOpen(cur.row.id);
     } else if (query.trim()) {
       onCreate(query.trim());
@@ -282,7 +289,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
               key={h.row.id}
               role="option"
               aria-selected={here}
-              className={`focus-item${here ? ' is-here' : ''} focus-kind-${h.row.kind}${h.row.status === 'done' ? ' is-done' : ''}${words.length && !h.score ? ' is-context' : ''}`}
+              className={`focus-item${here ? ' is-here' : ''} focus-kind-${branches.has(h.row.id) ? 'zone' : h.row.kind}${h.row.status === 'done' ? ' is-done' : ''}${words.length && !h.score ? ' is-context' : ''}`}
               style={{
                 transform: `translate(-50%, calc(-50% + ${d * STEP}px)) scale(${Math.max(0.55, 1 - a * 0.07)})`,
                 opacity: Math.max(0, 1 - a * 0.14),
@@ -294,7 +301,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
               <span className="focus-title">
                 <Marked text={h.title} words={words} />
               </span>
-              {here && h.row.kind !== 'zone' && h.row.kind !== 'canvas' && h.row.bodyText && (
+              {here && !branches.has(h.row.id) && h.row.kind !== 'canvas' && h.row.bodyText && (
                 <span className="focus-meta">
                   {h.row.bodyText && (
                     <span className="focus-snippet">
@@ -325,9 +332,9 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
 
 // «Enter crea «Templos» en Viaje a Japón › Qué ver (nueva)».
 function whereText(route: { found: NoteRow[]; missing: string[] }, title: string) {
-  const parts = [...route.found.map((z) => z.title || 'Sección sin nombre'), ...route.missing.map((n) => `${n} (nueva)`)];
+  const parts = [...route.found.map((z) => z.title || 'Nota sin título'), ...route.missing.map((n) => `${n} (nueva)`)];
   const where = parts.length ? parts.join(' › ') : 'la raíz';
   if (title) return `Enter crea «${title}» en ${where}`;
-  if (route.missing.length) return `Enter crea la sección ${where}`;
+  if (route.missing.length) return `Enter crea ${where}`;
   return `Enter entra en ${where}`;
 }

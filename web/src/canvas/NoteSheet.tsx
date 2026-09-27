@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
 import type { OpenFrom } from './fluid';
@@ -82,15 +82,24 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
   const leaving = useRef(false);
   const [moving, setMoving] = useState(false);
   const where = sections.find((o) => o.id === note.zoneId)?.path ?? null;
+  // Ella y todo lo que cuelga de ella: no puede ir dentro de sí misma.
+  const family = useMemo(() => {
+    const out = new Set([note.id]);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const r of rows) if (r.zoneId && out.has(r.zoneId) && !out.has(r.id)) grew = !!out.add(r.id);
+    }
+    return out;
+  }, [rows, note.id]);
   const isCanvas = note.kind === 'canvas';
   const whereButton = (
-    <button className="sheet-where meta" onClick={() => setMoving(true)} title="Mover a otra sección">
+    <button className="sheet-where meta" onClick={() => setMoving(true)} title="Mover dentro de otra nota">
       {where ? where.split(' › ').map((p, i) => (
         <span key={i}>
           {i > 0 && <span className="sheet-where-sep">›</span>}
           {p}
         </span>
-      )) : <span>Sin sección</span>}
+      )) : <span>Arriba del todo</span>}
       <span className="sheet-where-move">Mover</span>
     </button>
   );
@@ -214,6 +223,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
         <SectionPicker
           options={sections}
           current={note.zoneId}
+          exclude={family}
           onPick={(zoneId) => {
             setMoving(false);
             onMove(zoneId);

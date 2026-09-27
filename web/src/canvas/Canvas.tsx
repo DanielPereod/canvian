@@ -5,7 +5,7 @@ import type { NoteContent } from './NoteSheet';
 import { CommandPalette } from './CommandPalette';
 import { useExperiments } from '../lab/experiments';
 import { SectionMap, type MapAction } from './SectionMap';
-import { buildTree, findPath, rectOf, type MapNode, type Rect } from './sections';
+import { buildTree, findPath, noteIdOf, parentMap, rectOf, type MapNode, type Rect } from './sections';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { NoteSheet } from './NoteSheet';
@@ -27,7 +27,6 @@ import { actionFor, keysBlocked } from '../keys';
 export type Link = { id: string; source: string; target: string };
 
 const NOTE_W = 240;
-const ZONE_SIZE = { w: 480, h: 320 };
 // X avanza; una tarea bloqueada vuelve a pendiente al desbloquearla.
 const NEXT: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', blocked: 'todo', done: 'todo' };
 const now = () => new Date().toISOString();
@@ -80,7 +79,7 @@ export function Canvas({ profile }: { profile: Profile }) {
   const mapPath = useRef<string[]>([]);
 
   // La linterna: qué notas quedan con luz.
-  const notes = useMemo(() => rows.filter((r) => r.kind !== 'zone'), [rows]);
+  const notes = rows;
   const lens = useMemo(() => (lamp ? parseLens(lamp, { defs, notes: rows, links }) : null), [lamp, rows, links, defs]);
   const litKey = useMemo(() => (lens?.test ? notes.filter((r) => lens.test!(r)).map((r) => r.id).join(' ') : null), [lens, notes]);
   const lit = useMemo(() => (litKey === null ? null : new Set(litKey.split(' ').filter(Boolean))), [litKey]);
@@ -251,14 +250,14 @@ export function Canvas({ profile }: { profile: Profile }) {
   // ── El árbol del mapa y lo que se hace desde él ─────────────────────
   const tree = useMemo(() => buildTree(rows, links), [rows, links]);
 
-  // La sección en la que estás (o null en la raíz).
+  // La nota madre en la que estás (o null en la raíz).
   const currentZone = (): NoteRow | null => {
     const path = findPath(tree, mapPath.current.at(-1) ?? 'root') ?? [tree];
     const zoneId = [...path].reverse().find((n) => n.kind === 'zone')?.id;
     return zoneId ? (rowsRef.current.find((r) => r.id === zoneId) ?? null) : null;
   };
 
-  // Hueco para algo nuevo en una sección: dentro de su rectángulo o, en la
+  // Hueco para algo nuevo dentro de una nota madre: junto a ella o, en la
   // raíz, a un lado de todo lo demás.
   const spotFor = (zoneId: string | null) => {
     const zone = zoneId ? rowsRef.current.find((r) => r.id === zoneId) : null;
@@ -296,16 +295,40 @@ export function Canvas({ profile }: { profile: Profile }) {
   // Desde Foco, «Padre>Hijo>Nota»: crea las secciones que falten y la nota dentro.
   const newAtPath = (zoneId: string | null, sections: string[], title: string) => {
     let parent = zoneId;
-    for (const name of sections) parent = createNote(spotFor(parent), 'zone', { zoneId: parent, title: name, ...ZONE_SIZE }).id;
+    for (const name of sections) parent = titled(parent, name).id;
     if (title) newNote(parent, title);
   };
 
+  // Nota con solo un título, en negrita como primera línea (las madres que se crean por el camino).
+  const titled = (zoneId: string | null, title: string) => {
+    const row = createNote(spotFor(zoneId), 'text', { zoneId });
+    const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', marks: [{ type: 'bold' }], text: title }] }] });
+    saveContent(row.id, { bodyJson, bodyText: title, title: title.slice(0, 120) });
+    return row;
+  };
+
+  // Nota nueva con nombre dentro de otra (vista de ordenar).
   const newSection = (zoneId: string | null) => {
-    const row = createNote(spotFor(zoneId), 'zone', { zoneId, ...ZONE_SIZE });
+    const row = createNote(spotFor(zoneId), 'text', { zoneId });
     setRenaming({ id: row.id, title: '' });
   };
 
-  const rename = (id: string, title: string) => updateNote(id, { title: title.trim() || null });
+  // El título de una nota es su primera línea: renombrar cambia esa línea.
+  const rename = (id: string, title: string) => {
+    const row = rowsRef.current.find((r) => r.id === id);
+    const t = title.trim();
+    if (!row) return;
+    if (row.kind === 'canvas') return updateNote(id, { title: t || null });
+    const doc = parseBody(row.bodyJson) ?? { type: 'doc', content: [] };
+    const content = [...(doc.content ?? [])];
+    const first = content[0];
+    const marks = first?.content?.[0]?.marks;
+    const line = t ? [{ type: 'text', text: t, ...(marks ? { marks } : {}) }] : [];
+    if (first && (first.type === 'paragraph' || first.type === 'heading')) content[0] = { ...first, content: line };
+    else content.unshift({ type: 'paragraph', content: line });
+    const rest = (row.bodyText ?? '').split('\n').slice(row.title ? 1 : 0);
+    saveContent(id, { bodyJson: JSON.stringify({ ...doc, content }), bodyText: [t, ...rest].join('\n').trim(), title: t ? t.slice(0, 120) : null });
+  };
 
   // Mover a otra sección: cambia su madre y su sitio dentro de ella.
   const moveTo = (id: string, zoneId: string | null) => {
@@ -336,18 +359,19 @@ export function Canvas({ profile }: { profile: Profile }) {
   };
 
   const onAction = (action: MapAction, node: MapNode) => {
-    const row = rowsRef.current.find((r) => r.id === node.id);
+    const row = node.note ? rowsRef.current.find((r) => r.id === noteIdOf(node)) : undefined;
     if (action === 'create') newNote(node.zoneId);
     else if (action === 'createCanvas') newCanvas(node.zoneId);
-    else if (action === 'section') newSection(node.zoneId);
+    // Nota nueva dentro de la señalada (o de donde estás).
+    else if (action === 'section') newNote(row ? row.id : node.zoneId);
     else if (!row) return;
     // Un canvas solo cambia de tipo desde Propiedades: T aplanaría su lienzo.
-    else if (action === 'task' && row.kind !== 'zone' && row.kind !== 'canvas') toggleTask(row);
+    else if (action === 'task' && row.kind !== 'canvas') toggleTask(row);
     else if (action === 'status') cycleStatus(row.id);
     else if (action === 'block') toggleBlocked(row.id);
-    else if (action === 'props' && row.kind !== 'zone') setInspectId(row.id);
+    else if (action === 'props') setInspectId(row.id);
     else if (action === 'delete') removeNotes([row.id]);
-    else if (action === 'rename' && row.kind === 'zone') setRenaming({ id: row.id, title: row.title ?? '' });
+    else if (action === 'rename') setRenaming({ id: row.id, title: row.title ?? '' });
   };
 
   // Desde Configuración también se llega a la vista de ordenar.
@@ -495,7 +519,6 @@ export function Canvas({ profile }: { profile: Profile }) {
       nodes: rowsRef.current.map((r) => {
         const { x, y, w, h } = rectOf(r);
         const base = { id: r.id, x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) };
-        if (r.kind === 'zone') return { ...base, type: 'group', label: r.title ?? '' };
         const md = (r.kind === 'canvas' ? '' : docToMarkdown(parseBody(r.bodyJson))) || (r.bodyText ?? '');
         const box = r.kind === 'task' ? `- [${r.status === 'done' ? 'x' : ' '}] ` : '';
         return { ...base, type: 'text', text: box + md };
@@ -516,21 +539,18 @@ export function Canvas({ profile }: { profile: Profile }) {
     const ids = new Set(links.flatMap((l) => (l.source === focusId ? [l.target] : l.target === focusId ? [l.source] : [])));
     return rows.filter((r) => ids.has(r.id));
   }, [focusId, links, rows]);
-  // Todas las secciones con su ruta («Casa › Cocina»), para mover la nota abierta.
+  // Todas las notas con su ruta («Casa › Cocina»), como madres posibles al mover.
   const sectionOptions = useMemo(() => {
     const byId = new Map(rows.map((r) => [r.id, r]));
+    const parent = parentMap(rows);
     const pathOf = (r: NoteRow) => {
       const names: string[] = [];
-      const seen = new Set<string>();
-      for (let z: NoteRow | undefined = r; z && z.kind === 'zone' && !seen.has(z.id); z = z.zoneId ? byId.get(z.zoneId) : undefined) {
-        seen.add(z.id);
-        names.unshift(z.title || 'Sin nombre');
-      }
+      for (let z: NoteRow | undefined = r; z; z = byId.get(parent.get(z.id) ?? '')) names.unshift(z.title || 'Nota sin título');
       return names.join(' › ');
     };
-    const zones = rows.filter((r) => r.kind === 'zone').map((z) => ({ id: z.id as string | null, path: pathOf(z) }));
-    zones.sort((a, b) => a.path.localeCompare(b.path, 'es'));
-    return [{ id: null, path: 'Sin sección' }, ...zones];
+    const all = rows.map((z) => ({ id: z.id as string | null, path: pathOf(z) }));
+    all.sort((a, b) => a.path.localeCompare(b.path, 'es'));
+    return [{ id: null, path: 'Arriba del todo' }, ...all];
   }, [rows]);
   const inspected = inspectId ? (rows.find((r) => r.id === inspectId) ?? null) : null;
 
@@ -550,7 +570,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           <p className="display">
             Suelta tus <em>notas</em>
           </p>
-          <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la sección en la que estás</span>
+          <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la nota en la que estás</span>
         </div>
       )}
       {loaded && showFocus && (
@@ -591,7 +611,7 @@ export function Canvas({ profile }: { profile: Profile }) {
             <p className="display">
               Un lienzo en <em>calma</em>
             </p>
-            <span className="meta">N para la primera nota · G para una sección</span>
+            <span className="meta">N para la primera nota</span>
           </div>
         </div>
       )}
@@ -600,7 +620,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           initial={renaming.title}
           onDone={(title) => {
             const row = rowsRef.current.find((r) => r.id === renaming.id);
-            // Una sección nueva sin nombre no se queda.
+            // Una nota nueva sin nombre no se queda.
             if (!title.trim() && row && !row.title) removeNotes([row.id]);
             else if (title.trim() !== (row?.title ?? '')) rename(renaming.id, title);
             setRenaming(null);

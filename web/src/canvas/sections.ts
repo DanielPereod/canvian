@@ -1,13 +1,15 @@
 import type { NoteRow } from '../api';
 import { daysUntil } from './dates';
 
-// Mapa de secciones: todo el lienzo como un árbol. Las zonas son secciones,
-// una zona dibujada dentro de otra es su subsección y las notas son las hojas.
-// Cada nodo lleva una importancia que decide cuánto espacio ocupa.
+// Mapa de secciones: todas las notas como un árbol. Cualquier nota puede ser
+// madre de otras (`zoneId` es su madre); una nota con hijas se ve como una
+// sección en la que se entra, y las que no tienen hijas son las hojas. Cada
+// nodo lleva una importancia que decide cuánto espacio ocupa.
 
 export type Rect = { x: number; y: number; w: number; h: number };
 export type MapNode = {
   id: string;
+  // zone: una nota con hijas (se entra en ella); note: una hoja (se abre).
   kind: 'root' | 'zone' | 'group' | 'note';
   title: string;
   // Dónde está en el lienzo: sirve para conservar la disposición.
@@ -16,8 +18,9 @@ export type MapNode = {
   children: MapNode[];
   // Notas que hay dentro, contando las de las subsecciones.
   count: number;
-  // Zona en la que se crean las notas nuevas desde este nivel.
+  // Nota madre de las notas nuevas creadas desde este nivel.
   zoneId: string | null;
+  // La nota que representa (en una sección, la propia nota madre).
   note?: NoteRow;
 };
 
@@ -50,11 +53,38 @@ export function importanceOf(row: NoteRow, degree: number, now = Date.now()) {
 // Tamaño por defecto en el lienzo antiguo; solo sirve para colocar a los
 // hermanos unos respecto a otros.
 const NOTE_SIZE = { w: 240, h: 80 };
-const ZONE_SIZE = { w: 480, h: 320 };
-export const rectOf = (row: NoteRow): Rect => {
-  const d = row.kind === 'zone' ? ZONE_SIZE : NOTE_SIZE;
-  return { x: row.x, y: row.y, w: row.w ?? d.w, h: row.h ?? d.h };
-};
+export const rectOf = (row: NoteRow): Rect => ({ x: row.x, y: row.y, w: row.w ?? NOTE_SIZE.w, h: row.h ?? NOTE_SIZE.h });
+
+// Id de la celda con la que se abre una nota madre desde dentro de su sección.
+export const SELF = 'self:';
+export const noteIdOf = (n: MapNode) => n.note?.id ?? n.id;
+
+// Madre de cada nota; si apunta a algo que no existe (o formaría un ciclo), va a la raíz.
+export function parentMap(rows: NoteRow[]): Map<string, string | null> {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const out = new Map<string, string | null>();
+  for (const row of rows) {
+    let p = row.zoneId && row.zoneId !== row.id && byId.has(row.zoneId) ? row.zoneId : null;
+    const seen = new Set([row.id]);
+    for (let cur = p; cur; cur = byId.get(cur)?.zoneId ?? null) {
+      if (seen.has(cur)) {
+        p = null;
+        break;
+      }
+      seen.add(cur);
+      if (!byId.has(cur)) break;
+    }
+    out.set(row.id, p);
+  }
+  return out;
+}
+
+// Notas que tienen alguna hija.
+export function parentsOf(rows: NoteRow[]): Set<string> {
+  const out = new Set<string>();
+  for (const p of parentMap(rows).values()) if (p) out.add(p);
+  return out;
+}
 
 type Input = { row: NoteRow; rect: Rect };
 
@@ -66,32 +96,18 @@ export function buildTree(rows: NoteRow[], links: { source: string; target: stri
     degree.set(l.source, (degree.get(l.source) ?? 0) + 1);
     degree.set(l.target, (degree.get(l.target) ?? 0) + 1);
   }
-  const zoneIds = new Set(rows.filter((r) => r.kind === 'zone').map((r) => r.id));
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  const parentOf = (row: NoteRow) => {
-    const p = row.zoneId;
-    if (!p || p === row.id || !zoneIds.has(p)) return null;
-    // Un ciclo (A dentro de B dentro de A) se corta en la raíz.
-    const seen = new Set([row.id]);
-    for (let cur: string | null = p; cur; cur = byId.get(cur)?.zoneId ?? null) {
-      if (seen.has(cur)) return null;
-      seen.add(cur);
-      if (!zoneIds.has(cur)) break;
-    }
-    return p;
-  };
-  const zoneKids = new Map<string | null, Input[]>();
-  const noteKids = new Map<string | null, Input[]>();
+  const parent = parentMap(rows);
+  const kids = new Map<string | null, Input[]>();
   for (const row of rows) {
-    const map = row.kind === 'zone' ? zoneKids : noteKids;
-    const p = parentOf(row);
-    map.set(p, [...(map.get(p) ?? []), { row, rect: rectOf(row) }]);
+    const p = parent.get(row.id) ?? null;
+    kids.set(p, [...(kids.get(p) ?? []), { row, rect: rectOf(row) }]);
   }
+  const hasKids = (id: string) => (kids.get(id)?.length ?? 0) > 0;
 
   const noteNode = (it: Input): MapNode => ({
     id: it.row.id,
     kind: 'note',
-    title: it.row.title || 'Nota sin título',
+    title: it.row.title || (it.row.kind === 'task' ? 'Tarea sin título' : 'Nota sin título'),
     rect: it.rect,
     importance: importanceOf(it.row, degree.get(it.row.id) ?? 0),
     children: [],
@@ -144,41 +160,40 @@ export function buildTree(rows: NoteRow[], links: { source: string; target: stri
     return out;
   };
 
+  // Una nota con hijas: dentro, sus subsecciones, sus hojas y, si tiene
+  // algo escrito además del título, una celda para abrirla a ella.
   const zoneNode = (z: Input): MapNode => {
-    const subs = (zoneKids.get(z.row.id) ?? []).map(zoneNode);
-    const notes = (noteKids.get(z.row.id) ?? []).map(noteNode);
+    const inside = kids.get(z.row.id) ?? [];
+    const subs = inside.filter((it) => hasKids(it.row.id)).map(zoneNode);
+    const notes = inside.filter((it) => !hasKids(it.row.id)).map(noteNode);
+    const own = (z.row.bodyText ?? '').trim();
+    if (own && own !== (z.row.title ?? '').trim()) notes.unshift({ ...noteNode(z), id: SELF + z.row.id });
     const children = [...subs, ...group(notes, z.row.id, z.row.id, Math.max(4, MAX_PER_LEVEL - subs.length))];
     return {
       id: z.row.id,
       kind: 'zone',
-      title: z.row.title || 'Sin nombre',
+      title: z.row.title || 'Nota sin título',
       rect: z.rect,
       importance: sectionImportance(children),
       children,
-      count: children.reduce((t, c) => t + c.count, 0),
+      // Todo lo que cuelga de ella, a cualquier profundidad.
+      count: inside.length + subs.reduce((t, c) => t + c.count, 0),
       zoneId: z.row.id,
+      note: z.row,
     };
   };
 
-  const tops = (zoneKids.get(null) ?? []).map(zoneNode);
-  const loose = (noteKids.get(null) ?? []).map(noteNode);
+  const top = kids.get(null) ?? [];
+  const tops = top.filter((it) => hasKids(it.row.id)).map(zoneNode);
+  const loose = top.filter((it) => !hasKids(it.row.id)).map(noteNode);
+  // Arriba, muchas notas sueltas taparían las ramas: van juntas en «Sueltas».
   let children: MapNode[];
-  if (!tops.length) children = group(loose, null, 'root', MAX_PER_LEVEL);
-  else if (!loose.length) children = tops;
+  if (!tops.length || loose.length <= 6) children = [...tops, ...group(loose, null, 'root', Math.max(4, MAX_PER_LEVEL - tops.length))];
   else {
     const inner = group(loose, null, 'loose', MAX_PER_LEVEL);
     children = [
       ...tops,
-      {
-        id: 'loose',
-        kind: 'group',
-        title: 'Sin sección',
-        rect: bounds(loose.map((n) => n.rect)),
-        importance: sectionImportance(inner),
-        children: inner,
-        count: loose.length,
-        zoneId: null,
-      },
+      { id: 'loose', kind: 'group', title: 'Sueltas', rect: bounds(loose.map((n) => n.rect)), importance: sectionImportance(inner), children: inner, count: loose.length, zoneId: null },
     ];
   }
   return {
@@ -188,7 +203,7 @@ export function buildTree(rows: NoteRow[], links: { source: string; target: stri
     rect: bounds(children.map((c) => c.rect)),
     importance: 1,
     children,
-    count: children.reduce((t, c) => t + c.count, 0),
+    count: rows.length,
     zoneId: null,
   };
 }

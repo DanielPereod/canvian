@@ -1,24 +1,26 @@
 import { useState, type KeyboardEvent } from 'react';
 
-// Elegir a qué sección va una nota: todas las secciones del perfil con su
-// ruta, filtrables escribiendo, y «Sin sección».
+// Elegir dentro de qué nota va otra: todas las notas del perfil con su ruta,
+// filtrables escribiendo, y «Arriba del todo».
 
 export type SectionOption = { id: string | null; path: string };
 
 type Props = {
   options: SectionOption[];
   current: string | null;
+  // Las que no pueden ser madre (la propia nota y lo que cuelga de ella).
+  exclude?: Set<string>;
   onPick: (zoneId: string | null) => void;
   onClose: () => void;
 };
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-export function SectionPicker({ options, current, onPick, onClose }: Props) {
+export function SectionPicker({ options, current, exclude, onPick, onClose }: Props) {
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   const q = norm(query.trim());
-  const items = options.filter((o) => !q || norm(o.path).includes(q));
+  const items = options.filter((o) => !(o.id && exclude?.has(o.id)) && (!q || norm(o.path).includes(q)));
   const at = Math.min(cursor, Math.max(0, items.length - 1));
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -41,7 +43,7 @@ export function SectionPicker({ options, current, onPick, onClose }: Props) {
         <input
           className="field field-bare"
           autoFocus
-          placeholder="Mover a la sección…"
+          placeholder="Mover dentro de…"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -65,7 +67,7 @@ export function SectionPicker({ options, current, onPick, onClose }: Props) {
               {o.id === current && <span className="meta list-note">aquí está</span>}
             </li>
           ))}
-          {!items.length && <li className="list-item static">Ninguna sección se llama así.</li>}
+          {!items.length && <li className="list-item static">Ninguna nota se llama así.</li>}
         </ul>
       </div>
     </div>
