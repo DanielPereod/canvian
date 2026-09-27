@@ -5,7 +5,7 @@ import { api } from './api';
 // mapa). Se guarda en el servidor para todos los dispositivos, y en este
 // navegador para pintarlo bien desde el primer fotograma.
 
-export type ThemeId = 'jardin' | 'papel' | 'observatorio' | 'bloques' | 'piedras' | 'plano';
+export type ThemeId = 'jardin' | 'papel' | 'observatorio' | 'bloques' | 'piedras' | 'plano' | 'minimo';
 
 export const THEMES: { id: ThemeId; name: string; hint: string }[] = [
   { id: 'jardin', name: 'Jardín nocturno', hint: 'El de siempre: noche, luz del color del perfil' },
@@ -14,6 +14,7 @@ export const THEMES: { id: ThemeId; name: string; hint: string }[] = [
   { id: 'bloques', name: 'Bloques', hint: 'Brutalista: negro, hueso y amarillo' },
   { id: 'piedras', name: 'Piedras de río', hint: 'Arena cálida y piedras de colores suaves' },
   { id: 'plano', name: 'Plano', hint: 'Papel de plano azul con líneas blancas' },
+  { id: 'minimo', name: 'Mínimo', hint: 'Negro, grises y una letra sans; nada más' },
 ];
 
 const LOCAL = 'canvian:theme';

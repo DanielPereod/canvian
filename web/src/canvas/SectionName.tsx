@@ -16,7 +16,7 @@ export function SectionName({ initial, onDone }: { initial: string; onDone: (tit
         className="field field-bare"
         autoFocus
         value={title}
-        placeholder="Nombre de la sección"
+        placeholder="Nombre de la nota"
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') finish(title);

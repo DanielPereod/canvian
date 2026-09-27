@@ -312,8 +312,8 @@ function seedProfile(profileId: string, zones: Zone[], loose: string[], extraCou
   const placeZone = (zone: Zone, x: number, y: number, parentId: string | null): { w: number; h: number; hub: string | null } => {
     const zoneId = ulid();
     const updated = when(20);
-    const row: typeof notes.$inferInsert = { id: zoneId, profileId, kind: 'zone', title: zone.name, x, y, zoneId: parentId, props, createdAt: updated, updatedAt: updated };
-    // La zona va antes que lo que contiene para que se pinte debajo.
+    // Ya no hay zonas: la sección es una nota con su nombre, madre de lo que contiene.
+    const row: typeof notes.$inferInsert = { id: zoneId, profileId, kind: 'text', title: zone.name, ...doc(zone.name), x, y, zoneId: parentId, props, createdAt: updated, updatedAt: updated };
     noteRows.push(row);
 
     // Las notas en columnas, cada una bajo la anterior.
