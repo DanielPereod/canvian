@@ -17,6 +17,7 @@ export type ActionId =
   | 'rename'
   | 'toRoot'
   | 'tasks'
+  | 'organize'
   | 'lantern'
   | 'search'
   | 'profiles'
@@ -40,6 +41,7 @@ export const ACTIONS: KeyAction[] = [
   { id: 'rename', label: 'Renombrar la sección señalada', group: 'Mapa', key: 'r' },
   { id: 'toRoot', label: 'Volver a la raíz del mapa', group: 'Mapa', key: '1' },
   { id: 'tasks', label: 'Vista de tareas activas', group: 'Vistas y paneles', key: 'a' },
+  { id: 'organize', label: 'Ordenar notas en secciones', group: 'Vistas y paneles', key: 'o' },
   { id: 'lantern', label: 'Linterna (filtrar)', group: 'Vistas y paneles', key: 'f' },
   { id: 'search', label: 'Buscar o crear notas', group: 'Vistas y paneles', key: 'mod+k' },
   { id: 'profiles', label: 'Cambiar de perfil', group: 'Vistas y paneles', key: 'mod+shift+p' },
