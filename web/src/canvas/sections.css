@@ -604,3 +604,27 @@
 .tv-cal-task .tv-check svg { width: 9px; height: 9px; }
 .tv-cal-more { padding: 0 6px; font-size: 11px; color: var(--text-ghost); }
 @media (max-width: 760px) { .tv-cal-task span { display: none; } .tv-cal-task { padding: 2px; } }
+
+/* Tablero de tareas: una columna por estado; se arrastran de una a otra. */
+.tv-head-tools { display: flex; gap: var(--space-2); }
+.tv-board { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, minmax(170px, 1fr)); gap: var(--space-2); overflow-x: auto; padding-bottom: var(--space-3); }
+.tv-col { display: flex; flex-direction: column; min-height: 0; border-radius: 12px; background: color-mix(in oklab, var(--surface-sunken) 45%, transparent); border: 1px solid transparent; transition: border-color var(--dur-fast), background var(--dur-fast); }
+.tv-col.is-over { border-color: var(--line-strong); background: var(--accent-soft); }
+.tv-col-title { display: flex; align-items: baseline; gap: var(--space-2); margin: 0; padding: 10px 12px 6px; font-size: var(--text-sm); font-weight: 600; color: var(--text); }
+.tv-col-title::before { content: ''; align-self: center; width: 6px; height: 6px; border-radius: 999px; background: var(--text-ghost); }
+.tv-col-doing .tv-col-title::before { background: var(--accent-ink); }
+.tv-col-blocked .tv-col-title::before { background: var(--text-faint); border-radius: 1px; height: 2px; width: 8px; }
+.tv-col-done .tv-col-title { color: var(--text-muted); }
+.tv-col-list { flex: 1; min-height: 60px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 4px 8px 10px; }
+.tv-card { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; border-radius: 9px; background: var(--bg); border: 1px solid var(--line); cursor: grab; transition: border-color var(--dur-fast), transform var(--dur-fast), opacity var(--dur-fast); }
+.tv-card:hover { border-color: var(--line-strong); }
+.tv-card:active { cursor: grabbing; }
+.tv-card.is-cursor { border-color: var(--line-strong); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.tv-card-top { display: flex; align-items: flex-start; gap: 10px; }
+.tv-card-top .tv-check { margin-top: 2px; }
+.tv-card-title { flex: 1; min-width: 0; font-size: var(--text-sm); color: var(--text); line-height: 1.4; overflow-wrap: anywhere; }
+.tv-card.is-done .tv-card-title { color: var(--text-faint); text-decoration: line-through; text-decoration-color: var(--text-ghost); }
+.tv-card-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding-left: 26px; }
+.tv-card-meta .tv-where { max-width: 100%; }
+.tv-col-empty { margin: 4px 4px; color: var(--text-ghost); font-size: var(--text-xs); }
+@media (max-width: 760px) { .tv-board { grid-template-columns: repeat(4, 78vw); } .tv-card-meta .tv-where { display: inline; } }
