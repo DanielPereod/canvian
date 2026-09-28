@@ -195,17 +195,18 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
   const title = last.trim();
   const creating = !!route && !!title && !(cur && norm(cur.title) === norm(title));
 
-  const open = () => {
+  // Enter abre siempre la nota; Mayús Enter la deja en el esquema de nodos.
+  const open = (scheme = false) => {
+    const go = scheme ? onSection : onOpen;
     if (route && (creating || (!cur && !title))) {
       if (title) onCreatePath(route.zoneId, route.missing, title, tags);
-      else if (!route.missing.length && route.zoneId) onSection(route.zoneId);
+      else if (!route.missing.length && route.zoneId) go(route.zoneId);
       else if (route.missing.length) onCreatePath(route.zoneId, route.missing, '', tags);
       setQuery('');
       return;
     }
     if (cur) {
-      if (branches.has(cur.row.id)) onSection(cur.row.id);
-      else onOpen(cur.row.id);
+      go(cur.row.id);
     } else if (query.trim()) {
       onCreate(query.trim());
       setQuery('');
@@ -224,7 +225,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
       else if (e.key === 'ArrowUp') setCursor(Math.max(0, at - 1));
       else if (e.key === 'PageDown') setCursor(Math.min(hits.length - 1, at + 8));
       else if (e.key === 'PageUp') setCursor(Math.max(0, at - 8));
-      else if (e.key === 'Enter') open();
+      else if (e.key === 'Enter') open(e.shiftKey);
       else if (e.key === 'Tab' && !mod) {
         // Completa con lo señalado; una sección queda abierta con «>» para seguir.
         if (cur) setQuery(pathOf(cur.row));
@@ -323,7 +324,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
       </div>
       {route && creating && hits.length > 0 && <p className="meta focus-where">{routeText(route, title)}</p>}
       <p className="meta focus-foot">
-        {words.length ? `${hits.length} ${hits.length === 1 ? 'coincidencia' : 'coincidencias'} · ` : ''}↑↓ moverse · Tab completar · Enter abrir · {'>'} dentro de · Esc {query ? 'borrar' : 'cerrar'}
+        {words.length ? `${hits.length} ${hits.length === 1 ? 'coincidencia' : 'coincidencias'} · ` : ''}↑↓ moverse · Tab completar · Enter abrir · Mayús Enter esquema · {'>'} dentro de · Esc {query ? 'borrar' : 'cerrar'}
       </p>
     </div>
   );
