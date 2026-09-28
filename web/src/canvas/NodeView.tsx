@@ -36,6 +36,13 @@ const NODE_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'pro
 
 const ROLE_WORD: Record<Role, string> = { center: 'aquí', child: 'dentro de esta', link: 'enlazada', more: '', parent: 'nota madre', ancestor: 'más arriba', sibling: 'hermana' };
 
+const LEGEND_LINES: [Role, string][] = [
+  ['parent', 'madre'],
+  ['child', 'dentro'],
+  ['sibling', 'hermana'],
+  ['link', 'enlazada'],
+];
+
 // Curva suave entre dos puntos, en horizontal (ramas) o en vertical (enlaces).
 const bend = (x1: number, y1: number, x2: number, y2: number, horiz: boolean) =>
   horiz ? `M${x1} ${y1} C${(x1 + x2) / 2} ${y1} ${(x1 + x2) / 2} ${y2} ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2} ${x2} ${(y1 + y2) / 2} ${x2} ${y2}`;
@@ -153,16 +160,26 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
     });
     const parentNode = out.find((p) => p.role === 'parent');
 
-    // Hermanas: en columna bajo la madre, tenues (arriba queda su nombre).
+    // Las enlazadas se calculan antes: si una hermana también está enlazada,
+    // sale una sola vez, como enlazada (dice más).
+    const inChain = new Set(shown.map((c) => c.id));
+    const linkedIds = here
+      ? links
+          .flatMap((l) => (l.source === here.id ? [l.target] : l.target === here.id ? [l.source] : []))
+          .filter((id, i, all) => all.indexOf(id) === i && !inChain.has(id) && parent.get(id) !== here.id)
+      : [];
+    const linkedSet = new Set(linkedIds);
+
+    // Hermanas: en columna bajo la madre, tenues (su nombre queda debajo de la madre).
     if (parentNode) {
       const upId = parentNode.id;
       const pool = upId === 'root' ? (grouped ? rootBranches : rootKids) : upId === LOOSE ? rootLeaves : (kids.get(upId) ?? []);
       const sibs = pool
-        .filter((r) => r.id !== centerId)
+        .filter((r) => r.id !== centerId && !linkedSet.has(r.id))
         .sort((a, b) => weight(b) - weight(a))
         .slice(0, SIBLINGS);
       sibs.forEach((row, i) => {
-        out.push({ id: row.id, row, title: titleOf(row), role: 'sibling', x: parentNode.x, y: cy + 46 + i * 28, r: 3.5, kids: kidCount(row.id), ring: 2 });
+        out.push({ id: row.id, row, title: titleOf(row), role: 'sibling', x: parentNode.x, y: cy + 56 + i * 28, r: 3.5, kids: kidCount(row.id), ring: 2 });
       });
     }
 
@@ -192,15 +209,10 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
     if (rest > 0) out.push({ id: 'more', row: null, title: `y ${rest} más`, role: 'more', x: kx, y: cy + span / 2 + 44, r: 0, kids: 0, ring: 2 });
 
     // Enlazadas: en la columna de la derecha, marcadas como enlazadas.
-    const up = here ? (parent.get(here.id) ?? null) : null;
-    const linked = here
-      ? links
-          .flatMap((l) => (l.source === here.id ? [l.target] : l.target === here.id ? [l.source] : []))
-          .filter((id, i, all) => all.indexOf(id) === i && id !== up && !children.some((c) => c.id === id))
-          .map((id) => byId.get(id))
-          .filter((r): r is NoteRow => !!r)
-          .slice(0, 6)
-      : [];
+    const linked = linkedIds
+      .map((id) => byId.get(id))
+      .filter((r): r is NoteRow => !!r)
+      .slice(0, 6);
     // Sin hijas ocupan su columna; con hijas, siguen debajo tras un respiro.
     const top = visible.length ? cy + span / 2 + (rest > 0 ? 88 : 60) : cy - ((Math.min(linked.length, perCol) - 1) / 2) * 34;
     const room = Math.max(1, Math.floor((size.h - 60 - top) / 34) + 1);
@@ -341,7 +353,7 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
             if (!up) return null;
             d = `M${up.x} ${up.y} L${p.x} ${p.y}`;
           } else if (p.role === 'link') {
-            d = bend(centerNode.x, centerNode.y + centerNode.r, p.x, p.y - p.r - 2, false);
+            d = bend(centerNode.x + centerNode.r + 2, centerNode.y, p.x - p.r - 4, p.y, true);
           } else {
             const from = p.ring === 2 ? { x: p.x - 40, y: p.y } : { x: centerNode.x + centerNode.r + 2, y: centerNode.y };
             d = p.ring === 2 ? `M${from.x} ${p.y} L${p.x - p.r - 4} ${p.y}` : bend(from.x, from.y, p.x - p.r - 4, p.y, true);
@@ -354,7 +366,7 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
           const meta = task ? (p.row!.status === 'done' ? 'hecha' : p.row!.dueAt ? dueLabel(p.row!.dueAt) : '') : p.kids ? `${p.kids} dentro` : '';
           return (
             <g
-              key={p.id}
+              key={`${p.role}:${p.id}`}
               data-node={p.id}
               className={`nodes-node role-${p.role} ring-${p.ring}${p.kids ? ' has-kids' : ''}${task ? ' is-task' : ''}${p.row?.status === 'done' ? ' is-done' : ''}${focusOn === p.id ? ' on' : ''}${drag?.over === p.id ? ' drop' : ''}${dim(p) ? ' dim' : ''}${p.row?.archivedAt ? ' is-archived' : ''}`}
               style={{ transform: `translate(${p.x}px, ${p.y}px)` }}
@@ -390,7 +402,7 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
                   {p.title.length > 22 ? p.title.slice(0, 21) + '…' : p.title}
                 </text>
               ) : p.role === 'parent' || p.role === 'ancestor' ? (
-                <text className="nodes-title" y={-p.r - 12} textAnchor="middle">
+                <text className="nodes-title" y={p.r + 20} textAnchor="middle">
                   {p.title.length > 20 ? p.title.slice(0, 19) + '…' : p.title}
                 </text>
               ) : p.role === 'link' ? (
@@ -418,6 +430,35 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
           );
         })}
       </svg>
+      {/* Leyenda: qué relación dibuja cada trazo y qué es cada forma. */}
+      <div className="nodes-legend" aria-label="Leyenda">
+        {LEGEND_LINES.map(([role, name]) => (
+          <span key={role} className="nodes-legend-item">
+            <svg width="26" height="8" aria-hidden="true">
+              <path className={`nodes-line role-${role}`} d="M1 4 L25 4" />
+            </svg>
+            {name}
+          </span>
+        ))}
+        <span className="nodes-legend-item">
+          <svg width="12" height="12" aria-hidden="true">
+            <rect className="nodes-task" x="1.5" y="1.5" width="9" height="9" rx="2" />
+          </svg>
+          tarea
+        </span>
+        <span className="nodes-legend-item">
+          <svg width="14" height="14" aria-hidden="true">
+            <circle className="nodes-dot is-branch" cx="7" cy="7" r="6" />
+          </svg>
+          con notas dentro
+        </span>
+        <span className="nodes-legend-item">
+          <svg width="12" height="12" aria-hidden="true">
+            <circle className="nodes-dot" cx="6" cy="6" r="3.5" />
+          </svg>
+          nota
+        </span>
+      </div>
       <nav className="smap-crumbs">
         {crumbs.map((c, i) => (
           <span key={c.id ?? 'root'} className="smap-crumb-wrap">

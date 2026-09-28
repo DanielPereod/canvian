@@ -628,3 +628,10 @@
 .tv-card-meta .tv-where { max-width: 100%; }
 .tv-col-empty { margin: 4px 4px; color: var(--text-ghost); font-size: var(--text-xs); }
 @media (max-width: 760px) { .tv-board { grid-template-columns: repeat(4, 78vw); } .tv-card-meta .tv-where { display: inline; } }
+
+/* Leyenda de la vista de nodos, abajo a la izquierda. */
+.nodes-legend { position: absolute; left: var(--space-5); bottom: var(--space-4); display: grid; grid-template-columns: repeat(4, auto); gap: 6px 16px; font-size: 11px; color: var(--text-faint); pointer-events: none; animation: tasks-in 900ms 300ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.nodes-legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.nodes-legend-item svg { flex: none; overflow: visible; }
+.nodes-legend .nodes-line { animation: none; }
+@media (max-width: 760px) { .nodes-legend { grid-template-columns: repeat(2, auto); left: var(--space-3); } }
