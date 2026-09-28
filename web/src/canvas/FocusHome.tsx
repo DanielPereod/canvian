@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NoteRow } from '../api';
 import { parentMap, pathText, resolvePath, routeText } from './sections';
 import { FROM_PALETTE } from '../ActionPalette';
+import { splitTags } from './tags';
 
 // Experimento «Foco»: en vez del mapa, una sola lista en el centro que se
 // funde arriba y abajo. Sin escribir, lo último que tocaste; al teclear,
@@ -14,8 +15,10 @@ type Props = {
   onSection: (id: string) => void;
   onCreate: (text: string) => void;
   // Crear con ruta «Padre>Hijo>Nota»: las secciones que falten, dentro de `zoneId`, y la nota al final.
-  onCreatePath: (zoneId: string | null, sections: string[], title: string) => void;
+  onCreatePath: (zoneId: string | null, sections: string[], title: string, tags: string[]) => void;
   onMap: () => void;
+  // Cerrándose: se funde mientras los nodos vuelven.
+  leaving?: boolean;
   // La nota señalada: Ctrl G la pone en el centro de la vista de nodos.
   onCursor?: (id: string | null) => void;
 };
@@ -63,12 +66,14 @@ function Marked({ text, words }: { text: string; words: string[] }) {
   return <>{parts.map((p, i) => (p.m ? <mark key={i}>{p.t}</mark> : <span key={i}>{p.t}</span>))}</>;
 }
 
-export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreatePath, onMap, onCursor }: Props) {
+export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreatePath, onMap, onCursor, leaving }: Props) {
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   // «Padre>Hijo>texto»: los tramos antes del último «>» son secciones y lo
   // último es lo que se busca (o el título de la nota nueva).
-  const segs = query.split('>');
+  // «#etiqueta» no cuenta para buscar ni para la ruta: se pone a la nota nueva.
+  const { text: bare, tags } = splitTags(query);
+  const segs = bare.split('>');
   const last = segs[segs.length - 1];
   const prefixKey = segs.slice(0, -1).join('>');
   const words = useMemo(() => norm(last).split(/\s+/).filter(Boolean), [last]);
@@ -192,9 +197,9 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
 
   const open = () => {
     if (route && (creating || (!cur && !title))) {
-      if (title) onCreatePath(route.zoneId, route.missing, title);
+      if (title) onCreatePath(route.zoneId, route.missing, title, tags);
       else if (!route.missing.length && route.zoneId) onSection(route.zoneId);
-      else if (route.missing.length) onCreatePath(route.zoneId, route.missing, '');
+      else if (route.missing.length) onCreatePath(route.zoneId, route.missing, '', tags);
       setQuery('');
       return;
     }
@@ -239,6 +244,13 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
     return () => window.removeEventListener('keydown', onKey, true);
   });
 
+  // Al abrirse, las filas suben en cascada desde la señalada.
+  const [entering, setEntering] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setEntering(false), 1100);
+    return () => clearTimeout(t);
+  }, []);
+
   // La rueda también mueve la lista, de una en una.
   const wheel = useRef(0);
   const onWheel = (e: React.WheelEvent) => {
@@ -253,7 +265,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
   const hi = Math.min(hits.length, Math.ceil(pos) + SPAN + 1);
 
   return (
-    <div className="focus-home" onWheel={onWheel}>
+    <div className={`focus-home${entering ? ' is-entering' : ''}${leaving ? ' is-leaving' : ''}`} onWheel={onWheel}>
       <div className={`focus-query${query ? ' has-text' : ''}`} aria-live="polite">
         {query ? (
           <>
@@ -280,6 +292,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
                 transform: `translate(-50%, calc(-50% + ${d * STEP}px)) scale(${Math.max(0.55, 1 - a * 0.07)})`,
                 opacity: Math.max(0, 1 - a * 0.14),
                 '--depth': h.depth,
+                '--in': `${Math.min(a, 9) * 45}ms`,
               } as React.CSSProperties}
               onClick={() => (here ? open() : setCursor(i))}
             >
@@ -310,7 +323,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
       </div>
       {route && creating && hits.length > 0 && <p className="meta focus-where">{routeText(route, title)}</p>}
       <p className="meta focus-foot">
-        {words.length ? `${hits.length} ${hits.length === 1 ? 'coincidencia' : 'coincidencias'} · ` : ''}↑↓ moverse · Tab completar · Enter abrir · {'>'} dentro de · Esc {query ? 'borrar' : 'mapa'}
+        {words.length ? `${hits.length} ${hits.length === 1 ? 'coincidencia' : 'coincidencias'} · ` : ''}↑↓ moverse · Tab completar · Enter abrir · {'>'} dentro de · Esc {query ? 'borrar' : 'cerrar'}
       </p>
     </div>
   );

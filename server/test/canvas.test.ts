@@ -118,6 +118,16 @@ describe('search', () => {
     expect(await data('GET', `/api/profiles/${personal}/search?q=`)).toHaveLength(2);
   });
 
+  it('keeps quick tasks out of search', async () => {
+    const quick = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, kind: 'quick', title: 'Comprar pan', bodyText: 'Comprar pan', status: 'todo' });
+    expect(quick).toMatchObject({ kind: 'quick', status: 'todo' });
+    await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, title: 'Pan de masa madre', bodyText: 'Pan de masa madre' });
+    expect((await data('GET', `/api/profiles/${personal}/search?q=pan`)).map((h: { title: string }) => h.title)).toEqual(['Pan de masa madre']);
+    expect(await data('GET', `/api/profiles/${personal}/search?q=`)).toHaveLength(1);
+    const { notes } = await data('GET', `/api/profiles/${personal}/canvas`);
+    expect(notes.some((n: { kind: string }) => n.kind === 'quick')).toBe(true);
+  });
+
   it('builds safe FTS queries', () => {
     expect(toFtsQuery('  hola  "mundo" ')).toBe('"hola"* "mundo"*');
     expect(toFtsQuery('   ')).toBeNull();
@@ -151,6 +161,14 @@ describe('properties', () => {
 });
 
 describe('lenses', () => {
+  it('stores tags as a list of words', async () => {
+    const def = await data('POST', `/api/profiles/${personal}/properties`, { name: 'Etiquetas', type: 'tags' });
+    expect(def).toMatchObject({ type: 'tags', options: [] });
+    const note = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, props: { [def.id]: ['test_tag', 'casa'] } });
+    expect(JSON.parse(note.props)).toEqual({ [def.id]: ['test_tag', 'casa'] });
+    expect((await call('PATCH', `/api/notes/${note.id}`, { props: { [def.id]: [''] } })).status).toBe(400);
+  });
+
   it('saves lenses with free shortcut slots and moves a slot when reassigned', async () => {
     const a = await data('POST', `/api/profiles/${personal}/lenses`, { name: 'Abiertas', query: 'tipo:tarea -hecha' });
     expect(a).toMatchObject({ name: 'Abiertas', mode: 'dim', slot: 1 });

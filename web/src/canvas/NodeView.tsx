@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NoteRow } from '../api';
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { importanceOf, parentMap } from './sections';
+import { daysUntil, dueLabel } from './dates';
 import type { MapAction } from './SectionMap';
 
 // Vista de nodos: una nota en el centro y, alrededor, lo que tiene que ver con
@@ -25,15 +26,47 @@ type Props = {
   onLeave?: () => void;
 };
 
-type Role = 'center' | 'child' | 'link' | 'more' | 'parent' | 'sibling';
+type Role = 'center' | 'child' | 'link' | 'more' | 'parent' | 'ancestor' | 'sibling';
 type Placed = { id: string; row: NoteRow | null; title: string; role: Role; x: number; y: number; r: number; kids: number; ring: 1 | 2 };
 
 export const LOOSE = 'loose';
-const RING1 = 18;
-const RING2 = 28;
 const SIBLINGS = 6;
 const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
 const NODE_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newSection'];
+
+const ROLE_WORD: Record<Role, string> = { center: 'aquí', child: 'dentro de esta', link: 'enlazada', more: '', parent: 'nota madre', ancestor: 'más arriba', sibling: 'hermana' };
+
+// Curva suave entre dos puntos, en horizontal (ramas) o en vertical (enlaces).
+const bend = (x1: number, y1: number, x2: number, y2: number, horiz: boolean) =>
+  horiz ? `M${x1} ${y1} C${(x1 + x2) / 2} ${y1} ${(x1 + x2) / 2} ${y2} ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2} ${x2} ${(y1 + y2) / 2} ${x2} ${y2}`;
+
+// El dibujo de cada nodo dice qué es: tarea (casilla), nota con notas dentro
+// (círculo con su cuenta) o nota sola (punto).
+function Glyph({ p }: { p: Placed }) {
+  const big = p.role === 'center';
+  if (p.row?.kind === 'task') {
+    const s = big ? 18 : 11;
+    const done = p.row.status === 'done';
+    return (
+      <>
+        <rect className={`nodes-task${done ? ' is-done' : ''}`} x={-s / 2} y={-s / 2} width={s} height={s} rx={3} />
+        {done && <path className="nodes-check" d={`M${-s * 0.25} 0 l${s * 0.18} ${s * 0.2} l${s * 0.32} ${-s * 0.4}`} />}
+      </>
+    );
+  }
+  if (p.kids > 0 && p.role !== 'sibling' && p.role !== 'ancestor') {
+    const r = (big ? 14 : 8) + Math.min(6, Math.sqrt(p.kids) * 1.6);
+    return (
+      <>
+        <circle className="nodes-dot is-branch" r={r} />
+        <text className="nodes-num" y={3.5} textAnchor="middle">
+          {p.kids}
+        </text>
+      </>
+    );
+  }
+  return <circle className="nodes-dot" r={big ? 9 : p.r} />;
+}
 
 const titleOf = (r: NoteRow) => r.title || (r.kind === 'task' ? 'Tarea sin título' : 'Nota sin título');
 
@@ -83,34 +116,82 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
   const here = center && center !== LOOSE ? (byId.get(center) ?? null) : null;
   const centerId = here ? here.id : center === LOOSE && grouped ? LOOSE : null;
 
-  // Qué se ve y dónde.
+  // Qué se ve y dónde, en árbol: la ruta de madres de izquierda a derecha,
+  // la nota en el centro y sus hijas en abanico a la derecha. Las hermanas
+  // cuelgan de la madre y las enlazadas, abajo, con arcos discontinuos.
   const placed = useMemo<Placed[]>(() => {
-    const cx = size.w / 2;
-    const cy = size.h / 2 + 20;
-    const R1 = Math.max(150, Math.min(size.w * 0.3, size.h * 0.34));
-    const R2 = R1 * 1.5;
     const out: Placed[] = [];
-    const radius = (r: NoteRow) => 5 + Math.min(9, Math.sqrt(kidCount(r.id)) * 2.4);
+    const cy = Math.round(size.h / 2);
+    const step = Math.max(90, Math.min(150, size.w * 0.12));
 
-    // El centro.
-    out.push({
-      id: centerId ?? 'root',
-      row: here,
-      title: here ? titleOf(here) : centerId === LOOSE ? 'Sueltas' : 'Todo',
-      role: 'center',
-      x: cx,
-      y: cy,
-      r: 13,
-      kids: here ? kidCount(here.id) : 0,
-      ring: 1,
+    // Ruta: «Todo» (y «Sueltas» si toca), las madres y la nota.
+    const chain: { id: string; row: NoteRow | null; title: string }[] = [{ id: 'root', row: null, title: 'Todo' }];
+    if (centerId === LOOSE) chain.push({ id: LOOSE, row: null, title: 'Sueltas' });
+    else if (here) {
+      const up: NoteRow[] = [];
+      for (let z: NoteRow | undefined = here; z; z = byId.get(parent.get(z.id) ?? '')) up.unshift(z);
+      if (grouped && up.length === 1 && !kidCount(here.id)) chain.push({ id: LOOSE, row: null, title: 'Sueltas' });
+      chain.push(...up.map((z) => ({ id: z.id, row: z, title: titleOf(z) })));
+    }
+    // Arriba del todo solo se ven las dos madres más cercanas; el resto está en las migas.
+    const shown = chain.slice(Math.max(0, chain.length - 3));
+    const cx = Math.round(Math.max(90 + (shown.length - 1) * step, size.w * 0.34));
+    shown.forEach((c, i) => {
+      const last = i === shown.length - 1;
+      const x = cx - (shown.length - 1 - i) * step;
+      out.push({
+        id: c.id,
+        row: c.row,
+        title: c.title,
+        role: last ? 'center' : i === shown.length - 2 ? 'parent' : 'ancestor',
+        x,
+        y: cy,
+        r: last ? 13 : 7,
+        kids: c.row ? kidCount(c.row.id) : c.id === LOOSE ? rootLeaves.length : rootKids.length,
+        ring: 1,
+      });
     });
+    const parentNode = out.find((p) => p.role === 'parent');
 
-    // Hijas (lo más importante primero) y enlazadas que no sean ya hijas.
+    // Hermanas: en columna bajo la madre, tenues (arriba queda su nombre).
+    if (parentNode) {
+      const upId = parentNode.id;
+      const pool = upId === 'root' ? (grouped ? rootBranches : rootKids) : upId === LOOSE ? rootLeaves : (kids.get(upId) ?? []);
+      const sibs = pool
+        .filter((r) => r.id !== centerId)
+        .sort((a, b) => weight(b) - weight(a))
+        .slice(0, SIBLINGS);
+      sibs.forEach((row, i) => {
+        out.push({ id: row.id, row, title: titleOf(row), role: 'sibling', x: parentNode.x, y: cy + 46 + i * 28, r: 3.5, kids: kidCount(row.id), ring: 2 });
+      });
+    }
+
+    // Hijas en abanico (lo más importante primero), en una o dos columnas.
     let children: NoteRow[];
     if (centerId === LOOSE) children = rootLeaves;
     else if (!here) children = grouped ? rootBranches : rootKids;
     else children = kids.get(here.id) ?? [];
     children = [...children].sort((a, b) => weight(b) - weight(a));
+    const ringItems: { row: NoteRow | null; id: string; title: string }[] = children.map((r) => ({ row: r, id: r.id, title: titleOf(r) }));
+    if (!here && centerId !== LOOSE && grouped) ringItems.push({ row: null, id: LOOSE, title: 'Sueltas' });
+    const perCol = Math.max(4, Math.floor((size.h - 170) / 40));
+    const kx = cx + Math.max(150, Math.min(220, size.w * 0.16));
+    const colW = Math.max(240, Math.min(320, size.w - kx - 60));
+    const cols = ringItems.length > perCol && kx + colW * 2 < size.w ? 2 : 1;
+    const fit = perCol * cols;
+    const visible = ringItems.slice(0, ringItems.length > fit ? fit - 1 : fit);
+    const rows = Math.ceil(visible.length / cols);
+    const span = Math.min(size.h - 170, Math.max(0, rows - 1) * 44);
+    visible.forEach((it, i) => {
+      const col = Math.floor(i / rows);
+      const k = i % rows;
+      const y = cy - span / 2 + (rows === 1 ? 0 : (span * k) / (rows - 1));
+      out.push({ id: it.id, row: it.row, title: it.title, role: 'child', x: kx + col * colW, y, r: it.row ? 5 : 7, kids: it.row ? kidCount(it.row.id) : rootLeaves.length, ring: col ? 2 : 1 });
+    });
+    const rest = ringItems.length - visible.length;
+    if (rest > 0) out.push({ id: 'more', row: null, title: `y ${rest} más`, role: 'more', x: kx, y: cy + span / 2 + 44, r: 0, kids: 0, ring: 2 });
+
+    // Enlazadas: en la columna de la derecha, marcadas como enlazadas.
     const up = here ? (parent.get(here.id) ?? null) : null;
     const linked = here
       ? links
@@ -118,54 +199,19 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
           .filter((id, i, all) => all.indexOf(id) === i && id !== up && !children.some((c) => c.id === id))
           .map((id) => byId.get(id))
           .filter((r): r is NoteRow => !!r)
+          .slice(0, 6)
       : [];
-    const ring: { row: NoteRow | null; role: Role; title?: string; id?: string }[] = children.map((row) => ({ row, role: 'child' as Role }));
-    if (!here && grouped) ring.push({ row: null, role: 'child', title: 'Sueltas', id: LOOSE });
-    ring.push(...linked.map((row) => ({ row, role: 'link' as Role })));
-
-    // Con madre arriba, el anillo deja libre la parte de arriba. Los ángulos
-    // se cuentan en vueltas desde arriba, en el sentido del reloj.
-    const hasUp = !!here;
-    const first = ring.slice(0, RING1);
-    const second = ring.slice(RING1, RING1 + RING2);
-    const rest = ring.length - first.length - second.length;
-    const arc = (i: number, n: number, rr: number, t0: number, t1: number) => {
-      const t = n === 1 ? (t0 + t1) / 2 : t0 + ((t1 - t0) * i) / (n - 1);
-      const a = t * Math.PI * 2 - Math.PI / 2;
-      return { x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr * 0.86 };
-    };
-    first.forEach((it, i) => {
-      const n = first.length;
-      const p = hasUp ? arc(i, n, R1, 0.16, 0.84) : arc(i, n, R1, 0.5 / n, 1 - 0.5 / n);
-      const id = it.id ?? it.row!.id;
-      out.push({ id, row: it.row, title: it.title ?? titleOf(it.row!), role: it.role, ...p, r: it.row ? radius(it.row) : 9, kids: it.row ? kidCount(it.row.id) : rootLeaves.length, ring: 1 });
+    // Sin hijas ocupan su columna; con hijas, siguen debajo tras un respiro.
+    const top = visible.length ? cy + span / 2 + (rest > 0 ? 88 : 60) : cy - ((Math.min(linked.length, perCol) - 1) / 2) * 34;
+    const room = Math.max(1, Math.floor((size.h - 60 - top) / 34) + 1);
+    linked.forEach((row, i) => {
+      const col = Math.floor(i / room);
+      const x = kx + col * colW;
+      out.push({ id: row.id, row, title: titleOf(row), role: 'link', x, y: top + (i % room) * 34, r: 4.5, kids: kidCount(row.id), ring: 1 });
     });
-    // Lo que no cabe, en un segundo anillo más tenue por abajo.
-    second.forEach((it, i) => {
-      const p = arc(i, second.length, R2, 0.3, 0.7);
-      out.push({ id: it.id ?? it.row!.id, row: it.row, title: it.title ?? titleOf(it.row!), role: it.role, ...p, r: 3.5, kids: it.row ? kidCount(it.row.id) : 0, ring: 2 });
-    });
-    if (rest > 0) out.push({ id: 'more', row: null, title: `y ${rest} más`, role: 'more', x: cx, y: cy + R2 * 0.86 + 44, r: 0, kids: 0, ring: 2 });
-
-    // Madre arriba y sus otras hijas (las hermanas) en un arco a su alrededor.
-    if (here) {
-      const upRow = up ? byId.get(up) : undefined;
-      const inLoose = !up && grouped && !kidCount(here.id);
-      const px = cx;
-      const py = cy - R1 * 0.88;
-      out.push({ id: upRow ? upRow.id : inLoose ? LOOSE : 'root', row: upRow ?? null, title: upRow ? titleOf(upRow) : inLoose ? 'Sueltas' : 'Todo', role: 'parent', x: px, y: py, r: 7, kids: 0, ring: 1 });
-      const sibs = (up ? (kids.get(up) ?? []) : inLoose ? rootLeaves : grouped ? rootBranches : rootKids)
-        .filter((r) => r.id !== here.id && !out.some((o) => o.id === r.id))
-        .sort((a, b) => weight(b) - weight(a))
-        .slice(0, SIBLINGS);
-      sibs.forEach((row, i) => {
-        const n = sibs.length;
-        // Un arco ancho y bajo por encima de la madre, con sitio para los nombres.
-        const a = Math.PI * (1.08 + (n === 1 ? 0.42 : (0.84 * i) / (n - 1)));
-        out.push({ id: row.id, row, title: titleOf(row), role: 'sibling', x: px + Math.cos(a) * R1 * 1.25, y: py + Math.sin(a) * R1 * 0.3, r: 3, kids: kidCount(row.id), ring: 2 });
-      });
-    }
-    return out;
+    // Siempre con el centro primero.
+    const c = out.findIndex((p) => p.role === 'center');
+    return [out[c], ...out.filter((_, i) => i !== c)];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size, centerId, here, kids, parent, links, byId, rows]);
 
@@ -209,13 +255,14 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
       } else if (action === 'toRoot') onCenter(null);
       else if (action === 'newNote') onAction('create', null, here ? here.id : null);
       else if (action === 'newSection') onAction('section', null, noteOf(target) ?? (here ? here.id : null));
-      else if (plain && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      else if (plain && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        // Arriba y abajo recorren las hijas (y después las enlazadas).
         if (!ringIds.length) return;
         const i = sel ? ringIds.indexOf(sel) : -1;
-        const d = e.key === 'ArrowRight' ? 1 : -1;
+        const d = e.key === 'ArrowDown' ? 1 : -1;
         setSel(ringIds[(i + d + ringIds.length) % ringIds.length]);
-      } else if (plain && e.key === 'ArrowUp') setSel(navigable.find((p) => p.role === 'parent')?.id ?? null);
-      else if (plain && e.key === 'ArrowDown') setSel(ringIds[0] ?? null);
+      } else if (plain && e.key === 'ArrowLeft') setSel(navigable.find((p) => p.role === 'parent')?.id ?? null);
+      else if (plain && e.key === 'ArrowRight') setSel(ringIds[0] ?? null);
       else if (plain && e.key === 'Enter') go(target ?? centerNode);
       else if (plain && (e.key === 'Escape' || e.key === 'Backspace')) {
         if (sel) setSel(null);
@@ -269,39 +316,47 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
 
   const dim = (p: Placed) => !!lit && !!p.row && !lit.has(p.row.id);
   const focusOn = hover ?? sel;
-  const snippet = here ? (here.bodyText ?? '').split('\n').slice(here.title ? 1 : 0).join(' ').replace(/\s+/g, ' ').trim().slice(0, 140) : '';
+  // Bajo el título del centro: cuánto contiene, sus tareas y sus enlaces.
+  const summary = (() => {
+    const inside = placed[0]?.kids ?? 0;
+    const tasks = here ? (kids.get(here.id) ?? []).filter((r) => r.kind === 'task') : [];
+    const doneN = tasks.filter((r) => r.status === 'done').length;
+    const linkN = placed.filter((p) => p.role === 'link').length;
+    return [inside && `${inside} dentro`, tasks.length && `${doneN}/${tasks.length} tareas`, linkN && `${linkN} enlazada${linkN > 1 ? 's' : ''}`].filter(Boolean).join(' · ');
+  })();
 
   return (
     <div ref={host} className={`nodes${drag ? ' dragging' : ''}${hide && lit ? ' hide-dim' : ''}`}>
       <svg className="nodes-svg" width={size.w} height={size.h}>
-        {/* Las líneas van por debajo: cada una se dibuja desde el centro con giro y largo, para que se anime. */}
-        {placed.map((p) => {
+        {/* Las ramas por debajo: cada relación con su trazo (madre, contiene, hermana, enlace). */}
+        {placed.map((p, i) => {
           if (p.role === 'center' || p.role === 'more') return null;
-          const from = p.role === 'sibling' ? placed.find((n) => n.role === 'parent')! : centerNode;
-          const dx = p.x - from.x;
-          const dy = p.y - from.y;
-          const len = Math.hypot(dx, dy);
-          const ang = (Math.atan2(dy, dx) * 180) / Math.PI;
-          return (
-            <line
-              key={`l:${p.id}`}
-              className={`nodes-line role-${p.role}${focusOn === p.id ? ' on' : ''}${dim(p) ? ' dim' : ''}${p.row?.archivedAt ? ' is-archived' : ''}`}
-              x1={0}
-              y1={0}
-              x2={1}
-              y2={0}
-              style={{ transform: `translate(${from.x}px, ${from.y}px) rotate(${ang}deg) scaleX(${len})` }}
-            />
-          );
+          let d: string;
+          if (p.role === 'parent' || p.role === 'ancestor') {
+            const next = placed.find((n) => n.y === p.y && n.x > p.x && (n.role === 'parent' || n.role === 'center') && n.x - p.x < 400 && n !== p);
+            if (!next) return null;
+            d = `M${p.x} ${p.y} L${next.x} ${next.y}`;
+          } else if (p.role === 'sibling') {
+            const up = placed.find((n) => n.role === 'parent');
+            if (!up) return null;
+            d = `M${up.x} ${up.y} L${p.x} ${p.y}`;
+          } else if (p.role === 'link') {
+            d = bend(centerNode.x, centerNode.y + centerNode.r, p.x, p.y - p.r - 2, false);
+          } else {
+            const from = p.ring === 2 ? { x: p.x - 40, y: p.y } : { x: centerNode.x + centerNode.r + 2, y: centerNode.y };
+            d = p.ring === 2 ? `M${from.x} ${p.y} L${p.x - p.r - 4} ${p.y}` : bend(from.x, from.y, p.x - p.r - 4, p.y, true);
+          }
+          return <path key={`l:${p.id}:${i}`} d={d} className={`nodes-line role-${p.role}${focusOn === p.id ? ' on' : ''}${dim(p) ? ' dim' : ''}${p.row?.archivedAt ? ' is-archived' : ''}`} />;
         })}
         {placed.map((p) => {
-          const right = p.x >= centerNode.x - 1;
-          const label = p.title.length > 38 ? p.title.slice(0, 37) + '…' : p.title;
+          const label = p.title.length > 34 ? p.title.slice(0, 33) + '…' : p.title;
+          const task = p.row?.kind === 'task';
+          const meta = task ? (p.row!.status === 'done' ? 'hecha' : p.row!.dueAt ? dueLabel(p.row!.dueAt) : '') : p.kids ? `${p.kids} dentro` : '';
           return (
             <g
               key={p.id}
               data-node={p.id}
-              className={`nodes-node role-${p.role} ring-${p.ring}${p.kids ? ' has-kids' : ''}${p.row?.kind === 'task' ? ' is-task' : ''}${p.row?.status === 'done' ? ' is-done' : ''}${focusOn === p.id ? ' on' : ''}${drag?.over === p.id ? ' drop' : ''}${dim(p) ? ' dim' : ''}`}
+              className={`nodes-node role-${p.role} ring-${p.ring}${p.kids ? ' has-kids' : ''}${task ? ' is-task' : ''}${p.row?.status === 'done' ? ' is-done' : ''}${focusOn === p.id ? ' on' : ''}${drag?.over === p.id ? ' drop' : ''}${dim(p) ? ' dim' : ''}${p.row?.archivedAt ? ' is-archived' : ''}`}
               style={{ transform: `translate(${p.x}px, ${p.y}px)` }}
               onMouseEnter={() => !drag && setHover(p.id)}
               onMouseLeave={() => !drag && setHover(null)}
@@ -314,36 +369,50 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
               onClick={() => !dragged.current && go(p)}
               onDoubleClick={() => p.row && onOpen(p.row.id)}
             >
+              <title>{`${p.title} · ${ROLE_WORD[p.role]}`}</title>
               {p.role !== 'more' && <circle className="nodes-hit" r={Math.max(p.r + 10, 16)} />}
-              {p.role !== 'more' && <circle className="nodes-dot" r={p.r} />}
+              {p.role !== 'more' && <Glyph p={p} />}
               {p.role === 'center' ? (
                 <>
-                  <text className="nodes-title center" y={p.r + 34} textAnchor="middle">
+                  <text className="nodes-title center" y={-p.r - 34} textAnchor="middle">
                     {label}
                   </text>
-                  {snippet && (
-                    <text className="nodes-snippet" y={p.r + 58} textAnchor="middle">
-                      {snippet.length > 90 ? snippet.slice(0, 89) + '…' : snippet}
-                    </text>
-                  )}
+                  <text className="nodes-snippet" y={-p.r - 14} textAnchor="middle">
+                    {summary}
+                  </text>
                 </>
               ) : p.role === 'more' ? (
-                <text className="nodes-title more" textAnchor="middle">
+                <text className="nodes-title more" x={-4}>
                   {label}
                 </text>
               ) : p.role === 'sibling' ? (
-                <text className="nodes-title" y={-p.r - 8} textAnchor="middle">
+                <text className="nodes-title" x={-p.r - 10} y={4} textAnchor="end">
+                  {p.title.length > 22 ? p.title.slice(0, 21) + '…' : p.title}
+                </text>
+              ) : p.role === 'parent' || p.role === 'ancestor' ? (
+                <text className="nodes-title" y={-p.r - 12} textAnchor="middle">
                   {p.title.length > 20 ? p.title.slice(0, 19) + '…' : p.title}
                 </text>
-              ) : p.role === 'parent' ? (
-                <text className="nodes-title" y={-p.r - 10} textAnchor="middle">
-                  {label}
-                </text>
+              ) : p.role === 'link' ? (
+                <>
+                  <text className="nodes-title" x={p.r + 10} y={0}>
+                    {p.title.length > 30 ? p.title.slice(0, 29) + '…' : p.title}
+                  </text>
+                  <text className="nodes-meta" x={p.r + 10} y={14}>
+                    enlazada
+                  </text>
+                </>
               ) : (
-                <text className="nodes-title" x={right ? p.r + 10 : -p.r - 10} y={4} textAnchor={right ? 'start' : 'end'}>
-                  {label}
-                  {p.kids > 0 && <tspan className="nodes-count"> {p.kids}</tspan>}
-                </text>
+                <>
+                  <text className="nodes-title" x={p.r + 10} y={meta ? 0 : 4}>
+                    {label}
+                  </text>
+                  {meta && (
+                    <text className={`nodes-meta${task && p.row!.status !== 'done' && p.row!.dueAt && daysUntil(p.row!.dueAt) < 0 ? ' is-late' : ''}`} x={p.r + 10} y={14}>
+                      {meta}
+                    </text>
+                  )}
+                </>
               )}
             </g>
           );

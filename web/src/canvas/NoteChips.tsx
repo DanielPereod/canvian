@@ -24,6 +24,10 @@ export function NoteChips({ note, defs, onOpen }: { note: NoteRow; defs: Propert
   for (const def of defs) {
     const v = props[def.id];
     if (v === undefined || v === null || v === '' || v === false) continue;
+    if (Array.isArray(v)) {
+      for (const t of v) chips.push({ key: `${def.id}:${t}`, text: `#${t}`, className: 'chip-option', style: { '--chip': hueOf(t) } as CSSProperties, title: def.name });
+      continue;
+    }
     if (def.type === 'select')
       chips.push({ key: def.id, text: String(v), className: 'chip-option', style: { '--chip': hueOf(String(v)) } as CSSProperties, title: def.name });
     else if (def.type === 'checkbox') chips.push({ key: def.id, text: `✓ ${def.name}` });

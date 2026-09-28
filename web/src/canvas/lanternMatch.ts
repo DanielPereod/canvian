@@ -1,4 +1,5 @@
 import { parseProps, type NoteRow, type PropertyDef } from '../api';
+import { tagsOf } from './tags';
 import { daysUntil } from './dates';
 
 type Test = (r: NoteRow) => boolean;
@@ -100,7 +101,8 @@ export function parseLens(query: string, ctx: LensContext): { test: Test | null;
       if (value.startsWith('#') && value.length > 1) {
         const tag = value.slice(1);
         const zones = new Set(ctx.notes.filter((n) => key(n.title ?? '').startsWith(tag)).map((n) => n.id));
-        test = (r) => textOf(r).words.some((w) => w.startsWith(value)) || (!!r.zoneId && zones.has(r.zoneId));
+        test = (r) =>
+          textOf(r).words.some((w) => w.startsWith(value)) || (!!r.zoneId && zones.has(r.zoneId)) || tagsOf(r, ctx.defs).some((t) => key(t).startsWith(tag));
         label = `#${tag}`;
       } else if (STATUS[value]) {
         // «hecha» o «-hecha» a secas se entienden como estado.
@@ -162,9 +164,10 @@ export function parseLens(query: string, ctx: LensContext): { test: Test | null;
       } else {
         test = (r) => {
           const v = parseProps(r.props)[def.id];
-          if (v === undefined || v === null || v === '' || v === false) return false;
+          if (v === undefined || v === null || v === '' || v === false || (Array.isArray(v) && !v.length)) return false;
           if (!value) return true;
           if (def.type === 'checkbox') return ['si', 'true', '1'].some((y) => y.startsWith(value));
+          if (Array.isArray(v)) return v.some((t) => fold(t).startsWith(value));
           return fold(String(v)).startsWith(value);
         };
         label = value ? `${def.name}: ${value}` : `con ${def.name}`;

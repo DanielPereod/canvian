@@ -18,6 +18,7 @@ import { hasMedia, isMedia, uploadMedia } from './media';
 import { emptyBoard, kindChange, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
 import { TasksView } from './TasksView';
+import { mergeTags, splitTags, tagsOf } from './tags';
 import { FocusHome } from './FocusHome';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
@@ -43,7 +44,12 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [allRows, setRows] = useState<NoteRow[]>([]);
   // Las archivadas (y lo que cuelga de ellas) no se ven salvo que se pidan.
   const [showArchived, setShowArchived] = useState(false);
-  const rows = useMemo(() => (showArchived ? allRows : visibleRows(allRows)), [allRows, showArchived]);
+  // Las tareas rápidas viven solo en la vista de tareas: fuera del mapa y de todo lo demás.
+  const quick = useMemo(() => allRows.filter((r) => r.kind === 'quick'), [allRows]);
+  const rows = useMemo(() => {
+    const notes = allRows.filter((r) => r.kind !== 'quick');
+    return showArchived ? notes : visibleRows(notes);
+  }, [allRows, showArchived]);
   const [links, setLinks] = useState<Link[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState<false | 'open' | 'link' | 'card'>(false);
@@ -66,10 +72,15 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const [dropping, setDropping] = useState(false);
   const { memoria, foco, celdas } = useExperiments();
-  // Con «Foco», la portada es la lista; el mapa se abre desde ella (Esc) y se
-  // vuelve con Esc desde la raíz del mapa.
-  const [mapOpen, setMapOpen] = useState(false);
-  const showFocus = foco && !mapOpen;
+  // Con «Foco», la lista es un menú que se abre con Ctrl P sobre los nodos,
+  // que se alejan tras un velo; al cerrarse, se funde antes de desaparecer.
+  const [listPhase, setListPhase] = useState<'closed' | 'open' | 'closing'>('closed');
+  const showFocus = foco && listPhase === 'open';
+  const openList = () => setListPhase('open');
+  const closeList = useCallback(() => {
+    setListPhase((p) => (p === 'open' ? 'closing' : p));
+    setTimeout(() => setListPhase((p) => (p === 'closing' ? 'closed' : p)), 320);
+  }, []);
   // Nota del centro en la vista de nodos (null: la raíz).
   const [center, setCenter] = useState<string | null>(null);
 
@@ -239,14 +250,14 @@ export function Canvas({ profile }: { profile: Profile }) {
   const toggleTask = (row: NoteRow) => updateNote(row.id, kindChange(row, row.kind === 'task' ? 'text' : 'task'));
   const cycleStatus = (id: string) => {
     const row = rowsRef.current.find((r) => r.id === id);
-    if (!row || row.kind !== 'task') return;
+    if (!row || (row.kind !== 'task' && row.kind !== 'quick')) return;
     const status = NEXT[row.status ?? 'todo'];
     updateNote(id, { status, doneAt: status === 'done' ? now() : null });
   };
 
   const toggleBlocked = (id: string) => {
     const row = rowsRef.current.find((r) => r.id === id);
-    if (!row || row.kind !== 'task') return;
+    if (!row || (row.kind !== 'task' && row.kind !== 'quick')) return;
     updateNote(id, { status: row.status === 'blocked' ? 'todo' : 'blocked', doneAt: null });
   };
 
@@ -291,8 +302,35 @@ export function Canvas({ profile }: { profile: Profile }) {
     setFocusId(id);
   };
 
-  const newNote = (zoneId: string | null, text?: string) => {
-    const row = createNote(spotFor(zoneId), 'text', { zoneId });
+  // La propiedad de etiquetas del perfil; si aún no hay ninguna, se crea «Etiquetas».
+  const defsRef = useRef(defs);
+  defsRef.current = defs;
+  const tagsDef = (): PropertyDef => {
+    const found = defsRef.current.find((d) => d.type === 'tags');
+    if (found) return found;
+    const def: PropertyDef = { id: ulid(), profileId: profile.id, name: 'Etiquetas', type: 'tags', options: [], position: defsRef.current.length };
+    defsRef.current = [...defsRef.current, def];
+    setDefs(defsRef.current);
+    api.createProperty(profile.id, { id: def.id, name: def.name, type: 'tags' }).catch(report);
+    return def;
+  };
+  // Props de una nota con estas etiquetas añadidas (y recordadas como sugerencias).
+  const withTags = (props: string | null | undefined, tags: string[]) => {
+    const def = tagsDef();
+    const known = mergeTags(def.options, tags);
+    if (known.length !== def.options.length) {
+      defsRef.current = defsRef.current.map((d) => (d.id === def.id ? { ...d, options: known } : d));
+      setDefs(defsRef.current);
+      api.updateProperty(def.id, { options: known }).catch(report);
+    }
+    const all = parseProps(props);
+    const had = Array.isArray(all[def.id]) ? (all[def.id] as string[]) : [];
+    return { ...all, [def.id]: mergeTags(had, tags) };
+  };
+
+  const newNote = (zoneId: string | null, raw?: string) => {
+    const { text, tags } = splitTags(raw ?? '');
+    const row = createNote(spotFor(zoneId), 'text', { zoneId, ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
     if (text) {
       const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
       saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
@@ -300,11 +338,30 @@ export function Canvas({ profile }: { profile: Profile }) {
     openNote(row.id);
   };
 
-  // Tarea nueva desde la vista de tareas: en la sección en la que estabas en el mapa.
-  const newTask = () => {
-    const zoneId = currentZone()?.id ?? null;
-    const row = createNote(spotFor(zoneId), 'task', { zoneId, status: 'todo' });
-    openNote(row.id);
+  // Tarea rápida desde la vista de tareas: solo un título, sin sitio en el mapa.
+  const newQuick = (raw: string, extra: { dueAt?: string } = {}) => {
+    const { text, tags } = splitTags(raw);
+    if (!text && !tags.length) return;
+    createNote({ x: 0, y: 0 }, 'quick', { title: text || null, status: 'todo', ...extra, ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
+  };
+  // Tarea con nota, dentro de `zoneId`, sin abrirla (desde la vista de tareas).
+  const newTaskIn = (raw: string, zoneId: string) => {
+    const { text, tags } = splitTags(raw);
+    if (!text) return;
+    const row = createNote(spotFor(zoneId), 'task', { zoneId, status: 'todo', ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
+    const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
+    saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
+  };
+  // Cambia las etiquetas de una nota (las de su propiedad de etiquetas).
+  const setTags = (row: NoteRow, tags: string[]) => {
+    const def = tagsDef();
+    const props = withTags(row.props, tags);
+    updateNote(row.id, { props: { ...props, [def.id]: tags } });
+  };
+  const editQuick = (id: string, raw: string) => {
+    const { text, tags } = splitTags(raw);
+    const row = rowsRef.current.find((r) => r.id === id);
+    updateNote(id, { title: text || row?.title || null, ...(tags.length ? { props: withTags(row?.props, tags) } : {}) });
   };
 
   const newCanvas = (zoneId: string | null) => {
@@ -313,10 +370,10 @@ export function Canvas({ profile }: { profile: Profile }) {
   };
 
   // Desde Foco, «Padre>Hijo>Nota»: crea las secciones que falten y la nota dentro.
-  const newAtPath = (zoneId: string | null, sections: string[], title: string) => {
+  const newAtPath = (zoneId: string | null, sections: string[], title: string, tags: string[] = []) => {
     let parent = zoneId;
     for (const name of sections) parent = titled(parent, name).id;
-    if (title) newNote(parent, title);
+    if (title) newNote(parent, [title, ...tags.map((t) => `#${t}`)].join(' '));
   };
 
   // Nota con solo un título, en negrita como primera línea (las madres que se crean por el camino).
@@ -392,7 +449,7 @@ export function Canvas({ profile }: { profile: Profile }) {
     setTasksOpen(false);
     setOrganizeOpen(false);
     setCenter(id);
-    setMapOpen(true);
+    closeList();
     if (celdas) toggleExperiment('celdas');
   };
 
@@ -404,7 +461,7 @@ export function Canvas({ profile }: { profile: Profile }) {
     const here = center && center !== LOOSE ? center : null;
     const from = nodesFrom.current;
     nodesFrom.current = null;
-    if (from === 'foco' || (!from && foco)) setMapOpen(false);
+    if (from === 'foco') openList();
     else if (here) openNote(here);
   };
 
@@ -484,7 +541,16 @@ export function Canvas({ profile }: { profile: Profile }) {
       }
       if (action === 'search' && (chord || !isTyping(e.target))) {
         e.preventDefault();
-        setPaletteOpen((o) => (o ? false : 'open'));
+        // Con Foco, Ctrl P abre y cierra la lista; sin él, el buscador.
+        if (foco && !paletteOpen) {
+          if (showFocus) closeList();
+          else {
+            setFocusId(null);
+            setTasksOpen(false);
+            setOrganizeOpen(false);
+            openList();
+          }
+        } else setPaletteOpen((o) => (o ? false : 'open'));
         return;
       }
       if (e.key === 'Escape' && inspectId) {
@@ -613,7 +679,7 @@ export function Canvas({ profile }: { profile: Profile }) {
 
   const exportCanvas = () => {
     const out = {
-      nodes: rowsRef.current.map((r) => {
+      nodes: rowsRef.current.filter((r) => r.kind !== 'quick').map((r) => {
         const { x, y, w, h } = rectOf(r);
         const base = { id: r.id, x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) };
         const md = (r.kind === 'canvas' ? '' : docToMarkdown(parseBody(r.bodyJson))) || (r.bodyText ?? '');
@@ -670,45 +736,53 @@ export function Canvas({ profile }: { profile: Profile }) {
           <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la nota en la que estás</span>
         </div>
       )}
-      {loaded && showFocus && (
+      {loaded && foco && listPhase !== 'closed' && !tasksOpen && !organizeOpen && (
         <FocusHome
           rows={rows}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen || !!inspectId}
-          onOpen={(id) => openNote(id)}
+          leaving={listPhase === 'closing'}
+          paused={listPhase !== 'open' || !!focusId || !!paletteOpen || !!renaming || !!inspectId}
+          onOpen={(id) => {
+            // La nota se abre y, detrás, los nodos se quedan en ella.
+            if (!celdas) setCenter(id);
+            closeList();
+            openNote(id);
+          }}
           onSection={(id) => {
             mapPath.current = (findPath(tree, id) ?? []).slice(1).map((n) => n.id);
             setCenter(id);
-            setMapOpen(true);
+            closeList();
           }}
-          onCreate={(text) => newNote(null, text)}
-          onCreatePath={newAtPath}
+          onCreate={(text) => {
+            closeList();
+            newNote(null, text);
+          }}
+          onCreatePath={(zoneId, sections, title, tags) => {
+            closeList();
+            newAtPath(zoneId, sections, title, tags);
+          }}
           onCursor={onFocoCursor}
-          onMap={() => {
-            mapPath.current = [];
-            setCenter(null);
-            setMapOpen(true);
-          }}
+          onMap={closeList}
         />
       )}
-      {loaded && !showFocus && !celdas && (
+      <div className={`home-layer${showFocus ? ' is-veiled' : ''}`}>
+      {loaded && !celdas && (
         <NodeView
           rows={rows}
           links={links}
           center={center}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
+          paused={showFocus || !!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
           onCenter={setCenter}
           onOpen={(id) => openNote(id)}
           onAction={act}
           onMove={moveTo}
           lit={lit}
           hide={mode === 'hide'}
-          onLeave={foco ? () => setMapOpen(false) : undefined}
         />
       )}
-      {loaded && !showFocus && celdas && (
+      {loaded && celdas && (
         <SectionMap
           tree={tree}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
+          paused={showFocus || !!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
           start={mapPath.current}
           onPath={(ids) => (mapPath.current = ids)}
           onOpen={openNote}
@@ -717,10 +791,9 @@ export function Canvas({ profile }: { profile: Profile }) {
           lit={lit}
           hide={mode === 'hide'}
           memoria={memoria}
-          onLeave={foco ? () => setMapOpen(false) : undefined}
         />
       )}
-      {loaded && !showFocus && celdas && rows.length === 0 && (
+      {loaded && celdas && rows.length === 0 && (
         <div className="empty-state">
           <div>
             <p className="display">
@@ -730,6 +803,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           </div>
         </div>
       )}
+      </div>
       {renaming && (
         <SectionName
           initial={renaming.title}
@@ -780,11 +854,11 @@ export function Canvas({ profile }: { profile: Profile }) {
           onClose={() => setPaletteOpen(false)}
         />
       )}
-      {loaded && !showFocus && !tasksOpen && !organizeOpen && (
+      {loaded && !tasksOpen && !organizeOpen && (
         <div className="chrome-top-right">
           <button className="surface-2 pill tasks-pill" onClick={() => setTasksOpen(true)} title="Todas las tareas activas">
             <span className="pill-name">Tareas</span>
-            <span className="meta">{rows.filter((r) => r.kind === 'task' && r.status !== 'done').length}</span>
+            <span className="meta">{[...rows, ...quick].filter((r) => (r.kind === 'task' || r.kind === 'quick') && r.status !== 'done').length}</span>
           </button>
         </div>
       )}
@@ -797,6 +871,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           onMove={moveMany}
           onNewSection={newSection}
           onClose={() => setOrganizeOpen(false)}
+          back={showFocus ? 'Lista' : 'Mapa'}
         />
       )}
       {tasksOpen && (
@@ -806,8 +881,17 @@ export function Canvas({ profile }: { profile: Profile }) {
           onOpen={(id) => openNote(id)}
           onCycle={cycleStatus}
           onBlock={toggleBlocked}
-          onNew={newTask}
+          quick={quick}
+          onAddQuick={newQuick}
+          onAddTask={newTaskIn}
+          onPatch={updateNote}
+          onRename={rename}
+          onSetTags={setTags}
+          onEditQuick={editQuick}
+          tagsOf={(r) => tagsOf(r, defs)}
+          onDeleteQuick={(id) => removeNotes([id])}
           onClose={() => setTasksOpen(false)}
+          back={showFocus ? 'Lista' : 'Mapa'}
         />
       )}
       {focused && (

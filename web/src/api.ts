@@ -13,7 +13,7 @@ export type Viewport = { x: number; y: number; zoom: number };
 
 export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
 
-export type NoteKind = 'text' | 'task' | 'canvas' | 'link' | 'image' | 'checklist' | 'code';
+export type NoteKind = 'text' | 'task' | 'quick' | 'canvas' | 'link' | 'image' | 'checklist' | 'code';
 
 export type NoteRow = {
   id: string;
@@ -48,8 +48,8 @@ export function parseProps(raw: string | null | undefined): Record<string, PropV
   }
 }
 
-export type PropertyType = 'text' | 'number' | 'select' | 'date' | 'checkbox' | 'url';
-export type PropValue = string | number | boolean | null;
+export type PropertyType = 'text' | 'number' | 'select' | 'tags' | 'date' | 'checkbox' | 'url';
+export type PropValue = string | number | boolean | null | string[];
 
 export type PropertyDef = {
   id: string;

@@ -22,6 +22,7 @@ const STATUSES: { id: TaskStatus; name: string }[] = [
 const TYPES: { id: PropertyType; name: string }[] = [
   { id: 'text', name: 'Texto' },
   { id: 'select', name: 'Opciones' },
+  { id: 'tags', name: 'Etiquetas' },
   { id: 'number', name: 'Número' },
   { id: 'date', name: 'Fecha' },
   { id: 'checkbox', name: 'Casilla' },
@@ -50,7 +51,7 @@ export function Inspector({ note, defs, profileId, onChange, onDefsChange, onErr
   const setProp = (def: PropertyDef, value: PropValue) => {
     if (!note) return;
     const { [def.id]: _old, ...rest } = parseProps(note.props);
-    const empty = value === null || value === '' || value === false;
+    const empty = value === null || value === '' || value === false || (Array.isArray(value) && !value.length);
     onChange(note.id, { props: empty ? rest : { ...rest, [def.id]: value } });
   };
 
@@ -297,6 +298,44 @@ function PropControl({
           />
         </div>
       );
+    case 'tags': {
+      // Varias a la vez: las puestas con ×, las conocidas para añadir con un clic.
+      const on = Array.isArray(value) ? value : [];
+      const has = (t: string) => on.some((o) => o.toLowerCase() === t.toLowerCase());
+      const add = (t: string) => {
+        const tag = t.replace(/^#/, '').trim();
+        if (!tag || has(tag)) return;
+        if (!def.options.some((o) => o.toLowerCase() === tag.toLowerCase())) onAddOption(tag);
+        onChange([...on, tag]);
+      };
+      return (
+        <div className="insp-options">
+          {on.map((t) => (
+            <button key={t} className="chip on" style={{ '--chip': hueOf(t) } as CSSProperties} onClick={() => onChange(on.filter((o) => o !== t))} title="Quitar">
+              #{t} ×
+            </button>
+          ))}
+          {def.options.filter((o) => !has(o)).map((o) => (
+            <button key={o} className="chip" style={{ '--chip': hueOf(o) } as CSSProperties} onClick={() => add(o)}>
+              #{o}
+            </button>
+          ))}
+          <input
+            className="insp-input insp-add-option"
+            value={adding}
+            placeholder={on.length || def.options.length ? '+ etiqueta' : 'Escribe una etiqueta…'}
+            onChange={(e) => setAdding(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.key === 'Enter' || e.key === ',') && adding.trim()) {
+                e.preventDefault();
+                add(adding);
+                setAdding('');
+              }
+            }}
+          />
+        </div>
+      );
+    }
     case 'number':
       return (
         <TextInput

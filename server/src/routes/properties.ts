@@ -5,9 +5,9 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { notes, profiles, propertyDefs } from '../db/schema.js';
 
-export const PROPERTY_TYPES = ['text', 'number', 'select', 'date', 'checkbox', 'url'] as const;
+export const PROPERTY_TYPES = ['text', 'number', 'select', 'tags', 'date', 'checkbox', 'url'] as const;
 
-const options = z.array(z.string().trim().min(1).max(60)).max(40);
+const options = z.array(z.string().trim().min(1).max(60)).max(300);
 const propertyCreate = z.object({
   id: z.string().min(10).max(40).optional(),
   name: z.string().trim().min(1).max(60),
