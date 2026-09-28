@@ -25,7 +25,7 @@ const noteFields = {
   archivedAt: z.string().max(40).nullable(),
   // Valores de las propiedades personalizadas, por id de propiedad.
   props: z
-    .record(z.string().max(40), z.union([z.string().max(2000), z.number(), z.boolean(), z.null()]))
+    .record(z.string().max(40), z.union([z.string().max(2000), z.number(), z.boolean(), z.null(), z.array(z.string().min(1).max(60)).max(40)]))
     .refine((p) => Object.keys(p).length <= 100)
     .transform((p) => JSON.stringify(p)),
 };

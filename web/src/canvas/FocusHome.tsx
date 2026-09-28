@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NoteRow } from '../api';
 import { parentMap, pathText, resolvePath, routeText } from './sections';
 import { FROM_PALETTE } from '../ActionPalette';
+import { splitTags } from './tags';
 
 // Experimento «Foco»: en vez del mapa, una sola lista en el centro que se
 // funde arriba y abajo. Sin escribir, lo último que tocaste; al teclear,
@@ -14,7 +15,7 @@ type Props = {
   onSection: (id: string) => void;
   onCreate: (text: string) => void;
   // Crear con ruta «Padre>Hijo>Nota»: las secciones que falten, dentro de `zoneId`, y la nota al final.
-  onCreatePath: (zoneId: string | null, sections: string[], title: string) => void;
+  onCreatePath: (zoneId: string | null, sections: string[], title: string, tags: string[]) => void;
   onMap: () => void;
   // Cerrándose: se funde mientras los nodos vuelven.
   leaving?: boolean;
@@ -70,7 +71,9 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
   const [cursor, setCursor] = useState(0);
   // «Padre>Hijo>texto»: los tramos antes del último «>» son secciones y lo
   // último es lo que se busca (o el título de la nota nueva).
-  const segs = query.split('>');
+  // «#etiqueta» no cuenta para buscar ni para la ruta: se pone a la nota nueva.
+  const { text: bare, tags } = splitTags(query);
+  const segs = bare.split('>');
   const last = segs[segs.length - 1];
   const prefixKey = segs.slice(0, -1).join('>');
   const words = useMemo(() => norm(last).split(/\s+/).filter(Boolean), [last]);
@@ -194,9 +197,9 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
 
   const open = () => {
     if (route && (creating || (!cur && !title))) {
-      if (title) onCreatePath(route.zoneId, route.missing, title);
+      if (title) onCreatePath(route.zoneId, route.missing, title, tags);
       else if (!route.missing.length && route.zoneId) onSection(route.zoneId);
-      else if (route.missing.length) onCreatePath(route.zoneId, route.missing, '');
+      else if (route.missing.length) onCreatePath(route.zoneId, route.missing, '', tags);
       setQuery('');
       return;
     }

@@ -241,6 +241,7 @@
 .tasks-prio { color: var(--accent-ink); letter-spacing: 2px; }
 .tasks-where { max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tasks-due.is-soon { color: var(--accent-ink); }
+.tasks-tag { color: var(--text-faint); white-space: nowrap; }
 .tasks-due.is-late { color: var(--danger, #f28b82); }
 @media (max-width: 640px) { .tasks-where { display: none; } .tasks-top { padding: var(--space-3) var(--space-4); } }
 

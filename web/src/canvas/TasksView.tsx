@@ -55,13 +55,14 @@ type Props = {
   onAddQuick: (title: string) => void;
   onEditQuick: (id: string, title: string) => void;
   onDeleteQuick: (id: string) => void;
+  tagsOf: (r: NoteRow) => string[];
   onClose: () => void;
   /** A dónde vuelve «←»: el mapa o la lista de Foco. */
   back: string;
   paused: boolean;
 };
 
-export function TasksView({ rows, quick, onOpen, onCycle, onBlock, onAddQuick, onEditQuick, onDeleteQuick, onClose, back, paused }: Props) {
+export function TasksView({ rows, quick, onOpen, onCycle, onBlock, onAddQuick, onEditQuick, onDeleteQuick, tagsOf, onClose, back, paused }: Props) {
   const { maduran } = useExperiments();
   const [grouping, setGrouping] = useState<TaskGrouping>(readGrouping);
   // El cursor sigue a la tarea aunque cambie de grupo; si desaparece, se queda en su sitio.
@@ -203,7 +204,7 @@ export function TasksView({ rows, quick, onOpen, onCycle, onBlock, onAddQuick, o
         <input
           ref={addRef}
           className="tasks-add"
-          placeholder="Añadir tarea…"
+          placeholder="Añadir tarea… (#etiqueta)"
           aria-label="Añadir tarea rápida"
           value={adding}
           onChange={(e) => setAdding(e.target.value)}
@@ -266,6 +267,7 @@ export function TasksView({ rows, quick, onOpen, onCycle, onBlock, onAddQuick, o
                       ×
                     </button>
                   )}
+                  {editing?.id !== r.id && tagsOf(r).map((t) => <span key={t} className="meta tasks-tag">#{t}</span>)}
                   {!!r.priority && <span className="tasks-prio" aria-label={`Prioridad ${r.priority}`}>{'•'.repeat(Math.min(3, r.priority))}</span>}
                   {where && <span className="meta tasks-where">{where}</span>}
                   {r.dueAt && <span className={`meta tasks-due${due! < 0 ? ' is-late' : due! <= 1 ? ' is-soon' : ''}`}>{dueLabel(r.dueAt)}</span>}

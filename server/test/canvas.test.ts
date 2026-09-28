@@ -161,6 +161,14 @@ describe('properties', () => {
 });
 
 describe('lenses', () => {
+  it('stores tags as a list of words', async () => {
+    const def = await data('POST', `/api/profiles/${personal}/properties`, { name: 'Etiquetas', type: 'tags' });
+    expect(def).toMatchObject({ type: 'tags', options: [] });
+    const note = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, props: { [def.id]: ['test_tag', 'casa'] } });
+    expect(JSON.parse(note.props)).toEqual({ [def.id]: ['test_tag', 'casa'] });
+    expect((await call('PATCH', `/api/notes/${note.id}`, { props: { [def.id]: [''] } })).status).toBe(400);
+  });
+
   it('saves lenses with free shortcut slots and moves a slot when reassigned', async () => {
     const a = await data('POST', `/api/profiles/${personal}/lenses`, { name: 'Abiertas', query: 'tipo:tarea -hecha' });
     expect(a).toMatchObject({ name: 'Abiertas', mode: 'dim', slot: 1 });

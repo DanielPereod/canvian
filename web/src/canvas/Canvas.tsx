@@ -18,6 +18,7 @@ import { hasMedia, isMedia, uploadMedia } from './media';
 import { emptyBoard, kindChange, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
 import { TasksView } from './TasksView';
+import { mergeTags, splitTags, tagsOf } from './tags';
 import { FocusHome } from './FocusHome';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
@@ -301,8 +302,35 @@ export function Canvas({ profile }: { profile: Profile }) {
     setFocusId(id);
   };
 
-  const newNote = (zoneId: string | null, text?: string) => {
-    const row = createNote(spotFor(zoneId), 'text', { zoneId });
+  // La propiedad de etiquetas del perfil; si aún no hay ninguna, se crea «Etiquetas».
+  const defsRef = useRef(defs);
+  defsRef.current = defs;
+  const tagsDef = (): PropertyDef => {
+    const found = defsRef.current.find((d) => d.type === 'tags');
+    if (found) return found;
+    const def: PropertyDef = { id: ulid(), profileId: profile.id, name: 'Etiquetas', type: 'tags', options: [], position: defsRef.current.length };
+    defsRef.current = [...defsRef.current, def];
+    setDefs(defsRef.current);
+    api.createProperty(profile.id, { id: def.id, name: def.name, type: 'tags' }).catch(report);
+    return def;
+  };
+  // Props de una nota con estas etiquetas añadidas (y recordadas como sugerencias).
+  const withTags = (props: string | null | undefined, tags: string[]) => {
+    const def = tagsDef();
+    const known = mergeTags(def.options, tags);
+    if (known.length !== def.options.length) {
+      defsRef.current = defsRef.current.map((d) => (d.id === def.id ? { ...d, options: known } : d));
+      setDefs(defsRef.current);
+      api.updateProperty(def.id, { options: known }).catch(report);
+    }
+    const all = parseProps(props);
+    const had = Array.isArray(all[def.id]) ? (all[def.id] as string[]) : [];
+    return { ...all, [def.id]: mergeTags(had, tags) };
+  };
+
+  const newNote = (zoneId: string | null, raw?: string) => {
+    const { text, tags } = splitTags(raw ?? '');
+    const row = createNote(spotFor(zoneId), 'text', { zoneId, ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
     if (text) {
       const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
       saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
@@ -311,7 +339,16 @@ export function Canvas({ profile }: { profile: Profile }) {
   };
 
   // Tarea rápida desde la vista de tareas: solo un título, sin sitio en el mapa.
-  const newQuick = (title: string) => createNote({ x: 0, y: 0 }, 'quick', { title, status: 'todo' });
+  const newQuick = (raw: string) => {
+    const { text, tags } = splitTags(raw);
+    if (!text && !tags.length) return;
+    createNote({ x: 0, y: 0 }, 'quick', { title: text || null, status: 'todo', ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
+  };
+  const editQuick = (id: string, raw: string) => {
+    const { text, tags } = splitTags(raw);
+    const row = rowsRef.current.find((r) => r.id === id);
+    updateNote(id, { title: text || row?.title || null, ...(tags.length ? { props: withTags(row?.props, tags) } : {}) });
+  };
 
   const newCanvas = (zoneId: string | null) => {
     const row = createNote(spotFor(zoneId), 'canvas', { zoneId, bodyJson: JSON.stringify(emptyBoard()) });
@@ -319,10 +356,10 @@ export function Canvas({ profile }: { profile: Profile }) {
   };
 
   // Desde Foco, «Padre>Hijo>Nota»: crea las secciones que falten y la nota dentro.
-  const newAtPath = (zoneId: string | null, sections: string[], title: string) => {
+  const newAtPath = (zoneId: string | null, sections: string[], title: string, tags: string[] = []) => {
     let parent = zoneId;
     for (const name of sections) parent = titled(parent, name).id;
-    if (title) newNote(parent, title);
+    if (title) newNote(parent, [title, ...tags.map((t) => `#${t}`)].join(' '));
   };
 
   // Nota con solo un título, en negrita como primera línea (las madres que se crean por el camino).
@@ -705,9 +742,9 @@ export function Canvas({ profile }: { profile: Profile }) {
             closeList();
             newNote(null, text);
           }}
-          onCreatePath={(zoneId, sections, title) => {
+          onCreatePath={(zoneId, sections, title, tags) => {
             closeList();
-            newAtPath(zoneId, sections, title);
+            newAtPath(zoneId, sections, title, tags);
           }}
           onCursor={onFocoCursor}
           onMap={closeList}
@@ -832,7 +869,8 @@ export function Canvas({ profile }: { profile: Profile }) {
           onBlock={toggleBlocked}
           quick={quick}
           onAddQuick={newQuick}
-          onEditQuick={(id, title) => updateNote(id, { title })}
+          onEditQuick={editQuick}
+          tagsOf={(r) => tagsOf(r, defs)}
           onDeleteQuick={(id) => removeNotes([id])}
           onClose={() => setTasksOpen(false)}
           back={showFocus ? 'Lista' : 'Mapa'}
