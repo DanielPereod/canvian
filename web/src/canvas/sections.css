@@ -189,6 +189,9 @@
 .tasks-pill { padding: 0 var(--space-4); gap: var(--space-2); }
 .tasks-pill .pill-name, .tasks-pill .meta { line-height: 1; display: block; }
 .tasks-pill .meta { padding-top: 2px; }
+[data-theme^='minimo'] .tasks-pill .meta { padding-top: 0; font-size: var(--text-sm); }
+.sheet-back { display: inline-flex; align-items: center; gap: 6px; }
+.back-arrow { flex: none; }
 .tasks-view {
   position: absolute;
   inset: 0;

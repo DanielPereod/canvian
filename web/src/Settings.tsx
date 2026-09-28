@@ -4,6 +4,7 @@ import { Keys } from './Kbd';
 import { MODES, setMode, setTheme, THEMES, useAppearance, type Tone } from './theme';
 import { EXPERIMENTS, toggleExperiment, useExperiments } from './lab/experiments';
 import { openOrganize } from './canvas/OrganizeView';
+import { BackArrow } from './BackArrow';
 
 // Configuración con la forma de Obsidian: a la izquierda las secciones, a la
 // derecha los ajustes de la elegida, cada uno con su nombre y explicación a la
@@ -141,7 +142,7 @@ export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
       <div className="set-shell">
         <nav className="set-nav" aria-label="Secciones">
           <button className="sheet-back meta set-back" onClick={onClose}>
-            ← Volver
+            <BackArrow /> Volver
           </button>
           <div className="set-nav-title">Configuración</div>
           {SECTIONS.map((s) => (

@@ -10,6 +10,7 @@ import { useExperiments } from '../lab/experiments';
 import { MediaUpload } from './media';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
+import { BackArrow } from '../BackArrow';
 
 // En el mapa de secciones una nota se abre como hoja a pantalla completa: la
 // celda termina de crecer hasta los bordes con su mismo tinte, y al cerrar
@@ -166,7 +167,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
     <div ref={ref} className={`sheet${isCanvas ? ' is-canvas' : ''}`} style={(hue !== undefined ? { '--hue': hue } : {}) as CSSProperties}>
       <header className="sheet-top meta">
         <button className="sheet-back" onClick={() => close()}>
-          ← Volver
+          <BackArrow /> Volver
         </button>
         <span className="sheet-actions">
           {!isCanvas && (

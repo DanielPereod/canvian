@@ -5,6 +5,7 @@ import { daysUntil, dueLabel } from './dates';
 import { TaskGlyph } from './TaskGlyph';
 import { useExperiments } from '../lab/experiments';
 import { actionFor, keysBlocked } from '../keys';
+import { BackArrow } from '../BackArrow';
 
 // Otra vista, fuera del mapa: todas las tareas activas (las que no están
 // hechas) del perfil, vengan de la sección que vengan, en una sola lista.
@@ -55,10 +56,12 @@ type Props = {
   onEditQuick: (id: string, title: string) => void;
   onDeleteQuick: (id: string) => void;
   onClose: () => void;
+  /** A dónde vuelve «←»: el mapa o la lista de Foco. */
+  back: string;
   paused: boolean;
 };
 
-export function TasksView({ rows, quick, onOpen, onCycle, onBlock, onAddQuick, onEditQuick, onDeleteQuick, onClose, paused }: Props) {
+export function TasksView({ rows, quick, onOpen, onCycle, onBlock, onAddQuick, onEditQuick, onDeleteQuick, onClose, back, paused }: Props) {
   const { maduran } = useExperiments();
   const [grouping, setGrouping] = useState<TaskGrouping>(readGrouping);
   // El cursor sigue a la tarea aunque cambie de grupo; si desaparece, se queda en su sitio.
@@ -179,7 +182,7 @@ export function TasksView({ rows, quick, onOpen, onCycle, onBlock, onAddQuick, o
     <div className="tasks-view">
       <header className="tasks-top">
         <button className="sheet-back meta" onClick={onClose}>
-          ← Mapa
+          <BackArrow /> {back}
         </button>
         <nav className="tasks-group-by" aria-label="Agrupar por">
           {GROUPINGS.map((g) => (

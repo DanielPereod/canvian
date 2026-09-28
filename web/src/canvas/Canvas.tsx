@@ -781,7 +781,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           onClose={() => setPaletteOpen(false)}
         />
       )}
-      {loaded && !showFocus && !tasksOpen && !organizeOpen && (
+      {loaded && !tasksOpen && !organizeOpen && (
         <div className="chrome-top-right">
           <button className="surface-2 pill tasks-pill" onClick={() => setTasksOpen(true)} title="Todas las tareas activas">
             <span className="pill-name">Tareas</span>
@@ -798,6 +798,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           onMove={moveMany}
           onNewSection={newSection}
           onClose={() => setOrganizeOpen(false)}
+          back={showFocus ? 'Lista' : 'Mapa'}
         />
       )}
       {tasksOpen && (
@@ -812,6 +813,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           onEditQuick={(id, title) => updateNote(id, { title })}
           onDeleteQuick={(id) => removeNotes([id])}
           onClose={() => setTasksOpen(false)}
+          back={showFocus ? 'Lista' : 'Mapa'}
         />
       )}
       {focused && (
