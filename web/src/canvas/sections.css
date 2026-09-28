@@ -245,12 +245,15 @@
 .tasks-due.is-late { color: var(--danger, #f28b82); }
 @media (max-width: 640px) { .tasks-where { display: none; } .tasks-top { padding: var(--space-3) var(--space-4); } }
 
-/* Sección de la nota abierta: sus migas, y al pulsar, mover a otra. */
-.sheet-where { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); margin: 0 0 var(--space-4); padding: 3px 10px 3px 0; background: none; border: 0; color: var(--text-faint); cursor: pointer; text-align: left; transition: color var(--dur-fast); }
-.sheet-where:hover { color: var(--text); }
+/* Sección de la nota abierta: sus migas (cada una lleva a su nota) y, al fondo, mover a otra. */
+.sheet-where { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); margin: 0 0 var(--space-4); padding: 3px 0; color: var(--text-faint); text-align: left; }
+.sheet-where-wrap { display: inline-flex; align-items: baseline; min-width: 0; }
+.sheet-where-crumb { background: none; border: 0; padding: 2px 4px; margin: -2px -4px; font: inherit; color: inherit; cursor: pointer; border-radius: var(--radius-sm); text-align: left; transition: color var(--dur-fast), background var(--dur-fast); }
+.sheet-where-crumb:hover, .sheet-where-crumb:focus-visible { color: var(--text); background: var(--accent-soft); }
+.sheet-where-empty { padding: 2px 0; }
 .sheet-where-sep { margin: 0 var(--space-1); opacity: 0.5; }
-.sheet-where-move { margin-left: var(--space-2); opacity: 0; transform: translateX(-4px); transition: opacity var(--dur-fast), transform var(--dur-fast); color: var(--accent-ink); }
-.sheet-where:hover .sheet-where-move, .sheet-where:focus-visible .sheet-where-move { opacity: 1; transform: none; }
+.sheet-where-move { margin-left: var(--space-2); padding: 2px 4px; background: none; border: 0; font: inherit; cursor: pointer; opacity: 0; transform: translateX(-4px); transition: opacity var(--dur-fast), transform var(--dur-fast); color: var(--accent-ink); }
+.sheet-where:hover .sheet-where-move, .sheet-where-move:focus-visible { opacity: 1; transform: none; }
 .list-item.is-current { color: var(--accent-ink); }
 .list-note { margin-left: auto; }
 

@@ -11,6 +11,7 @@ import { MediaUpload } from './media';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
 import { BackArrow } from '../BackArrow';
+import { parentMap } from './sections';
 
 // En el mapa de secciones una nota se abre como hoja a pantalla completa: la
 // celda termina de crecer hasta los bordes con su mismo tinte, y al cerrar
@@ -99,7 +100,14 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
   const [moving, setMoving] = useState(false);
-  const where = sections.find((o) => o.id === note.zoneId)?.path ?? null;
+  // La ruta de notas madre, para poder ir a cada una por su clic.
+  const chain = useMemo(() => {
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const parent = parentMap(rows);
+    const up: NoteRow[] = [];
+    for (let z = byId.get(parent.get(note.id) ?? ''); z && up.length < 20; z = byId.get(parent.get(z.id) ?? '')) up.unshift(z);
+    return up;
+  }, [rows, note.id]);
   // Ella y todo lo que cuelga de ella: no puede ir dentro de sí misma.
   const family = useMemo(() => {
     const out = new Set([note.id]);
@@ -111,15 +119,23 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
   }, [rows, note.id]);
   const isCanvas = note.kind === 'canvas';
   const whereButton = (
-    <button className="sheet-where meta" onClick={() => setMoving(true)} title="Mover dentro de otra nota">
-      {where ? where.split(' › ').map((p, i) => (
-        <span key={i}>
-          {i > 0 && <span className="sheet-where-sep">›</span>}
-          {p}
-        </span>
-      )) : <span>Arriba del todo</span>}
-      <span className="sheet-where-move">Mover</span>
-    </button>
+    <div className="sheet-where meta">
+      {chain.length ? (
+        chain.map((z, i) => (
+          <span key={z.id} className="sheet-where-wrap">
+            {i > 0 && <span className="sheet-where-sep">›</span>}
+            <button className="sheet-where-crumb" onClick={() => onNavigate(z.id)}>
+              {z.title || 'Nota sin título'}
+            </button>
+          </span>
+        ))
+      ) : (
+        <span className="sheet-where-empty">Arriba del todo</span>
+      )}
+      <button className="sheet-where-move" onClick={() => setMoving(true)} title="Mover dentro de otra nota">
+        Mover
+      </button>
+    </div>
   );
   const shown = neighbors.slice(0, MAX_LINKS);
   const hue = from?.hue;
