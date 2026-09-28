@@ -10,7 +10,7 @@ export const EXPERIMENTS: { id: ExperimentId; name: string; hint: string }[] = [
   { id: 'memoria', name: 'Luz como memoria', hint: 'Lo que no tocas se apaga poco a poco' },
   { id: 'maduran', name: 'Tareas que maduran', hint: 'Semilla, brote y flor en vez de casillas' },
   { id: 'celdas', name: 'Mapa de celdas', hint: 'La vista de antes, con celdas que fluyen, en vez de los nodos' },
-  { id: 'foco', name: 'Foco', hint: 'La portada es una lista que se funde; escribe y encuentra. Esc lleva al mapa' },
+  { id: 'foco', name: 'Foco', hint: 'Ctrl P abre una lista que se funde sobre los nodos; escribe y encuentra. Esc la cierra' },
 ];
 
 export type Experiments = Record<ExperimentId, boolean>;

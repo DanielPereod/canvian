@@ -71,10 +71,15 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const [dropping, setDropping] = useState(false);
   const { memoria, foco, celdas } = useExperiments();
-  // Con «Foco», la portada es la lista; el mapa se abre desde ella (Esc) y se
-  // vuelve con Esc desde la raíz del mapa.
-  const [mapOpen, setMapOpen] = useState(false);
-  const showFocus = foco && !mapOpen;
+  // Con «Foco», la lista es un menú que se abre con Ctrl P sobre los nodos,
+  // que se alejan tras un velo; al cerrarse, se funde antes de desaparecer.
+  const [listPhase, setListPhase] = useState<'closed' | 'open' | 'closing'>('closed');
+  const showFocus = foco && listPhase === 'open';
+  const openList = () => setListPhase('open');
+  const closeList = useCallback(() => {
+    setListPhase((p) => (p === 'open' ? 'closing' : p));
+    setTimeout(() => setListPhase((p) => (p === 'closing' ? 'closed' : p)), 320);
+  }, []);
   // Nota del centro en la vista de nodos (null: la raíz).
   const [center, setCenter] = useState<string | null>(null);
 
@@ -393,7 +398,7 @@ export function Canvas({ profile }: { profile: Profile }) {
     setTasksOpen(false);
     setOrganizeOpen(false);
     setCenter(id);
-    setMapOpen(true);
+    closeList();
     if (celdas) toggleExperiment('celdas');
   };
 
@@ -405,7 +410,7 @@ export function Canvas({ profile }: { profile: Profile }) {
     const here = center && center !== LOOSE ? center : null;
     const from = nodesFrom.current;
     nodesFrom.current = null;
-    if (from === 'foco' || (!from && foco)) setMapOpen(false);
+    if (from === 'foco') openList();
     else if (here) openNote(here);
   };
 
@@ -485,7 +490,16 @@ export function Canvas({ profile }: { profile: Profile }) {
       }
       if (action === 'search' && (chord || !isTyping(e.target))) {
         e.preventDefault();
-        setPaletteOpen((o) => (o ? false : 'open'));
+        // Con Foco, Ctrl P abre y cierra la lista; sin él, el buscador.
+        if (foco && !paletteOpen) {
+          if (showFocus) closeList();
+          else {
+            setFocusId(null);
+            setTasksOpen(false);
+            setOrganizeOpen(false);
+            openList();
+          }
+        } else setPaletteOpen((o) => (o ? false : 'open'));
         return;
       }
       if (e.key === 'Escape' && inspectId) {
@@ -671,45 +685,53 @@ export function Canvas({ profile }: { profile: Profile }) {
           <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la nota en la que estás</span>
         </div>
       )}
-      {loaded && showFocus && (
+      {loaded && foco && listPhase !== 'closed' && !tasksOpen && !organizeOpen && (
         <FocusHome
           rows={rows}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen || !!inspectId}
-          onOpen={(id) => openNote(id)}
+          leaving={listPhase === 'closing'}
+          paused={listPhase !== 'open' || !!focusId || !!paletteOpen || !!renaming || !!inspectId}
+          onOpen={(id) => {
+            // La nota se abre y, detrás, los nodos se quedan en ella.
+            if (!celdas) setCenter(id);
+            closeList();
+            openNote(id);
+          }}
           onSection={(id) => {
             mapPath.current = (findPath(tree, id) ?? []).slice(1).map((n) => n.id);
             setCenter(id);
-            setMapOpen(true);
+            closeList();
           }}
-          onCreate={(text) => newNote(null, text)}
-          onCreatePath={newAtPath}
+          onCreate={(text) => {
+            closeList();
+            newNote(null, text);
+          }}
+          onCreatePath={(zoneId, sections, title) => {
+            closeList();
+            newAtPath(zoneId, sections, title);
+          }}
           onCursor={onFocoCursor}
-          onMap={() => {
-            mapPath.current = [];
-            setCenter(null);
-            setMapOpen(true);
-          }}
+          onMap={closeList}
         />
       )}
-      {loaded && !showFocus && !celdas && (
+      <div className={`home-layer${showFocus ? ' is-veiled' : ''}`}>
+      {loaded && !celdas && (
         <NodeView
           rows={rows}
           links={links}
           center={center}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
+          paused={showFocus || !!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
           onCenter={setCenter}
           onOpen={(id) => openNote(id)}
           onAction={act}
           onMove={moveTo}
           lit={lit}
           hide={mode === 'hide'}
-          onLeave={foco ? () => setMapOpen(false) : undefined}
         />
       )}
-      {loaded && !showFocus && celdas && (
+      {loaded && celdas && (
         <SectionMap
           tree={tree}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
+          paused={showFocus || !!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
           start={mapPath.current}
           onPath={(ids) => (mapPath.current = ids)}
           onOpen={openNote}
@@ -718,10 +740,9 @@ export function Canvas({ profile }: { profile: Profile }) {
           lit={lit}
           hide={mode === 'hide'}
           memoria={memoria}
-          onLeave={foco ? () => setMapOpen(false) : undefined}
         />
       )}
-      {loaded && !showFocus && celdas && rows.length === 0 && (
+      {loaded && celdas && rows.length === 0 && (
         <div className="empty-state">
           <div>
             <p className="display">
@@ -731,6 +752,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           </div>
         </div>
       )}
+      </div>
       {renaming && (
         <SectionName
           initial={renaming.title}

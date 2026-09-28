@@ -352,13 +352,24 @@
 }
 
 /* ── Experimento «Foco»: la portada como una lista que se funde ────── */
+/* Se abre como un menú sobre los nodos: estos se alejan tras un velo y las
+   filas suben en cascada desde la señalada. */
+.home-layer { position: absolute; inset: 0; z-index: var(--z-canvas); transform-origin: 50% 50%; transition: transform 700ms var(--ease-out), filter 700ms var(--ease-out), opacity 600ms var(--ease-out); }
+.home-layer.is-veiled { transform: scale(0.94); filter: blur(10px); opacity: 0.35; pointer-events: none; }
 .focus-home {
   position: absolute;
   inset: 0;
-  z-index: var(--z-canvas);
+  z-index: calc(var(--z-canvas) + 1);
   overflow: hidden;
-  animation: tasks-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  background: color-mix(in oklab, var(--bg) 45%, transparent);
+  animation: focus-veil-in 500ms var(--ease-out) both;
+  transition: opacity 300ms ease;
 }
+.focus-home.is-leaving { opacity: 0; pointer-events: none; }
+@keyframes focus-veil-in { from { background: transparent; } }
+.focus-home.is-entering .focus-item { animation: focus-item-in 650ms var(--ease-out) both; animation-delay: calc(120ms + var(--in, 0ms)); }
+@keyframes focus-item-in { from { opacity: 0; translate: 0 24px; } }
+.focus-home.is-entering .focus-query, .focus-home.is-entering .focus-foot { animation: focus-item-in 500ms var(--ease-out) 250ms both; }
 .focus-list {
   position: absolute;
   inset: 0;

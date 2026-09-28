@@ -16,6 +16,8 @@ type Props = {
   // Crear con ruta «Padre>Hijo>Nota»: las secciones que falten, dentro de `zoneId`, y la nota al final.
   onCreatePath: (zoneId: string | null, sections: string[], title: string) => void;
   onMap: () => void;
+  // Cerrándose: se funde mientras los nodos vuelven.
+  leaving?: boolean;
   // La nota señalada: Ctrl G la pone en el centro de la vista de nodos.
   onCursor?: (id: string | null) => void;
 };
@@ -63,7 +65,7 @@ function Marked({ text, words }: { text: string; words: string[] }) {
   return <>{parts.map((p, i) => (p.m ? <mark key={i}>{p.t}</mark> : <span key={i}>{p.t}</span>))}</>;
 }
 
-export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreatePath, onMap, onCursor }: Props) {
+export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreatePath, onMap, onCursor, leaving }: Props) {
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   // «Padre>Hijo>texto»: los tramos antes del último «>» son secciones y lo
@@ -239,6 +241,13 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
     return () => window.removeEventListener('keydown', onKey, true);
   });
 
+  // Al abrirse, las filas suben en cascada desde la señalada.
+  const [entering, setEntering] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setEntering(false), 1100);
+    return () => clearTimeout(t);
+  }, []);
+
   // La rueda también mueve la lista, de una en una.
   const wheel = useRef(0);
   const onWheel = (e: React.WheelEvent) => {
@@ -253,7 +262,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
   const hi = Math.min(hits.length, Math.ceil(pos) + SPAN + 1);
 
   return (
-    <div className="focus-home" onWheel={onWheel}>
+    <div className={`focus-home${entering ? ' is-entering' : ''}${leaving ? ' is-leaving' : ''}`} onWheel={onWheel}>
       <div className={`focus-query${query ? ' has-text' : ''}`} aria-live="polite">
         {query ? (
           <>
@@ -280,6 +289,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
                 transform: `translate(-50%, calc(-50% + ${d * STEP}px)) scale(${Math.max(0.55, 1 - a * 0.07)})`,
                 opacity: Math.max(0, 1 - a * 0.14),
                 '--depth': h.depth,
+                '--in': `${Math.min(a, 9) * 45}ms`,
               } as React.CSSProperties}
               onClick={() => (here ? open() : setCursor(i))}
             >
@@ -310,7 +320,7 @@ export function FocusHome({ rows, paused, onOpen, onSection, onCreate, onCreateP
       </div>
       {route && creating && hits.length > 0 && <p className="meta focus-where">{routeText(route, title)}</p>}
       <p className="meta focus-foot">
-        {words.length ? `${hits.length} ${hits.length === 1 ? 'coincidencia' : 'coincidencias'} · ` : ''}↑↓ moverse · Tab completar · Enter abrir · {'>'} dentro de · Esc {query ? 'borrar' : 'mapa'}
+        {words.length ? `${hits.length} ${hits.length === 1 ? 'coincidencia' : 'coincidencias'} · ` : ''}↑↓ moverse · Tab completar · Enter abrir · {'>'} dentro de · Esc {query ? 'borrar' : 'cerrar'}
       </p>
     </div>
   );
