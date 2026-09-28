@@ -500,6 +500,7 @@
 .tv-add:focus-within { border-color: var(--line-strong); }
 .tv-add-plus { color: var(--text-faint); width: 16px; text-align: center; }
 .tv-add input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: var(--text-md); }
+.tv-add input:focus-visible { box-shadow: none; }
 .tv-add input::placeholder { color: var(--text-ghost); }
 .tv-add-key { font-size: 11px; color: var(--text-ghost); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
 .tv-list { flex: 1; overflow-y: auto; margin: 0 calc(-1 * var(--space-2)); padding: 0 var(--space-2) var(--space-6); }
