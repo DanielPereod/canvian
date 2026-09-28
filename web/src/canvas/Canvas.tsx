@@ -416,6 +416,18 @@ export function Canvas({ profile }: { profile: Profile }) {
     updateNote(id, { zoneId, ...spotFor(zoneId) });
   };
 
+  // Cambiar la nota madre de una tarea desde la vista de tareas. Una tarea
+  // rápida que entra en una nota deja de ser rápida: pasa a ser tarea con nota.
+  const moveTask = (id: string, zoneId: string | null) => {
+    const row = rowsRef.current.find((r) => r.id === id);
+    if (!row) return;
+    if (row.kind !== 'quick') return moveTo(id, zoneId);
+    if (!zoneId) return;
+    const text = row.title ?? '';
+    updateNote(id, { kind: 'task', zoneId, ...spotFor(zoneId) });
+    if (text) saveContent(id, { bodyJson: JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }), bodyText: text, title: text.slice(0, 120) });
+  };
+
   // Mover varias de golpe (vista de ordenar): una sola petición al servidor.
   const moveMany = (moves: Move[]) => {
     const byId = new Map(rowsRef.current.map((r) => [r.id, r]));
@@ -884,6 +896,8 @@ export function Canvas({ profile }: { profile: Profile }) {
           quick={quick}
           onAddQuick={newQuick}
           onAddTask={newTaskIn}
+          sections={sectionOptions}
+          onMoveTask={moveTask}
           onPatch={updateNote}
           onRename={rename}
           onSetTags={setTags}

@@ -5,6 +5,7 @@ import { daysUntil, dueLabel, localToday } from './dates';
 import { actionFor, keysBlocked } from '../keys';
 import { BackArrow } from '../BackArrow';
 import { mergeTags, splitTags } from './tags';
+import { SectionPicker, type SectionOption } from './SectionPicker';
 
 // Vista de tareas, fuera del mapa, en tres columnas: a la izquierda las
 // listas (Hoy, 7 días, rápidas, por nota madre y por etiqueta), en el centro
@@ -83,6 +84,9 @@ type Props = {
   onRename: (id: string, title: string) => void;
   onAddQuick: (raw: string, extra?: { dueAt?: string }) => void;
   onAddTask: (raw: string, zoneId: string) => void;
+  /** Notas que pueden ser madre de una tarea, con su ruta. */
+  sections: SectionOption[];
+  onMoveTask: (id: string, zoneId: string | null) => void;
   onEditQuick: (id: string, title: string) => void;
   onDeleteQuick: (id: string) => void;
   tagsOf: (r: NoteRow) => string[];
@@ -110,6 +114,7 @@ export function TasksView(p: Props) {
   const addRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [adding, setAdding] = useState('');
+  const [moving, setMoving] = useState<string | null>(null);
 
   const choose = (g: TaskGrouping) => {
     setGrouping(g);
@@ -296,7 +301,7 @@ export function TasksView(p: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (paused || keysBlocked()) return;
+      if (paused || moving || keysBlocked()) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       const action = actionFor(e, ['tasks', 'cycleStatus', 'blockTask', 'newNote', 'deleteCell']);
@@ -307,6 +312,7 @@ export function TasksView(p: Props) {
       else if (action === 'newNote') addRef.current?.focus();
       else if (action === 'deleteCell' && cur?.kind === 'quick') p.onDeleteQuick(cur.id);
       else if (k === ' ' && cur) toggleDone(cur);
+      else if (k === 'm' && cur) setMoving(cur.id);
       else if (k === 'v' && view !== 'done' && !cal) pickLayout(board ? 'lista' : 'tablero');
       else if (board && e.shiftKey && (k === 'arrowleft' || k === 'arrowright' || k === 'h' || k === 'l') && cur) {
         const n = STATUSES.findIndex((s) => s.id === (cur.status ?? 'todo')) + (k === 'arrowleft' || k === 'h' ? -1 : 1);
@@ -564,12 +570,25 @@ export function TasksView(p: Props) {
           {cal
             ? '←→↑↓ día · [ ] mes · T hoy · arrastra una tarea para cambiar su fecha · N añadir en el día · Esc salir'
             : board
-              ? '←→↑↓ moverse · Mayús ←→ cambiar de columna · arrastra una tarjeta · Espacio hecha · Enter abrir · V lista · Esc salir'
-              : '↑↓ moverse · Espacio hecha · X estado · Enter abrir · N añadir · Tab agrupar · V tablero · Esc salir'}
+              ? '←→↑↓ moverse · Mayús ←→ cambiar de columna · arrastra una tarjeta · Espacio hecha · M nota madre · V lista · Esc salir'
+              : '↑↓ moverse · Espacio hecha · X estado · M nota madre · N añadir · Tab agrupar · V tablero · Esc salir'}
         </p>
       </main>
 
-      <Detail key={cur?.id ?? 'none'} row={cur} p={p} section={cur ? sectionOf(cur) : ''} titleRef={titleRef} onToggle={() => cur && toggleDone(cur)} />
+      <Detail key={cur?.id ?? 'none'} row={cur} p={p} section={cur ? sectionOf(cur) : ''} titleRef={titleRef} onToggle={() => cur && toggleDone(cur)} onMove={() => cur && setMoving(cur.id)} />
+      {moving && (
+        <SectionPicker
+          // Una rápida no tiene «Arriba del todo»: sin madre ya es rápida.
+          options={all.find((r) => r.id === moving)?.kind === 'quick' ? p.sections.filter((o) => o.id) : p.sections}
+          current={all.find((r) => r.id === moving)?.zoneId ?? null}
+          exclude={new Set([moving])}
+          onPick={(zoneId) => {
+            p.onMoveTask(moving, zoneId);
+            setMoving(null);
+          }}
+          onClose={() => setMoving(null)}
+        />
+      )}
     </div>
   );
 }
@@ -603,12 +622,14 @@ function Detail({
   section,
   titleRef,
   onToggle,
+  onMove,
 }: {
   row: NoteRow | null;
   p: Props;
   section: string;
   titleRef: React.RefObject<HTMLInputElement | null>;
   onToggle: () => void;
+  onMove: () => void;
 }) {
   const [title, setTitle] = useState(row?.title ?? '');
   const [tag, setTag] = useState('');
@@ -674,7 +695,10 @@ function Detail({
           e.stopPropagation();
         }}
       />
-      <p className="tv-detail-where">{quick ? 'Tarea rápida · solo vive en esta vista' : section ? `Dentro de ${section}` : 'Arriba del todo'}</p>
+      <button className="tv-detail-where" onClick={onMove} title="Cambiar la nota madre (M)">
+        {quick ? 'Tarea rápida · solo vive en esta vista' : section ? `Dentro de ${section}` : 'Arriba del todo'}
+        <span className="tv-detail-move">{quick ? 'Meter en una nota' : 'Cambiar'}</span>
+      </button>
 
       <div className="tv-status" role="radiogroup" aria-label="Estado">
         {STATUSES.map((s) => (
