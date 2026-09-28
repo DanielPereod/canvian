@@ -3,6 +3,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
 import type { OpenFrom } from './fluid';
 import { extensions, parseBody, titleFrom } from './editor';
+import { repairTables } from './markdown';
 import { NoteChips } from './NoteChips';
 import { TaskGlyph } from './TaskGlyph';
 import { useExperiments } from '../lab/experiments';
@@ -21,9 +22,14 @@ const MAX_LINKS = 24;
 export type NoteContent = { bodyJson: string; bodyText: string; title: string | null };
 
 function SheetEditor({ note, onSave, onError }: { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void }) {
+  // Tablas de Markdown que quedaron como texto con barras: se abren ya como tablas.
+  const [initial] = useState(() => {
+    const doc = parseBody(note.bodyJson);
+    return { doc: repairTables(doc) ?? doc, repaired: !!repairTables(doc) };
+  });
   const editor = useEditor({
     extensions: [...extensions, MediaUpload.configure({ onError })],
-    content: parseBody(note.bodyJson) ?? '',
+    content: initial.doc ?? '',
     // Abrir una nota es para escribir: el cursor ya está al final.
     autofocus: 'end',
     editorProps: { attributes: { class: 'note-body prose sheet-prose' } },
@@ -32,6 +38,14 @@ function SheetEditor({ note, onSave, onError }: { note: NoteRow; onSave: (id: st
       onSave(note.id, { bodyJson: JSON.stringify(editor.getJSON()), bodyText, title: titleFrom(bodyText) });
     },
   });
+  // Y se guardan así, para que la vista previa y la búsqueda también las vean bien.
+  useEffect(() => {
+    if (!editor || !initial.repaired) return;
+    const bodyText = editor.getText({ blockSeparator: '\n' });
+    onSave(note.id, { bodyJson: JSON.stringify(editor.getJSON()), bodyText, title: titleFrom(bodyText) });
+    // Solo una vez, al abrir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
   return <EditorContent editor={editor} className="sheet-editor" />;
 }
 

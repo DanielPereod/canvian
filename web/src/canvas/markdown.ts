@@ -203,3 +203,44 @@ export function docToMarkdown(doc: JSONContent | null): string {
   };
   return (doc.content ?? []).map((b) => block(b)).join('\n\n').trim();
 }
+
+// Tablas importadas antes de que se entendieran: cada tabla quedó como un solo
+// párrafo con las filas unidas por espacios («| a | b | | :-- | :-- | | 1 | 2 |»).
+// Se reconocen por la fila de guiones y se convierten en tablas de verdad.
+const SEP_CELL = /^\s*:?-{2,}:?\s*$/;
+
+function tableFromRun(text: string): JSONContent | null {
+  const t = text.trim();
+  if (!t.startsWith('|') || !t.endsWith('|')) return null;
+  const cells = t.slice(1, -1).split(/(?<!\\)\|/);
+  const k = cells.findIndex((c) => SEP_CELL.test(c));
+  const n = k - 1;
+  if (n < 1 || cells[n].trim()) return null;
+  if (!cells.slice(k, k + n).every((c) => SEP_CELL.test(c))) return null;
+  const rows: string[][] = [cells.slice(0, n)];
+  const sep = cells.slice(k, k + n);
+  for (let i = k + n; i < cells.length; i += n + 1) {
+    if (cells[i].trim()) return null; // entre filas siempre hay «| |»
+    const row = cells.slice(i + 1, i + 1 + n);
+    if (row.length) rows.push(row);
+  }
+  const line = (r: string[]) => `| ${r.map((c) => c.trim()).join(' | ')} |`;
+  const md = [line(rows[0]), line(sep), ...rows.slice(1).map(line)].join('\n');
+  const table = markdownToDoc(md).doc.content?.[0];
+  return table?.type === 'table' ? table : null;
+}
+
+export function repairTables(doc: JSONContent | null): JSONContent | null {
+  if (!doc?.content) return null;
+  let changed = false;
+  const content = doc.content.map((node) => {
+    if (node.type !== 'paragraph' || !node.content?.length) return node;
+    const md = docToMarkdown({ type: 'doc', content: [node] }).trim();
+    if (!md.includes('|')) return node;
+    const table = tableFromRun(md);
+    if (!table) return node;
+    changed = true;
+    return table;
+  });
+  return changed ? { ...doc, content } : null;
+}
