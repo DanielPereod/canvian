@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
-import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { ulid } from 'ulidx';
 import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { edges, notes, profiles } from '../db/schema.js';
 
-const KINDS = ['text', 'task', 'canvas', 'link', 'image', 'checklist', 'code'] as const;
+const KINDS = ['text', 'task', 'quick', 'canvas', 'link', 'image', 'checklist', 'code'] as const;
 
 const noteFields = {
   kind: z.enum(KINDS),
@@ -196,7 +196,8 @@ export function canvasRoutes(db: Db) {
   r.get('/profiles/:id/search', (c) => {
     const profileId = c.req.param('id');
     const q = toFtsQuery(c.req.query('q') ?? '');
-    const base = and(eq(notes.profileId, profileId), isNull(notes.deletedAt));
+    // Las tareas rápidas solo viven en la vista de tareas: no salen al buscar.
+    const base = and(eq(notes.profileId, profileId), isNull(notes.deletedAt), ne(notes.kind, 'quick'));
     const columns = { id: notes.id, title: notes.title, bodyText: notes.bodyText, kind: notes.kind };
     if (!q) {
       return c.json(db.select(columns).from(notes).where(base).orderBy(sql`${notes.updatedAt} desc`).limit(12).all());

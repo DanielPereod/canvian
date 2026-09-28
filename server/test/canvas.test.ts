@@ -118,6 +118,16 @@ describe('search', () => {
     expect(await data('GET', `/api/profiles/${personal}/search?q=`)).toHaveLength(2);
   });
 
+  it('keeps quick tasks out of search', async () => {
+    const quick = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, kind: 'quick', title: 'Comprar pan', bodyText: 'Comprar pan', status: 'todo' });
+    expect(quick).toMatchObject({ kind: 'quick', status: 'todo' });
+    await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, title: 'Pan de masa madre', bodyText: 'Pan de masa madre' });
+    expect((await data('GET', `/api/profiles/${personal}/search?q=pan`)).map((h: { title: string }) => h.title)).toEqual(['Pan de masa madre']);
+    expect(await data('GET', `/api/profiles/${personal}/search?q=`)).toHaveLength(1);
+    const { notes } = await data('GET', `/api/profiles/${personal}/canvas`);
+    expect(notes.some((n: { kind: string }) => n.kind === 'quick')).toBe(true);
+  });
+
   it('builds safe FTS queries', () => {
     expect(toFtsQuery('  hola  "mundo" ')).toBe('"hola"* "mundo"*');
     expect(toFtsQuery('   ')).toBeNull();

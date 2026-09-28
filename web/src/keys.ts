@@ -35,7 +35,7 @@ export type ActionId =
 export type KeyAction = { id: ActionId; label: string; group: 'Mapa' | 'Vistas y paneles'; key: string };
 
 export const ACTIONS: KeyAction[] = [
-  { id: 'newNote', label: 'Nota nueva (en la vista de tareas, tarea nueva)', group: 'Mapa', key: 'n' },
+  { id: 'newNote', label: 'Nota nueva (en la vista de tareas, apuntar una tarea rápida)', group: 'Mapa', key: 'n' },
   { id: 'newSection', label: 'Nota dentro de la señalada', group: 'Mapa', key: 'g' },
   { id: 'newCanvas', label: 'Canvas nuevo (tarjetas libres y flechas)', group: 'Mapa', key: 'c' },
   { id: 'toggleTask', label: 'Convertir en tarea o en nota', group: 'Mapa', key: 't' },

@@ -8,6 +8,8 @@ import { actionFor, keysBlocked } from '../keys';
 
 // Otra vista, fuera del mapa: todas las tareas activas (las que no están
 // hechas) del perfil, vengan de la sección que vengan, en una sola lista.
+// Arriba se apuntan tareas rápidas: cosas pequeñas que solo viven aquí, sin
+// nota detrás, fuera del mapa y de la búsqueda.
 
 export type TaskGrouping = 'estado' | 'seccion' | 'fecha';
 const GROUPINGS: { id: TaskGrouping; label: string }[] = [
@@ -48,18 +50,48 @@ type Props = {
   onOpen: (id: string) => void;
   onCycle: (id: string) => void;
   onBlock: (id: string) => void;
-  onNew: () => void;
+  quick: NoteRow[];
+  onAddQuick: (title: string) => void;
+  onEditQuick: (id: string, title: string) => void;
+  onDeleteQuick: (id: string) => void;
   onClose: () => void;
   paused: boolean;
 };
 
-export function TasksView({ rows, onOpen, onCycle, onBlock, onNew, onClose, paused }: Props) {
+export function TasksView({ rows, quick, onOpen, onCycle, onBlock, onAddQuick, onEditQuick, onDeleteQuick, onClose, paused }: Props) {
   const { maduran } = useExperiments();
   const [grouping, setGrouping] = useState<TaskGrouping>(readGrouping);
   // El cursor sigue a la tarea aunque cambie de grupo; si desaparece, se queda en su sitio.
   const [cursorId, setCursorId] = useState<string | null>(null);
   const lastAt = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const addRef = useRef<HTMLInputElement>(null);
+  const [adding, setAdding] = useState('');
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+
+  const add = () => {
+    const title = adding.trim();
+    if (!title) return;
+    onAddQuick(title);
+    setAdding('');
+  };
+
+  // Al cerrar el campo también llega un blur: solo cuenta el primer final.
+  const editDone = useRef(false);
+  const startEdit = (r: NoteRow) => {
+    editDone.current = false;
+    setEditing({ id: r.id, text: r.title ?? '' });
+  };
+  const finishEdit = (save: boolean) => {
+    if (!editing || editDone.current) return;
+    editDone.current = true;
+    const title = editing.text.trim();
+    if (save) title ? onEditQuick(editing.id, title) : onDeleteQuick(editing.id);
+    setEditing(null);
+  };
+
+  // Una tarea rápida se edita en su sitio; una con nota abre la nota.
+  const open = (r: NoteRow) => (r.kind === 'quick' ? startEdit(r) : onOpen(r.id));
 
   const choose = (g: TaskGrouping) => {
     setGrouping(g);
@@ -81,8 +113,9 @@ export function TasksView({ rows, onOpen, onCycle, onBlock, onNew, onClose, paus
     };
   }, [rows]);
 
-  const active = rows.filter((r) => r.kind === 'task' && r.status !== 'done');
-  const doneCount = rows.filter((r) => r.kind === 'task' && r.status === 'done').length;
+  const tasks = [...rows.filter((r) => r.kind === 'task'), ...quick];
+  const active = tasks.filter((r) => r.status !== 'done');
+  const doneCount = tasks.length - active.length;
 
   const groups = useMemo(() => {
     const out = new Map<string, { key: number | string; title: string; items: NoteRow[] }>();
@@ -91,6 +124,7 @@ export function TasksView({ rows, onOpen, onCycle, onBlock, onNew, onClose, paus
       let title: string;
       if (grouping === 'estado') [key, title] = r.status === 'doing' ? [0, 'En curso'] : r.status === 'blocked' ? [2, 'Bloqueadas'] : [1, 'Por hacer'];
       else if (grouping === 'fecha') [key, title] = whenGroup(r);
+      else if (r.kind === 'quick') [key, title] = ['\uFFFE', 'Tareas rápidas'];
       else {
         title = sectionOf(r) || 'Arriba del todo';
         key = sectionOf(r) ? title.toLocaleLowerCase('es') : '￿';
@@ -103,7 +137,7 @@ export function TasksView({ rows, onOpen, onCycle, onBlock, onNew, onClose, paus
     for (const g of list) g.items.sort((a, b) => urgency(b) - urgency(a));
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, grouping, sectionOf]);
+  }, [rows, quick, grouping, sectionOf]);
 
   const flat = groups.flatMap((g) => g.items);
   const found = flat.findIndex((r) => r.id === cursorId);
@@ -120,16 +154,17 @@ export function TasksView({ rows, onOpen, onCycle, onBlock, onNew, onClose, paus
       if (paused || keysBlocked()) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-      const action = actionFor(e, ['tasks', 'cycleStatus', 'blockTask', 'newNote']);
+      const action = actionFor(e, ['tasks', 'cycleStatus', 'blockTask', 'newNote', 'deleteCell']);
       const k = e.metaKey || e.ctrlKey || e.altKey ? '' : e.key.toLowerCase();
       const cur = flat[at];
       if (k === 'escape' || action === 'tasks') onClose();
       else if (action === 'cycleStatus') cur && onCycle(cur.id);
       else if (action === 'blockTask') cur && onBlock(cur.id);
-      else if (action === 'newNote') onNew();
+      else if (action === 'newNote') addRef.current?.focus();
+      else if (action === 'deleteCell' && cur?.kind === 'quick') onDeleteQuick(cur.id);
       else if (k === 'arrowdown' || k === 'j') setCursor(Math.min(flat.length - 1, at + 1));
       else if (k === 'arrowup' || k === 'k') setCursor(Math.max(0, at - 1));
-      else if (k === 'enter' && cur) onOpen(cur.id);
+      else if (k === 'enter' && cur) open(cur);
       else if (k === 'tab') choose(GROUPINGS[(GROUPINGS.findIndex((g) => g.id === grouping) + (e.shiftKey ? 2 : 1)) % 3].id);
       else return;
       e.preventDefault();
@@ -162,11 +197,22 @@ export function TasksView({ rows, onOpen, onCycle, onBlock, onNew, onClose, paus
           {active.length === 1 ? '1 activa' : `${active.length} activas`}
           {doneCount > 0 && ` · ${doneCount} hechas`}
         </p>
-        {!active.length && (
-          <p className="tasks-empty">
-            Nada pendiente. <button className="sheet-link sheet-link-add" onClick={onNew}>+ Tarea</button>
-          </p>
-        )}
+        <input
+          ref={addRef}
+          className="tasks-add"
+          placeholder="Añadir tarea…"
+          aria-label="Añadir tarea rápida"
+          value={adding}
+          onChange={(e) => setAdding(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') add();
+            else if (e.key === 'Escape') e.currentTarget.blur();
+            else return;
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        />
+        {!active.length && <p className="tasks-empty">Nada pendiente.</p>}
         {groups.map((g) => (
           <section key={g.title} className="tasks-group">
             <h2 className="tasks-group-title">
@@ -182,10 +228,41 @@ export function TasksView({ rows, onOpen, onCycle, onBlock, onNew, onClose, paus
                   className={`tasks-row${idx === at ? ' is-cursor' : ''}`}
                   style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}
                   onMouseEnter={() => setCursor(idx)}
-                  onClick={() => onOpen(r.id)}
+                  onClick={() => editing?.id !== r.id && open(r)}
                 >
                   <TaskGlyph status={r.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(r.id)} />
-                  <span className="tasks-row-title">{r.title || 'Tarea sin título'}</span>
+                  {editing?.id === r.id ? (
+                    <input
+                      className="tasks-row-edit"
+                      autoFocus
+                      aria-label="Editar tarea"
+                      value={editing.text}
+                      onChange={(e) => setEditing({ id: r.id, text: e.target.value })}
+                      onBlur={() => finishEdit(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') finishEdit(true);
+                        else if (e.key === 'Escape') finishEdit(false);
+                        else return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                    />
+                  ) : (
+                    <span className="tasks-row-title">{r.title || 'Tarea sin título'}</span>
+                  )}
+                  {r.kind === 'quick' && editing?.id !== r.id && (
+                    <button
+                      className="tasks-row-del meta"
+                      aria-label="Borrar tarea"
+                      title="Borrar"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteQuick(r.id);
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
                   {!!r.priority && <span className="tasks-prio" aria-label={`Prioridad ${r.priority}`}>{'•'.repeat(Math.min(3, r.priority))}</span>}
                   {where && <span className="meta tasks-where">{where}</span>}
                   {r.dueAt && <span className={`meta tasks-due${due! < 0 ? ' is-late' : due! <= 1 ? ' is-soon' : ''}`}>{dueLabel(r.dueAt)}</span>}

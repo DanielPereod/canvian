@@ -227,6 +227,14 @@
 .tasks-row.is-cursor { background: var(--surface-sunken); }
 .tasks-row .task-glyph { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); }
 .tasks-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-md); }
+/* Tareas rápidas: apuntar sin salir de la lista, editar y borrar en su sitio. */
+.tasks-add { display: block; width: 100%; margin: 0 0 var(--space-6); padding: 10px 12px 10px 44px; background: none; border: 0; border-bottom: 1px solid var(--line); color: var(--text); font: inherit; font-size: var(--text-md); outline: none; transition: border-color var(--dur-fast); }
+.tasks-add::placeholder { color: var(--text-ghost); }
+.tasks-add:focus { border-bottom-color: var(--line-strong); }
+.tasks-row-edit { flex: 1; min-width: 0; margin: -2px 0; padding: 2px 0; background: none; border: 0; border-bottom: 1px solid var(--line-strong); color: var(--text); font: inherit; font-size: var(--text-md); outline: none; }
+.tasks-row-del { background: none; border: 0; padding: 0 4px; color: var(--text-ghost); cursor: pointer; opacity: 0; transition: opacity var(--dur-fast), color var(--dur-fast); }
+.tasks-row:hover .tasks-row-del, .tasks-row.is-cursor .tasks-row-del { opacity: 1; }
+.tasks-row-del:hover { color: var(--text); }
 .tasks-prio { color: var(--accent-ink); letter-spacing: 2px; }
 .tasks-where { max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tasks-due.is-soon { color: var(--accent-ink); }

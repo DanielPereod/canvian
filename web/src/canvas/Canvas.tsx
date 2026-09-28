@@ -43,7 +43,12 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [allRows, setRows] = useState<NoteRow[]>([]);
   // Las archivadas (y lo que cuelga de ellas) no se ven salvo que se pidan.
   const [showArchived, setShowArchived] = useState(false);
-  const rows = useMemo(() => (showArchived ? allRows : visibleRows(allRows)), [allRows, showArchived]);
+  // Las tareas rápidas viven solo en la vista de tareas: fuera del mapa y de todo lo demás.
+  const quick = useMemo(() => allRows.filter((r) => r.kind === 'quick'), [allRows]);
+  const rows = useMemo(() => {
+    const notes = allRows.filter((r) => r.kind !== 'quick');
+    return showArchived ? notes : visibleRows(notes);
+  }, [allRows, showArchived]);
   const [links, setLinks] = useState<Link[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState<false | 'open' | 'link' | 'card'>(false);
@@ -239,14 +244,14 @@ export function Canvas({ profile }: { profile: Profile }) {
   const toggleTask = (row: NoteRow) => updateNote(row.id, kindChange(row, row.kind === 'task' ? 'text' : 'task'));
   const cycleStatus = (id: string) => {
     const row = rowsRef.current.find((r) => r.id === id);
-    if (!row || row.kind !== 'task') return;
+    if (!row || (row.kind !== 'task' && row.kind !== 'quick')) return;
     const status = NEXT[row.status ?? 'todo'];
     updateNote(id, { status, doneAt: status === 'done' ? now() : null });
   };
 
   const toggleBlocked = (id: string) => {
     const row = rowsRef.current.find((r) => r.id === id);
-    if (!row || row.kind !== 'task') return;
+    if (!row || (row.kind !== 'task' && row.kind !== 'quick')) return;
     updateNote(id, { status: row.status === 'blocked' ? 'todo' : 'blocked', doneAt: null });
   };
 
@@ -300,12 +305,8 @@ export function Canvas({ profile }: { profile: Profile }) {
     openNote(row.id);
   };
 
-  // Tarea nueva desde la vista de tareas: en la sección en la que estabas en el mapa.
-  const newTask = () => {
-    const zoneId = currentZone()?.id ?? null;
-    const row = createNote(spotFor(zoneId), 'task', { zoneId, status: 'todo' });
-    openNote(row.id);
-  };
+  // Tarea rápida desde la vista de tareas: solo un título, sin sitio en el mapa.
+  const newQuick = (title: string) => createNote({ x: 0, y: 0 }, 'quick', { title, status: 'todo' });
 
   const newCanvas = (zoneId: string | null) => {
     const row = createNote(spotFor(zoneId), 'canvas', { zoneId, bodyJson: JSON.stringify(emptyBoard()) });
@@ -613,7 +614,7 @@ export function Canvas({ profile }: { profile: Profile }) {
 
   const exportCanvas = () => {
     const out = {
-      nodes: rowsRef.current.map((r) => {
+      nodes: rowsRef.current.filter((r) => r.kind !== 'quick').map((r) => {
         const { x, y, w, h } = rectOf(r);
         const base = { id: r.id, x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) };
         const md = (r.kind === 'canvas' ? '' : docToMarkdown(parseBody(r.bodyJson))) || (r.bodyText ?? '');
@@ -784,7 +785,7 @@ export function Canvas({ profile }: { profile: Profile }) {
         <div className="chrome-top-right">
           <button className="surface-2 pill tasks-pill" onClick={() => setTasksOpen(true)} title="Todas las tareas activas">
             <span className="pill-name">Tareas</span>
-            <span className="meta">{rows.filter((r) => r.kind === 'task' && r.status !== 'done').length}</span>
+            <span className="meta">{[...rows, ...quick].filter((r) => (r.kind === 'task' || r.kind === 'quick') && r.status !== 'done').length}</span>
           </button>
         </div>
       )}
@@ -806,7 +807,10 @@ export function Canvas({ profile }: { profile: Profile }) {
           onOpen={(id) => openNote(id)}
           onCycle={cycleStatus}
           onBlock={toggleBlocked}
-          onNew={newTask}
+          quick={quick}
+          onAddQuick={newQuick}
+          onEditQuick={(id, title) => updateNote(id, { title })}
+          onDeleteQuick={(id) => removeNotes([id])}
           onClose={() => setTasksOpen(false)}
         />
       )}
