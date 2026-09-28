@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ulid } from 'ulidx';
-import { api, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type TaskStatus } from '../api';
+import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type TaskStatus } from '../api';
 import type { NoteContent } from './NoteSheet';
 import { CommandPalette } from './CommandPalette';
+import { onLive } from '../live';
 import { toggleExperiment, useExperiments } from '../lab/experiments';
 import { SectionMap, type MapAction } from './SectionMap';
 import { NodeView, LOOSE } from './NodeView';
@@ -142,6 +143,65 @@ export function Canvas({ profile }: { profile: Profile }) {
       cancelled = true;
     };
   }, [profile.id, report]);
+
+  // Tiempo real: si otro dispositivo cambia algo, se vuelve a pedir el perfil.
+  // Espera a que salgan las escrituras de aquí, y lo que se esté escribiendo
+  // (sin guardar aún) o creando se queda como está en esta pantalla.
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let running = false;
+    let again = false;
+    const pull = async () => {
+      if (running) return void (again = true);
+      running = true;
+      try {
+        await whenIdle();
+        const before = writesSoFar();
+        const [canvas, properties, saved] = await Promise.all([api.canvas(profile.id), api.properties(profile.id), api.lenses(profile.id)]);
+        if (cancelled) return;
+        // Si algo se escribió mientras llegaba, puede venir viejo: otra vuelta.
+        if (writesSoFar() !== before) {
+          again = true;
+          return;
+        }
+        setDefs(properties);
+        setLenses(saved);
+        setRows((local) => {
+          const mine = new Map(local.map((r) => [r.id, r]));
+          const merged = canvas.notes
+            .filter((r) => !deleted.current.has(r.id))
+            .map((r) => {
+              const draft = pending.current.get(r.id);
+              return draft ? { ...r, ...draft } : r;
+            });
+          const there = new Set(merged.map((r) => r.id));
+          for (const [id, r] of mine) if (!there.has(id) && created.current.has(id)) merged.push(r);
+          return merged;
+        });
+        setLinks(canvas.edges.map((e) => ({ id: e.id, source: e.fromId, target: e.toId })));
+      } catch {
+        // Sin conexión: el siguiente aviso (o la reconexión) lo intenta de nuevo.
+      } finally {
+        running = false;
+        if (again && !cancelled) {
+          again = false;
+          timer = setTimeout(pull, 400);
+        }
+      }
+    };
+    const stop = onLive((scope) => {
+      if (scope !== 'canvas') return;
+      clearTimeout(timer);
+      // Varios cambios seguidos (escribir, arrastrar) se recogen de una vez.
+      timer = setTimeout(pull, 250);
+    });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      stop();
+    };
+  }, [profile.id]);
 
   const flush = useCallback(
     (id: string) => {

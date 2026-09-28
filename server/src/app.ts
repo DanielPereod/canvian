@@ -1,5 +1,6 @@
 import { Hono, type Context } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
+import { streamSSE } from 'hono/streaming';
 import { asc, count, eq } from 'drizzle-orm';
 import { ulid } from 'ulidx';
 import { z } from 'zod';
@@ -19,6 +20,7 @@ import { propertyRoutes } from './routes/properties.js';
 import { lensRoutes } from './routes/lenses.js';
 import { mediaRoutes } from './routes/media.js';
 import { prefRoutes } from './routes/prefs.js';
+import { createHub, scopeOf } from './live.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -41,8 +43,9 @@ const DEFAULT_PROFILES = [
   { name: 'Trabajo', color: PROFILE_COLORS[1], icon: 'briefcase' },
 ];
 
-export function createApp(db: Db, opts: { mediaDir?: string } = {}) {
+export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: number } = {}) {
   const api = new Hono();
+  const hub = createHub();
 
   // La cookie solo se marca Secure si llega por HTTPS (directo o tras un proxy);
   // en la red local por http://192.168.x.x tiene que funcionar sin ella.
@@ -102,6 +105,28 @@ export function createApp(db: Db, opts: { mediaDir?: string } = {}) {
     }
     await next();
   });
+
+  // Cada escritura que sale bien se anuncia a los demás dispositivos.
+  api.use('*', async (c, next) => {
+    await next();
+    const scope = scopeOf(c.req.method, c.req.path);
+    if (scope && c.res.status < 400) hub.publish({ scope, client: c.req.header('x-canvian-client') ?? null });
+  });
+
+  // Canal de avisos (Server-Sent Events). El latido mantiene viva la conexión
+  // a través de proxies que cortan las que llevan un rato en silencio.
+  api.get('/events', (c) =>
+    streamSSE(c, async (stream) => {
+      const stop = hub.listen((e) => {
+        void stream.writeSSE({ event: 'change', data: JSON.stringify(e) });
+      });
+      const beat = setInterval(() => void stream.writeSSE({ event: 'ping', data: '' }), opts.heartbeatMs ?? 20_000);
+      await stream.writeSSE({ event: 'hello', data: '' });
+      await new Promise<void>((done) => stream.onAbort(done));
+      clearInterval(beat);
+      stop();
+    }),
+  );
 
   api.get('/profiles', (c) =>
     c.json(db.select().from(profiles).orderBy(asc(profiles.position), asc(profiles.createdAt)).all()),

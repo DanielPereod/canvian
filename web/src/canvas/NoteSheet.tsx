@@ -37,14 +37,35 @@ function SheetEditor({ note, onSave, onError }: { note: NoteRow; onSave: (id: st
     editorProps: { attributes: { class: 'note-body prose sheet-prose' } },
     onUpdate: ({ editor }) => {
       const bodyText = editor.getText({ blockSeparator: '\n' });
-      onSave(note.id, { bodyJson: JSON.stringify(editor.getJSON()), bodyText, title: titleFrom(bodyText) });
+      const bodyJson = JSON.stringify(editor.getJSON());
+      shown.current = bodyJson;
+      typed.current = Date.now();
+      onSave(note.id, { bodyJson, bodyText, title: titleFrom(bodyText) });
     },
   });
+  // Si la nota cambia en otro dispositivo, el texto se pone al día aquí, salvo
+  // mientras se está escribiendo: entonces espera a una pausa.
+  const shown = useRef(note.bodyJson);
+  const typed = useRef(0);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (!editor || note.bodyJson === shown.current) return;
+    const quiet = Date.now() - typed.current;
+    if (editor.isFocused && quiet < 1500) {
+      const t = setTimeout(() => setRetry((n) => n + 1), 1500 - quiet);
+      return () => clearTimeout(t);
+    }
+    shown.current = note.bodyJson;
+    const at = editor.state.selection.from;
+    editor.commands.setContent(parseBody(note.bodyJson) ?? '', { emitUpdate: false });
+    if (editor.isFocused) editor.commands.setTextSelection(Math.min(at, editor.state.doc.content.size - 1));
+  }, [editor, note.bodyJson, retry]);
   // Y se guardan así, para que la vista previa y la búsqueda también las vean bien.
   useEffect(() => {
     if (!editor || !initial.repaired) return;
     const bodyText = editor.getText({ blockSeparator: '\n' });
-    onSave(note.id, { bodyJson: JSON.stringify(editor.getJSON()), bodyText, title: titleFrom(bodyText) });
+    shown.current = JSON.stringify(editor.getJSON());
+    onSave(note.id, { bodyJson: shown.current, bodyText, title: titleFrom(bodyText) });
     // Solo una vez, al abrir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
