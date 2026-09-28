@@ -8,7 +8,8 @@ import { mergeTags, splitTags } from './tags';
 
 // Vista de tareas, fuera del mapa, en tres columnas: a la izquierda las
 // listas (Hoy, 7 días, rápidas, por nota madre y por etiqueta), en el centro
-// las tareas de la elegida y a la derecha el detalle de la señalada.
+// las tareas de la elegida (en lista o en tablero por estado) y a la derecha
+// el detalle de la señalada.
 // Las tareas rápidas se apuntan arriba y solo viven aquí, sin nota detrás.
 
 export type TaskGrouping = 'estado' | 'seccion' | 'fecha';
@@ -26,6 +27,8 @@ const STATUSES: { id: TaskStatus; name: string }[] = [
 const PRIOS = ['Sin prioridad', 'Baja', 'Media', 'Alta'];
 const GROUP_KEY = 'canvian.tasksGrouping';
 const VIEW_KEY = 'canvian.tasksView';
+const LAYOUT_KEY = 'canvian.tasksLayout';
+const DONE_SHOWN = 20;
 
 const read = (k: string, fallback: string) => {
   try {
@@ -97,6 +100,8 @@ export function TasksView(p: Props) {
     return v === 'estado' || v === 'seccion' ? v : 'fecha';
   });
   const [view, setView] = useState(() => read(VIEW_KEY, 'all'));
+  const [layout, setLayout] = useState<'lista' | 'tablero'>(() => (read(LAYOUT_KEY, 'lista') === 'tablero' ? 'tablero' : 'lista'));
+  const [over, setOver] = useState<TaskStatus | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // El cursor sigue a la tarea aunque cambie de grupo; si desaparece, se queda en su sitio.
   const [cursorId, setCursorId] = useState<string | null>(null);
@@ -109,6 +114,10 @@ export function TasksView(p: Props) {
   const choose = (g: TaskGrouping) => {
     setGrouping(g);
     save(GROUP_KEY, g);
+  };
+  const pickLayout = (l: 'lista' | 'tablero') => {
+    setLayout(l);
+    save(LAYOUT_KEY, l);
   };
   const go = (v: string) => {
     setView(v);
@@ -163,17 +172,23 @@ export function TasksView(p: Props) {
   ];
 
   const current = useMemo(() => {
-    if (view === 'done') return { name: 'Hechas', list: [...done].sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? '')) };
+    if (view === 'done') return { name: 'Hechas', list: [...done].sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? '')), test: () => true };
+    let name: string;
+    let test: (r: NoteRow) => boolean;
     if (view.startsWith('sec:')) {
       const id = view.slice(4);
-      return { name: byId.get(id) ? titleOf(byId.get(id)!) : 'Nota', list: active.filter((r) => chainOf(r)[0]?.id === id) };
-    }
-    if (view.startsWith('tag:')) {
+      name = byId.get(id) ? titleOf(byId.get(id)!) : 'Nota';
+      test = (r) => chainOf(r)[0]?.id === id;
+    } else if (view.startsWith('tag:')) {
       const t = view.slice(4).toLowerCase();
-      return { name: `#${view.slice(4)}`, list: active.filter((r) => tagsOf(r).some((x) => x.toLowerCase() === t)) };
+      name = `#${view.slice(4)}`;
+      test = (r) => tagsOf(r).some((x) => x.toLowerCase() === t);
+    } else {
+      const s = smart.find((x) => x.id === view) ?? smart[0];
+      name = s.name;
+      test = s.test;
     }
-    const s = smart.find((x) => x.id === view) ?? smart[0];
-    return { name: s.name, list: active.filter(s.test) };
+    return { name, list: active.filter(test), test };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, active, done, byId, chainOf, tagsOf]);
 
@@ -220,16 +235,47 @@ export function TasksView(p: Props) {
     setCalDay(isoOf(first));
   };
 
-  const flat = cal ? [] : groups.flatMap((g) => (collapsed.has(g.title) ? [] : g.items));
+  // Tablero: una columna por estado. Las hechas, solo las últimas.
+  const board = layout === 'tablero' && view !== 'done' && !cal;
+  const columns = useMemo(() => {
+    if (!board) return [];
+    return STATUSES.map((s) => {
+      const mine = s.id === 'done' ? done.filter(current.test).sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? '')) : current.list.filter((r) => (r.status ?? 'todo') === s.id).sort((a, b) => urgency(b) - urgency(a));
+      return { ...s, items: mine.slice(0, s.id === 'done' ? DONE_SHOWN : undefined), total: mine.length };
+    });
+  }, [board, current, done]);
+  const colOf = (id: string | null) => columns.findIndex((c) => c.items.some((r) => r.id === id));
+  const firstCard = columns.find((c) => c.items.length)?.items[0] ?? null;
+  const boardCur = colOf(cursorId) >= 0 ? cursorId : (firstCard?.id ?? null);
+  const moveTo = (r: NoteRow, s: TaskStatus) => {
+    if ((r.status ?? 'todo') === s) return;
+    p.onPatch(r.id, { status: s, doneAt: s === 'done' ? new Date().toISOString() : null });
+  };
+  // Con las flechas por el tablero: ←→ de columna (a la misma altura), ↑↓ dentro de ella.
+  const boardStep = (dc: number, dr: number) => {
+    const c = colOf(boardCur);
+    if (c < 0) return;
+    const r = columns[c].items.findIndex((x) => x.id === boardCur);
+    if (dr) return setCursorId(columns[c].items[Math.max(0, Math.min(columns[c].items.length - 1, r + dr))]?.id ?? null);
+    for (let n = c + dc; n >= 0 && n < columns.length; n += dc) {
+      const list = columns[n].items;
+      if (list.length) return setCursorId(list[Math.min(r, list.length - 1)].id);
+    }
+  };
+
+  const flat = cal || board ? [] : groups.flatMap((g) => (collapsed.has(g.title) ? [] : g.items));
   const found = flat.findIndex((r) => r.id === cursorId);
   const at = found >= 0 ? found : Math.min(lastAt.current, Math.max(0, flat.length - 1));
   lastAt.current = at;
-  const cur = cal ? (all.find((r) => r.id === calSel) ?? null) : (flat[at] ?? null);
+  const cur = cal ? (all.find((r) => r.id === calSel) ?? null) : board ? (all.find((r) => r.id === boardCur) ?? null) : (flat[at] ?? null);
   const setCursor = (idx: number) => setCursorId(flat[idx]?.id ?? null);
 
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>('.tv-row.is-cursor')?.scrollIntoView({ block: 'nearest' });
   }, [at]);
+  useEffect(() => {
+    if (board) document.querySelector<HTMLElement>('.tv-card.is-cursor')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [board, boardCur]);
 
   const toggleDone = (r: NoteRow) => p.onPatch(r.id, r.status === 'done' ? { status: 'todo', doneAt: null } : { status: 'done', doneAt: new Date().toISOString() });
 
@@ -261,6 +307,14 @@ export function TasksView(p: Props) {
       else if (action === 'newNote') addRef.current?.focus();
       else if (action === 'deleteCell' && cur?.kind === 'quick') p.onDeleteQuick(cur.id);
       else if (k === ' ' && cur) toggleDone(cur);
+      else if (k === 'v' && view !== 'done' && !cal) pickLayout(board ? 'lista' : 'tablero');
+      else if (board && e.shiftKey && (k === 'arrowleft' || k === 'arrowright' || k === 'h' || k === 'l') && cur) {
+        const n = STATUSES.findIndex((s) => s.id === (cur.status ?? 'todo')) + (k === 'arrowleft' || k === 'h' ? -1 : 1);
+        if (STATUSES[n]) moveTo(cur, STATUSES[n].id);
+      } else if (board && (k === 'arrowleft' || k === 'h')) boardStep(-1, 0);
+      else if (board && (k === 'arrowright' || k === 'l')) boardStep(1, 0);
+      else if (board && (k === 'arrowup' || k === 'k')) boardStep(0, -1);
+      else if (board && (k === 'arrowdown' || k === 'j')) boardStep(0, 1);
       else if (cal && (k === 'arrowleft' || k === 'h')) shiftDay(-1);
       else if (cal && (k === 'arrowright' || k === 'l')) shiftDay(1);
       else if (cal && (k === 'arrowup' || k === 'k')) shiftDay(-7);
@@ -271,7 +325,7 @@ export function TasksView(p: Props) {
       else if (k === 'arrowdown' || k === 'j') setCursor(Math.min(flat.length - 1, at + 1));
       else if (k === 'arrowup' || k === 'k') setCursor(Math.max(0, at - 1));
       else if (k === 'enter' && cur) cur.kind === 'quick' ? titleRef.current?.focus() : p.onOpen(cur.id);
-      else if (k === 'tab' && !cal) choose(GROUPINGS[(GROUPINGS.findIndex((g) => g.id === grouping) + (e.shiftKey ? 2 : 1)) % 3].id);
+      else if (k === 'tab' && !cal && !board) choose(GROUPINGS[(GROUPINGS.findIndex((g) => g.id === grouping) + (e.shiftKey ? 2 : 1)) % 3].id);
       else return;
       e.preventDefault();
       e.stopPropagation();
@@ -331,12 +385,23 @@ export function TasksView(p: Props) {
             </div>
           )}
           {view !== 'done' && !cal && (
-            <div className="tv-group-by" role="radiogroup" aria-label="Agrupar por">
-              {GROUPINGS.map((g) => (
-                <button key={g.id} role="radio" aria-checked={g.id === grouping} className={g.id === grouping ? 'is-on' : ''} onClick={() => choose(g.id)}>
-                  {g.label}
-                </button>
-              ))}
+            <div className="tv-head-tools">
+              {!board && (
+                <div className="tv-group-by" role="radiogroup" aria-label="Agrupar por">
+                  {GROUPINGS.map((g) => (
+                    <button key={g.id} role="radio" aria-checked={g.id === grouping} className={g.id === grouping ? 'is-on' : ''} onClick={() => choose(g.id)}>
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="tv-group-by" role="radiogroup" aria-label="Forma">
+                {(['lista', 'tablero'] as const).map((l) => (
+                  <button key={l} role="radio" aria-checked={layout === l} className={layout === l ? 'is-on' : ''} onClick={() => pickLayout(l)}>
+                    {l === 'lista' ? 'Lista' : 'Tablero'}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </header>
@@ -378,7 +443,71 @@ export function TasksView(p: Props) {
             onMove={(id, iso) => p.onPatch(id, { dueAt: iso })}
           />
         )}
-        <div className="tv-list" ref={listRef} hidden={cal}>
+        {board && (
+          <div className="tv-board">
+            {columns.map((c) => (
+              <section
+                key={c.id}
+                className={`tv-col tv-col-${c.id}${over === c.id ? ' is-over' : ''}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setOver(c.id);
+                }}
+                onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setOver(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setOver(null);
+                  const r = all.find((x) => x.id === e.dataTransfer.getData('text/plain'));
+                  if (r) moveTo(r, c.id);
+                }}
+              >
+                <h2 className="tv-col-title">
+                  {c.name} <span className="tv-count">{c.total}</span>
+                </h2>
+                <div className="tv-col-list">
+                  {c.items.map((r) => {
+                    const d = due(r);
+                    const where = r.kind === 'quick' ? '' : (chainOf(r).at(-1)?.title ?? '');
+                    const t = tagsOf(r);
+                    return (
+                      <div
+                        key={r.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', r.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        className={`tv-card${r.id === boardCur ? ' is-cursor' : ''}${r.status === 'done' ? ' is-done' : ''}`}
+                        onMouseDown={() => setCursorId(r.id)}
+                        onClick={() => r.kind !== 'quick' && window.innerWidth <= 1100 && p.onOpen(r.id)}
+                        onDoubleClick={() => (r.kind === 'quick' ? titleRef.current?.focus() : p.onOpen(r.id))}
+                      >
+                        <div className="tv-card-top">
+                          <Check row={r} onToggle={() => toggleDone(r)} />
+                          <span className="tv-card-title">{titleOf(r)}</span>
+                        </div>
+                        {(where || r.dueAt || t.length > 0) && (
+                          <div className="tv-card-meta">
+                            {r.dueAt && <span className={`tv-due${d! < 0 && r.status !== 'done' ? ' is-late' : d === 0 ? ' is-today' : ''}`}>{dueLabel(r.dueAt)}</span>}
+                            {t.map((x) => (
+                              <span key={x} className="tv-tag">
+                                #{x}
+                              </span>
+                            ))}
+                            {where && <span className="tv-where">{where}</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {!c.items.length && <p className="tv-col-empty">{over === c.id ? 'Suelta aquí' : 'Nada'}</p>}
+                  {c.total > c.items.length && <p className="tv-col-empty">y {c.total - c.items.length} más en Hechas</p>}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+        <div className="tv-list" ref={listRef} hidden={cal || board}>
           {!groups.length && <p className="tv-empty">{view === 'done' ? 'Aún no hay nada hecho.' : 'Nada pendiente aquí.'}</p>}
           {groups.map((g) => {
             const shut = collapsed.has(g.title);
@@ -434,7 +563,9 @@ export function TasksView(p: Props) {
         <p className="tv-foot meta">
           {cal
             ? '←→↑↓ día · [ ] mes · T hoy · arrastra una tarea para cambiar su fecha · N añadir en el día · Esc salir'
-            : '↑↓ moverse · Espacio hecha · X estado · Enter abrir · N añadir · Tab agrupar · Esc salir'}
+            : board
+              ? '←→↑↓ moverse · Mayús ←→ cambiar de columna · arrastra una tarjeta · Espacio hecha · Enter abrir · V lista · Esc salir'
+              : '↑↓ moverse · Espacio hecha · X estado · Enter abrir · N añadir · Tab agrupar · V tablero · Esc salir'}
         </p>
       </main>
 
