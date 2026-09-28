@@ -442,18 +442,31 @@
 /* ── Vista de nodos ─────────────────────────────────────────────── */
 .nodes { position: absolute; inset: 0; z-index: var(--z-canvas); overflow: hidden; animation: tasks-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .nodes-svg { position: absolute; inset: 0; display: block; }
-.nodes-line { stroke: var(--line-strong); stroke-width: 1; vector-effect: non-scaling-stroke; transform-origin: 0 0; transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1), stroke 300ms, opacity 400ms; animation: nodes-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-.nodes-line.role-link { stroke-dasharray: 3 5; }
-.nodes-line.role-sibling { stroke: var(--line); }
-.nodes-line.on { stroke: var(--accent-line); }
+.nodes-line { fill: none; stroke: var(--line-strong); stroke-width: 1.2; stroke-linecap: round; transition: stroke 300ms, opacity 400ms; animation: nodes-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* Cada relación con su trazo: madre gruesa, contiene fina, hermanas punteadas, enlaces discontinuos. */
+.nodes-line.role-parent, .nodes-line.role-ancestor { stroke: var(--text-faint); stroke-width: 2; }
+.nodes-line.role-child { stroke: color-mix(in oklab, var(--text) 26%, transparent); }
+.nodes-line.role-sibling { stroke: var(--text-ghost); stroke-width: 1; stroke-dasharray: 1 4; }
+.nodes-line.role-link { stroke: var(--accent-ink); stroke-dasharray: 4 5; opacity: 0.75; }
+.nodes-line.on { stroke: var(--text); opacity: 1; }
 .nodes-node { cursor: pointer; transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1), opacity 400ms; animation: nodes-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .nodes-dot { fill: var(--bg); stroke: var(--text-faint); stroke-width: 1.2; transition: fill 300ms, stroke 300ms, r 600ms var(--ease-out); }
 .nodes-node.has-kids .nodes-dot { fill: color-mix(in oklab, var(--text) 10%, var(--bg)); stroke: var(--text-muted); }
-.nodes-node.is-task .nodes-dot { stroke-dasharray: 2 2; }
+.nodes-dot.is-branch { fill: color-mix(in oklab, var(--text) 8%, var(--bg)); stroke: var(--text-muted); }
+.nodes-num { font-family: var(--font-ui); font-size: 10px; font-weight: 600; fill: var(--text); pointer-events: none; }
+.nodes-task { fill: var(--bg); stroke: var(--text-muted); stroke-width: 1.3; transition: stroke 300ms; }
+.nodes-task.is-done { fill: var(--text-ghost); stroke: var(--text-ghost); }
+.nodes-check { fill: none; stroke: var(--bg); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.nodes-node.on .nodes-task { stroke: var(--text); }
+.nodes-meta { font-family: var(--font-ui); font-size: 11px; fill: var(--text-faint); }
+.nodes-meta.is-late { fill: var(--danger); }
+.nodes-node.role-link .nodes-meta { fill: var(--accent-ink); opacity: 0.8; }
+.nodes-node.role-ancestor { opacity: 0.5; }
 .nodes-node.is-done { opacity: 0.45; }
 .nodes-node.role-center .nodes-dot { fill: var(--text); stroke: none; filter: drop-shadow(0 0 18px var(--accent-soft)); }
+.nodes-node.role-center .nodes-dot.is-branch { fill: var(--text); }
+.nodes-node.role-center .nodes-num { fill: var(--bg); font-size: 12px; }
 .nodes-node.role-parent .nodes-dot { fill: none; stroke: var(--text-faint); }
-.nodes-node.ring-2 { opacity: 0.55; }
 .nodes-node.role-sibling { opacity: 0.4; }
 .nodes-node.on, .nodes-node.on.ring-2, .nodes-node.on.role-sibling { opacity: 1; }
 .nodes-node.on .nodes-dot { stroke: var(--text); fill: color-mix(in oklab, var(--text) 18%, var(--bg)); }
@@ -462,8 +475,8 @@
 .nodes-title { font-family: var(--font-ui); font-size: 14px; fill: var(--text-muted); transition: fill 300ms; }
 .nodes-hit { fill: transparent; }
 .nodes-node.on .nodes-title { fill: var(--text); }
-.nodes-node.ring-2 .nodes-title, .nodes-node.role-sibling .nodes-title { font-size: 12px; }
-.nodes-title.center { font-family: var(--font-serif); font-style: italic; font-size: 30px; fill: var(--text); letter-spacing: -0.01em; }
+.nodes-node.role-sibling .nodes-title, .nodes-node.role-ancestor .nodes-title { font-size: 12px; }
+.nodes-title.center { font-family: var(--font-serif); font-style: italic; font-size: 26px; fill: var(--text); letter-spacing: -0.01em; }
 .nodes-title.more { font-size: 12px; fill: var(--text-ghost); }
 .nodes-count { fill: var(--text-ghost); font-size: 11px; }
 .nodes-snippet { font-family: var(--font-ui); font-size: 13px; fill: var(--text-faint); pointer-events: none; }
