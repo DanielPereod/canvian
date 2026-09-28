@@ -339,10 +339,24 @@ export function Canvas({ profile }: { profile: Profile }) {
   };
 
   // Tarea rápida desde la vista de tareas: solo un título, sin sitio en el mapa.
-  const newQuick = (raw: string) => {
+  const newQuick = (raw: string, extra: { dueAt?: string } = {}) => {
     const { text, tags } = splitTags(raw);
     if (!text && !tags.length) return;
-    createNote({ x: 0, y: 0 }, 'quick', { title: text || null, status: 'todo', ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
+    createNote({ x: 0, y: 0 }, 'quick', { title: text || null, status: 'todo', ...extra, ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
+  };
+  // Tarea con nota, dentro de `zoneId`, sin abrirla (desde la vista de tareas).
+  const newTaskIn = (raw: string, zoneId: string) => {
+    const { text, tags } = splitTags(raw);
+    if (!text) return;
+    const row = createNote(spotFor(zoneId), 'task', { zoneId, status: 'todo', ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
+    const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
+    saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
+  };
+  // Cambia las etiquetas de una nota (las de su propiedad de etiquetas).
+  const setTags = (row: NoteRow, tags: string[]) => {
+    const def = tagsDef();
+    const props = withTags(row.props, tags);
+    updateNote(row.id, { props: { ...props, [def.id]: tags } });
   };
   const editQuick = (id: string, raw: string) => {
     const { text, tags } = splitTags(raw);
@@ -869,6 +883,10 @@ export function Canvas({ profile }: { profile: Profile }) {
           onBlock={toggleBlocked}
           quick={quick}
           onAddQuick={newQuick}
+          onAddTask={newTaskIn}
+          onPatch={updateNote}
+          onRename={rename}
+          onSetTags={setTags}
           onEditQuick={editQuick}
           tagsOf={(r) => tagsOf(r, defs)}
           onDeleteQuick={(id) => removeNotes([id])}
