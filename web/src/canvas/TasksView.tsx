@@ -62,10 +62,13 @@ function whenGroup(r: NoteRow): [number, string] {
 }
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const isoDay = (offset: number) => {
-  const d = new Date(localToday() + offset * 86_400_000);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const t = new Date(localToday());
+  return isoOf(new Date(t.getFullYear(), t.getMonth(), t.getDate() + offset));
 };
 const titleOf = (r: NoteRow) => r.title || 'Tarea sin título';
+const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const MONTH = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
+const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 
 type Props = {
   rows: NoteRow[];
@@ -197,11 +200,31 @@ export function TasksView(p: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, grouping, view]);
 
-  const flat = groups.flatMap((g) => (collapsed.has(g.title) ? [] : g.items));
+  // Calendario: el mes a la vista, el día elegido (donde se apunta) y la tarea señalada.
+  const cal = view === 'cal';
+  const [month, setMonth] = useState(() => isoDay(0).slice(0, 7));
+  const [calDay, setCalDay] = useState(() => isoDay(0));
+  const [calSel, setCalSel] = useState<string | null>(null);
+  const pickDay = (iso: string) => {
+    setCalDay(iso);
+    setMonth(iso.slice(0, 7));
+  };
+  const shiftDay = (n: number) => {
+    const [y, m, d] = calDay.split('-').map(Number);
+    pickDay(isoOf(new Date(y, m - 1, d + n)));
+  };
+  const shiftMonth = (n: number) => {
+    const [y, m] = month.split('-').map(Number);
+    const first = new Date(y, m - 1 + n, 1);
+    setMonth(isoOf(first).slice(0, 7));
+    setCalDay(isoOf(first));
+  };
+
+  const flat = cal ? [] : groups.flatMap((g) => (collapsed.has(g.title) ? [] : g.items));
   const found = flat.findIndex((r) => r.id === cursorId);
   const at = found >= 0 ? found : Math.min(lastAt.current, Math.max(0, flat.length - 1));
   lastAt.current = at;
-  const cur = flat[at] ?? null;
+  const cur = cal ? (all.find((r) => r.id === calSel) ?? null) : (flat[at] ?? null);
   const setCursor = (idx: number) => setCursorId(flat[idx]?.id ?? null);
 
   useEffect(() => {
@@ -217,10 +240,13 @@ export function TasksView(p: Props) {
     if (view.startsWith('sec:')) p.onAddTask(raw, view.slice(4));
     else if (view.startsWith('tag:')) p.onAddQuick(`${raw} #${view.slice(4)}`);
     else if (view === 'today') p.onAddQuick(raw, { dueAt: isoDay(0) });
+    else if (cal) p.onAddQuick(raw, { dueAt: calDay });
     else p.onAddQuick(raw);
     setAdding('');
   };
-  const addHint = view.startsWith('sec:') ? `Añadir tarea en ${current.name}…` : view === 'today' ? 'Añadir tarea para hoy…' : 'Añadir tarea… (#etiqueta)';
+  const addHint = cal
+    ? `Añadir tarea para ${calDay === isoDay(0) ? 'hoy' : dueLabel(calDay)}…`
+    : view.startsWith('sec:') ? `Añadir tarea en ${current.name}…` : view === 'today' ? 'Añadir tarea para hoy…' : 'Añadir tarea… (#etiqueta)';
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -235,10 +261,17 @@ export function TasksView(p: Props) {
       else if (action === 'newNote') addRef.current?.focus();
       else if (action === 'deleteCell' && cur?.kind === 'quick') p.onDeleteQuick(cur.id);
       else if (k === ' ' && cur) toggleDone(cur);
+      else if (cal && (k === 'arrowleft' || k === 'h')) shiftDay(-1);
+      else if (cal && (k === 'arrowright' || k === 'l')) shiftDay(1);
+      else if (cal && (k === 'arrowup' || k === 'k')) shiftDay(-7);
+      else if (cal && (k === 'arrowdown' || k === 'j')) shiftDay(7);
+      else if (cal && (k === 'pageup' || k === '[')) shiftMonth(-1);
+      else if (cal && (k === 'pagedown' || k === ']')) shiftMonth(1);
+      else if (cal && k === 't') pickDay(isoDay(0));
       else if (k === 'arrowdown' || k === 'j') setCursor(Math.min(flat.length - 1, at + 1));
       else if (k === 'arrowup' || k === 'k') setCursor(Math.max(0, at - 1));
       else if (k === 'enter' && cur) cur.kind === 'quick' ? titleRef.current?.focus() : p.onOpen(cur.id);
-      else if (k === 'tab') choose(GROUPINGS[(GROUPINGS.findIndex((g) => g.id === grouping) + (e.shiftKey ? 2 : 1)) % 3].id);
+      else if (k === 'tab' && !cal) choose(GROUPINGS[(GROUPINGS.findIndex((g) => g.id === grouping) + (e.shiftKey ? 2 : 1)) % 3].id);
       else return;
       e.preventDefault();
       e.stopPropagation();
@@ -276,15 +309,28 @@ export function TasksView(p: Props) {
           <Nav key={t} id={`tag:${t}`} name={t} icon="#" n={n} />
         ))}
         <div className="tv-side-sep" />
+        <Nav id="cal" name="Calendario" icon="▦" />
         <Nav id="done" name="Hechas" icon="✓" n={done.length} />
       </nav>
 
       <main className="tv-main">
         <header className="tv-head">
           <h1 className="tv-title">
-            {current.name} <span className="tv-count">{current.list.length}</span>
+            {cal ? cap(MONTH.format(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1))) : current.name}{' '}
+            {!cal && <span className="tv-count">{current.list.length}</span>}
           </h1>
-          {view !== 'done' && (
+          {cal && (
+            <div className="tv-group-by" aria-label="Mes">
+              <button onClick={() => shiftMonth(-1)} aria-label="Mes anterior">
+                ‹
+              </button>
+              <button onClick={() => pickDay(isoDay(0))}>Hoy</button>
+              <button onClick={() => shiftMonth(1)} aria-label="Mes siguiente">
+                ›
+              </button>
+            </div>
+          )}
+          {view !== 'done' && !cal && (
             <div className="tv-group-by" role="radiogroup" aria-label="Agrupar por">
               {GROUPINGS.map((g) => (
                 <button key={g.id} role="radio" aria-checked={g.id === grouping} className={g.id === grouping ? 'is-on' : ''} onClick={() => choose(g.id)}>
@@ -316,7 +362,23 @@ export function TasksView(p: Props) {
             <span className="tv-add-key">N</span>
           </div>
         )}
-        <div className="tv-list" ref={listRef}>
+        {cal && (
+          <TaskCalendar
+            month={month}
+            day={calDay}
+            tasks={all}
+            selected={calSel}
+            onDay={pickDay}
+            onSelect={(r) => {
+              setCalSel(r.id);
+              if (r.dueAt) setCalDay(r.dueAt.slice(0, 10));
+            }}
+            onOpen={(r) => (r.kind === 'quick' ? titleRef.current?.focus() : p.onOpen(r.id))}
+            onToggle={toggleDone}
+            onMove={(id, iso) => p.onPatch(id, { dueAt: iso })}
+          />
+        )}
+        <div className="tv-list" ref={listRef} hidden={cal}>
           {!groups.length && <p className="tv-empty">{view === 'done' ? 'Aún no hay nada hecho.' : 'Nada pendiente aquí.'}</p>}
           {groups.map((g) => {
             const shut = collapsed.has(g.title);
@@ -369,7 +431,11 @@ export function TasksView(p: Props) {
             );
           })}
         </div>
-        <p className="tv-foot meta">↑↓ moverse · Espacio hecha · X estado · Enter abrir · N añadir · Tab agrupar · Esc salir</p>
+        <p className="tv-foot meta">
+          {cal
+            ? '←→↑↓ día · [ ] mes · T hoy · arrastra una tarea para cambiar su fecha · N añadir en el día · Esc salir'
+            : '↑↓ moverse · Espacio hecha · X estado · Enter abrir · N añadir · Tab agrupar · Esc salir'}
+        </p>
       </main>
 
       <Detail key={cur?.id ?? 'none'} row={cur} p={p} section={cur ? sectionOf(cur) : ''} titleRef={titleRef} onToggle={() => cur && toggleDone(cur)} />
@@ -531,5 +597,105 @@ function Detail({
         )}
       </div>
     </aside>
+  );
+}
+
+// Mes en cuadrícula, de lunes a domingo. Las tareas con fecha van en su día;
+// se arrastran a otro para cambiarla, y el día elegido es donde se apunta.
+function TaskCalendar({
+  month,
+  day,
+  tasks,
+  selected,
+  onDay,
+  onSelect,
+  onOpen,
+  onToggle,
+  onMove,
+}: {
+  month: string;
+  day: string;
+  tasks: NoteRow[];
+  selected: string | null;
+  onDay: (iso: string) => void;
+  onSelect: (r: NoteRow) => void;
+  onOpen: (r: NoteRow) => void;
+  onToggle: (r: NoteRow) => void;
+  onMove: (id: string, iso: string) => void;
+}) {
+  const [over, setOver] = useState<string | null>(null);
+  const today = isoDay(0);
+  const [y, m] = month.split('-').map(Number);
+  const first = new Date(y, m - 1, 1);
+  const start = new Date(y, m - 1, 1 - ((first.getDay() + 6) % 7));
+  const days = Array.from({ length: 42 }, (_, k) => isoOf(new Date(start.getFullYear(), start.getMonth(), start.getDate() + k)));
+  const weeks = days[35].slice(0, 7) === month ? 6 : 5;
+
+  const byDay = useMemo(() => {
+    const out = new Map<string, NoteRow[]>();
+    for (const r of tasks) {
+      if (!r.dueAt) continue;
+      const k = r.dueAt.slice(0, 10);
+      out.set(k, [...(out.get(k) ?? []), r]);
+    }
+    for (const list of out.values()) list.sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done') || urgency(b) - urgency(a));
+    return out;
+  }, [tasks]);
+
+  return (
+    <div className="tv-cal" style={{ '--weeks': weeks } as React.CSSProperties}>
+      {DOW.map((d) => (
+        <div key={d} className="tv-cal-dow">
+          {d}
+        </div>
+      ))}
+      {days.slice(0, weeks * 7).map((iso) => {
+        const list = byDay.get(iso) ?? [];
+        const shown = list.slice(0, 4);
+        return (
+          <div
+            key={iso}
+            className={`tv-cal-day${iso.slice(0, 7) !== month ? ' is-other' : ''}${iso === today ? ' is-today' : ''}${iso === day ? ' is-on' : ''}${over === iso ? ' is-over' : ''}`}
+            onClick={() => onDay(iso)}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setOver(iso);
+            }}
+            onDragLeave={() => setOver((o) => (o === iso ? null : o))}
+            onDrop={(e) => {
+              e.preventDefault();
+              setOver(null);
+              const id = e.dataTransfer.getData('text/canvian-task');
+              if (id) onMove(id, iso);
+            }}
+          >
+            <span className="tv-cal-num">{Number(iso.slice(8))}</span>
+            {shown.map((r) => (
+              <div
+                key={r.id}
+                className={`tv-cal-task${r.status === 'done' ? ' is-done' : ''}${r.id === selected ? ' is-sel' : ''}${r.status !== 'done' && iso < today ? ' is-late' : ''}`}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/canvian-task', r.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(r);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  onOpen(r);
+                }}
+              >
+                <Check row={r} onToggle={() => onToggle(r)} />
+                <span>{titleOf(r)}</span>
+              </div>
+            ))}
+            {list.length > shown.length && <span className="tv-cal-more">+{list.length - shown.length} más</span>}
+          </div>
+        );
+      })}
+    </div>
   );
 }
