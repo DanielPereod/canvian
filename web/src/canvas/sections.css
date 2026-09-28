@@ -65,7 +65,7 @@
   align-items: center;
   gap: var(--space-1);
   font-family: var(--font-serif);
-  font-size: 18px;
+  font-size: var(--text-md);
   animation: rise-in var(--dur-base) var(--ease-out) both;
 }
 .smap-crumb-wrap { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
