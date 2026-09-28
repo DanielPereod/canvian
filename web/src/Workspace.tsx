@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { onLive } from './live';
 import { api, type BackgroundKind, type Profile } from './api';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { Canvas } from './canvas/Canvas';
@@ -46,6 +47,19 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   useEffect(() => {
     api.profiles().then(setProfiles, () => onSignedOut());
   }, [onSignedOut]);
+
+  // Lo que cambie en otro dispositivo (ajustes, perfiles) llega aquí también.
+  useEffect(
+    () =>
+      onLive((scope) => {
+        if (scope === 'prefs') {
+          void loadKeymap();
+          void loadExperiments();
+          void loadTheme();
+        } else if (scope === 'profiles') api.profiles().then(setProfiles, () => {});
+      }),
+    [],
+  );
 
   const active = profiles.find((p) => p.id === activeId) ?? profiles[0];
 

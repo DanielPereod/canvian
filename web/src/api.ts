@@ -95,17 +95,45 @@ export class ApiError extends Error {
   }
 }
 
+// Este dispositivo (esta pestaña): va con cada escritura para que el aviso en
+// vivo que provoca no nos haga recargar lo que ya tenemos.
+export const CLIENT = Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+
+// Escrituras que aún no han vuelto del servidor. Recargar mientras tanto
+// traería los datos de antes y desharía en pantalla lo que se acaba de hacer.
+let busy = 0;
+let started = 0;
+let idle: (() => void)[] = [];
+/** Cuántas escrituras han salido hasta ahora (para saber si hubo alguna entre medias). */
+export const writesSoFar = () => started;
+export function whenIdle(): Promise<void> {
+  return busy ? new Promise((r) => idle.push(r)) : Promise.resolve();
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    method,
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    credentials: 'same-origin',
-  });
-  if (res.status === 204) return undefined as T;
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(data.error ?? 'Algo ha fallado', res.status);
-  return data as T;
+  const write = method !== 'GET';
+  if (write) {
+    busy++;
+    started++;
+  }
+  try {
+    const res = await fetch(`/api${path}`, {
+      method,
+      headers: { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...(write ? { 'x-canvian-client': CLIENT } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: 'same-origin',
+    });
+    if (res.status === 204) return undefined as T;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error ?? 'Algo ha fallado', res.status);
+    return data as T;
+  } finally {
+    if (write && --busy === 0) {
+      const waiting = idle;
+      idle = [];
+      for (const r of waiting) r();
+    }
+  }
 }
 
 async function upload(file: File): Promise<{ url: string; kind: 'image' | 'video' | 'audio' }> {
