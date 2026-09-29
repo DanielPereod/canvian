@@ -70,6 +70,7 @@ const isoDay = (offset: number) => {
   return isoOf(new Date(t.getFullYear(), t.getMonth(), t.getDate() + offset));
 };
 const titleOf = (r: NoteRow) => r.title || 'Tarea sin título';
+const noteTitle = (r: NoteRow) => r.title || 'Nota sin título';
 const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const MONTH = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
 const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
@@ -131,7 +132,8 @@ export function TasksView(p: Props) {
     setCursorId(null);
   };
 
-  // Nota madre de cada tarea: la ruta («Casa › Cocina») y la de arriba del todo.
+  // Nota madre de cada tarea: la ruta entera («Casa › Cocina») y la madre directa («Cocina»),
+  // que es la que se enseña; la ruta queda para el título al pasar el ratón.
   const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
   const parent = useMemo(() => parentMap(rows), [rows]);
   const chainOf = useMemo(() => {
@@ -144,7 +146,8 @@ export function TasksView(p: Props) {
       return up;
     };
   }, [byId, parent]);
-  const sectionOf = (r: NoteRow) => chainOf(r).map((z) => z.title || 'Nota sin título').join(' › ');
+  const pathOf = (id: string) => chainOf(byId.get(id)!).concat(byId.get(id)!).map(noteTitle).join(' › ');
+  const homeOf = (r: NoteRow) => chainOf(r).at(-1);
 
   const all = useMemo(() => [...rows.filter((r) => r.kind === 'task'), ...quick], [rows, quick]);
   const active = useMemo(() => all.filter((r) => r.status !== 'done'), [all]);
@@ -154,13 +157,13 @@ export function TasksView(p: Props) {
   const sections = useMemo(() => {
     const m = new Map<string, { row: NoteRow; n: number }>();
     for (const r of active) {
-      const top = chainOf(r)[0];
-      if (!top) continue;
-      const e = m.get(top.id) ?? { row: top, n: 0 };
+      const home = homeOf(r);
+      if (!home) continue;
+      const e = m.get(home.id) ?? { row: home, n: 0 };
       e.n++;
-      m.set(top.id, e);
+      m.set(home.id, e);
     }
-    return [...m.values()].sort((a, b) => b.n - a.n || titleOf(a.row).localeCompare(titleOf(b.row), 'es'));
+    return [...m.values()].sort((a, b) => b.n - a.n || noteTitle(a.row).localeCompare(noteTitle(b.row), 'es'));
   }, [active, chainOf]);
   const tags = useMemo(() => {
     const m = new Map<string, number>();
@@ -182,8 +185,8 @@ export function TasksView(p: Props) {
     let test: (r: NoteRow) => boolean;
     if (view.startsWith('sec:')) {
       const id = view.slice(4);
-      name = byId.get(id) ? titleOf(byId.get(id)!) : 'Nota';
-      test = (r) => chainOf(r)[0]?.id === id;
+      name = byId.get(id) ? noteTitle(byId.get(id)!) : 'Nota';
+      test = (r) => homeOf(r)?.id === id;
     } else if (view.startsWith('tag:')) {
       const t = view.slice(4).toLowerCase();
       name = `#${view.slice(4)}`;
@@ -203,16 +206,20 @@ export function TasksView(p: Props) {
     for (const r of current.list) {
       let key: number | string;
       let title: string;
+      // Dos madres con el mismo nombre en sitios distintos son dos grupos.
+      let at: string | undefined;
       if (grouping === 'estado') [key, title] = r.status === 'doing' ? [0, 'En curso'] : r.status === 'blocked' ? [2, 'Bloqueadas'] : [1, 'Por hacer'];
       else if (grouping === 'fecha') [key, title] = whenGroup(r);
       else if (r.kind === 'quick') [key, title] = ['￾', 'Tareas rápidas'];
       else {
-        title = sectionOf(r) || 'Arriba del todo';
-        key = sectionOf(r) ? title.toLocaleLowerCase('es') : '￿';
+        const home = homeOf(r);
+        at = home?.id;
+        title = home ? noteTitle(home) : 'Arriba del todo';
+        key = home ? `${title.toLocaleLowerCase('es')}\u0000${home.id}` : '￿';
       }
-      const g = out.get(title) ?? { key, title, items: [] };
+      const g = out.get(at ?? title) ?? { key, title, items: [] };
       g.items.push(r);
-      out.set(title, g);
+      out.set(at ?? title, g);
     }
     const list = [...out.values()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
     for (const g of list) g.items.sort((a, b) => urgency(b) - urgency(a));
@@ -340,8 +347,8 @@ export function TasksView(p: Props) {
     return () => window.removeEventListener('keydown', onKey, true);
   });
 
-  const Nav = ({ id, name, n, icon }: { id: string; name: string; n?: number; icon?: string }) => (
-    <button className={`tv-nav-item${view === id ? ' is-on' : ''}`} aria-current={view === id} onClick={() => go(id)}>
+  const Nav = ({ id, name, n, icon, hint }: { id: string; name: string; n?: number; icon?: string; hint?: string }) => (
+    <button className={`tv-nav-item${view === id ? ' is-on' : ''}`} aria-current={view === id} onClick={() => go(id)} title={hint}>
       <span className="tv-nav-icon" aria-hidden="true">
         {icon}
       </span>
@@ -359,7 +366,7 @@ export function TasksView(p: Props) {
         ))}
         {sections.length > 0 && <div className="tv-side-title">Dentro de</div>}
         {sections.map(({ row, n }) => (
-          <Nav key={row.id} id={`sec:${row.id}`} name={titleOf(row)} icon="◇" n={n} />
+          <Nav key={row.id} id={`sec:${row.id}`} name={noteTitle(row)} hint={pathOf(row.id)} icon="◇" n={n} />
         ))}
         {tags.length > 0 && <div className="tv-side-title">Etiquetas</div>}
         {tags.map(([t, n]) => (
@@ -575,7 +582,7 @@ export function TasksView(p: Props) {
       </main>
 
       <Resizer size={detailWidth} edge="left" className="tv-resizer" />
-      <Detail key={cur?.id ?? 'none'} row={cur} p={p} section={cur ? sectionOf(cur) : ''} titleRef={titleRef} onToggle={() => cur && toggleDone(cur)} onMove={() => cur && setMoving(cur.id)} />
+      <Detail key={cur?.id ?? 'none'} row={cur} p={p} section={cur && homeOf(cur) ? noteTitle(homeOf(cur)!) : ''} path={cur && homeOf(cur) ? pathOf(homeOf(cur)!.id) : ''} titleRef={titleRef} onToggle={() => cur && toggleDone(cur)} onMove={() => cur && setMoving(cur.id)} />
       {moving && (
         <SectionPicker
           // Una rápida no tiene «Arriba del todo»: sin madre ya es rápida.
@@ -620,13 +627,16 @@ function Detail({
   row,
   p,
   section,
+  path,
   titleRef,
   onToggle,
   onMove,
 }: {
   row: NoteRow | null;
   p: Props;
+  // La madre directa y, para el título al pasar el ratón, su ruta entera.
   section: string;
+  path: string;
   titleRef: React.RefObject<HTMLInputElement | null>;
   onToggle: () => void;
   onMove: () => void;
@@ -695,7 +705,7 @@ function Detail({
           e.stopPropagation();
         }}
       />
-      <button className="tv-detail-where" onClick={onMove} title="Cambiar la nota madre (M)">
+      <button className="tv-detail-where" onClick={onMove} title={path ? `${path} · cambiar la nota madre (M)` : 'Cambiar la nota madre (M)'}>
         {quick ? 'Tarea rápida · solo vive en esta vista' : section ? `Dentro de ${section}` : 'Arriba del todo'}
         <span className="tv-detail-move">{quick ? 'Meter en una nota' : 'Cambiar'}</span>
       </button>
