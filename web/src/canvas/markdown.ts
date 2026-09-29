@@ -1,4 +1,5 @@
 import type { JSONContent } from '@tiptap/react';
+import { splitWiki } from './obsidian';
 
 // Markdown ↔ documento de Tiptap, lo justo para importar notas sueltas (o de
 // Obsidian) y exportar el lienzo a JSON Canvas. No pretende cubrir todo Markdown.
@@ -15,7 +16,9 @@ const INLINE = new RegExp(
     String.raw`\*\*[^*]+\*\*`,
     String.raw`(?<![\p{L}\p{N}_])__[^_]+__(?![\p{L}\p{N}_])`,
     '`[^`]+`',
-    String.raw`\[\[[^\]]+\]\]`,
+    String.raw`!?\[\[[^\]]+\]\]`,
+    String.raw`==[^=\s][^=]*==`,
+    String.raw`~~[^~\s][^~]*~~`,
     LINK,
     URL_RE,
     String.raw`\*[^*\s][^*]*\*`,
@@ -33,11 +36,16 @@ function inline(text: string, links: string[]): JSONContent[] {
     let tok = m[0];
     if (tok.startsWith('**') || tok.startsWith('__')) push(tok.slice(2, -2), [{ type: 'bold' }]);
     else if (tok.startsWith('`')) push(tok.slice(1, -1), [{ type: 'code' }]);
-    else if (tok.startsWith('[[')) {
-      // [[Nota|alias]] → se lee el alias y se recuerda el enlace para unir las notas.
-      const [target, alias] = tok.slice(2, -2).split('|');
-      links.push(target.split('#')[0].trim());
-      push(alias ?? target, [{ type: 'bold' }]);
+    else if (tok.startsWith('==')) push(tok.slice(2, -2), [{ type: 'highlight' }]);
+    else if (tok.startsWith('~~')) push(tok.slice(2, -2), [{ type: 'strike' }]);
+    else if (/^!?\[\[/.test(tok)) {
+      // [[Nota#Sección|alias]] (o ![[Nota]], que Obsidian incrusta) → un enlace a
+      // la nota, y se recuerda para unir las notas.
+      const { note, section, alias } = splitWiki(tok.replace(/^!/, '').slice(2, -2));
+      if (note) {
+        links.push(note);
+        out.push({ type: 'wikilink', attrs: { id: null, target: section ? `${note}#${section}` : note, alias } });
+      } else push(tok);
     } else if (tok.startsWith('[')) {
       const [, label, href] = /^\[([^\]]+)\]\((\S+?)(?:\s+"[^"]*")?\)$/.exec(tok)!;
       push(label, [{ type: 'link', attrs: { href } }]);
@@ -87,7 +95,7 @@ export function markdownToDoc(md: string): { doc: JSONContent; links: string[]; 
     const h = /^(#{1,6})\s+(.*)$/.exec(line);
     if (h) {
       heading ??= h[2].trim();
-      content.push({ type: 'heading', attrs: { level: Math.min(3, h[1].length) }, content: inline(h[2], links) });
+      content.push({ type: 'heading', attrs: { level: h[1].length }, content: inline(h[2], links) });
       i++;
       continue;
     }
@@ -124,13 +132,21 @@ export function markdownToDoc(md: string): { doc: JSONContent; links: string[]; 
       continue;
     }
     const bullet = /^\s*([-*+]|\d+[.)])\s+/;
+    const task = /^\s*[-*+]\s+\[( |x|X)\]\s?/;
+    if (task.test(line)) {
+      // Casillas de tareas: - [ ] y - [x].
+      const items: JSONContent[] = [];
+      for (let m; i < lines.length && (m = task.exec(lines[i])); i++) {
+        items.push({ type: 'taskItem', attrs: { checked: !!m[1].trim() }, content: [para(lines[i].replace(task, ''), links)] });
+      }
+      content.push({ type: 'taskList', content: items });
+      continue;
+    }
     if (bullet.test(line)) {
       const ordered = /^\s*\d/.test(line);
       const items: JSONContent[] = [];
-      while (i < lines.length && bullet.test(lines[i])) {
-        // Casillas de tareas (- [ ] / - [x]) se importan como texto con su marca.
-        const text = lines[i++].replace(bullet, '').replace(/^\[( |x|X)\]\s*/, (_, x) => (x.trim() ? '✓ ' : '☐ '));
-        items.push({ type: 'listItem', content: [para(text, links)] });
+      while (i < lines.length && bullet.test(lines[i]) && !task.test(lines[i])) {
+        items.push({ type: 'listItem', content: [para(lines[i++].replace(bullet, ''), links)] });
       }
       content.push({ type: ordered ? 'orderedList' : 'bulletList', content: items });
       continue;
@@ -146,7 +162,9 @@ export function docText(doc: JSONContent): string {
   const block = (n: JSONContent): string =>
     n.type === 'text'
       ? (n.text ?? '')
-      : (n.content ?? []).map(block).join(n.type === 'tableRow' ? ' · ' : ['doc', 'bulletList', 'orderedList', 'blockquote', 'listItem', 'table'].includes(n.type ?? '') ? '\n' : '');
+      : n.type === 'wikilink'
+        ? String(n.attrs?.alias || n.attrs?.target || '')
+        : (n.content ?? []).map(block).join(n.type === 'tableRow' ? ' · ' : ['doc', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'listItem', 'taskItem', 'table'].includes(n.type ?? '') ? '\n' : '');
   return block(doc).trim();
 }
 
@@ -157,6 +175,7 @@ function marksToMd(n: JSONContent): string {
     else if (m.type === 'italic') t = `*${t}*`;
     else if (m.type === 'code') t = `\`${t}\``;
     else if (m.type === 'strike') t = `~~${t}~~`;
+    else if (m.type === 'highlight') t = `==${t}==`;
     else if (m.type === 'link') t = t === m.attrs?.href ? t : `[${t}](${String(m.attrs?.href ?? '')})`;
   }
   return t;
@@ -164,7 +183,8 @@ function marksToMd(n: JSONContent): string {
 
 export function docToMarkdown(doc: JSONContent | null): string {
   if (!doc) return '';
-  const inl = (n: JSONContent) => (n.content ?? []).map((c) => (c.type === 'hardBreak' ? '\n' : marksToMd(c))).join('');
+  const wiki = (c: JSONContent) => `[[${String(c.attrs?.target ?? '')}${c.attrs?.alias ? `|${String(c.attrs.alias)}` : ''}]]`;
+  const inl = (n: JSONContent) => (n.content ?? []).map((c) => (c.type === 'hardBreak' ? '\n' : c.type === 'wikilink' ? wiki(c) : marksToMd(c))).join('');
   const block = (n: JSONContent, indent = ''): string => {
     switch (n.type) {
       case 'heading':
@@ -177,6 +197,14 @@ export function docToMarkdown(doc: JSONContent | null): string {
           .map((li, i) => {
             const [first, ...rest] = li.content ?? [];
             const head = `${indent}${n.type === 'orderedList' ? `${i + 1}.` : '-'} ${first ? inl(first) : ''}`;
+            return [head, ...rest.map((r) => block(r, indent + '  '))].join('\n');
+          })
+          .join('\n');
+      case 'taskList':
+        return (n.content ?? [])
+          .map((li) => {
+            const [first, ...rest] = li.content ?? [];
+            const head = `${indent}- [${li.attrs?.checked ? 'x' : ' '}] ${first ? inl(first) : ''}`;
             return [head, ...rest.map((r) => block(r, indent + '  '))].join('\n');
           })
           .join('\n');

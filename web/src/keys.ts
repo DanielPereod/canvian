@@ -25,29 +25,27 @@ export type ActionId =
   | 'search'
   | 'commands'
   | 'profiles'
-  | 'background'
-  | 'lab'
   | 'toggleMode'
   | 'exportCanvas'
   | 'help'
   | 'settings'
   | 'sidebar';
 
-export type KeyAction = { id: ActionId; label: string; group: 'Mapa' | 'Vistas y paneles'; key: string };
+export type KeyAction = { id: ActionId; label: string; group: 'Notas' | 'Vistas y paneles'; key: string };
 
 export const ACTIONS: KeyAction[] = [
-  { id: 'newNote', label: 'Nota nueva (en la vista de tareas, apuntar una tarea rápida)', group: 'Mapa', key: 'n' },
-  { id: 'newSection', label: 'Nota dentro de la señalada', group: 'Mapa', key: 'g' },
-  { id: 'newCanvas', label: 'Canvas nuevo (tarjetas libres y flechas)', group: 'Mapa', key: 'c' },
-  { id: 'toggleTask', label: 'Convertir en tarea o en nota', group: 'Mapa', key: 't' },
-  { id: 'cycleStatus', label: 'Avanzar el estado de una tarea', group: 'Mapa', key: 'x' },
-  { id: 'blockTask', label: 'Bloquear o desbloquear una tarea', group: 'Mapa', key: 'shift+x' },
-  { id: 'properties', label: 'Propiedades', group: 'Mapa', key: 'p' },
-  { id: 'deleteCell', label: 'Borrar lo señalado', group: 'Mapa', key: 'delete' },
-  { id: 'rename', label: 'Renombrar la nota señalada', group: 'Mapa', key: 'r' },
-  { id: 'archive', label: 'Archivar o desarchivar la nota abierta o señalada (se oculta con lo que cuelga de ella)', group: 'Mapa', key: 'mod+shift+x' },
+  { id: 'newNote', label: 'Nota nueva (en la vista de tareas, apuntar una tarea rápida)', group: 'Notas', key: 'n' },
+  { id: 'newSection', label: 'Nota dentro de la señalada', group: 'Notas', key: 'g' },
+  { id: 'newCanvas', label: 'Canvas nuevo (tarjetas libres y flechas)', group: 'Notas', key: 'c' },
+  { id: 'toggleTask', label: 'Convertir en tarea o en nota', group: 'Notas', key: 't' },
+  { id: 'cycleStatus', label: 'Avanzar el estado de una tarea', group: 'Notas', key: 'x' },
+  { id: 'blockTask', label: 'Bloquear o desbloquear una tarea', group: 'Notas', key: 'shift+x' },
+  { id: 'properties', label: 'Propiedades', group: 'Notas', key: 'p' },
+  { id: 'deleteCell', label: 'Borrar lo señalado', group: 'Notas', key: 'delete' },
+  { id: 'rename', label: 'Renombrar la nota señalada', group: 'Notas', key: 'r' },
+  { id: 'archive', label: 'Archivar o desarchivar la nota abierta o señalada (se oculta con lo que cuelga de ella)', group: 'Notas', key: 'mod+shift+x' },
   { id: 'showArchived', label: 'Mostrar u ocultar las notas archivadas', group: 'Vistas y paneles', key: 'mod+shift+h' },
-  { id: 'toRoot', label: 'Volver a la raíz del mapa', group: 'Mapa', key: '1' },
+  { id: 'toRoot', label: 'Volver a todas las notas', group: 'Notas', key: '1' },
   { id: 'tasks', label: 'Vista de tareas activas', group: 'Vistas y paneles', key: 'a' },
   { id: 'organize', label: 'Ordenar notas en secciones', group: 'Vistas y paneles', key: 'o' },
   { id: 'nodes', label: 'Modo nodo (activar o quitar): la nota abierta o señalada en el centro, con sus relaciones', group: 'Vistas y paneles', key: 'mod+g' },
@@ -55,20 +53,17 @@ export const ACTIONS: KeyAction[] = [
   { id: 'search', label: 'Buscar o crear notas', group: 'Vistas y paneles', key: 'mod+p' },
   { id: 'commands', label: 'Paleta de comandos', group: 'Vistas y paneles', key: 'mod+shift+p' },
   { id: 'profiles', label: 'Cambiar de perfil', group: 'Vistas y paneles', key: 'mod+alt+p' },
-  { id: 'background', label: 'Fondo', group: 'Vistas y paneles', key: 'b' },
-  { id: 'lab', label: 'Laboratorio', group: 'Vistas y paneles', key: 'e' },
   { id: 'toggleMode', label: 'Cambiar entre modo claro y oscuro', group: 'Vistas y paneles', key: 'mod+shift+l' },
   { id: 'exportCanvas', label: 'Exportar a JSON Canvas', group: 'Vistas y paneles', key: 'mod+shift+e' },
   { id: 'help', label: 'Lista de atajos', group: 'Vistas y paneles', key: 'mod+h' },
   { id: 'settings', label: 'Configuración', group: 'Vistas y paneles', key: 'mod+,' },
-  { id: 'sidebar', label: 'Plegar o fijar la barra lateral (diseño Biblioteca)', group: 'Vistas y paneles', key: 'mod+.' },
+  { id: 'sidebar', label: 'Plegar o fijar la barra lateral', group: 'Vistas y paneles', key: 'mod+.' },
 ];
 
 // Teclas que no se pueden cambiar (se muestran en la lista de atajos).
 export const FIXED: { keys: string[]; label: string }[] = [
-  { keys: ['rueda'], label: 'Acercarse; al llenar la pantalla, entra o abre la nota' },
-  { keys: ['clic'], label: 'Entrar en una sección o abrir una nota' },
-  { keys: ['arrastrar'], label: 'Mover a otra sección (o a las migas de arriba)' },
+  { keys: ['clic'], label: 'Entrar en una colección o abrir una nota' },
+  { keys: ['arrastrar'], label: 'En los nodos, mover una nota dentro de otra' },
   { keys: ['enter'], label: 'Entrar o abrir lo señalado' },
   { keys: ['escape'], label: 'Atrás, o cerrar lo que esté abierto' },
   { keys: ['shift+1…9'], label: 'Abrir una lente guardada' },

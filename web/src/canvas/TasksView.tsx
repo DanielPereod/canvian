@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { parentMap } from './sections';
 import type { NoteInput, NoteRow, TaskStatus } from '../api';
 import { daysUntil, dueLabel, localToday } from './dates';
 import { actionFor, keysBlocked } from '../keys';
-import { BackArrow } from '../BackArrow';
 import { mergeTags, splitTags } from './tags';
 import { SectionPicker, type SectionOption } from './SectionPicker';
+import { Resizer, useSideWidth } from './Resizer';
 
 // Vista de tareas, fuera del mapa, en tres columnas: a la izquierda las
 // listas (Hoy, 7 días, rápidas, por nota madre y por etiqueta), en el centro
@@ -92,13 +92,13 @@ type Props = {
   tagsOf: (r: NoteRow) => string[];
   onSetTags: (r: NoteRow, tags: string[]) => void;
   onClose: () => void;
-  /** A dónde vuelve «←»: el mapa o la lista de Foco. */
-  back: string;
   paused: boolean;
 };
 
 export function TasksView(p: Props) {
   const { rows, quick, tagsOf, paused } = p;
+  const sideWidth = useSideWidth('canvian.tasksSideWidth', 232, 180, 400);
+  const detailWidth = useSideWidth('canvian.tasksDetailWidth', 360, 280, 640);
   const [grouping, setGrouping] = useState<TaskGrouping>(() => {
     const v = read(GROUP_KEY, 'fecha');
     return v === 'estado' || v === 'seccion' ? v : 'fecha';
@@ -352,11 +352,8 @@ export function TasksView(p: Props) {
 
   let i = 0;
   return (
-    <div className="tasks-view tv">
+    <div className="tasks-view tv" style={{ '--tv-side-w': `${sideWidth.width}px`, '--tv-detail-w': `${detailWidth.width}px` } as CSSProperties}>
       <nav className="tv-side" aria-label="Listas de tareas">
-        <button className="sheet-back meta tv-back" onClick={p.onClose}>
-          <BackArrow /> {p.back}
-        </button>
         {smart.map((s) => (
           <Nav key={s.id} id={s.id} name={s.name} icon={s.icon} n={active.filter(s.test).length} />
         ))}
@@ -372,6 +369,8 @@ export function TasksView(p: Props) {
         <Nav id="cal" name="Calendario" icon="▦" />
         <Nav id="done" name="Hechas" icon="✓" n={done.length} />
       </nav>
+
+      <Resizer size={sideWidth} edge="right" className="tv-side-resizer" />
 
       <main className="tv-main">
         <header className="tv-head">
@@ -575,6 +574,7 @@ export function TasksView(p: Props) {
         </p>
       </main>
 
+      <Resizer size={detailWidth} edge="left" className="tv-resizer" />
       <Detail key={cur?.id ?? 'none'} row={cur} p={p} section={cur ? sectionOf(cur) : ''} titleRef={titleRef} onToggle={() => cur && toggleDone(cur)} onMove={() => cur && setMoving(cur.id)} />
       {moving && (
         <SectionPicker

@@ -5,6 +5,26 @@
  * en Configuración › Aspecto (--type-ui, --type-title, --type-scale).
  */
 
+/* ── Lo que cada tema ajusta en la biblioteca ───────────────────────── */
+/* Valores de fábrica; cada tema (themes.css y los Biblioteca de abajo) pone
+   los suyos: el fondo de la barra lateral, la selección, el tono de las
+   tapas, la letra de los títulos y la de lectura. */
+
+:root {
+  --bib-side: color-mix(in oklab, var(--text) 4%, var(--bg));
+  --bib-sel: color-mix(in oklab, var(--text) 9%, transparent);
+  --bib-cover-l: 0.3;
+  --bib-cover-c: 0.03;
+  --title-font: var(--font-ui);
+  --title-weight: 600;
+  --title-style: normal;
+  --title-case: none;
+  --title-tracking: -0.01em;
+  --title-scale: 1;
+  --read-font: var(--font-serif);
+  --read-size: 20px;
+}
+
 /* ── Temas Biblioteca (claro y oscuro) ─────────────────────────────── */
 
 :root[data-theme='biblioteca'],
@@ -12,6 +32,8 @@
   --font-ui: var(--type-ui, 'Inter Variable', ui-sans-serif, system-ui, sans-serif);
   --font-serif: 'Newsreader Variable', 'Newsreader', Georgia, serif;
   --font-title: var(--type-title, var(--font-serif));
+  --title-font: var(--font-title);
+  --title-weight: 500;
   --font-pixel: var(--font-ui);
   --text-2xs: calc(10px * var(--type-scale, 1));
   --text-xs: calc(12px * var(--type-scale, 1));
@@ -33,7 +55,6 @@
   --grid: transparent;
   --highlight: none;
   --pearl-glow: none;
-  --fl-title-em: 0.5;
 }
 :root[data-theme='biblioteca'] {
   color-scheme: light;
@@ -101,7 +122,6 @@
   --bib-cover-l: 0.3;
   --bib-cover-c: 0.025;
 }
-:root[data-theme^='biblioteca'] .ambient-layer,
 :root[data-theme^='biblioteca'] .fireflies,
 :root[data-theme^='biblioteca'] .surface-3::before { display: none; }
 [data-theme^='biblioteca'] .backdrop,
@@ -115,15 +135,11 @@
 [data-theme^='biblioteca'] .surface-2,
 [data-theme^='biblioteca'] .surface-3 { backdrop-filter: none; -webkit-backdrop-filter: none; }
 [data-theme^='biblioteca'] .btn-primary { background: var(--text); color: var(--bg); }
-[data-theme^='biblioteca'] .sheet { background: var(--bg); box-shadow: none; }
 
 /* ── El esqueleto ───────────────────────────────────────────────────── */
 
-.exp-biblioteca .chrome-top-left,
-.exp-biblioteca .hints { display: none; }
-
 .canvas.is-bib {
-  --bib-w: 240px;
+  --bib-w: var(--bib-side-w, 240px);
   --bib-h: 52px;
   font-family: var(--font-ui);
   background: var(--bg);
@@ -138,7 +154,7 @@
   z-index: 1;
 }
 .canvas.is-bib > .home-layer { overflow: hidden; }
-.canvas.is-bib > .sheet { z-index: 3; }
+.canvas.is-bib > .sheet { z-index: 3; background: var(--bg); box-shadow: none; }
 .canvas.is-bib > .tasks-view,
 .canvas.is-bib > .org-view { z-index: 2; background: var(--bg); animation: bib-in 260ms var(--ease-out) both; }
 .canvas.is-bib .lantern { left: calc(var(--bib-w) + 50%); }
@@ -256,12 +272,13 @@
 .has-tint .bib-spine.is-branch { background: color-mix(in oklab, var(--tint) 32%, var(--bg)); }
 .has-tint .bib-cover { background: color-mix(in oklab, var(--tint) 16%, var(--bg)); }
 .has-tint .bib-cover.is-branch { background: color-mix(in oklab, var(--tint) 28%, var(--bg)); }
+.side-resizer.bib-resizer { position: absolute; top: 0; bottom: 0; left: var(--bib-w); }
 
 /* Plegada: no se ve nada; al acercar el ratón al borde sale flotando por encima. */
 .canvas.is-bib-folded { --bib-w: 0px; }
 .bib-dock.is-folded .bib-hot { position: absolute; inset: 0 auto 0 0; width: 14px; z-index: 6; }
 .bib-dock.is-folded .bib-side {
-  --bib-w: 248px;
+  --bib-w: calc(var(--bib-side-w, 240px) + 8px);
   inset: 10px auto 10px 10px;
   z-index: 7;
   border-radius: 12px;
@@ -328,7 +345,23 @@
 .bib-lib { position: absolute; inset: 0; overflow-y: auto; padding: 30px 36px 80px; box-sizing: border-box; color: var(--text); display: flex; flex-direction: column; gap: 20px; }
 .bib-lib-head { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
 .bib-lib-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.bib-lib-title h1 { margin: 0; font-family: var(--font-title); font-size: calc(30px * var(--type-scale, 1)); font-weight: 500; letter-spacing: -0.01em; line-height: 1.15; }
+.bib-lib-title h1 { margin: 0; font-size: calc(26px * var(--title-scale) * var(--type-scale, 1)); line-height: 1.15; }
+/* Los títulos grandes llevan la letra del tema. */
+.bib-lib-title h1,
+.bib-cover-t,
+.canvas.is-bib .tv-title,
+.canvas.is-bib .org-title,
+.sheet.is-reader .sheet-prose > :first-child,
+.sheet.is-reader .sheet-prose > p:first-child strong,
+.sheet.is-reader .sheet-prose h1,
+.sheet.is-reader .sheet-prose h2,
+.sheet.is-reader .sheet-prose h3 {
+  font-family: var(--title-font);
+  font-weight: var(--title-weight);
+  font-style: var(--title-style);
+  text-transform: var(--title-case);
+  letter-spacing: var(--title-tracking);
+}
 .bib-lib-count { font-size: calc(13px * var(--type-scale, 1)); padding-bottom: 4px; }
 .bib-link { margin-left: auto; padding-bottom: 4px; font: inherit; font-size: calc(13px * var(--type-scale, 1)); background: none; border: 0; cursor: pointer; color: var(--accent-ink); }
 .bib-link:hover { text-decoration: underline; }
@@ -360,7 +393,7 @@
 .bib-spine.is-branch { background: oklch(var(--bib-cover-l) var(--bib-cover-c) var(--h)); }
 .bib-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .bib-row-t { font-size: calc(15px * var(--type-scale, 1)); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bib-row-s { font-family: var(--font-serif); font-size: calc(14px * var(--type-scale, 1)); color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bib-row-s { font-family: var(--read-font); font-size: calc(14px * var(--type-scale, 1)); color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bib-pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--surface-hover); color: var(--text-faint); font-size: calc(12px * var(--type-scale, 1)); white-space: nowrap; }
 .bib-pill.is-accent { background: var(--accent-soft); color: var(--accent-ink); }
 
@@ -385,8 +418,8 @@
 .bib-cover-it:hover .bib-cover,
 .bib-cover-it.is-sel .bib-cover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px var(--line-strong); }
 .bib-cover-k { font-size: calc(10px * var(--type-scale, 1)); letter-spacing: 0.12em; opacity: 0.7; }
-.bib-cover-t { font-family: var(--font-title); font-size: calc(17px * var(--type-scale, 1)); font-weight: 500; line-height: 1.2; }
-.bib-cover-s { font-family: var(--font-serif); font-size: calc(12px * var(--type-scale, 1)); line-height: 1.45; opacity: 0.75; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.bib-cover-t { font-size: calc(17px * var(--title-scale) * var(--type-scale, 1)); line-height: 1.15; }
+.bib-cover-s { font-family: var(--read-font); font-size: calc(12px * var(--type-scale, 1)); line-height: 1.45; opacity: 0.75; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
 .bib-cover-lines { margin-top: auto; display: flex; flex-direction: column; gap: 5px; opacity: 0.2; }
 .bib-cover-lines span { height: 3px; background: currentColor; }
 .bib-cover-lines span:nth-child(1) { width: 90%; }
@@ -401,15 +434,15 @@
 .reader-body { position: relative; width: min(680px, calc(100% - 48px)); padding: 48px 0 18vh; display: flex; flex-direction: column; gap: 14px; animation: bib-in 320ms var(--ease-out) both; }
 .reader-meta { font-size: calc(12px * var(--type-scale, 1)); color: var(--text-faint); }
 .reader-body .task-glyph { position: absolute; top: 44px; right: 0; }
-.sheet.is-reader .sheet-prose { font-family: var(--font-serif); font-size: calc(20px * var(--type-scale, 1)); line-height: 1.7; min-height: 40vh; }
+.sheet.is-reader .sheet-prose { font-family: var(--read-font); font-size: calc(var(--read-size) * var(--type-scale, 1)); line-height: 1.7; min-height: 40vh; }
 .sheet.is-reader .sheet-prose > :first-child,
-.sheet.is-reader .sheet-prose > p:first-child strong { font-family: var(--font-title); font-size: calc(32px * var(--type-scale, 1)); font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; margin-bottom: 8px; }
-.sheet.is-reader .sheet-prose h1,
-.sheet.is-reader .sheet-prose h2,
-.sheet.is-reader .sheet-prose h3 { font-family: var(--font-ui); font-weight: 600; letter-spacing: -0.01em; }
+.sheet.is-reader .sheet-prose > p:first-child strong { font-size: calc(32px * var(--title-scale) * var(--type-scale, 1)); line-height: 1.15; margin-bottom: 8px; }
+.sheet.is-reader .sheet-prose h4,
+.sheet.is-reader .sheet-prose h5,
+.sheet.is-reader .sheet-prose h6 { font-family: var(--font-ui); font-weight: 600; letter-spacing: -0.01em; }
 .sheet.is-reader .sheet-prose a { color: var(--accent-ink); }
 .sheet.is-reader .note-chips { padding: 0; }
-.reader-side { width: 300px; flex: none; overflow-y: auto; border-left: 1px solid var(--line); padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; font-size: calc(13px * var(--type-scale, 1)); color: var(--text); animation: bib-in 360ms var(--ease-out) 60ms both; }
+.reader-side { width: var(--reader-w, 300px); flex: none; overflow-y: auto; border-left: 1px solid var(--line); padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; font-size: calc(13px * var(--type-scale, 1)); color: var(--text); animation: bib-in 360ms var(--ease-out) 60ms both; }
 .reader-side button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
 .reader-side-h { font-weight: 500; }
 .reader-side-row { display: flex; justify-content: space-between; }
@@ -438,15 +471,12 @@
 
 /* ── Tareas, ordenar y el buscador con este estilo ──────────────────── */
 
-.canvas.is-bib .tv-back,
-.canvas.is-bib .org-view .sheet-back:first-child { display: none; }
 .canvas.is-bib .tv-title,
-.canvas.is-bib .org-title,
-.canvas.is-bib .tasks-title { font-family: var(--font-title); font-size: calc(26px * var(--type-scale, 1)); font-weight: 600; letter-spacing: -0.01em; }
+.canvas.is-bib .org-title { font-size: calc(26px * var(--title-scale) * var(--type-scale, 1)); }
 .canvas.is-bib .tv-title em,
 .canvas.is-bib .org-title em { font-style: normal; color: inherit; }
-.exp-biblioteca .popover:has(#note-search) .list { counter-reset: hit; }
-.exp-biblioteca .popover:has(#note-search) .list-item:not(.static)::before {
+.canvas.is-bib .popover:has(#note-search) .list { counter-reset: hit; }
+.canvas.is-bib .popover:has(#note-search) .list-item:not(.static)::before {
   counter-increment: hit;
   content: counter(hit, decimal-leading-zero);
   position: static;
@@ -458,19 +488,19 @@
   font-weight: 700;
   opacity: 0.55;
 }
-.exp-biblioteca .popover:has(#note-search) .list-item[aria-selected='true'] { background: var(--accent-soft); color: var(--text); }
-.exp-biblioteca .popover:has(#note-search) .list-item[aria-selected='true']::before { color: var(--accent-ink); }
-.exp-biblioteca .popover:has(#note-search) .list-item[aria-selected='true'] .hit-snippet,
-.exp-biblioteca .popover:has(#note-search) .list-item[aria-selected='true'] .list-icon { color: var(--text-faint); }
-.exp-biblioteca #note-search { font-size: calc(22px * var(--type-scale, 1)); font-weight: 500; }
+.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] { background: var(--accent-soft); color: var(--text); }
+.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true']::before { color: var(--accent-ink); }
+.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] .hit-snippet,
+.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] .list-icon { color: var(--text-faint); }
+.canvas.is-bib #note-search { font-size: calc(22px * var(--type-scale, 1)); font-weight: 500; }
 
 @media (max-width: 760px) {
   .canvas.is-bib { --bib-w: 0px; }
-  .bib-side { display: none; }
+  .bib-side, .bib-resizer { display: none; }
   .bib-bar { grid-template-columns: minmax(0, 1fr) auto; }
   .bib-search { display: none !important; }
   .bib-thead, .bib-row { grid-template-columns: 28px minmax(0, 1fr) 90px; }
   .bib-thead > :nth-child(4), .bib-thead > :nth-child(5), .bib-row > :nth-child(4), .bib-row > :nth-child(5) { display: none; }
-  .reader-side { display: none; }
+  .reader-side, .reader-resizer { display: none; }
   .bib-lib { padding: 20px 16px 80px; }
 }
