@@ -29,6 +29,7 @@ const PRIOS = ['Sin prioridad', 'Baja', 'Media', 'Alta'];
 const GROUP_KEY = 'canvian.tasksGrouping';
 const VIEW_KEY = 'canvian.tasksView';
 const LAYOUT_KEY = 'canvian.tasksLayout';
+const CAL_KEY = 'canvian.calMode';
 const DONE_SHOWN = 20;
 
 const read = (k: string, fallback: string) => {
@@ -74,6 +75,29 @@ const noteTitle = (r: NoteRow) => r.title || 'Nota sin título';
 const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const MONTH = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
 const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+const LONG_DAY = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+const SHORT_DOW = new Intl.DateTimeFormat('es-ES', { weekday: 'short' });
+const RANGE = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+const dateOf = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+const addDays = (iso: string, n: number) => {
+  const d = dateOf(iso);
+  return isoOf(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n));
+};
+const mondayOf = (iso: string) => addDays(iso, -((dateOf(iso).getDay() + 6) % 7));
+
+// Formas de ver el calendario. Las fechas son de día, sin hora: cada vista
+// enseña más o menos días y cuánto sitio tiene cada uno.
+export type CalMode = 'agenda' | 'dia' | 'tres' | 'semana' | 'mes';
+const CAL_MODES: { id: CalMode; label: string }[] = [
+  { id: 'agenda', label: 'Agenda' },
+  { id: 'dia', label: 'Día' },
+  { id: 'tres', label: '3 días' },
+  { id: 'semana', label: 'Semana' },
+  { id: 'mes', label: 'Mes' },
+];
 
 type Props = {
   rows: NoteRow[];
@@ -227,24 +251,67 @@ export function TasksView(p: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, grouping, view]);
 
-  // Calendario: el mes a la vista, el día elegido (donde se apunta) y la tarea señalada.
+  // Calendario: la vista (agenda, día, 3 días, semana o mes), el mes a la vista,
+  // el día elegido (donde se apunta) y la tarea señalada.
   const cal = view === 'cal';
+  const [calMode, setCalMode] = useState<CalMode>(() => {
+    const v = read(CAL_KEY, 'mes');
+    return CAL_MODES.some((m) => m.id === v) ? (v as CalMode) : 'mes';
+  });
   const [month, setMonth] = useState(() => isoDay(0).slice(0, 7));
   const [calDay, setCalDay] = useState(() => isoDay(0));
+  // En «3 días», el primero de los tres: no se mueve mientras el día elegido siga dentro.
+  const [threeFrom, setThreeFrom] = useState(() => isoDay(0));
   const [calSel, setCalSel] = useState<string | null>(null);
+  const pickMode = (m: CalMode) => {
+    setCalMode(m);
+    save(CAL_KEY, m);
+    if (m === 'tres') setThreeFrom(calDay);
+  };
   const pickDay = (iso: string) => {
     setCalDay(iso);
     setMonth(iso.slice(0, 7));
+    setThreeFrom((f) => (iso < f ? iso : iso > addDays(f, 2) ? addDays(iso, -2) : f));
   };
-  const shiftDay = (n: number) => {
-    const [y, m, d] = calDay.split('-').map(Number);
-    pickDay(isoOf(new Date(y, m - 1, d + n)));
+  const goToday = () => {
+    pickDay(isoDay(0));
+    setThreeFrom(isoDay(0));
   };
+  const shiftDay = (n: number) => pickDay(addDays(calDay, n));
   const shiftMonth = (n: number) => {
     const [y, m] = month.split('-').map(Number);
     const first = new Date(y, m - 1 + n, 1);
     setMonth(isoOf(first).slice(0, 7));
     setCalDay(isoOf(first));
+  };
+  // ‹ › y [ ]: un periodo entero de la vista.
+  const shiftPeriod = (n: number) => {
+    if (calMode === 'mes') return shiftMonth(n);
+    if (calMode === 'tres') {
+      setThreeFrom((f) => addDays(f, 3 * n));
+      setCalDay((d) => addDays(d, 3 * n));
+      setMonth(addDays(calDay, 3 * n).slice(0, 7));
+      return;
+    }
+    shiftDay(calMode === 'dia' ? n : 7 * n);
+  };
+  const calDays = calMode === 'dia' ? [calDay] : calMode === 'tres' ? [0, 1, 2].map((k) => addDays(threeFrom, k)) : Array.from({ length: 7 }, (_, k) => addDays(mondayOf(calDay), k));
+  const calTitle =
+    calMode === 'mes'
+      ? cap(MONTH.format(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1)))
+      : calMode === 'dia'
+        ? cap(LONG_DAY.format(dateOf(calDay)))
+        : calMode === 'agenda'
+          ? calDay === isoDay(0)
+            ? 'Agenda'
+            : `Agenda desde el ${LONG_DAY.format(dateOf(calDay))}`
+          : RANGE.formatRange(dateOf(calDays[0]), dateOf(calDays[calDays.length - 1]));
+  const PERIOD: Record<CalMode, [string, string]> = {
+    agenda: ['Semana anterior', 'Semana siguiente'],
+    dia: ['Día anterior', 'Día siguiente'],
+    tres: ['3 días antes', '3 días después'],
+    semana: ['Semana anterior', 'Semana siguiente'],
+    mes: ['Mes anterior', 'Mes siguiente'],
   };
 
   // Tablero: una columna por estado. Las hechas, solo las últimas.
@@ -328,13 +395,14 @@ export function TasksView(p: Props) {
       else if (board && (k === 'arrowright' || k === 'l')) boardStep(1, 0);
       else if (board && (k === 'arrowup' || k === 'k')) boardStep(0, -1);
       else if (board && (k === 'arrowdown' || k === 'j')) boardStep(0, 1);
+      else if (cal && /^[1-5]$/.test(k)) pickMode(CAL_MODES[Number(k) - 1].id);
       else if (cal && (k === 'arrowleft' || k === 'h')) shiftDay(-1);
       else if (cal && (k === 'arrowright' || k === 'l')) shiftDay(1);
-      else if (cal && (k === 'arrowup' || k === 'k')) shiftDay(-7);
-      else if (cal && (k === 'arrowdown' || k === 'j')) shiftDay(7);
-      else if (cal && (k === 'pageup' || k === '[')) shiftMonth(-1);
-      else if (cal && (k === 'pagedown' || k === ']')) shiftMonth(1);
-      else if (cal && k === 't') pickDay(isoDay(0));
+      else if (cal && (k === 'arrowup' || k === 'k')) shiftDay(calMode === 'mes' || calMode === 'semana' ? -7 : -1);
+      else if (cal && (k === 'arrowdown' || k === 'j')) shiftDay(calMode === 'mes' || calMode === 'semana' ? 7 : 1);
+      else if (cal && (k === 'pageup' || k === '[')) shiftPeriod(-1);
+      else if (cal && (k === 'pagedown' || k === ']')) shiftPeriod(1);
+      else if (cal && k === 't') goToday();
       else if (k === 'arrowdown' || k === 'j') setCursor(Math.min(flat.length - 1, at + 1));
       else if (k === 'arrowup' || k === 'k') setCursor(Math.max(0, at - 1));
       else if (k === 'enter' && cur) cur.kind === 'quick' ? titleRef.current?.focus() : p.onOpen(cur.id);
@@ -382,18 +450,29 @@ export function TasksView(p: Props) {
       <main className="tv-main">
         <header className="tv-head">
           <h1 className="tv-title">
-            {cal ? cap(MONTH.format(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1))) : current.name}{' '}
+            {cal ? calTitle : current.name}{' '}
             {!cal && <span className="tv-count">{current.list.length}</span>}
           </h1>
           {cal && (
-            <div className="tv-group-by" aria-label="Mes">
-              <button onClick={() => shiftMonth(-1)} aria-label="Mes anterior">
-                ‹
-              </button>
-              <button onClick={() => pickDay(isoDay(0))}>Hoy</button>
-              <button onClick={() => shiftMonth(1)} aria-label="Mes siguiente">
-                ›
-              </button>
+            <div className="tv-head-tools">
+              <div className="tv-group-by" role="radiogroup" aria-label="Vista del calendario">
+                {CAL_MODES.map((m, n) => (
+                  <button key={m.id} role="radio" aria-checked={calMode === m.id} className={calMode === m.id ? 'is-on' : ''} onClick={() => pickMode(m.id)} title={`${m.label} (${n + 1})`}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <div className="tv-group-by" aria-label="Moverse">
+                <button onClick={() => shiftPeriod(-1)} aria-label={PERIOD[calMode][0]} title={`${PERIOD[calMode][0]} ([)`}>
+                  ‹
+                </button>
+                <button onClick={goToday} title="Hoy (T)">
+                  Hoy
+                </button>
+                <button onClick={() => shiftPeriod(1)} aria-label={PERIOD[calMode][1]} title={`${PERIOD[calMode][1]} (])`}>
+                  ›
+                </button>
+              </div>
             </div>
           )}
           {view !== 'done' && !cal && (
@@ -441,14 +520,18 @@ export function TasksView(p: Props) {
         )}
         {cal && (
           <TaskCalendar
+            mode={calMode}
             month={month}
+            days={calDays}
             day={calDay}
             tasks={all}
             selected={calSel}
+            whereOf={(r) => (r.kind === 'quick' ? '' : homeOf(r) ? noteTitle(homeOf(r)!) : '')}
             onDay={pickDay}
             onSelect={(r) => {
               setCalSel(r.id);
-              if (r.dueAt) setCalDay(r.dueAt.slice(0, 10));
+              // En la agenda, el día elegido es desde dónde empieza: señalar no la mueve.
+              if (r.dueAt && calMode !== 'agenda') (calMode === 'mes' ? setCalDay : pickDay)(r.dueAt.slice(0, 10));
             }}
             onOpen={(r) => (r.kind === 'quick' ? titleRef.current?.focus() : p.onOpen(r.id))}
             onToggle={toggleDone}
@@ -574,7 +657,7 @@ export function TasksView(p: Props) {
         </div>
         <p className="tv-foot meta">
           {cal
-            ? '←→↑↓ día · [ ] mes · T hoy · arrastra una tarea para cambiar su fecha · N añadir en el día · Esc salir'
+            ? `1–5 vista · ←→${calMode === 'mes' || calMode === 'semana' ? '↑↓' : ''} día · [ ] ${calMode === 'mes' ? 'mes' : calMode === 'dia' ? 'día' : calMode === 'tres' ? '3 días' : 'semana'} · T hoy · arrastra una tarea para cambiar su fecha · N añadir en el día · Esc salir`
             : board
               ? '←→↑↓ moverse · Mayús ←→ cambiar de columna · arrastra una tarjeta · Espacio hecha · M nota madre · V lista · Esc salir'
               : '↑↓ moverse · Espacio hecha · X estado · M nota madre · N añadir · Tab agrupar · V tablero · Esc salir'}
@@ -767,38 +850,9 @@ function Detail({
   );
 }
 
-// Mes en cuadrícula, de lunes a domingo. Las tareas con fecha van en su día;
-// se arrastran a otro para cambiarla, y el día elegido es donde se apunta.
-function TaskCalendar({
-  month,
-  day,
-  tasks,
-  selected,
-  onDay,
-  onSelect,
-  onOpen,
-  onToggle,
-  onMove,
-}: {
-  month: string;
-  day: string;
-  tasks: NoteRow[];
-  selected: string | null;
-  onDay: (iso: string) => void;
-  onSelect: (r: NoteRow) => void;
-  onOpen: (r: NoteRow) => void;
-  onToggle: (r: NoteRow) => void;
-  onMove: (id: string, iso: string) => void;
-}) {
-  const [over, setOver] = useState<string | null>(null);
-  const today = isoDay(0);
-  const [y, m] = month.split('-').map(Number);
-  const first = new Date(y, m - 1, 1);
-  const start = new Date(y, m - 1, 1 - ((first.getDay() + 6) % 7));
-  const days = Array.from({ length: 42 }, (_, k) => isoOf(new Date(start.getFullYear(), start.getMonth(), start.getDate() + k)));
-  const weeks = days[35].slice(0, 7) === month ? 6 : 5;
-
-  const byDay = useMemo(() => {
+// Las tareas con fecha, por día; en cada uno, primero las pendientes y lo que más urge.
+function useByDay(tasks: NoteRow[]) {
+  return useMemo(() => {
     const out = new Map<string, NoteRow[]>();
     for (const r of tasks) {
       if (!r.dueAt) continue;
@@ -808,6 +862,86 @@ function TaskCalendar({
     for (const list of out.values()) list.sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done') || urgency(b) - urgency(a));
     return out;
   }, [tasks]);
+}
+
+type CalProps = {
+  mode: CalMode;
+  month: string;
+  // Los días a la vista en «Día», «3 días» y «Semana».
+  days: string[];
+  day: string;
+  tasks: NoteRow[];
+  selected: string | null;
+  whereOf: (r: NoteRow) => string;
+  onDay: (iso: string) => void;
+  onSelect: (r: NoteRow) => void;
+  onOpen: (r: NoteRow) => void;
+  onToggle: (r: NoteRow) => void;
+  onMove: (id: string, iso: string) => void;
+};
+
+// Un sitio donde soltar una tarea para darle ese día.
+function dropOn(iso: string, setOver: (f: (o: string | null) => string | null) => void, onMove: CalProps['onMove']) {
+  return {
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      setOver(() => iso);
+    },
+    onDragLeave: (e: React.DragEvent) => !e.currentTarget.contains(e.relatedTarget as Node) && setOver((o) => (o === iso ? null : o)),
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      setOver(() => null);
+      const id = e.dataTransfer.getData('text/canvian-task');
+      if (id) onMove(id, iso);
+    },
+  };
+}
+
+// Una tarea en el calendario: se señala con un clic, se abre con doble clic y se arrastra a otro día.
+function CalTask({ r, iso, p, where }: { r: NoteRow; iso: string; p: CalProps; where?: string }) {
+  const today = isoDay(0);
+  return (
+    <div
+      className={`tv-cal-task${r.status === 'done' ? ' is-done' : ''}${r.id === p.selected ? ' is-sel' : ''}${r.status !== 'done' && iso < today ? ' is-late' : ''}`}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/canvian-task', r.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        p.onSelect(r);
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        p.onOpen(r);
+      }}
+    >
+      <Check row={r} onToggle={() => p.onToggle(r)} />
+      <span>{titleOf(r)}</span>
+      {where && <em className="tv-cal-where">{where}</em>}
+    </div>
+  );
+}
+
+function TaskCalendar(p: CalProps) {
+  if (p.mode === 'agenda') return <CalAgenda {...p} />;
+  if (p.mode === 'mes') return <CalMonth {...p} />;
+  return <CalColumns {...p} />;
+}
+
+// Mes en cuadrícula, de lunes a domingo. Las tareas con fecha van en su día;
+// se arrastran a otro para cambiarla, y el día elegido es donde se apunta.
+function CalMonth(p: CalProps) {
+  const { month, day } = p;
+  const [over, setOver] = useState<string | null>(null);
+  const today = isoDay(0);
+  const [y, m] = month.split('-').map(Number);
+  const first = new Date(y, m - 1, 1);
+  const start = new Date(y, m - 1, 1 - ((first.getDay() + 6) % 7));
+  const days = Array.from({ length: 42 }, (_, k) => isoOf(new Date(start.getFullYear(), start.getMonth(), start.getDate() + k)));
+  const weeks = days[35].slice(0, 7) === month ? 6 : 5;
+  const byDay = useByDay(p.tasks);
 
   return (
     <div className="tv-cal" style={{ '--weeks': weeks } as React.CSSProperties}>
@@ -823,46 +957,99 @@ function TaskCalendar({
           <div
             key={iso}
             className={`tv-cal-day${iso.slice(0, 7) !== month ? ' is-other' : ''}${iso === today ? ' is-today' : ''}${iso === day ? ' is-on' : ''}${over === iso ? ' is-over' : ''}`}
-            onClick={() => onDay(iso)}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setOver(iso);
-            }}
-            onDragLeave={() => setOver((o) => (o === iso ? null : o))}
-            onDrop={(e) => {
-              e.preventDefault();
-              setOver(null);
-              const id = e.dataTransfer.getData('text/canvian-task');
-              if (id) onMove(id, iso);
-            }}
+            onClick={() => p.onDay(iso)}
+            {...dropOn(iso, setOver, p.onMove)}
           >
             <span className="tv-cal-num">{Number(iso.slice(8))}</span>
             {shown.map((r) => (
-              <div
-                key={r.id}
-                className={`tv-cal-task${r.status === 'done' ? ' is-done' : ''}${r.id === selected ? ' is-sel' : ''}${r.status !== 'done' && iso < today ? ' is-late' : ''}`}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('text/canvian-task', r.id);
-                  e.dataTransfer.effectAllowed = 'move';
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect(r);
-                }}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  onOpen(r);
-                }}
-              >
-                <Check row={r} onToggle={() => onToggle(r)} />
-                <span>{titleOf(r)}</span>
-              </div>
+              <CalTask key={r.id} r={r} iso={iso} p={p} />
             ))}
             {list.length > shown.length && <span className="tv-cal-more">+{list.length - shown.length} más</span>}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// Día, 3 días y semana: una columna por día, con todas sus tareas (se desplaza si no caben).
+function CalColumns(p: CalProps) {
+  const [over, setOver] = useState<string | null>(null);
+  const today = isoDay(0);
+  const byDay = useByDay(p.tasks);
+  const roomy = p.mode !== 'semana';
+  return (
+    <div className={`tv-cal-cols is-${p.mode}`} style={{ '--cols': p.days.length } as React.CSSProperties}>
+      {p.days.map((iso) => (
+        <button key={iso} className={`tv-cal-colhead${iso === today ? ' is-today' : ''}${iso === p.day ? ' is-on' : ''}`} onClick={() => p.onDay(iso)} {...dropOn(iso, setOver, p.onMove)}>
+          <span className="tv-cal-coldow">{SHORT_DOW.format(dateOf(iso)).replace('.', '')}</span>
+          <span className="tv-cal-num">{Number(iso.slice(8))}</span>
+          {!!byDay.get(iso)?.length && <span className="tv-count">{byDay.get(iso)!.filter((r) => r.status !== 'done').length || ''}</span>}
+        </button>
+      ))}
+      {p.days.map((iso) => {
+        const list = byDay.get(iso) ?? [];
+        return (
+          <div key={iso} className={`tv-cal-col${iso === p.day ? ' is-on' : ''}${over === iso ? ' is-over' : ''}${iso < today ? ' is-past' : ''}`} onClick={() => p.onDay(iso)} {...dropOn(iso, setOver, p.onMove)}>
+            {list.map((r) => (
+              <CalTask key={r.id} r={r} iso={iso} p={p} where={roomy ? p.whereOf(r) : undefined} />
+            ))}
+            {!list.length && p.mode === 'dia' && <p className="tv-cal-empty">Nada para este día. N para apuntar algo.</p>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Agenda: lo que viene, día a día, solo los días con algo. Si empieza hoy (o antes),
+// arriba van las pendientes que ya vencieron.
+function CalAgenda(p: CalProps) {
+  const [over, setOver] = useState<string | null>(null);
+  const today = isoDay(0);
+  const byDay = useByDay(p.tasks);
+  const late = p.day <= today ? [...byDay.entries()].filter(([iso]) => iso < p.day).flatMap(([iso, list]) => list.filter((r) => r.status !== 'done').map((r) => [iso, r] as const)) : [];
+  const days = [...byDay.keys()].filter((iso) => iso >= p.day).sort();
+  if (!days.includes(p.day)) days.unshift(p.day);
+  const label = (iso: string) => {
+    const n = daysUntil(iso);
+    return n === 0 ? 'Hoy' : n === 1 ? 'Mañana' : n === -1 ? 'Ayer' : cap(SHORT_DOW.format(dateOf(iso)).replace('.', ''));
+  };
+  return (
+    <div className="tv-agenda">
+      {late.length > 0 && (
+        <section className="tv-agenda-day is-late">
+          <div className="tv-agenda-date">
+            <span className="tv-agenda-dow">Vencidas</span>
+          </div>
+          <div className="tv-agenda-list">
+            {late.map(([iso, r]) => (
+              <CalTask key={r.id} r={r} iso={iso} p={p} where={[dueLabel(iso), p.whereOf(r)].filter(Boolean).join(' · ')} />
+            ))}
+          </div>
+        </section>
+      )}
+      {days.map((iso) => {
+        const list = byDay.get(iso) ?? [];
+        return (
+          <section key={iso} className={`tv-agenda-day${iso === today ? ' is-today' : ''}${iso === p.day ? ' is-on' : ''}${over === iso ? ' is-over' : ''}`} {...dropOn(iso, setOver, p.onMove)}>
+            <button className="tv-agenda-date" onClick={() => p.onDay(iso)} title="Apuntar en este día">
+              <span className="tv-cal-num">{Number(iso.slice(8))}</span>
+              <span className="tv-agenda-dow">
+                {label(iso)}
+                <span className="tv-agenda-month">{MONTH.format(dateOf(iso)).replace(/ de \d+$/, '')}</span>
+              </span>
+            </button>
+            <div className="tv-agenda-list">
+              {list.map((r) => (
+                <CalTask key={r.id} r={r} iso={iso} p={p} where={p.whereOf(r)} />
+              ))}
+              {!list.length && <p className="tv-cal-empty">Nada este día.</p>}
+            </div>
+          </section>
+        );
+      })}
+      {days.length === 1 && !(byDay.get(p.day)?.length) && <p className="tv-cal-empty tv-agenda-end">No hay nada con fecha a partir de aquí.</p>}
     </div>
   );
 }

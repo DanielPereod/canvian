@@ -418,7 +418,54 @@
 .tv-cal-task .tv-check { width: 12px; height: 12px; border-radius: 3px; }
 .tv-cal-task .tv-check svg { width: 9px; height: 9px; }
 .tv-cal-more { padding: 0 6px; font-size: 11px; color: var(--text-ghost); }
-@media (max-width: 760px) { .tv-cal-task span { display: none; } .tv-cal-task { padding: 2px; } }
+.tv-cal-where { flex: none; max-width: 40%; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-size: var(--text-xs); color: var(--text-ghost); }
+
+/* Día, 3 días y semana: una columna por día. */
+.tv-cal-cols { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-template-rows: auto minmax(0, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); margin-bottom: var(--space-3); }
+.tv-cal-colhead { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; padding: 6px 8px; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: none; font: inherit; color: var(--text-muted); text-align: left; cursor: pointer; transition: background var(--dur-fast); }
+.tv-cal-colhead:hover { background: color-mix(in oklab, var(--surface-sunken) 50%, transparent); }
+.tv-cal-colhead.is-on { background: var(--surface-sunken); }
+.tv-cal-colhead .tv-count { margin-left: auto; }
+.tv-cal-cols.is-semana .tv-cal-colhead .tv-count { display: none; }
+.tv-cal-coldow { font-size: var(--text-xs); color: var(--text-ghost); text-transform: capitalize; }
+.tv-cal-colhead.is-today .tv-cal-num { background: var(--accent-ink); color: var(--bg); font-weight: 600; }
+.tv-cal-col { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 6px 4px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); scrollbar-width: thin; transition: background var(--dur-fast); }
+.tv-cal-col.is-on { background: color-mix(in oklab, var(--surface-sunken) 55%, transparent); }
+.tv-cal-col.is-over, .tv-cal-colhead.is-over { background: var(--accent-soft); }
+.tv-cal-col.is-past .tv-cal-task:not(.is-late) span { color: var(--text-faint); }
+/* En columnas, el título en varias líneas (en la semana, hasta tres); con sitio, un poco más grande. */
+.tv-cal-cols .tv-cal-task { align-items: flex-start; }
+.tv-cal-cols .tv-cal-task .tv-check { margin-top: 2px; }
+.tv-cal-cols .tv-cal-task span { white-space: normal; overflow-wrap: break-word; hyphens: auto; }
+.tv-cal-cols.is-semana .tv-cal-task { gap: 4px; padding: 4px; }
+.tv-cal-cols.is-semana .tv-cal-task span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.tv-cal-cols:not(.is-semana) .tv-cal-task { padding: 5px 8px; font-size: var(--text-sm); }
+.tv-cal-cols.is-dia .tv-cal-col { padding: 8px 10%; }
+.tv-cal-cols.is-dia .tv-cal-task { font-size: var(--text-md); padding: 8px 10px; }
+.tv-cal-empty { margin: var(--space-3) 8px; color: var(--text-ghost); font-size: var(--text-sm); }
+
+/* Agenda: una fila por día con algo, la fecha a la izquierda. */
+.tv-agenda { flex: 1; min-height: 0; overflow-y: auto; margin-bottom: var(--space-3); border-top: 1px solid var(--line); scrollbar-width: thin; }
+.tv-agenda-day { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: var(--space-3); padding: 10px 0; border-bottom: 1px solid var(--line); transition: background var(--dur-fast); }
+.tv-agenda-day.is-over { background: var(--accent-soft); }
+.tv-agenda-date { align-self: start; display: flex; align-items: center; gap: 8px; padding: 2px 6px; border: 0; border-radius: 8px; background: none; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
+button.tv-agenda-date:hover { background: var(--surface-sunken); }
+.tv-agenda-day.is-on .tv-agenda-date { background: var(--surface-sunken); }
+.tv-agenda-day.is-today .tv-cal-num { background: var(--accent-ink); color: var(--bg); font-weight: 600; }
+.tv-agenda-dow { display: flex; flex-direction: column; font-size: var(--text-sm); line-height: 1.2; }
+.tv-agenda-month { font-size: var(--text-xs); color: var(--text-ghost); }
+.tv-agenda-day.is-late .tv-agenda-dow { color: var(--danger); padding: 4px 6px; }
+.tv-agenda-list { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tv-agenda .tv-cal-task { padding: 5px 8px; font-size: var(--text-sm); }
+.tv-agenda .tv-cal-empty { margin: 4px 8px; }
+.tv-agenda-end { padding: var(--space-3) 0; }
+
+@media (max-width: 760px) {
+  .tv-cal .tv-cal-task span, .tv-cal-cols.is-semana .tv-cal-task span { display: none; }
+  .tv-cal .tv-cal-task, .tv-cal-cols.is-semana .tv-cal-task { padding: 2px; }
+  .tv-cal-where { display: none; }
+  .tv-agenda-day { grid-template-columns: 96px minmax(0, 1fr); }
+}
 
 /* Tablero de tareas: una columna por estado; se arrastran de una a otra. */
 .tv-head-tools { display: flex; flex-wrap: wrap; gap: var(--space-2); }
