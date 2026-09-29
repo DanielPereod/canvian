@@ -328,7 +328,10 @@
 .sheet.is-reader .sheet-prose > p:first-child strong { font-family: var(--font-ui); font-size: 32px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; margin-bottom: 8px; }
 .sheet.is-reader .sheet-prose h1,
 .sheet.is-reader .sheet-prose h2,
-.sheet.is-reader .sheet-prose h3 { font-family: var(--font-ui); font-weight: 600; letter-spacing: -0.01em; }
+.sheet.is-reader .sheet-prose h3,
+.sheet.is-reader .sheet-prose h4,
+.sheet.is-reader .sheet-prose h5,
+.sheet.is-reader .sheet-prose h6 { font-family: var(--font-ui); font-weight: 600; letter-spacing: -0.01em; }
 .sheet.is-reader .sheet-prose a { color: var(--accent-ink); }
 .sheet.is-reader .note-chips { padding: 0; }
 .reader-side { width: var(--reader-w, 300px); flex: none; overflow-y: auto; border-left: 1px solid var(--line); padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: var(--text); animation: bib-in 360ms var(--ease-out) 60ms both; }

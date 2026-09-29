@@ -1153,6 +1153,12 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           onNodes={() => toNodes(focused.id)}
           onArchive={() => toggleArchive(focused)}
           onLink={() => setPaletteOpen('link')}
+          onConnect={(id) => connect(focused.id, id)}
+          onCreateLinked={(title) => {
+            // Un [[enlace]] a una nota que aún no existe: se crea junto a esta.
+            const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: title }] }] });
+            return createNote(spotFor(focused.zoneId), 'text', { zoneId: focused.zoneId, title: title.slice(0, 120), bodyJson, bodyText: title }).id;
+          }}
           onUnlink={(id) => unlink(focused.id, id)}
           onDelete={(id) => {
             flush(id);

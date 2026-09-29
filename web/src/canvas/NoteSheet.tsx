@@ -15,6 +15,8 @@ import { BackArrow } from '../BackArrow';
 import { parentMap } from './sections';
 import { decodeTime } from 'ulidx';
 import { editedLabel, kindOf } from './Biblioteca';
+import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian';
+import { WikiMenu, type WikiItem } from './WikiMenu';
 
 // En el mapa de secciones una nota se abre como hoja a pantalla completa: la
 // celda termina de crecer hasta los bordes con su mismo tinte, y al cerrar
@@ -26,26 +28,63 @@ const MAX_LINKS = 24;
 
 export type NoteContent = { bodyJson: string; bodyText: string; title: string | null };
 
-type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void; editorRef: { current: Editor | null } };
+// [[Enlaces]] a otras notas: abrir la enlazada, unir las dos notas en el mapa
+// y crear la nota si aún no existe (devuelve su id).
+export type WikiHandlers = { rows: NoteRow[]; onOpen: (id: string) => void; onLink: (id: string) => void; onCreate: (title: string) => string };
 
-function SheetEditor({ note, onSave, onError, editorRef }: EditorProps) {
+type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void; editorRef: { current: Editor | null }; wiki: WikiHandlers };
+
+const sameTitle = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
+
+function SheetEditor({ note, onSave, onError, editorRef, wiki }: EditorProps) {
   // Tablas de Markdown que quedaron como texto con barras: se abren ya como tablas.
   const [initial] = useState(() => {
     const doc = parseBody(note.bodyJson);
     return { doc: repairTables(doc) ?? doc, repaired: !!repairTables(doc) };
   });
+  // El editor se crea una vez: lo que cambia le llega por referencias.
+  const wikiRef = useRef(wiki);
+  wikiRef.current = wiki;
+  const [query, setQuery] = useState<WikiQuery | null>(null);
+  const menuKeys = useRef<(e: KeyboardEvent) => boolean>(() => false);
+  const [suggest] = useState(() => WikiSuggest.configure({ onChange: setQuery, onKey: (e) => menuKeys.current(e) }));
+  // Las notas enlazadas con [[ ]] en el texto. Una que aparece nueva se une a
+  // esta en el mapa; las que ya estaban al abrir no (quizá se quitó a mano).
+  const linked = useRef<Set<string> | null>(null);
+  const syncWiki = (ed: Editor) => {
+    const { rows, onLink } = wikiRef.current;
+    const tr = ed.state.tr;
+    const ids = new Set<string>();
+    for (const { node, pos } of wikiLinksIn(ed.state.doc)) {
+      let id = node.attrs.id as string | null;
+      // Escrita a mano o importada: se busca por su nombre.
+      if (!id) {
+        const name = splitWiki(node.attrs.target as string).note;
+        id = rows.find((r) => r.id !== note.id && sameTitle(r.title ?? '', name))?.id ?? null;
+        if (id) tr.setNodeMarkup(pos, undefined, { ...node.attrs, id });
+      }
+      if (id && id !== note.id) ids.add(id);
+    }
+    if (linked.current) for (const id of ids) if (!linked.current.has(id)) onLink(id);
+    linked.current = ids;
+    if (!tr.docChanged) return false;
+    ed.view.dispatch(tr.setMeta('addToHistory', false));
+    return true;
+  };
   const editor = useEditor({
-    extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError })],
+    extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError }), suggest],
     content: initial.doc ?? '',
     // Abrir una nota es para escribir: el cursor ya está al final, pero la
     // nota se ve desde el principio (sin saltar hasta el cursor).
     onCreate: ({ editor }) => {
+      syncWiki(editor);
       editor.commands.focus('end', { scrollIntoView: false });
     },
     editorProps: {
       attributes: { class: 'note-body prose sheet-prose' },
-      // Ctrl/⌘ clic (o clic central) abre el enlace en otra pestaña.
-      handleClick: (_view, _pos, e) => openLink(e),
+      // Clic en un [[enlace]] abre esa nota; Ctrl/⌘ clic (o clic central) abre
+      // un enlace web en otra pestaña.
+      handleClick: (view, _pos, e) => openWiki(view.dom, e) || openLink(e),
       handleDOMEvents: {
         auxclick: (_view, e) => e.button === 1 && openLink(e, true),
         // Pulsar dentro de un texto ya seleccionado empieza una selección nueva,
@@ -58,6 +97,8 @@ function SheetEditor({ note, onSave, onError, editorRef }: EditorProps) {
       },
     },
     onUpdate: ({ editor }) => {
+      // Si ha puesto el id a algún [[enlace]], ese cambio ya se guardó.
+      if (syncWiki(editor)) return;
       const bodyText = editor.getText({ blockSeparator: '\n' });
       const bodyJson = JSON.stringify(editor.getJSON());
       shown.current = bodyJson;
@@ -95,7 +136,49 @@ function SheetEditor({ note, onSave, onError, editorRef }: EditorProps) {
     // Solo una vez, al abrir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
-  return <EditorContent editor={editor} className="sheet-editor" />;
+
+  // Abre la nota de un [[enlace]]; si no existe, la crea (como Obsidian).
+  const openWiki = (root: HTMLElement, e: MouseEvent) => {
+    const el = (e.target as HTMLElement | null)?.closest('a[data-wikilink]') as HTMLElement | null;
+    const ed = editorRef.current;
+    if (!el || !root.contains(el) || !ed) return false;
+    e.preventDefault();
+    const { rows, onOpen, onCreate } = wikiRef.current;
+    const name = splitWiki(el.dataset.target ?? '').note;
+    let id = el.dataset.id && rows.some((r) => r.id === el.dataset.id) ? el.dataset.id : undefined;
+    id ??= rows.find((r) => r.id !== note.id && sameTitle(r.title ?? '', name))?.id;
+    if (!id && !name) return true;
+    id ??= onCreate(name);
+    if (id !== el.dataset.id) {
+      const pos = ed.view.posAtDOM(el, 0);
+      const node = ed.state.doc.nodeAt(pos);
+      if (node?.type.name === 'wikilink') ed.view.dispatch(ed.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, id }));
+    }
+    onOpen(id);
+    return true;
+  };
+
+  const pick = (item: WikiItem) => {
+    if (!editor || !query) return;
+    const { section, alias } = splitWiki(query.query);
+    const title = item.kind === 'note' ? item.row.title || 'Nota sin título' : item.title;
+    const id = item.kind === 'note' ? item.row.id : wikiRef.current.onCreate(item.title);
+    // Si ya estaban los «]]» de cierre, también se los lleva.
+    const { doc } = editor.state;
+    const to = doc.textBetween(query.to, Math.min(query.to + 2, doc.content.size), '') === ']]' ? query.to + 2 : query.to;
+    editor
+      .chain()
+      .focus()
+      .insertContentAt({ from: query.from, to }, { type: 'wikilink', attrs: { id, target: section ? `${title}#${section}` : title, alias } })
+      .run();
+  };
+
+  return (
+    <>
+      <EditorContent editor={editor} className="sheet-editor" />
+      {query && <WikiMenu query={query} rows={wiki.rows} exclude={note.id} onPick={pick} keys={menuKeys} />}
+    </>
+  );
 }
 
 function openLink(e: MouseEvent, any = false) {
@@ -122,6 +205,8 @@ type Props = {
   onNodes: () => void;
   onArchive: () => void;
   onLink: () => void;
+  // Unir esta nota con otra (al escribir un [[enlace]]).
+  onConnect: (id: string) => void;
   onUnlink: (id: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
@@ -133,6 +218,8 @@ type Props = {
   rows: NoteRow[];
   onRename: (title: string) => void;
   onPickNote: (then: (id: string) => void) => void;
+  // Crear una nota para un [[enlace]] que aún no existe; devuelve su id.
+  onCreateLinked: (title: string) => string;
   // Diseño Biblioteca: la nota como lector, con un panel de detalles a la derecha.
   reader?: boolean;
 };
@@ -153,7 +240,7 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onArchive, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, reader = false }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, reader = false }: Props) {
   const { maduran } = useExperiments();
   const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
@@ -198,6 +285,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
     </div>
   );
   const shown = neighbors.slice(0, MAX_LINKS);
+  const wiki: WikiHandlers = { rows, onOpen: onNavigate, onLink: onConnect, onCreate: onCreateLinked };
   const hue = from?.hue;
 
   useLayoutEffect(() => {
@@ -245,7 +333,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
         editorRef.current.chain().focus().selectAll().run();
         return;
       }
-      if (e.key === 'Escape' && !document.querySelector('.inspector, .overlay')) {
+      if (e.key === 'Escape' && !document.querySelector('.inspector, .overlay, .wiki-suggest')) {
         e.preventDefault();
         e.stopPropagation();
         close();
@@ -287,7 +375,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
               {madre ? madre.title || 'Nota sin título' : 'Arriba del todo'} · {kindOf(note, kids)} · editada {editedLabel(note.updatedAt)}
             </span>
             {task && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}
-            <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} />
+            <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} wiki={wiki} />
             <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
           </article>
         </div>
@@ -419,7 +507,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
       <article className="sheet-body" key={note.id + note.kind}>
         {whereButton}
         {note.kind === 'task' && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}
-        <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} />
+        <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} wiki={wiki} />
         <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
         <nav className="sheet-links">
           <span className="meta">{neighbors.length === 0 ? 'Sin enlaces' : neighbors.length === 1 ? '1 enlace' : `${neighbors.length} enlaces`}</span>

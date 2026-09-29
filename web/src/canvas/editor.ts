@@ -6,10 +6,11 @@ import { Placeholder } from '@tiptap/extensions';
 import { TableKit } from '@tiptap/extension-table';
 import { mediaNodes } from './media';
 import { markdownToDoc } from './markdown';
+import { Highlight, MarkdownLinkInput, WikiLink, tasks } from './obsidian';
 
 export const extensions = [
   StarterKit.configure({
-    heading: { levels: [1, 2, 3] },
+    heading: { levels: [1, 2, 3, 4, 5, 6] },
     // Un clic en un enlace es para escribir o seleccionar; Ctrl/⌘ clic lo abre.
     link: { openOnClick: false, autolink: true },
   }),
@@ -17,6 +18,10 @@ export const extensions = [
   // Tablas: sobre todo las que llegan importadas de Markdown.
   TableKit.configure({ table: { resizable: false } }),
   ...mediaNodes,
+  // Lo propio de Obsidian: [[enlaces]], ==resaltado== y casillas.
+  WikiLink,
+  Highlight,
+  ...tasks,
 ];
 
 // Ctrl/⌘ K pone un enlace a lo seleccionado, o lo quita si ya lo es.
@@ -56,7 +61,7 @@ const SelectAllKeys = Extension.create({
 
 // Texto pegado que viene en Markdown (de otra app de notas, de un chat…) entra
 // ya con su formato. Si trae HTML, manda el HTML.
-const MARKDOWN = /^(#{1,6}\s|\s*[-*+]\s|\s*\d+[.)]\s|>\s?|```|\|.*\|\s*$)|\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\s]+\)/m;
+const MARKDOWN = /^(#{1,6}\s|\s*[-*+]\s|\s*\d+[.)]\s|>\s?|```|\|.*\|\s*$)|\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\s]+\)|\[\[[^\]\n]+\]\]|==[^=\n]+==|~~[^~\n]+~~/m;
 const MarkdownPaste = Extension.create({
   name: 'markdownPaste',
   addProseMirrorPlugins() {
@@ -86,7 +91,7 @@ const MarkdownPaste = Extension.create({
 });
 
 // Solo en el editor de la hoja; las vistas previas usan `extensions` a secas.
-export const editingExtensions = [LinkKey, SelectAllKeys, MarkdownPaste];
+export const editingExtensions = [LinkKey, SelectAllKeys, MarkdownPaste, MarkdownLinkInput];
 
 // Pone al día el texto con la versión que llega de otro dispositivo cambiando
 // solo lo que difiere: la selección y el cursor se quedan donde estaban, y
