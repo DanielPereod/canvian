@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { EditorContent, useEditor } from '@tiptap/react';
+import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
 import type { OpenFrom } from './fluid';
-import { extensions, parseBody, titleFrom } from './editor';
+import { applyRemote, editingExtensions, extensions, parseBody, titleFrom } from './editor';
 import { repairTables } from './markdown';
 import { NoteChips } from './NoteChips';
 import { TaskGlyph } from './TaskGlyph';
@@ -23,18 +23,34 @@ const MAX_LINKS = 24;
 
 export type NoteContent = { bodyJson: string; bodyText: string; title: string | null };
 
-function SheetEditor({ note, onSave, onError }: { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void }) {
+type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void; editorRef: { current: Editor | null } };
+
+function SheetEditor({ note, onSave, onError, editorRef }: EditorProps) {
   // Tablas de Markdown que quedaron como texto con barras: se abren ya como tablas.
   const [initial] = useState(() => {
     const doc = parseBody(note.bodyJson);
     return { doc: repairTables(doc) ?? doc, repaired: !!repairTables(doc) };
   });
   const editor = useEditor({
-    extensions: [...extensions, MediaUpload.configure({ onError })],
+    extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError })],
     content: initial.doc ?? '',
     // Abrir una nota es para escribir: el cursor ya está al final.
     autofocus: 'end',
-    editorProps: { attributes: { class: 'note-body prose sheet-prose' } },
+    editorProps: {
+      attributes: { class: 'note-body prose sheet-prose' },
+      // Ctrl/⌘ clic (o clic central) abre el enlace en otra pestaña.
+      handleClick: (_view, _pos, e) => openLink(e),
+      handleDOMEvents: {
+        auxclick: (_view, e) => e.button === 1 && openLink(e, true),
+        // Pulsar dentro de un texto ya seleccionado empieza una selección nueva,
+        // como en un editor de texto, en vez de arrastrar lo seleccionado.
+        mousedown: (_view, e) => {
+          const sel = window.getSelection();
+          if (e.button === 0 && !e.shiftKey && !(e.target as HTMLElement).closest('img, video, [data-drag-handle]') && sel && !sel.isCollapsed) sel.removeAllRanges();
+          return false;
+        },
+      },
+    },
     onUpdate: ({ editor }) => {
       const bodyText = editor.getText({ blockSeparator: '\n' });
       const bodyJson = JSON.stringify(editor.getJSON());
@@ -56,10 +72,14 @@ function SheetEditor({ note, onSave, onError }: { note: NoteRow; onSave: (id: st
       return () => clearTimeout(t);
     }
     shown.current = note.bodyJson;
-    const at = editor.state.selection.from;
-    editor.commands.setContent(parseBody(note.bodyJson) ?? '', { emitUpdate: false });
-    if (editor.isFocused) editor.commands.setTextSelection(Math.min(at, editor.state.doc.content.size - 1));
+    applyRemote(editor, parseBody(note.bodyJson));
   }, [editor, note.bodyJson, retry]);
+  useEffect(() => {
+    editorRef.current = editor;
+    return () => {
+      editorRef.current = null;
+    };
+  }, [editor, editorRef]);
   // Y se guardan así, para que la vista previa y la búsqueda también las vean bien.
   useEffect(() => {
     if (!editor || !initial.repaired) return;
@@ -70,6 +90,15 @@ function SheetEditor({ note, onSave, onError }: { note: NoteRow; onSave: (id: st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
   return <EditorContent editor={editor} className="sheet-editor" />;
+}
+
+function openLink(e: MouseEvent, any = false) {
+  if (!any && !(e.ctrlKey || e.metaKey)) return false;
+  const a = (e.target as HTMLElement | null)?.closest('a[href]') as HTMLAnchorElement | null;
+  if (!a) return false;
+  e.preventDefault();
+  window.open(a.href, '_blank', 'noopener,noreferrer');
+  return true;
 }
 
 type Props = {
@@ -120,6 +149,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
+  const editorRef = useRef<Editor | null>(null);
   const [moving, setMoving] = useState(false);
   // La ruta de notas madre, para poder ir a cada una por su clic.
   const chain = useMemo(() => {
@@ -190,6 +220,14 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
       // Escribiendo en una tarjeta del canvas, Esc solo termina de escribir.
       const t = e.target as HTMLElement | null;
       if (e.key === 'Escape' && t?.closest('.board') && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
+      // Ctrl/⌘ A fuera del texto (tras pulsar un botón, al abrir…) selecciona
+      // la nota, no la página entera.
+      const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyA' && !typing && editorRef.current && !document.querySelector('.inspector, .overlay')) {
+        e.preventDefault();
+        editorRef.current.chain().focus().selectAll().run();
+        return;
+      }
       if (e.key === 'Escape' && !document.querySelector('.inspector, .overlay')) {
         e.preventDefault();
         e.stopPropagation();
@@ -259,7 +297,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
       <article className="sheet-body" key={note.id + note.kind}>
         {whereButton}
         {note.kind === 'task' && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}
-        <SheetEditor note={note} onSave={onSave} onError={onError} />
+        <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} />
         <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
         <nav className="sheet-links">
           <span className="meta">{neighbors.length === 0 ? 'Sin enlaces' : neighbors.length === 1 ? '1 enlace' : `${neighbors.length} enlaces`}</span>

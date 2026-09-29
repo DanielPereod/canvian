@@ -16,7 +16,7 @@ p { margin: 0; }
 button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
 input { font: inherit; color: inherit; }
 :focus-visible { outline: none; box-shadow: var(--focus-ring); }
-::selection { background: var(--accent-glow); }
+::selection { background: var(--selection); }
 
 /* Acento tipográfico: una palabra en serif itálica dentro de un titular */
 .display { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); line-height: var(--leading-tight); }
