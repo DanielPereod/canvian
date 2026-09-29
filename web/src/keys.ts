@@ -72,6 +72,8 @@ export const FIXED: { keys: string[]; label: string }[] = [
   { keys: ['shift+1…9'], label: 'Abrir una lente guardada' },
   { keys: ['tab'], label: 'En la linterna, cambiar el modo; en la vista de tareas, cambiar la agrupación' },
   { keys: ['↑', '↓'], label: 'Moverse por las listas' },
+  { keys: ['mod+clic'], label: 'En una nota, abrir el enlace' },
+  { keys: ['mod+k'], label: 'En una nota, poner o quitar un enlace' },
 ];
 
 const RESERVED = /^(escape|enter|tab|arrow(up|down|left|right)|shift\+\d)$/;
