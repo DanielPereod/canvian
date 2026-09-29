@@ -112,18 +112,24 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
 
   // Canal de avisos (Server-Sent Events). El latido mantiene viva la conexión
   // a través de proxies que cortan las que llevan un rato en silencio.
-  api.get('/events', (c) =>
-    streamSSE(c, async (stream) => {
+  api.get('/events', (c) => {
+    const res = streamSSE(c, async (stream) => {
       const stop = hub.listen((e) => {
         void stream.writeSSE({ event: 'change', data: JSON.stringify(e) });
       });
-      const beat = setInterval(() => void stream.writeSSE({ event: 'ping', data: '' }), opts.heartbeatMs ?? 20_000);
+      const beat = setInterval(() => void stream.writeSSE({ event: 'ping', data: '' }), opts.heartbeatMs ?? 15_000);
+      // Un comentario largo al principio: algunos proxies no sueltan nada hasta llenar su búfer.
+      await stream.write(`:${' '.repeat(2048)}\n\n`);
       await stream.writeSSE({ event: 'hello', data: '' });
       await new Promise<void>((done) => stream.onAbort(done));
       clearInterval(beat);
       stop();
-    }),
-  );
+    });
+    // Que ningún proxy (nginx, Cloudflare…) guarde los avisos para mandarlos juntos.
+    res.headers.set('Cache-Control', 'no-cache, no-transform');
+    res.headers.set('X-Accel-Buffering', 'no');
+    return res;
+  });
 
   api.get('/profiles', (c) =>
     c.json(db.select().from(profiles).orderBy(asc(profiles.position), asc(profiles.createdAt)).all()),

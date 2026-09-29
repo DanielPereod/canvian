@@ -50,6 +50,9 @@ describe('live updates', () => {
   it('announces each saved change with who made it, and skips failed ones', async () => {
     const stream = await call('GET', '/api/events');
     expect(stream.headers.get('content-type')).toContain('text/event-stream');
+    // Para que los proxies (nginx, Cloudflare) no retengan los avisos.
+    expect(stream.headers.get('x-accel-buffering')).toBe('no');
+    expect(stream.headers.get('cache-control')).toContain('no-transform');
     const heard = changes(stream, 2);
     const [profile] = await (await call('GET', '/api/profiles')).json();
     expect((await call('PATCH', '/api/notes/nope', { title: 'x' })).status).toBe(404);

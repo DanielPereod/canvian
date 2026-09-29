@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
   packages: write
+# Una imagen de main detrás de otra: si dos se construyen a la vez, la más
+# antigua puede terminar la última y dejar «latest» apuntando a ella.
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   image:
     runs-on: ubuntu-latest
