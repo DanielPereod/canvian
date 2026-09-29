@@ -15,6 +15,8 @@ import '@fontsource-variable/archivo/wdth.css';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/young-serif/400.css';
 import '@fontsource-variable/inter';
+import '@fontsource-variable/jost';
+import '@fontsource-variable/newsreader';
 import './design/tokens.css';
 import './design/base.css';
 import './design/components.css';
@@ -25,6 +27,7 @@ import './lab/experiments.css';
 import './canvas/lens.css';
 import './canvas/sections.css';
 import './design/themes.css';
+import './canvas/biblioteca.css';
 import { startTheme } from './theme';
 import { App } from './App';
 

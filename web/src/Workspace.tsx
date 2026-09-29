@@ -118,7 +118,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   return (
     <div className={`workspace backdrop ${EXPERIMENTS.filter((x) => experiments[x.id]).map((x) => `exp-${x.id}`).join(' ')}`}>
       <Ambient kind={background} />
-      <Canvas key={active.id} profile={active} />
+      <Canvas key={active.id} profile={active} shell={{ onProfiles: () => setSwitcherOpen(true), onSettings: () => setSettingsOpen(true) }} />
 
       <div className="chrome-top-left">
         <button className="surface-2 pill" onClick={() => setSwitcherOpen(true)} title="Cambiar de perfil">

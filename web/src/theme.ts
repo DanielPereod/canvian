@@ -6,7 +6,7 @@ import { api } from './api';
 // mapa. Se guarda en el servidor para todos los dispositivos, y en este
 // navegador para pintarlo bien desde el primer fotograma.
 
-export type ThemeId = 'jardin' | 'papel' | 'observatorio' | 'bloques' | 'piedras' | 'plano' | 'minimo' | 'minimo-claro';
+export type ThemeId = 'jardin' | 'papel' | 'observatorio' | 'bloques' | 'piedras' | 'plano' | 'minimo' | 'minimo-claro' | 'biblioteca' | 'biblioteca-noche';
 export type Tone = 'dark' | 'light';
 export type Mode = Tone | 'auto';
 
@@ -15,10 +15,12 @@ export const THEMES: { id: ThemeId; name: string; hint: string; tone: Tone }[] =
   { id: 'observatorio', name: 'Observatorio', hint: 'Noche profunda, órbitas finas, letra clásica', tone: 'dark' },
   { id: 'plano', name: 'Plano', hint: 'Papel de plano azul con líneas blancas', tone: 'dark' },
   { id: 'minimo', name: 'Mínimo', hint: 'Negro, grises y una letra sans; nada más', tone: 'dark' },
+  { id: 'biblioteca-noche', name: 'Biblioteca', hint: 'Gris carbón, letra Jost y lectura en serif', tone: 'dark' },
   { id: 'papel', name: 'Papel', hint: 'Tinta sobre papel, como un cuaderno', tone: 'light' },
   { id: 'bloques', name: 'Bloques', hint: 'Brutalista: hueso, negro y amarillo', tone: 'light' },
   { id: 'piedras', name: 'Piedras de río', hint: 'Arena cálida y piedras de colores suaves', tone: 'light' },
   { id: 'minimo-claro', name: 'Mínimo claro', hint: 'Blanco, grises y una letra sans', tone: 'light' },
+  { id: 'biblioteca', name: 'Biblioteca', hint: 'Blanco, letra Jost y lectura en serif', tone: 'light' },
 ];
 
 export const MODES: { id: Mode; name: string }[] = [
@@ -121,6 +123,9 @@ export function setTheme(id: ThemeId) {
   const tone = toneOf(id);
   return save({ ...current, [tone]: id, mode: current.mode === 'auto' ? 'auto' : tone });
 }
+
+// Un par de temas a la vez (el diseño Biblioteca trae los suyos).
+export const setThemes = (dark: ThemeId, light: ThemeId) => save({ ...current, dark, light });
 
 // Claro ↔ oscuro según lo que se ve ahora (sale de automático).
 export const toggleMode = () => setMode(toneOf(active) === 'dark' ? 'light' : 'dark');

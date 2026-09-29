@@ -23,6 +23,7 @@ import { mergeTags, splitTags, tagsOf } from './tags';
 import { FocusHome } from './FocusHome';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
+import { BibBar, BibSidebar, Library, titleOf as bibTitle, useBibLayout, useFamily, type BibView } from './Biblioteca';
 
 // La vista de Canvian: el mapa de secciones. Aquí viven las notas, los
 // enlaces y todo lo que se guarda; SectionMap solo dibuja y avisa.
@@ -53,7 +54,10 @@ function readPlace(profileId: string): Partial<Place> {
   }
 }
 
-export function Canvas({ profile }: { profile: Profile }) {
+// Lo que el diseño Biblioteca pone en su barra lateral y viene de fuera.
+export type Shell = { onProfiles: () => void; onSettings: () => void };
+
+export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) {
   const [allRows, setRows] = useState<NoteRow[]>([]);
   // Las archivadas (y lo que cuelga de ellas) no se ven salvo que se pidan.
   const [showArchived, setShowArchived] = useState(false);
@@ -84,7 +88,10 @@ export function Canvas({ profile }: { profile: Profile }) {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const [dropping, setDropping] = useState(false);
-  const { memoria, foco, celdas } = useExperiments();
+  const { memoria, foco: focoExp, celdas, biblioteca: bib } = useExperiments();
+  // En la Biblioteca, Ctrl P es el buscador: la lista de Foco no aparece.
+  const foco = focoExp && !bib;
+  const [bibLayout, setBibLayout] = useBibLayout();
   // Con «Foco», la lista es un menú que se abre con Ctrl P sobre los nodos,
   // que se alejan tras un velo; al cerrarse, se funde antes de desaparecer.
   const [listPhase, setListPhase] = useState<'closed' | 'open' | 'closing'>('closed');
@@ -551,7 +558,8 @@ export function Canvas({ profile }: { profile: Profile }) {
     setOrganizeOpen(false);
     setCenter(id);
     closeList();
-    if (celdas) toggleExperiment('celdas');
+    if (bib) setBibLayout('nodos');
+    else if (celdas) toggleExperiment('celdas');
   };
 
   // Ctrl G desde cualquier sitio: una nota abierta o la lista van a los nodos;
@@ -818,9 +826,57 @@ export function Canvas({ profile }: { profile: Profile }) {
   }, [rows]);
   const inspected = inspectId ? (allRows.find((r) => r.id === inspectId) ?? null) : null;
 
+  const closeFocused = () => {
+    if (!focused) return;
+    const id = focused.id;
+    flush(id);
+    setFocusId(null);
+    // Una nota nueva que se queda vacía no se guarda.
+    if ((focused.kind === 'canvas' ? !focused.title?.trim() && !parseBoard(focused.bodyJson).nodes.length : !focused.bodyText?.trim() && !hasMedia(focused.bodyJson)) && !links.some((l) => l.source === id || l.target === id)) removeNotes([id]);
+  };
+
+  // ── Diseño Biblioteca: barra lateral, ruta y la colección ───────────
+  const family = useFamily(rows);
+  const bibView: BibView = focused ? 'note' : tasksOpen ? 'tasks' : organizeOpen ? 'organize' : 'library';
+  const goLibrary = (id: string | null) => {
+    if (focused) closeFocused();
+    setTasksOpen(false);
+    setOrganizeOpen(false);
+    setCenter(id);
+  };
+  const bibCrumbs: { id: string | null; title: string }[] =
+    bibView === 'tasks'
+      ? [{ id: null, title: 'Tareas' }]
+      : bibView === 'organize'
+        ? [{ id: null, title: 'Ordenar' }]
+        : [
+            { id: null, title: 'Todas las notas' },
+            ...(center === LOOSE && !focused ? [{ id: LOOSE as string | null, title: 'Sueltas' }] : []),
+            ...family.pathTo(focused ? focused.id : center === LOOSE ? null : center).map((r) => ({ id: r.id as string | null, title: bibTitle(r) })),
+          ];
+  const bibUp =
+    bibView === 'note'
+      ? () => {
+          const up = family.parent.get(focused!.id) ?? null;
+          closeFocused();
+          setCenter(up);
+        }
+      : bibView === 'tasks'
+        ? () => setTasksOpen(false)
+        : bibView === 'organize'
+          ? () => setOrganizeOpen(false)
+          : center !== null
+            ? () => setCenter(center === LOOSE ? null : (family.parent.get(center) ?? null))
+            : null;
+  const bibNew = () => {
+    if (bibView === 'tasks') document.querySelector<HTMLInputElement>('.tasks-view .tv-add input')?.focus();
+    else newNote(focused ? (family.parent.get(focused.id) ?? null) : center && center !== LOOSE ? center : null);
+  };
+  const openTasksCount = [...rows, ...quick].filter((r) => (r.kind === 'task' || r.kind === 'quick') && r.status !== 'done').length;
+
   return (
     <div
-      className="canvas"
+      className={`canvas${bib ? ' is-bib' : ''}`}
       onDragOver={(e) => {
         if (focusId || ![...e.dataTransfer.types].includes('Files')) return;
         e.preventDefault();
@@ -836,6 +892,50 @@ export function Canvas({ profile }: { profile: Profile }) {
           </p>
           <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la nota en la que estás</span>
         </div>
+      )}
+      {loaded && bib && (
+        <>
+          <BibSidebar
+            profileName={profile.name}
+            family={family}
+            view={bibView}
+            here={bibView === 'tasks' || bibView === 'organize' ? undefined : focused ? focused.id : center}
+            tasks={openTasksCount}
+            showArchived={showArchived}
+            onProfiles={() => shell?.onProfiles()}
+            onSettings={() => shell?.onSettings()}
+            onLibrary={goLibrary}
+            onOpen={(id) => {
+              setTasksOpen(false);
+              setOrganizeOpen(false);
+              if (focused) flush(focused.id);
+              setCenter(family.parent.get(id) ?? null);
+              openNote(id);
+            }}
+            onTasks={() => {
+              if (focused) closeFocused();
+              setOrganizeOpen(false);
+              setTasksOpen(true);
+            }}
+            onOrganize={() => {
+              if (focused) closeFocused();
+              setTasksOpen(false);
+              setOrganizeOpen(true);
+            }}
+            onArchived={() => setShowArchived((v) => !v)}
+            onNewCollection={() => newSection(null)}
+          />
+          <BibBar
+            crumbs={bibCrumbs}
+            view={bibView}
+            layout={bibLayout}
+            onCrumb={(id) => (bibView === 'tasks' || bibView === 'organize' ? undefined : goLibrary(id))}
+            onUp={bibUp}
+            onSearch={() => setPaletteOpen('open')}
+            onLayout={setBibLayout}
+            onNew={bibNew}
+          />
+        </>
       )}
       {loaded && foco && listPhase !== 'closed' && !tasksOpen && !organizeOpen && (
         <FocusHome
@@ -866,7 +966,22 @@ export function Canvas({ profile }: { profile: Profile }) {
         />
       )}
       <div className={`home-layer${showFocus ? ' is-veiled' : ''}`}>
-      {loaded && !celdas && (
+      {loaded && bib && bibLayout !== 'nodos' && (
+        <Library
+          rows={rows}
+          family={family}
+          links={links}
+          center={center}
+          layout={bibLayout}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen || !!inspectId}
+          lit={lit}
+          hide={mode === 'hide'}
+          onCenter={setCenter}
+          onOpen={(id) => openNote(id)}
+          onAction={act}
+        />
+      )}
+      {loaded && (bib ? bibLayout === 'nodos' : !celdas) && (
         <NodeView
           rows={rows}
           links={links}
@@ -880,7 +995,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           hide={mode === 'hide'}
         />
       )}
-      {loaded && celdas && (
+      {loaded && celdas && !bib && (
         <SectionMap
           tree={tree}
           paused={showFocus || !!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
@@ -894,7 +1009,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           memoria={memoria}
         />
       )}
-      {loaded && celdas && rows.length === 0 && (
+      {loaded && celdas && !bib && rows.length === 0 && (
         <div className="empty-state">
           <div>
             <p className="display">
@@ -955,7 +1070,7 @@ export function Canvas({ profile }: { profile: Profile }) {
           onClose={() => setPaletteOpen(false)}
         />
       )}
-      {loaded && !tasksOpen && !organizeOpen && (
+      {loaded && !bib && !tasksOpen && !organizeOpen && (
         <div className="chrome-top-right">
           <button className="surface-2 pill tasks-pill" onClick={() => setTasksOpen(true)} title="Todas las tareas activas">
             <span className="pill-name">Tareas</span>
@@ -1030,13 +1145,8 @@ export function Canvas({ profile }: { profile: Profile }) {
             setFocusId(null);
             removeNotes([id]);
           }}
-          onClose={() => {
-            const id = focused.id;
-            flush(id);
-            setFocusId(null);
-            // Una nota nueva que se queda vacía no se guarda.
-            if ((focused.kind === 'canvas' ? !focused.title?.trim() && !parseBoard(focused.bodyJson).nodes.length : !focused.bodyText?.trim() && !hasMedia(focused.bodyJson)) && !links.some((l) => l.source === id || l.target === id)) removeNotes([id]);
-          }}
+          onClose={closeFocused}
+          reader={bib}
         />
       )}
       {inspectId && (
