@@ -30,7 +30,8 @@ export type ActionId =
   | 'toggleMode'
   | 'exportCanvas'
   | 'help'
-  | 'settings';
+  | 'settings'
+  | 'sidebar';
 
 export type KeyAction = { id: ActionId; label: string; group: 'Mapa' | 'Vistas y paneles'; key: string };
 
@@ -60,6 +61,7 @@ export const ACTIONS: KeyAction[] = [
   { id: 'exportCanvas', label: 'Exportar a JSON Canvas', group: 'Vistas y paneles', key: 'mod+shift+e' },
   { id: 'help', label: 'Lista de atajos', group: 'Vistas y paneles', key: 'mod+h' },
   { id: 'settings', label: 'Configuración', group: 'Vistas y paneles', key: 'mod+,' },
+  { id: 'sidebar', label: 'Plegar o fijar la barra lateral (diseño Biblioteca)', group: 'Vistas y paneles', key: 'mod+.' },
 ];
 
 // Teclas que no se pueden cambiar (se muestran en la lista de atajos).

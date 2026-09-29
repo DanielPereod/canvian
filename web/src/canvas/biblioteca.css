@@ -178,6 +178,32 @@
 .bib-side-new { margin-top: 6px; color: var(--text-faint) !important; }
 .bib-side-new:hover { color: var(--text) !important; }
 
+/* Plegada: no se ve nada; al acercar el ratón al borde sale flotando por encima. */
+.canvas.is-bib-folded { --bib-w: 0px; }
+.bib-dock.is-folded .bib-hot { position: absolute; inset: 0 auto 0 0; width: 14px; z-index: 6; }
+.bib-dock.is-folded .bib-side {
+  --bib-w: 248px;
+  inset: 10px auto 10px 10px;
+  z-index: 7;
+  border-radius: 12px;
+  box-shadow: 0 1px 0 var(--line), 0 18px 48px -12px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--line);
+  animation: none;
+  opacity: 0;
+  transform: translateX(calc(-100% - 16px));
+  pointer-events: none;
+  /* Al salir espera un momento, para que un roce no la cierre. */
+  transition: transform 260ms var(--ease-out) 180ms, opacity 200ms var(--ease-out) 180ms;
+}
+.bib-dock.is-folded:hover .bib-side,
+.bib-dock.is-folded .bib-side:focus-within {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition-delay: 0ms;
+}
+.bib-unfold { margin-right: 4px; }
+.bib-bar .bib-icon { font: inherit; background: none; border: 0; cursor: pointer; }
+
 /* ── Cabecera ───────────────────────────────────────────────────────── */
 
 .bib-bar {

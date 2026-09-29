@@ -30,6 +30,18 @@ const write = (k: string, v: string) => {
   }
 };
 
+const FOLD_KEY = 'canvian.bibFolded';
+// Barra lateral plegada: no ocupa sitio y sale flotando al acercar el ratón al borde.
+export function useBibFolded() {
+  const [folded, setFolded] = useState(() => read(FOLD_KEY) === '1');
+  const toggle = () =>
+    setFolded((v) => {
+      write(FOLD_KEY, v ? '0' : '1');
+      return !v;
+    });
+  return [folded, toggle] as const;
+}
+
 export function useBibLayout() {
   const [layout, setLayout] = useState<BibLayout>(() => {
     const v = read(LAYOUT_KEY);
@@ -108,6 +120,8 @@ type SideProps = {
   here: string | null | undefined;
   tasks: number;
   showArchived: boolean;
+  folded: boolean;
+  onFold: () => void;
   onProfiles: () => void;
   onSettings: () => void;
   onLibrary: (id: string | null) => void;
@@ -153,11 +167,16 @@ export function BibSidebar(p: SideProps) {
 
   const libraryOn = p.view === 'library' || p.view === 'note';
   return (
+    <div className={`bib-dock${p.folded ? ' is-folded' : ''}`}>
+      {p.folded && <div className="bib-hot" aria-hidden="true" />}
     <aside className="bib-side" aria-label="Biblioteca">
       <div className="bib-side-top">
         <button className="bib-profile" onClick={p.onProfiles} title="Cambiar de perfil (Ctrl Alt P)">
           <span className="bib-profile-dot" aria-hidden="true" />
           <span className="bib-ellipsis">{p.profileName}</span>
+        </button>
+        <button className="bib-icon" onClick={p.onFold} title={p.folded ? 'Fijar la barra (Ctrl .)' : 'Plegar la barra (Ctrl .)'} aria-label={p.folded ? 'Fijar la barra' : 'Plegar la barra'}>
+          <PanelIcon />
         </button>
         <button className="bib-icon" onClick={p.onSettings} title="Configuración (Ctrl ,)" aria-label="Configuración">
           <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -216,8 +235,16 @@ export function BibSidebar(p: SideProps) {
         ＋ Colección nueva
       </button>
     </aside>
+    </div>
   );
 }
+
+const PanelIcon = () => (
+  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+    <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+    <path d="M9.5 5v14" />
+  </svg>
+);
 
 // ── Cabecera ──────────────────────────────────────────────────────────
 
@@ -230,12 +257,19 @@ type BarProps = {
   onSearch: () => void;
   onLayout: (l: BibLayout) => void;
   onNew: () => void;
+  folded: boolean;
+  onFold: () => void;
 };
 
 export function BibBar(p: BarProps) {
   return (
     <header className="bib-bar">
       <nav className="bib-crumbs" aria-label="Ruta">
+        {p.folded && (
+          <button className="bib-icon bib-unfold" onClick={p.onFold} title="Fijar la barra (Ctrl .)" aria-label="Fijar la barra">
+            <PanelIcon />
+          </button>
+        )}
         <button className="bib-up" onClick={p.onUp ?? undefined} disabled={!p.onUp} aria-label="Subir" title="Subir (Retroceso)">
           ‹
         </button>

@@ -23,7 +23,7 @@ import { mergeTags, splitTags, tagsOf } from './tags';
 import { FocusHome } from './FocusHome';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
-import { BibBar, BibSidebar, Library, titleOf as bibTitle, useBibLayout, useFamily, type BibView } from './Biblioteca';
+import { BibBar, BibSidebar, Library, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 
 // La vista de Canvian: el mapa de secciones. Aquí viven las notas, los
 // enlaces y todo lo que se guarda; SectionMap solo dibuja y avisa.
@@ -92,6 +92,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
   // En la Biblioteca, Ctrl P es el buscador: la lista de Foco no aparece.
   const foco = focoExp && !bib;
   const [bibLayout, setBibLayout] = useBibLayout();
+  const [bibFolded, toggleBibFolded] = useBibFolded();
   // Con «Foco», la lista es un menú que se abre con Ctrl P sobre los nodos,
   // que se alejan tras un velo; al cerrarse, se funde antes de desaparecer.
   const [listPhase, setListPhase] = useState<'closed' | 'open' | 'closing'>('closed');
@@ -621,8 +622,13 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
-      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived']);
+      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
+      if (action === 'sidebar' && bib && (chord || !isTyping(e.target))) {
+        e.preventDefault();
+        toggleBibFolded();
+        return;
+      }
       if (action === 'exportCanvas' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         exportCanvas();
@@ -876,7 +882,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
 
   return (
     <div
-      className={`canvas${bib ? ' is-bib' : ''}`}
+      className={`canvas${bib ? ' is-bib' : ''}${bib && bibFolded ? ' is-bib-folded' : ''}`}
       onDragOver={(e) => {
         if (focusId || ![...e.dataTransfer.types].includes('Files')) return;
         e.preventDefault();
@@ -902,6 +908,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
             here={bibView === 'tasks' || bibView === 'organize' ? undefined : focused ? focused.id : center}
             tasks={openTasksCount}
             showArchived={showArchived}
+            folded={bibFolded}
+            onFold={toggleBibFolded}
             onProfiles={() => shell?.onProfiles()}
             onSettings={() => shell?.onSettings()}
             onLibrary={goLibrary}
@@ -934,6 +942,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
             onSearch={() => setPaletteOpen('open')}
             onLayout={setBibLayout}
             onNew={bibNew}
+            folded={bibFolded}
+            onFold={toggleBibFolded}
           />
         </>
       )}
