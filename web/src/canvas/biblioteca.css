@@ -191,14 +191,14 @@
   opacity: 0;
   transform: translateX(calc(-100% - 16px));
   pointer-events: none;
-  /* Al salir espera un momento, para que un roce no la cierre. */
-  transition: transform 260ms var(--ease-out) 180ms, opacity 200ms var(--ease-out) 180ms;
+  transition: transform 150ms var(--ease-out) 40ms, opacity 120ms var(--ease-out) 40ms;
 }
 .bib-dock.is-folded:hover .bib-side,
-.bib-dock.is-folded .bib-side:focus-within {
+.bib-dock.is-folded .bib-side:has(:focus-visible) {
   opacity: 1;
   transform: none;
   pointer-events: auto;
+  transition-duration: 220ms, 160ms;
   transition-delay: 0ms;
 }
 .bib-unfold { margin-right: 4px; }
