@@ -44,10 +44,6 @@
   --stem: rgb(var(--ink) / 0.3);
   --stem-hover: rgb(var(--ink) / 0.55);
 }
-:root[data-theme='papel'] .ambient-layer,
-:root[data-theme='bloques'] .ambient-layer,
-:root[data-theme='piedras'] .ambient-layer,
-:root[data-theme='plano'] .ambient-layer { display: none; }
 
 /* ── 1 · Papel: cuaderno editorial, tinta sobre papel ───────────── */
 
@@ -349,7 +345,6 @@
   --title-tracking: -0.03em;
   --read-size: 17px;
 }
-:root[data-theme^='minimo'] .ambient-layer { display: none; }
 /* Solo dos luces grises y suaves en las esquinas. */
 [data-theme^='minimo'] .backdrop,
 [data-theme^='minimo'] .page-view {

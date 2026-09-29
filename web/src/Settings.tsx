@@ -11,7 +11,6 @@ import { BackArrow } from './BackArrow';
 
 type Props = {
   onClose: () => void;
-  onBackground: () => void;
   onProfiles: () => void;
 };
 
@@ -39,7 +38,7 @@ function Row({ name, hint, children }: { name: string; hint?: string; children?:
   );
 }
 
-export function Settings({ onClose, onBackground, onProfiles }: Props) {
+export function Settings({ onClose, onProfiles }: Props) {
   const keymap = useKeymap();
   const look = useAppearance();
   const [section, setSection] = useState<SectionId>(() => {
@@ -146,9 +145,6 @@ export function Settings({ onClose, onBackground, onProfiles }: Props) {
           <button className="set-nav-item" onClick={onProfiles}>
             Perfiles y sesión
           </button>
-          <button className="set-nav-item" onClick={onBackground}>
-            Fondo del perfil
-          </button>
         </nav>
 
         <main className="set-main" key={section}>
@@ -175,11 +171,6 @@ export function Settings({ onClose, onBackground, onProfiles }: Props) {
               <Row name="Perfiles y sesión" hint="Cambia de perfil, crea otros o cierra la sesión.">
                 <button className="set-button" onClick={onProfiles}>
                   Abrir
-                </button>
-              </Row>
-              <Row name="Fondo del perfil" hint="El fondo que se ve detrás del mapa en este perfil.">
-                <button className="set-button" onClick={onBackground}>
-                  Elegir
                 </button>
               </Row>
               <Row name="Dónde se guarda" hint="La configuración vive en tu servidor y es la misma en todos tus dispositivos." />

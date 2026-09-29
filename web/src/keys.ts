@@ -25,7 +25,6 @@ export type ActionId =
   | 'search'
   | 'commands'
   | 'profiles'
-  | 'background'
   | 'toggleMode'
   | 'exportCanvas'
   | 'help'
@@ -54,7 +53,6 @@ export const ACTIONS: KeyAction[] = [
   { id: 'search', label: 'Buscar o crear notas', group: 'Vistas y paneles', key: 'mod+p' },
   { id: 'commands', label: 'Paleta de comandos', group: 'Vistas y paneles', key: 'mod+shift+p' },
   { id: 'profiles', label: 'Cambiar de perfil', group: 'Vistas y paneles', key: 'mod+alt+p' },
-  { id: 'background', label: 'Fondo', group: 'Vistas y paneles', key: 'b' },
   { id: 'toggleMode', label: 'Cambiar entre modo claro y oscuro', group: 'Vistas y paneles', key: 'mod+shift+l' },
   { id: 'exportCanvas', label: 'Exportar a JSON Canvas', group: 'Vistas y paneles', key: 'mod+shift+e' },
   { id: 'help', label: 'Lista de atajos', group: 'Vistas y paneles', key: 'mod+h' },

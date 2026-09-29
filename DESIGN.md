@@ -15,7 +15,7 @@ La muestra viva está en la propia app: abre `http://localhost:5173/#sistema`.
 | `web/src/canvas/sections.css` | Vista de nodos, hoja de canvas, tareas y ordenar |
 | `web/src/canvas/biblioteca.css` | La biblioteca: barra lateral, cabecera, colección, lector y los temas Biblioteca |
 | `web/src/canvas/pieces.css` | Linterna, estado de tarea e interruptor |
-| `web/src/app.css` | Cromo de la pantalla y luciérnagas |
+| `web/src/app.css` | Configuración, atajos, guía de estilo y las luciérnagas de la entrada |
 
 ## Reglas
 
@@ -25,7 +25,6 @@ La muestra viva está en la propia app: abre `http://localhost:5173/#sistema`.
 - **Tres voces tipográficas por tema.** Una letra funcional (`--font-ui`), una para los títulos grandes (`--title-font`, con su peso, estilo y mayúsculas) y una para leer (`--read-font`). En Jardín nocturno: Instrument Sans, Instrument Serif en cursiva y Instrument Sans; en Biblioteca: Jost, Jost y Newsreader.
 - **Movimiento.** Entradas con `--ease-spring`, salidas rápidas con `--ease-in`, desvanecidos con `--ease-out`. Una nota se abre fundiéndose en el lector. Todo respeta `prefers-reduced-motion`.
 - **Temas** (`web/src/design/themes.css` y los Biblioteca en `biblioteca.css`): un modo (claro, oscuro o automático) y un tema por tono. Además de los tokens de siempre, cada tema fija los de la biblioteca: `--bib-side` (barra lateral), `--bib-sel` (lo elegido), `--bib-cover-l`/`--bib-cover-c` (luz y color de las tapas), `--title-*` y `--read-*`. Sin ellos se usan los de fábrica de `biblioteca.css`.
-- **Fondos por perfil** (`B`): liso, estrellas, luciérnagas y aurora (`web/src/backgrounds/`).
 
 ## La biblioteca
 

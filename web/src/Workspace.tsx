@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { onLive } from './live';
-import { api, type BackgroundKind, type Profile } from './api';
+import { api, type Profile } from './api';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { Canvas } from './canvas/Canvas';
-import { Ambient } from './backgrounds/Ambient';
-import { BackgroundPicker } from './backgrounds/BackgroundPicker';
 import { actionFor, keysBlocked, loadKeymap } from './keys';
 import { loadTheme, toggleMode } from './theme';
 import { Settings } from './Settings';
@@ -26,8 +24,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [activeId, setActiveId] = useState<string | null>(readActive);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [commandsOpen, setCommandsOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [previewBg, setPreviewBg] = useState<BackgroundKind | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -67,7 +63,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
-      const action = actionFor(e, ['commands', 'profiles', 'background', 'toggleMode', 'help', 'settings']);
+      const action = actionFor(e, ['commands', 'profiles', 'toggleMode', 'help', 'settings']);
       if (!action) return;
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
@@ -76,7 +72,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       e.preventDefault();
       if (action === 'commands') setCommandsOpen((open) => !open);
       else if (action === 'profiles') setSwitcherOpen((open) => !open);
-      else if (action === 'background') setPickerOpen(true);
       else if (action === 'toggleMode') void toggleMode().catch(() => {});
       else if (action === 'help') setHelpOpen(true);
       else setSettingsOpen(true);
@@ -93,21 +88,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   if (!active) return <div className="backdrop" />;
 
-  const background = previewBg ?? active.background ?? 'plain';
-
-  const chooseBackground = (kind: BackgroundKind) => {
-    setPickerOpen(false);
-    setPreviewBg(null);
-    if (kind === active.background) return;
-    setProfiles((list) => list.map((p) => (p.id === active.id ? { ...p, background: kind } : p)));
-    api.updateProfile(active.id, { background: kind }).catch(() => {
-      setProfiles((list) => list.map((p) => (p.id === active.id ? { ...p, background: active.background } : p)));
-    });
-  };
-
   return (
     <div className="workspace backdrop">
-      <Ambient kind={background} />
       <Canvas key={active.id} profile={active} shell={{ onProfiles: () => setSwitcherOpen(true), onSettings: () => setSettingsOpen(true) }} />
 
       {commandsOpen && <ActionPalette onClose={() => setCommandsOpen(false)} />}
@@ -128,24 +110,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           onClose={() => setSwitcherOpen(false)}
         />
       )}
-      {pickerOpen && (
-        <BackgroundPicker
-          current={active.background ?? 'plain'}
-          onPreview={setPreviewBg}
-          onChoose={chooseBackground}
-          onCancel={() => {
-            setPickerOpen(false);
-            setPreviewBg(null);
-          }}
-        />
-      )}
       {settingsOpen && (
         <Settings
           onClose={() => setSettingsOpen(false)}
-          onBackground={() => {
-            setSettingsOpen(false);
-            setPickerOpen(true);
-          }}
           onProfiles={() => {
             setSettingsOpen(false);
             setSwitcherOpen(true);

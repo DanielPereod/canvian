@@ -111,7 +111,6 @@
   --bib-cover-l: 0.3;
   --bib-cover-c: 0.025;
 }
-:root[data-theme^='biblioteca'] .ambient-layer,
 :root[data-theme^='biblioteca'] .fireflies,
 :root[data-theme^='biblioteca'] .surface-3::before { display: none; }
 [data-theme^='biblioteca'] .backdrop,
