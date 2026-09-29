@@ -324,13 +324,22 @@
 .tv-group-by { display: inline-flex; padding: 2px; border-radius: 8px; border: 1px solid var(--line); }
 .tv-group-by button { background: none; border: 0; border-radius: 6px; padding: 4px 10px; font: inherit; font-size: var(--text-xs); color: var(--text-faint); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
 .tv-group-by button.is-on { background: var(--surface-sunken); color: var(--text); }
-.tv-add { display: flex; align-items: center; gap: 10px; margin: var(--space-4) 0 var(--space-3); padding: 0 12px; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-sunken); transition: border-color var(--dur-fast); }
+.tv-add { position: relative; display: flex; align-items: center; gap: 10px; margin: var(--space-4) 0 var(--space-3); padding: 0 12px; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-sunken); transition: border-color var(--dur-fast); }
 .tv-add:focus-within { border-color: var(--line-strong); }
 .tv-add-plus { color: var(--text-faint); width: 16px; text-align: center; }
 .tv-add input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: var(--text-md); }
 .tv-add input:focus-visible { box-shadow: none; }
 .tv-add input::placeholder { color: var(--text-ghost); }
 .tv-add-key { font-size: 11px; color: var(--text-ghost); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+/* La nota elegida con «>»: una píldora antes de lo que se escribe. */
+.tv-add-into { flex: none; display: inline-flex; align-items: center; gap: 2px; max-width: 45%; height: 24px; padding: 0 2px 0 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: var(--text-sm); }
+.tv-add-into::before { content: '↳'; margin-right: 4px; opacity: 0.7; }
+.tv-add-into-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-add-into button { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 999px; background: none; color: inherit; font: inherit; cursor: pointer; opacity: 0.7; }
+.tv-add-into button:hover { opacity: 1; background: var(--accent-soft); }
+.tv-add-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; width: min(360px, 100%); padding: var(--space-1); border-radius: var(--radius-md); animation: bloom var(--dur-fast) var(--ease-out) both; }
+.tv-add-menu .list { max-height: 300px; }
+.tv-add-menu .list-item { min-height: 36px; animation: none; }
 .tv-list { flex: 1; overflow-y: auto; margin: 0 calc(-1 * var(--space-2)); padding: 0 var(--space-2) var(--space-6); }
 .tv-empty { color: var(--text-faint); font-size: var(--text-sm); padding: var(--space-5) 12px; }
 .tv-group { margin-top: var(--space-3); }
