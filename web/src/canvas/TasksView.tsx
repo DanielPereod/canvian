@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { parentMap } from './sections';
 import type { NoteInput, NoteRow, TaskStatus } from '../api';
 import { daysUntil, dueLabel, localToday } from './dates';
@@ -987,7 +988,8 @@ function TaskMenu({ row, x, y, onPick, onClose }: { row: NoteRow; x: number; y: 
     { iso: isoDay(7), name: '+1 sem.', title: 'Dentro de una semana' },
   ];
 
-  return (
+  // En <body>: la vista de tareas entra con un transform, y dentro de ella «fixed» no se mediría desde la ventana.
+  return createPortal(
     <div className="bib-menu tv-menu" ref={ref} role="menu" aria-label={titleOf(row)} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
       <div className="bib-menu-head bib-ellipsis">{titleOf(row)}</div>
       {item('open', quick ? 'Editar el título' : 'Abrir', 'Enter')}
@@ -1004,7 +1006,8 @@ function TaskMenu({ row, x, y, onPick, onClose }: { row: NoteRow; x: number; y: 
       {!quick && item('toNote', 'Convertir en nota')}
       <div className="bib-menu-sep" role="separator" />
       {item('delete', 'Borrar', quick ? 'Supr' : undefined, true)}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
