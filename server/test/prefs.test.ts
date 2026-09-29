@@ -37,15 +37,11 @@ describe('prefs', () => {
     expect((await call('DELETE', '/api/prefs/appearance')).status).toBe(204);
   });
 
-  it('saves the lab experiments', async () => {
-    expect((await call('PUT', '/api/prefs/experiments', { foco: true, celdas: false })).status).toBe(204);
-    expect(await (await call('GET', '/api/prefs')).json()).toEqual({ experiments: { foco: true, celdas: false } });
-    expect((await call('PUT', '/api/prefs/experiments', { foco: 'si' })).status).toBe(400);
-    expect((await call('DELETE', '/api/prefs/experiments')).status).toBe(204);
-  });
 
   it('rejects unknown prefs and bad values', async () => {
     expect((await call('PUT', '/api/prefs/password_hash', {})).status).toBe(404);
+    // El laboratorio ya no existe: sus experimentos no se guardan.
+    expect((await call('PUT', '/api/prefs/experiments', { foco: true })).status).toBe(404);
     expect((await call('PUT', '/api/prefs/keymap', { newNote: 5 })).status).toBe(400);
     expect((await call('PUT', '/api/prefs/keymap', ['n'])).status).toBe(400);
     cookie = '';

@@ -1,18 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ulid } from 'ulidx';
 import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type TaskStatus } from '../api';
 import type { NoteContent } from './NoteSheet';
 import { CommandPalette } from './CommandPalette';
 import { onLive } from '../live';
-import { toggleExperiment, useExperiments } from '../lab/experiments';
-import { SectionMap, type MapAction } from './SectionMap';
-import { NodeView, LOOSE } from './NodeView';
-import { buildTree, findPath, noteIdOf, parentMap, rectOf, visibleRows, type MapNode, type Rect } from './sections';
+import { NodeView, LOOSE, type MapAction } from './NodeView';
+import { bounds, parentMap, rectOf, visibleRows, type Rect } from './sections';
 import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { NoteSheet } from './NoteSheet';
 import { SectionName } from './SectionName';
-import type { OpenFrom } from './fluid';
 import { docText, docToMarkdown, markdownToDoc } from './markdown';
 import { parseBody } from './editor';
 import { hasMedia, isMedia, uploadMedia } from './media';
@@ -20,13 +17,14 @@ import { emptyBoard, kindChange, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
 import { TasksView } from './TasksView';
 import { mergeTags, splitTags, tagsOf } from './tags';
-import { FocusHome } from './FocusHome';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
+import { useSideWidth } from './Resizer';
 import { BibBar, BibSidebar, Library, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 
-// La vista de Canvian: el mapa de secciones. Aquí viven las notas, los
-// enlaces y todo lo que se guarda; SectionMap solo dibuja y avisa.
+// La vista de Canvian: la biblioteca. Aquí viven las notas, los enlaces y todo
+// lo que se guarda; la barra lateral, la colección, los nodos y el lector solo
+// dibujan y avisan.
 
 export type Link = { id: string; source: string; target: string };
 
@@ -38,13 +36,13 @@ const now = () => new Date().toISOString();
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 
-// Un sitio dentro de una sección: la posición solo decide dónde queda cada
-// cosa respecto a sus hermanas en el mapa.
+// Un sitio dentro de una nota madre: la posición solo sirve al exportar a
+// JSON Canvas, para que cada cosa quede cerca de sus hermanas.
 const spotIn = (r: Rect) => ({ x: r.x + 40 + Math.random() * Math.max(0, r.w - NOTE_W - 80), y: r.y + 90 + Math.random() * Math.max(0, r.h - 160) });
 
 // Dónde estás (la nota abierta, la vista, el centro de los nodos) se recuerda
 // en este navegador y por perfil: al recargar vuelves al mismo sitio.
-type Place = { note: string | null; center: string | null; tasks: boolean; organize: boolean; list: boolean };
+type Place = { note: string | null; center: string | null; tasks: boolean; organize: boolean };
 const placeKey = (profileId: string) => `canvian.place.${profileId}`;
 function readPlace(profileId: string): Partial<Place> {
   try {
@@ -54,10 +52,10 @@ function readPlace(profileId: string): Partial<Place> {
   }
 }
 
-// Lo que el diseño Biblioteca pone en su barra lateral y viene de fuera.
+// Lo que la barra lateral abre y vive fuera del canvas.
 export type Shell = { onProfiles: () => void; onSettings: () => void };
 
-export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) {
+export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [allRows, setRows] = useState<NoteRow[]>([]);
   // Las archivadas (y lo que cuelga de ellas) no se ven salvo que se pidan.
   const [showArchived, setShowArchived] = useState(false);
@@ -78,8 +76,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
   const [mode, setMode] = useState<LensMode>('dim');
   const [lenses, setLenses] = useState<Lens[]>([]);
   const [focusId, setFocusId] = useState<string | null>(null);
-  // La celda desde la que se abrió la nota, para que la hoja salga de ella.
-  const [openFrom, setOpenFrom] = useState<OpenFrom | null>(null);
   // La otra vista: todas las tareas activas en una lista.
   const [tasksOpen, setTasksOpen] = useState(false);
   // Y la de ordenar: el árbol de secciones y sus notas, para mover en bloque.
@@ -88,20 +84,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const [dropping, setDropping] = useState(false);
-  const { memoria, foco: focoExp, celdas, biblioteca: bib } = useExperiments();
-  // En la Biblioteca, Ctrl P es el buscador: la lista de Foco no aparece.
-  const foco = focoExp && !bib;
   const [bibLayout, setBibLayout] = useBibLayout();
   const [bibFolded, toggleBibFolded] = useBibFolded();
-  // Con «Foco», la lista es un menú que se abre con Ctrl P sobre los nodos,
-  // que se alejan tras un velo; al cerrarse, se funde antes de desaparecer.
-  const [listPhase, setListPhase] = useState<'closed' | 'open' | 'closing'>('closed');
-  const showFocus = foco && listPhase === 'open';
-  const openList = () => setListPhase('open');
-  const closeList = useCallback(() => {
-    setListPhase((p) => (p === 'open' ? 'closing' : p));
-    setTimeout(() => setListPhase((p) => (p === 'closing' ? 'closed' : p)), 320);
-  }, []);
+  const bibWidth = useSideWidth('canvian.bibWidth', 240, 180, 440);
   // Nota del centro en la vista de nodos (null: la raíz).
   const [center, setCenter] = useState<string | null>(null);
 
@@ -113,8 +98,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
   // Promesas de creación: nada que dependa de una nota nueva se envía antes de que exista.
   const created = useRef(new Map<string, Promise<unknown>>());
   const ready = (...ids: string[]) => Promise.all(ids.map((id) => created.current.get(id)));
-  // Dónde está el mapa (ids desde la raíz), para crear e importar ahí.
-  const mapPath = useRef<string[]>([]);
 
   // La linterna: qué notas quedan con luz.
   const notes = rows;
@@ -148,13 +131,13 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
 
   useEffect(() => {
     if (!loaded) return;
-    const place: Place = { note: focusId, center, tasks: tasksOpen, organize: organizeOpen, list: listPhase === 'open' };
+    const place: Place = { note: focusId, center, tasks: tasksOpen, organize: organizeOpen };
     try {
       localStorage.setItem(placeKey(profile.id), JSON.stringify(place));
     } catch {
       // Sin almacenamiento local, al recargar se empieza desde el principio.
     }
-  }, [loaded, profile.id, focusId, center, tasksOpen, organizeOpen, listPhase]);
+  }, [loaded, profile.id, focusId, center, tasksOpen, organizeOpen]);
 
   const patchRow = useCallback((id: string, patch: Partial<NoteRow>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r))), []);
 
@@ -173,7 +156,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
       if (exists(place.note)) setFocusId(place.note!);
       else if (place.tasks) setTasksOpen(true);
       else if (place.organize) setOrganizeOpen(true);
-      else if (place.list) setListPhase('open');
       setLoaded(true);
     }, report);
     return () => {
@@ -374,30 +356,20 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
     api.deleteEdge(link.id).catch(report);
   };
 
-  // ── El árbol del mapa y lo que se hace desde él ─────────────────────
-  const tree = useMemo(() => buildTree(rows, links), [rows, links]);
-
+  // ── Lo que se hace desde la biblioteca y los nodos ──────────────────
   // La nota madre en la que estás (o null en la raíz).
-  const currentZone = (): NoteRow | null => {
-    if (!celdas) return center && center !== LOOSE ? (rowsRef.current.find((r) => r.id === center) ?? null) : null;
-    const path = findPath(tree, mapPath.current.at(-1) ?? 'root') ?? [tree];
-    const zoneId = [...path].reverse().find((n) => n.kind === 'zone')?.id;
-    return zoneId ? (rowsRef.current.find((r) => r.id === zoneId) ?? null) : null;
-  };
+  const currentZone = (): NoteRow | null => (center && center !== LOOSE ? (rowsRef.current.find((r) => r.id === center) ?? null) : null);
 
   // Hueco para algo nuevo dentro de una nota madre: junto a ella o, en la
   // raíz, a un lado de todo lo demás.
   const spotFor = (zoneId: string | null) => {
     const zone = zoneId ? rowsRef.current.find((r) => r.id === zoneId) : null;
     if (zone) return spotIn(rectOf(zone));
-    const r = tree.rect;
+    const r = bounds(rows.map(rectOf));
     return { x: r.x + r.w + 120 + Math.random() * 200, y: r.y + Math.random() * Math.max(0, r.h - 100) };
   };
 
-  const openNote = (id: string, from: OpenFrom | null = null) => {
-    setOpenFrom(from);
-    setFocusId(id);
-  };
+  const openNote = (id: string) => setFocusId(id);
 
   // La propiedad de etiquetas del perfil; si aún no hay ninguna, se crea «Etiquetas».
   const defsRef = useRef(defs);
@@ -466,7 +438,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
     openNote(row.id);
   };
 
-  // Desde Foco, «Padre>Hijo>Nota»: crea las secciones que falten y la nota dentro.
+  // Desde el buscador, «Padre>Hijo>Nota»: crea las madres que falten y la nota dentro.
   const newAtPath = (zoneId: string | null, sections: string[], title: string, tags: string[] = []) => {
     let parent = zoneId;
     for (const name of sections) parent = titled(parent, name).id;
@@ -545,39 +517,22 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
   };
 
   // Modo nodo: cierra la nota y la pone en el centro de la vista de nodos.
-  // Es un interruptor: se recuerda de dónde se vino para volver con Ctrl G.
-  const nodesFrom = useRef<'note' | 'foco' | null>(null);
-  const focoCursor = useRef<string | null>(null);
-  const onFocoCursor = useCallback((id: string | null) => {
-    focoCursor.current = id;
-  }, []);
-  const toNodes = (id: string | null, from: 'note' | 'foco' = 'note') => {
-    nodesFrom.current = from;
-    if (id) flush(id);
+  const toNodes = (id: string) => {
+    flush(id);
     setFocusId(null);
     setTasksOpen(false);
     setOrganizeOpen(false);
     setCenter(id);
-    closeList();
-    if (bib) setBibLayout('nodos');
-    else if (celdas) toggleExperiment('celdas');
+    setBibLayout('nodos');
   };
 
-  // Ctrl G desde cualquier sitio: una nota abierta o la lista van a los nodos;
-  // en los nodos, se vuelve a donde se estaba (a la nota del centro, si se vino de una).
+  // Ctrl G: una nota abierta va a los nodos; sin nota abierta, se abre la del centro.
   const toggleNodes = () => {
     if (focusId) return toNodes(focusId);
-    if (showFocus) return toNodes(focoCursor.current, 'foco');
-    const here = center && center !== LOOSE ? center : null;
-    const from = nodesFrom.current;
-    nodesFrom.current = null;
-    if (from === 'foco') openList();
-    else if (here) openNote(here);
+    if (center && center !== LOOSE) openNote(center);
   };
 
-  const onAction = (action: MapAction, node: MapNode) => act(action, node.note ? noteIdOf(node) : null, node.zoneId);
-
-  // Lo que se pide desde el mapa o los nodos sobre una nota (o, para crear, dentro de `zoneId`).
+  // Lo que se pide desde la biblioteca o los nodos sobre una nota (o, para crear, dentro de `zoneId`).
   const act = (action: MapAction, noteId: string | null, zoneId: string | null) => {
     const row = noteId ? rowsRef.current.find((r) => r.id === noteId) : undefined;
     if (action === 'create') newNote(zoneId);
@@ -624,7 +579,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
       const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
-      if (action === 'sidebar' && bib && (chord || !isTyping(e.target))) {
+      if (action === 'sidebar' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         toggleBibFolded();
         return;
@@ -641,8 +596,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
         return;
       }
       if (action === 'archive' && (chord || !isTyping(e.target))) {
-        // La nota abierta, la señalada en Foco o la del centro de los nodos.
-        const id = focusId ?? (showFocus ? focoCursor.current : center && center !== LOOSE ? center : null);
+        // La nota abierta o la del centro.
+        const id = focusId ?? (center && center !== LOOSE ? center : null);
         const row = id ? rowsRef.current.find((r) => r.id === id) : undefined;
         if (!row) return;
         e.preventDefault();
@@ -656,16 +611,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
       }
       if (action === 'search' && (chord || !isTyping(e.target))) {
         e.preventDefault();
-        // Con Foco, Ctrl P abre y cierra la lista; sin él, el buscador.
-        if (foco && !paletteOpen) {
-          if (showFocus) closeList();
-          else {
-            setFocusId(null);
-            setTasksOpen(false);
-            setOrganizeOpen(false);
-            openList();
-          }
-        } else setPaletteOpen((o) => (o ? false : 'open'));
+        setPaletteOpen((o) => (o ? false : 'open'));
         return;
       }
       if (e.key === 'Escape' && inspectId) {
@@ -841,7 +787,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
     if ((focused.kind === 'canvas' ? !focused.title?.trim() && !parseBoard(focused.bodyJson).nodes.length : !focused.bodyText?.trim() && !hasMedia(focused.bodyJson)) && !links.some((l) => l.source === id || l.target === id)) removeNotes([id]);
   };
 
-  // ── Diseño Biblioteca: barra lateral, ruta y la colección ───────────
+  // ── Barra lateral, ruta y la colección ──────────────────────────────
   const family = useFamily(rows);
   const bibView: BibView = focused ? 'note' : tasksOpen ? 'tasks' : organizeOpen ? 'organize' : 'library';
   const goLibrary = (id: string | null) => {
@@ -882,7 +828,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
 
   return (
     <div
-      className={`canvas${bib ? ' is-bib' : ''}${bib && bibFolded ? ' is-bib-folded' : ''}`}
+      className={`canvas is-bib${bibFolded ? ' is-bib-folded' : ''}`}
+      style={{ '--bib-side-w': `${bibWidth.width}px` } as CSSProperties}
       onDragOver={(e) => {
         if (focusId || ![...e.dataTransfer.types].includes('Files')) return;
         e.preventDefault();
@@ -899,7 +846,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la nota en la que estás</span>
         </div>
       )}
-      {loaded && bib && (
+      {loaded && (
         <>
           <BibSidebar
             profileName={profile.name}
@@ -909,9 +856,10 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
             tasks={openTasksCount}
             showArchived={showArchived}
             folded={bibFolded}
+            width={bibWidth}
             onFold={toggleBibFolded}
-            onProfiles={() => shell?.onProfiles()}
-            onSettings={() => shell?.onSettings()}
+            onProfiles={shell.onProfiles}
+            onSettings={shell.onSettings}
             onLibrary={goLibrary}
             onOpen={(id) => {
               setTasksOpen(false);
@@ -947,36 +895,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           />
         </>
       )}
-      {loaded && foco && listPhase !== 'closed' && !tasksOpen && !organizeOpen && (
-        <FocusHome
-          rows={rows}
-          leaving={listPhase === 'closing'}
-          paused={listPhase !== 'open' || !!focusId || !!paletteOpen || !!renaming || !!inspectId}
-          onOpen={(id) => {
-            // La nota se abre y, detrás, los nodos se quedan en ella.
-            if (!celdas) setCenter(id);
-            closeList();
-            openNote(id);
-          }}
-          onSection={(id) => {
-            mapPath.current = (findPath(tree, id) ?? []).slice(1).map((n) => n.id);
-            setCenter(id);
-            closeList();
-          }}
-          onCreate={(text) => {
-            closeList();
-            newNote(null, text);
-          }}
-          onCreatePath={(zoneId, sections, title, tags) => {
-            closeList();
-            newAtPath(zoneId, sections, title, tags);
-          }}
-          onCursor={onFocoCursor}
-          onMap={closeList}
-        />
-      )}
-      <div className={`home-layer${showFocus ? ' is-veiled' : ''}`}>
-      {loaded && bib && bibLayout !== 'nodos' && (
+      <div className="home-layer">
+      {loaded && bibLayout !== 'nodos' && (
         <Library
           rows={rows}
           family={family}
@@ -991,12 +911,12 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           onAction={act}
         />
       )}
-      {loaded && (bib ? bibLayout === 'nodos' : !celdas) && (
+      {loaded && bibLayout === 'nodos' && (
         <NodeView
           rows={rows}
           links={links}
           center={center}
-          paused={showFocus || !!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
           onCenter={setCenter}
           onOpen={(id) => openNote(id)}
           onAction={act}
@@ -1004,30 +924,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           lit={lit}
           hide={mode === 'hide'}
         />
-      )}
-      {loaded && celdas && !bib && (
-        <SectionMap
-          tree={tree}
-          paused={showFocus || !!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen}
-          start={mapPath.current}
-          onPath={(ids) => (mapPath.current = ids)}
-          onOpen={openNote}
-          onAction={onAction}
-          onMove={moveTo}
-          lit={lit}
-          hide={mode === 'hide'}
-          memoria={memoria}
-        />
-      )}
-      {loaded && celdas && !bib && rows.length === 0 && (
-        <div className="empty-state">
-          <div>
-            <p className="display">
-              Un lienzo en <em>calma</em>
-            </p>
-            <span className="meta">N para la primera nota</span>
-          </div>
-        </div>
       )}
       </div>
       {renaming && (
@@ -1080,14 +976,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           onClose={() => setPaletteOpen(false)}
         />
       )}
-      {loaded && !bib && !tasksOpen && !organizeOpen && (
-        <div className="chrome-top-right">
-          <button className="surface-2 pill tasks-pill" onClick={() => setTasksOpen(true)} title="Todas las tareas activas">
-            <span className="pill-name">Tareas</span>
-            <span className="meta">{[...rows, ...quick].filter((r) => (r.kind === 'task' || r.kind === 'quick') && r.status !== 'done').length}</span>
-          </button>
-        </div>
-      )}
       {organizeOpen && (
         <OrganizeView
           rows={rows}
@@ -1097,7 +985,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           onMove={moveMany}
           onNewSection={newSection}
           onClose={() => setOrganizeOpen(false)}
-          back={showFocus ? 'Lista' : 'Mapa'}
         />
       )}
       {tasksOpen && (
@@ -1119,12 +1006,10 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           tagsOf={(r) => tagsOf(r, defs)}
           onDeleteQuick={(id) => removeNotes([id])}
           onClose={() => setTasksOpen(false)}
-          back={showFocus ? 'Lista' : 'Mapa'}
         />
       )}
       {focused && (
         <NoteSheet
-          from={openFrom}
           note={focused}
           neighbors={focusNeighbors}
           defs={defs}
@@ -1149,6 +1034,12 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           onNodes={() => toNodes(focused.id)}
           onArchive={() => toggleArchive(focused)}
           onLink={() => setPaletteOpen('link')}
+          onConnect={(id) => connect(focused.id, id)}
+          onCreateLinked={(title) => {
+            // Un [[enlace]] a una nota que aún no existe: se crea junto a esta.
+            const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: title }] }] });
+            return createNote(spotFor(focused.zoneId), 'text', { zoneId: focused.zoneId, title: title.slice(0, 120), bodyJson, bodyText: title }).id;
+          }}
           onUnlink={(id) => unlink(focused.id, id)}
           onDelete={(id) => {
             flush(id);
@@ -1156,7 +1047,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
             removeNotes([id]);
           }}
           onClose={closeFocused}
-          reader={bib}
         />
       )}
       {inspectId && (

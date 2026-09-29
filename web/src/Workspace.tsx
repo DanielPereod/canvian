@@ -1,16 +1,10 @@
 import { useEffect, useState } from 'react';
 import { onLive } from './live';
-import { api, type BackgroundKind, type Profile } from './api';
+import { api, type Profile } from './api';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { Canvas } from './canvas/Canvas';
-import { Glyph } from './Wordmark';
-import { Ambient } from './backgrounds/Ambient';
-import { BackgroundPicker } from './backgrounds/BackgroundPicker';
-import { Lab } from './lab/Lab';
-import { EXPERIMENTS, loadExperiments, useExperiments } from './lab/experiments';
-import { actionFor, keysBlocked, loadKeymap, useKeymap } from './keys';
+import { actionFor, keysBlocked, loadKeymap } from './keys';
 import { loadTheme, toggleMode } from './theme';
-import { Keys } from './Kbd';
 import { Settings } from './Settings';
 import { Help } from './Help';
 import { ActionPalette } from './ActionPalette';
@@ -30,17 +24,11 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [activeId, setActiveId] = useState<string | null>(readActive);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [commandsOpen, setCommandsOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [previewBg, setPreviewBg] = useState<BackgroundKind | null>(null);
-  const [labOpen, setLabOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const experiments = useExperiments();
-  const keymap = useKeymap();
 
   useEffect(() => {
     void loadKeymap();
-    void loadExperiments();
     void loadTheme();
   }, []);
 
@@ -54,7 +42,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       onLive((scope) => {
         if (scope === 'prefs') {
           void loadKeymap();
-          void loadExperiments();
           void loadTheme();
         } else if (scope === 'profiles') api.profiles().then(setProfiles, () => {});
       }),
@@ -76,7 +63,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
-      const action = actionFor(e, ['commands', 'profiles', 'background', 'lab', 'toggleMode', 'help', 'settings']);
+      const action = actionFor(e, ['commands', 'profiles', 'toggleMode', 'help', 'settings']);
       if (!action) return;
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
@@ -85,8 +72,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       e.preventDefault();
       if (action === 'commands') setCommandsOpen((open) => !open);
       else if (action === 'profiles') setSwitcherOpen((open) => !open);
-      else if (action === 'background') setPickerOpen(true);
-      else if (action === 'lab') setLabOpen(true);
       else if (action === 'toggleMode') void toggleMode().catch(() => {});
       else if (action === 'help') setHelpOpen(true);
       else setSettingsOpen(true);
@@ -103,40 +88,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   if (!active) return <div className="backdrop" />;
 
-  const background = previewBg ?? active.background ?? 'plain';
-
-  const chooseBackground = (kind: BackgroundKind) => {
-    setPickerOpen(false);
-    setPreviewBg(null);
-    if (kind === active.background) return;
-    setProfiles((list) => list.map((p) => (p.id === active.id ? { ...p, background: kind } : p)));
-    api.updateProfile(active.id, { background: kind }).catch(() => {
-      setProfiles((list) => list.map((p) => (p.id === active.id ? { ...p, background: active.background } : p)));
-    });
-  };
-
   return (
-    <div className={`workspace backdrop ${EXPERIMENTS.filter((x) => experiments[x.id]).map((x) => `exp-${x.id}`).join(' ')}`}>
-      <Ambient kind={background} />
+    <div className="workspace backdrop">
       <Canvas key={active.id} profile={active} shell={{ onProfiles: () => setSwitcherOpen(true), onSettings: () => setSettingsOpen(true) }} />
-
-      <div className="chrome-top-left">
-        <button className="surface-2 pill" onClick={() => setSwitcherOpen(true)} title="Cambiar de perfil">
-          <Glyph className="wordmark-glyph" />
-          <span className="pill-name">{active.name}</span>
-        </button>
-        <button className="surface-2 pill pill-icon" onClick={() => setSettingsOpen(true)} title="Configuración" aria-label="Configuración">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
-            <circle cx="16" cy="7" r="2" />
-            <circle cx="10" cy="17" r="2" />
-          </svg>
-        </button>
-      </div>
-
-      <button className="hints" onClick={() => setHelpOpen(true)} title="Ver todos los atajos">
-        <Keys combo={keymap.help} /> atajos
-      </button>
 
       {commandsOpen && <ActionPalette onClose={() => setCommandsOpen(false)} />}
       {switcherOpen && (
@@ -156,29 +110,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           onClose={() => setSwitcherOpen(false)}
         />
       )}
-      {pickerOpen && (
-        <BackgroundPicker
-          current={active.background ?? 'plain'}
-          onPreview={setPreviewBg}
-          onChoose={chooseBackground}
-          onCancel={() => {
-            setPickerOpen(false);
-            setPreviewBg(null);
-          }}
-        />
-      )}
-      {labOpen && <Lab onClose={() => setLabOpen(false)} />}
       {settingsOpen && (
         <Settings
           onClose={() => setSettingsOpen(false)}
-          onBackground={() => {
-            setSettingsOpen(false);
-            setPickerOpen(true);
-          }}
-          onLab={() => {
-            setSettingsOpen(false);
-            setLabOpen(true);
-          }}
           onProfiles={() => {
             setSettingsOpen(false);
             setSwitcherOpen(true);

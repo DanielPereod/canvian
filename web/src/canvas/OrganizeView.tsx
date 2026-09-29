@@ -5,7 +5,6 @@ import { SectionPicker, type SectionOption } from './SectionPicker';
 import { parentMap } from './sections';
 import { makeSuggester } from './suggest';
 import { actionFor, keysBlocked } from '../keys';
-import { BackArrow } from '../BackArrow';
 
 // Otra vista, fuera del mapa: ordenar. A la izquierda el árbol de secciones;
 // a la derecha las notas de la elegida. Se marcan varias y se llevan a otra
@@ -34,15 +33,13 @@ type Props = {
   onMove: (moves: Move[]) => void;
   onNewSection: (parent: string | null) => void;
   onClose: () => void;
-  /** A dónde vuelve «←»: el mapa o la lista de Foco. */
-  back: string;
 };
 
 type TreeRow = { id: string; zone: NoteRow | null; depth: number; count: number };
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSection, onClose, back }: Props) {
+export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSection, onClose }: Props) {
   const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
   // Las notas con hijas son las ramas del árbol de la izquierda.
   const parent = useMemo(() => parentMap(rows), [rows]);
@@ -277,9 +274,6 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
   return (
     <div className="org-view">
       <header className="tasks-top">
-        <button className="sheet-back meta" onClick={onClose}>
-          <BackArrow /> {back}
-        </button>
         <nav className="tasks-group-by" aria-label="Ordenar la lista">
           {SORTS.map((s) => (
             <button key={s.id} className={`meta${s.id === sortBy ? ' is-on' : ''}`} onClick={() => setSortBy(s.id)}>
@@ -374,7 +368,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
               >
                 <span className={`org-check${on ? ' is-on' : ''}`} aria-hidden="true" />
                 {r.kind === 'task' ? (
-                  <TaskGlyph status={r.status ?? 'todo'} ripe={false} onCycle={() => {}} />
+                  <TaskGlyph status={r.status ?? 'todo'} onCycle={() => {}} />
                 ) : (
                   <span className={`org-kind org-kind-${r.kind}`} aria-hidden="true" />
                 )}

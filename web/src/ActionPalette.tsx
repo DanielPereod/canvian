@@ -8,9 +8,6 @@ import { MODES, setMode, useAppearance } from './theme';
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-// Marca de las pulsaciones que manda la paleta (Foco no las toma por texto).
-export const FROM_PALETTE = Symbol('palette');
-
 export function pressAction(combo: string) {
   const parts = combo.split(/\+(?!$)/);
   const k = parts[parts.length - 1];
@@ -28,7 +25,6 @@ export function pressAction(combo: string) {
     bubbles: true,
     cancelable: true,
   });
-  Object.defineProperty(ev, FROM_PALETTE, { value: true });
   document.body.dispatchEvent(ev);
 }
 

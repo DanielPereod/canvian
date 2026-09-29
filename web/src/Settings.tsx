@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ACTIONS, bind, comboOf, isDefault, keyParts, reserved, resetAll, resetKey, useKeymap, type ActionId } from './keys';
 import { Keys } from './Kbd';
 import { MODES, setMode, setTheme, THEMES, useAppearance, type Tone } from './theme';
-import { EXPERIMENTS, toggleExperiment, useExperiments } from './lab/experiments';
 import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
 
@@ -12,18 +11,15 @@ import { BackArrow } from './BackArrow';
 
 type Props = {
   onClose: () => void;
-  onBackground: () => void;
-  onLab: () => void;
   onProfiles: () => void;
 };
 
-type SectionId = 'general' | 'aspecto' | 'atajos' | 'laboratorio';
+type SectionId = 'general' | 'aspecto' | 'atajos';
 
 const SECTIONS: { id: SectionId; name: string }[] = [
   { id: 'general', name: 'General' },
   { id: 'aspecto', name: 'Aspecto' },
   { id: 'atajos', name: 'Atajos de teclado' },
-  { id: 'laboratorio', name: 'Laboratorio' },
 ];
 
 const LAST = 'canvian:settings-section';
@@ -42,14 +38,9 @@ function Row({ name, hint, children }: { name: string; hint?: string; children?:
   );
 }
 
-function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
-  return <button role="switch" aria-checked={on} aria-label={label} className={`set-toggle${on ? ' is-on' : ''}`} onClick={onChange} />;
-}
-
-export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
+export function Settings({ onClose, onProfiles }: Props) {
   const keymap = useKeymap();
   const look = useAppearance();
-  const experiments = useExperiments();
   const [section, setSection] = useState<SectionId>(() => {
     try {
       const saved = localStorage.getItem(LAST);
@@ -154,9 +145,6 @@ export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
           <button className="set-nav-item" onClick={onProfiles}>
             Perfiles y sesión
           </button>
-          <button className="set-nav-item" onClick={onBackground}>
-            Fondo del perfil
-          </button>
         </nav>
 
         <main className="set-main" key={section}>
@@ -183,11 +171,6 @@ export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
               <Row name="Perfiles y sesión" hint="Cambia de perfil, crea otros o cierra la sesión.">
                 <button className="set-button" onClick={onProfiles}>
                   Abrir
-                </button>
-              </Row>
-              <Row name="Fondo del perfil" hint="El fondo que se ve detrás del mapa en este perfil.">
-                <button className="set-button" onClick={onBackground}>
-                  Elegir
                 </button>
               </Row>
               <Row name="Dónde se guarda" hint="La configuración vive en tu servidor y es la misma en todos tus dispositivos." />
@@ -265,21 +248,6 @@ export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
             </>
           )}
 
-          {section === 'laboratorio' && (
-            <>
-              <p className="set-hint set-intro">Ideas en prueba. Enciéndelas o apágalas para compararlas; se guardan en tu servidor.</p>
-              {EXPERIMENTS.map((x) => (
-                <Row key={x.id} name={x.name} hint={x.hint}>
-                  <Toggle on={experiments[x.id]} label={x.name} onChange={() => toggleExperiment(x.id)} />
-                </Row>
-              ))}
-              <Row name="Panel del laboratorio" hint="El mismo panel que abre la tecla E.">
-                <button className="set-button" onClick={onLab}>
-                  Abrir
-                </button>
-              </Row>
-            </>
-          )}
         </main>
       </div>
     </div>
