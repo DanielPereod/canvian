@@ -397,6 +397,18 @@
 .tv-detail-foot { margin-top: auto; padding-top: var(--space-3); border-top: 1px solid var(--line); display: flex; justify-content: flex-end; }
 .tv-danger:hover { color: var(--danger); }
 
+/* Menú con clic derecho sobre una tarea: el de la biblioteca, con filas de botones. */
+.bib-menu.tv-menu { max-width: 340px; }
+.tv-menu-row { display: flex; flex-direction: column; gap: 4px; padding: 4px 9px 5px; }
+.tv-menu-label { font-size: calc(11px * var(--type-scale, 1)); color: var(--text-faint); }
+.tv-menu-chips { display: flex; flex-wrap: wrap; gap: 3px; }
+.tv-menu-chip { padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: none; font: inherit; font-size: calc(12px * var(--type-scale, 1)); color: var(--text-muted); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
+.tv-menu-chip:hover, .tv-menu-chip:focus-visible { background: var(--bib-sel, var(--surface-hover)); color: var(--text); outline: none; }
+.tv-menu-chip.is-on { background: var(--surface-sunken); border-color: transparent; color: var(--text); font-weight: 600; }
+.tv-menu-chip.prio-1.is-on { color: color-mix(in oklab, var(--accent-ink) 60%, var(--text-muted)); }
+.tv-menu-chip.prio-2.is-on { color: var(--accent-ink); }
+.tv-menu-chip.prio-3.is-on { color: var(--danger); }
+
 @media (max-width: 1100px) { .tv-detail, .tv-resizer { display: none; } }
 @media (max-width: 760px) {
   .tasks-view.tv { flex-direction: column; }
