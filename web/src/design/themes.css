@@ -258,6 +258,7 @@
   --accent-line: rgba(255, 255, 255, 0.4);
   --accent-ink: #f2f2f2;
   --accent-glow: transparent;
+  --selection: rgba(255, 255, 255, 0.26);
   --glow: 0 0 0 1px rgba(255, 255, 255, 0.35);
   --pearl: #f2f2f2;
   --pearl-ink: #0a0a0a;
@@ -357,6 +358,7 @@
   --accent-soft: rgba(0, 0, 0, 0.05);
   --accent-line: rgba(0, 0, 0, 0.4);
   --accent-ink: #111111;
+  --selection: rgba(0, 0, 0, 0.16);
   --glow: 0 0 0 1px rgba(0, 0, 0, 0.35);
   --pearl: #111111;
   --pearl-ink: #fafafa;

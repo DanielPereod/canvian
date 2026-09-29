@@ -118,6 +118,8 @@
   --accent-line: color-mix(in oklab, var(--accent) 50%, transparent);
   --accent-ink: color-mix(in oklab, var(--accent) 75%, white);
   --accent-glow: color-mix(in oklab, var(--accent) 38%, transparent);
+  /* El texto seleccionado: siempre bien visible, aunque el tema apague los brillos. */
+  --selection: color-mix(in oklab, var(--accent) 45%, transparent);
 
   --bg: var(--n-950);
   --ink: 255 255 255; /* canal del texto, para lavados translúcidos: rgb(var(--ink) / 0.05) */
