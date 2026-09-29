@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { COLORS, ROOT_KEY, setColor, setOrder, sortByOrder, useSidebarPrefs } from './sidebarPrefs';
 import type { NoteRow } from '../api';
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { importanceOf, parentMap } from './sections';
@@ -112,6 +113,15 @@ const hueOf = (id: string) => {
 
 // ── Barra lateral ─────────────────────────────────────────────────────
 
+// El color de cada nota: el que le hayas puesto o uno estable según su id.
+export const tintOf = (colors: Record<string, string>, id: string) => colors[id] ?? null;
+const dotStyle = (colors: Record<string, string>, id: string, depth: number): CSSProperties =>
+  ({ '--h': hueOf(id), ...(colors[id] ? { '--tint': colors[id] } : {}), '--depth': depth }) as CSSProperties;
+
+// Arrastrar notas: desde la barra o desde la biblioteca.
+export const DRAG_TYPE = 'application/x-canvian-note';
+type Drop = { id: string | null; pos: 'before' | 'after' | 'inside' };
+
 type SideProps = {
   profileName: string;
   family: Family;
@@ -130,10 +140,15 @@ type SideProps = {
   onOrganize: () => void;
   onArchived: () => void;
   onNewCollection: () => void;
+  onMove: (id: string, parent: string | null) => void;
+  onMenu: (id: string, x: number, y: number) => void;
 };
 
+const byDefault = (count: (id: string) => number) => (a: NoteRow, b: NoteRow) => count(b.id) - count(a.id) || titleOf(a).localeCompare(titleOf(b), 'es');
+
 export function BibSidebar(p: SideProps) {
-  const { kids, count, pathTo } = p.family;
+  const { kids, count, pathTo, parent } = p.family;
+  const prefs = useSidebarPrefs();
   const [open, setOpen] = useState<Set<string>>(() => {
     try {
       return new Set(JSON.parse(read(OPEN_KEY) ?? '[]') as string[]);
@@ -164,89 +179,301 @@ export function BibSidebar(p: SideProps) {
     });
   };
 
+  const fallback = byDefault(count);
+  const kidsOf = (id: string | null) => sortByOrder(id, (kids.get(id) ?? []).filter((r) => r.kind !== 'quick'), fallback, prefs);
   const roots = kids.get(null) ?? [];
-  const branches = roots.filter((r) => count(r.id)).sort((a, b) => count(b.id) - count(a.id) || titleOf(a).localeCompare(titleOf(b)));
+  const branches = sortByOrder(null, roots.filter((r) => count(r.id)), fallback, prefs);
   const loose = roots.filter((r) => !count(r.id) && r.kind !== 'quick');
 
-  const rows: { row: NoteRow; depth: number }[] = [];
-  const walk = (r: NoteRow, depth: number) => {
-    rows.push({ row: r, depth });
-    if (!count(r.id) || !isOpen(r.id)) return;
-    const list = [...(kids.get(r.id) ?? [])].sort((a, b) => count(b.id) - count(a.id) || titleOf(a).localeCompare(titleOf(b)));
-    for (const k of list) walk(k, depth + 1);
+  // ── Arrastrar y soltar ──
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [drop, setDrop] = useState<Drop | null>(null);
+  const inside = (target: string | null, id: string) => {
+    for (let z = target; z; z = parent.get(z) ?? null) if (z === id) return true;
+    return false;
   };
-  for (const r of branches) walk(r, 0);
+  const draggedId = (e: React.DragEvent) => dragId ?? (e.dataTransfer.types.includes(DRAG_TYPE) ? '?' : null);
+  const onRowOver = (e: React.DragEvent, id: string) => {
+    const moving = draggedId(e);
+    if (!moving) return;
+    const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const y = (e.clientY - box.top) / box.height;
+    const pos: Drop['pos'] = y < 0.28 ? 'before' : y > 0.72 ? 'after' : 'inside';
+    // Nada puede ir dentro de sí misma ni de lo que cuelga de ella.
+    const into = pos === 'inside' ? id : (parent.get(id) ?? null);
+    if (moving !== '?' && (moving === id || inside(into, moving))) {
+      setDrop(null);
+      return;
+    }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (drop?.id !== id || drop.pos !== pos) setDrop({ id, pos });
+  };
+  const onDropHere = (e: React.DragEvent) => {
+    e.preventDefault();
+    const id = dragId ?? e.dataTransfer.getData(DRAG_TYPE);
+    const target = drop;
+    setDrop(null);
+    setDragId(null);
+    if (!id || !target) return;
+    if (target.pos === 'inside') {
+      if (target.id !== null && parent.get(id) !== target.id) {
+        p.onMove(id, target.id);
+        setOpen((s) => new Set(s).add(target.id!));
+      }
+      return;
+    }
+    // Antes o después de otra: pasa a ser su hermana, en ese sitio.
+    const into = target.id ? (parent.get(target.id) ?? null) : null;
+    if ((parent.get(id) ?? null) !== into) p.onMove(id, into);
+    const siblings = (into === null ? branches : kidsOf(into)).map((r) => r.id).filter((x) => x !== id);
+    const at = siblings.indexOf(target.id!);
+    siblings.splice(target.pos === 'before' ? at : at + 1, 0, id);
+    void setOrder(into, siblings).catch(() => {});
+  };
+  const dropClass = (id: string | null) => (drop && drop.id === id ? ` is-drop-${drop.pos}` : '');
+
+  const renderRow = (row: NoteRow, depth: number): ReactNode => {
+    const n = count(row.id);
+    const shut = !isOpen(row.id);
+    const on = p.here === row.id;
+    return (
+      <div key={row.id} className="bib-node" role="treeitem" aria-expanded={n ? !shut : undefined} aria-selected={on}>
+        <div
+          className={`bib-tree-row${on ? ' is-on' : ''}${dragId === row.id ? ' is-dragging' : ''}${dropClass(row.id)}`}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(DRAG_TYPE, row.id);
+            e.dataTransfer.effectAllowed = 'move';
+            setDragId(row.id);
+          }}
+          onDragEnd={() => {
+            setDragId(null);
+            setDrop(null);
+          }}
+          onDragOver={(e) => onRowOver(e, row.id)}
+          onDragLeave={(e) => {
+            if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setDrop((d) => (d?.id === row.id ? null : d));
+          }}
+          onDrop={onDropHere}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            p.onMenu(row.id, e.clientX, e.clientY);
+          }}
+        >
+          <button className={`bib-chev${n ? '' : ' is-leaf'}${shut ? '' : ' is-open'}`} onClick={() => n && toggle(row.id)} aria-label={n ? (shut ? 'Desplegar' : 'Plegar') : undefined} tabIndex={-1}>
+            <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true">
+              <path d="M3.5 2 7 5 3.5 8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button className="bib-tree-it" onClick={() => (n ? p.onLibrary(row.id) : p.onOpen(row.id))} title={titleOf(row)}>
+            <span className={`bib-dot${depth ? ' is-sub' : ''}`} style={dotStyle(prefs.colors, row.id, depth)} aria-hidden="true" />
+            <span className="bib-ellipsis">{titleOf(row)}</span>
+            {n > 0 && <span className="bib-count">{n}</span>}
+          </button>
+        </div>
+        {n > 0 && !shut && (
+          <div className="bib-branch" role="group">
+            {kidsOf(row.id).map((k) => renderRow(k, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const libraryOn = p.view === 'library' || p.view === 'note';
   return (
     <div className={`bib-dock${p.folded ? ' is-folded' : ''}`}>
       {p.folded && <div className="bib-hot" aria-hidden="true" />}
-    <aside className="bib-side" aria-label="Biblioteca">
-      <div className="bib-side-top">
-        <button className="bib-profile" onClick={p.onProfiles} title="Cambiar de perfil (Ctrl Alt P)">
-          <span className="bib-profile-dot" aria-hidden="true" />
-          <span className="bib-ellipsis">{p.profileName}</span>
-        </button>
-        <button className="bib-icon" onClick={p.onFold} title={p.folded ? 'Fijar la barra (Ctrl .)' : 'Plegar la barra (Ctrl .)'} aria-label={p.folded ? 'Fijar la barra' : 'Plegar la barra'}>
-          <PanelIcon />
-        </button>
-        <button className="bib-icon" onClick={p.onSettings} title="Configuración (Ctrl ,)" aria-label="Configuración">
-          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-            <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
-            <circle cx="16" cy="7" r="2" />
-            <circle cx="10" cy="17" r="2" />
-          </svg>
-        </button>
-      </div>
-      <div className="bib-side-label">Biblioteca</div>
-      <button className={`bib-it${libraryOn && p.here === null ? ' is-on' : ''}`} onClick={() => p.onLibrary(null)}>
-        <span className="bib-it-i">◎</span>Todas las notas<span className="bib-it-k">Ctrl G</span>
-      </button>
-      <button className={`bib-it${p.view === 'tasks' ? ' is-on' : ''}`} onClick={p.onTasks}>
-        <span className="bib-it-i">☐</span>Tareas<span className="bib-it-k">{p.tasks || ''}</span>
-      </button>
-      <button className={`bib-it${p.view === 'organize' ? ' is-on' : ''}`} onClick={p.onOrganize}>
-        <span className="bib-it-i">⇅</span>Ordenar<span className="bib-it-k">O</span>
-      </button>
-      <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title="Ctrl Mayús H">
-        <span className="bib-it-i">⌫</span>
-        {p.showArchived ? 'Ocultar archivadas' : 'Archivadas'}
-      </button>
-      <div className="bib-side-label">Colecciones</div>
-      <div className="bib-tree">
-        {rows.map(({ row, depth }) => {
-          const n = count(row.id);
-          const shut = !isOpen(row.id);
-          const on = p.here === row.id;
-          return (
-            <div key={row.id} className="bib-tree-row" style={{ paddingLeft: depth * 14 } as CSSProperties}>
-              <button className="bib-chev" onClick={() => n && toggle(row.id)} aria-label={n ? (shut ? 'Desplegar' : 'Plegar') : undefined} tabIndex={n ? 0 : -1}>
-                {n ? (shut ? '▸' : '▾') : ''}
-              </button>
-              <button
-                className={`bib-it bib-tree-it${on ? ' is-on' : ''}${trail.has(row.id) || depth === 0 ? ' is-near' : ''}`}
-                onClick={() => (n ? p.onLibrary(row.id) : p.onOpen(row.id))}
-              >
-                <span className="bib-ellipsis">{titleOf(row)}</span>
-                <span className="bib-it-k">{n || ''}</span>
-              </button>
+      <aside className="bib-side" aria-label="Biblioteca">
+        <div className="bib-side-top">
+          <button className="bib-profile" onClick={p.onProfiles} title="Cambiar de perfil (Ctrl Alt P)">
+            <span className="bib-profile-dot" aria-hidden="true" />
+            <span className="bib-ellipsis">{p.profileName}</span>
+            <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" className="bib-profile-chev">
+              <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button className="bib-icon" onClick={p.onFold} title={p.folded ? 'Fijar la barra (Ctrl .)' : 'Plegar la barra (Ctrl .)'} aria-label={p.folded ? 'Fijar la barra' : 'Plegar la barra'}>
+            <PanelIcon />
+          </button>
+        </div>
+        <nav className="bib-nav">
+          <button className={`bib-it${libraryOn && p.here === null ? ' is-on' : ''}`} onClick={() => p.onLibrary(null)} title="Ctrl G">
+            Todas las notas
+          </button>
+          <button className={`bib-it${p.view === 'tasks' ? ' is-on' : ''}`} onClick={p.onTasks} title="A">
+            Tareas<span className="bib-count">{p.tasks || ''}</span>
+          </button>
+          <button className={`bib-it${p.view === 'organize' ? ' is-on' : ''}`} onClick={p.onOrganize} title="O">
+            Ordenar
+          </button>
+          <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title="Ctrl Mayús H">
+            {p.showArchived ? 'Ocultar archivadas' : 'Archivadas'}
+          </button>
+        </nav>
+        <div
+          className={`bib-side-label${drop && drop.id === null ? ' is-drop-inside' : ''}`}
+          onDragOver={(e) => {
+            if (!draggedId(e)) return;
+            e.preventDefault();
+            if (drop?.id !== null || drop.pos !== 'inside') setDrop({ id: null, pos: 'inside' });
+          }}
+          onDragLeave={() => setDrop((d) => (d?.id === null ? null : d))}
+          onDrop={(e) => {
+            e.preventDefault();
+            const id = dragId ?? e.dataTransfer.getData(DRAG_TYPE);
+            setDrop(null);
+            setDragId(null);
+            if (id && parent.get(id)) p.onMove(id, null);
+          }}
+          title="Suelta aquí para sacar una nota arriba del todo"
+        >
+          Mi biblioteca
+          <button className="bib-label-add" onClick={p.onNewCollection} title="Colección nueva" aria-label="Colección nueva">
+            <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+              <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+        <div className="bib-tree" role="tree" aria-label="Colecciones">
+          {branches.map((r) => renderRow(r, 0))}
+          {loose.length > 0 && (
+            <div className="bib-node">
+              <div className={`bib-tree-row${p.here === LOOSE ? ' is-on' : ''}`}>
+                <span className="bib-chev is-leaf" />
+                <button className="bib-tree-it" onClick={() => p.onLibrary(LOOSE)}>
+                  <span className="bib-dot is-loose" aria-hidden="true" />
+                  <span className="bib-ellipsis">Sueltas</span>
+                  <span className="bib-count">{loose.length}</span>
+                </button>
+              </div>
             </div>
-          );
-        })}
-        {loose.length > 0 && (
-          <div className="bib-tree-row">
-            <span className="bib-chev" />
-            <button className={`bib-it bib-tree-it is-near${p.here === LOOSE ? ' is-on' : ''}`} onClick={() => p.onLibrary(LOOSE)}>
-              <span className="bib-ellipsis">Sueltas</span>
-              <span className="bib-it-k">{loose.length}</span>
-            </button>
-          </div>
-        )}
+          )}
+        </div>
+        <div className="bib-side-foot">
+          <button className="bib-it bib-side-new" onClick={p.onNewCollection}>
+            Colección nueva
+            <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+              <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button className="bib-it" onClick={p.onSettings} title="Ctrl ,">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+            </svg>
+            Configuración
+          </button>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+// ── Menú contextual ───────────────────────────────────────────────────
+
+export type MenuAction = 'open' | 'library' | 'nodes' | 'child' | 'rename' | 'move' | 'task' | 'archive' | 'delete';
+
+type MenuProps = {
+  row: NoteRow;
+  kids: number;
+  x: number;
+  y: number;
+  onPick: (a: MenuAction) => void;
+  onClose: () => void;
+};
+
+export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
+  const prefs = useSidebarPrefs();
+  const ref = useRef<HTMLDivElement>(null);
+  const [spot, setSpot] = useState({ x, y });
+  const task = row.kind === 'task' || row.kind === 'quick';
+  const items: ({ a: MenuAction; label: string; key?: string; danger?: boolean } | null)[] = [
+    { a: 'open', label: 'Abrir' },
+    ...(kids ? [{ a: 'library' as const, label: 'Ver como colección' }] : []),
+    { a: 'nodes', label: 'Ver en nodos', key: 'Ctrl G' },
+    null,
+    { a: 'child', label: 'Nota nueva dentro', key: 'G' },
+    { a: 'rename', label: 'Renombrar', key: 'R' },
+    { a: 'move', label: 'Mover a…' },
+    ...(row.kind !== 'canvas' ? [{ a: 'task' as const, label: task ? 'Convertir en nota' : 'Convertir en tarea', key: 'T' }] : []),
+    null,
+    { a: 'archive', label: row.archivedAt ? 'Desarchivar' : 'Archivar', key: 'Ctrl ⇧ X' },
+    { a: 'delete', label: 'Borrar', key: 'Supr', danger: true },
+  ];
+  const buttons = () => [...(ref.current?.querySelectorAll<HTMLButtonElement>('button') ?? [])];
+
+  // Dentro de la ventana siempre, aunque se abra junto al borde.
+  useLayoutEffect(() => {
+    const box = ref.current?.getBoundingClientRect();
+    if (!box) return;
+    setSpot({ x: Math.max(8, Math.min(x, innerWidth - box.width - 8)), y: Math.max(8, Math.min(y, innerHeight - box.height - 8)) });
+    buttons()[0]?.focus();
+  }, [x, y]);
+
+  useEffect(() => {
+    const away = (e: Event) => !ref.current?.contains(e.target as Node) && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      const list = buttons();
+      const at = list.indexOf(document.activeElement as HTMLButtonElement);
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowDown') list[(at + 1) % list.length]?.focus();
+      else if (e.key === 'ArrowUp') list[(at - 1 + list.length) % list.length]?.focus();
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('pointerdown', away, true);
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('blur', onClose);
+    window.addEventListener('resize', onClose);
+    return () => {
+      window.removeEventListener('pointerdown', away, true);
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('blur', onClose);
+      window.removeEventListener('resize', onClose);
+    };
+  });
+
+  const color = prefs.colors[row.id] ?? null;
+  return (
+    <div className="bib-menu" ref={ref} role="menu" aria-label={titleOf(row)} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
+      <div className="bib-menu-head bib-ellipsis">{titleOf(row)}</div>
+      {items.map((it, i) =>
+        it ? (
+          <button
+            key={it.a}
+            role="menuitem"
+            className={`bib-menu-it${it.danger ? ' is-danger' : ''}`}
+            onClick={() => {
+              onClose();
+              onPick(it.a);
+            }}
+          >
+            {it.label}
+            {it.key && <span className="bib-menu-k">{it.key}</span>}
+          </button>
+        ) : (
+          <div key={`s${i}`} className="bib-menu-sep" role="separator" />
+        ),
+      )}
+      <div className="bib-menu-sep" role="separator" />
+      <div className="bib-menu-colors" role="group" aria-label="Color">
+        {COLORS.map((c) => (
+          <button
+            key={c.hex}
+            role="menuitemradio"
+            aria-checked={color === c.hex}
+            className={`bib-swatch${color === c.hex ? ' is-on' : ''}`}
+            style={{ '--tint': c.hex } as CSSProperties}
+            title={c.name}
+            aria-label={c.name}
+            onClick={() => void setColor(row.id, c.hex).catch(() => {})}
+          />
+        ))}
+        <button role="menuitemradio" aria-checked={!color} className={`bib-swatch is-auto${!color ? ' is-on' : ''}`} style={{ '--h': hueOf(row.id) } as CSSProperties} title="Automático" aria-label="Color automático" onClick={() => void setColor(row.id, null).catch(() => {})} />
       </div>
-      <button className="bib-it bib-side-new" onClick={p.onNewCollection}>
-        ＋ Colección nueva
-      </button>
-    </aside>
     </div>
   );
 }
@@ -334,6 +561,7 @@ type LibProps = {
   onCenter: (id: string | null) => void;
   onOpen: (id: string) => void;
   onAction: (action: MapAction, noteId: string | null, parentId: string | null) => void;
+  onMenu: (id: string, x: number, y: number) => void;
 };
 
 const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
@@ -341,6 +569,7 @@ const LIB_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'prop
 
 export function Library(p: LibProps) {
   const { kids, count, byId, parent } = p.family;
+  const prefs = useSidebarPrefs();
   const degree = useMemo(() => {
     const d = new Map<string, number>();
     for (const l of p.links) {
@@ -359,9 +588,24 @@ export function Library(p: LibProps) {
     if (p.center === null && list.some((r) => count(r.id)) && list.filter((r) => !count(r.id)).length > 6) list = list.filter((r) => count(r.id));
     list = list.filter((r) => r.kind !== 'quick' && (!p.hide || !p.lit || p.lit.has(r.id)));
     const weight = (r: NoteRow) => importanceOf(r, degree.get(r.id) ?? 0) + Math.min(8, count(r.id)) * 0.6;
-    // Arriba, las colecciones; después, por importancia.
-    return [...list].sort((a, b) => Number(!!count(b.id)) - Number(!!count(a.id)) || weight(b) - weight(a));
-  }, [p.center, p.hide, p.lit, kids, count, here, degree]);
+    // Arriba, las colecciones; después, por importancia (o como las ordenaste en la barra).
+    const auto = (a: NoteRow, b: NoteRow) => Number(!!count(b.id)) - Number(!!count(a.id)) || weight(b) - weight(a);
+    return p.center === LOOSE ? [...list].sort(auto) : sortByOrder(here?.id ?? null, list, auto, prefs);
+  }, [p.center, p.hide, p.lit, kids, count, here, degree, prefs]);
+  // Lo común a filas y portadas: color, arrastrar a la barra y menú con clic derecho.
+  const itemProps = (r: NoteRow, i: number) => ({
+    style: { '--i': Math.min(i, 20), '--h': hueOf(r.id), ...(prefs.colors[r.id] ? { '--tint': prefs.colors[r.id] } : {}) } as CSSProperties,
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.dataTransfer.setData(DRAG_TYPE, r.id);
+      e.dataTransfer.effectAllowed = 'move';
+    },
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      setSel(i);
+      p.onMenu(r.id, e.clientX, e.clientY);
+    },
+  });
 
   const [sel, setSel] = useState(0);
   useEffect(() => setSel(0), [p.center]);
@@ -414,7 +658,7 @@ export function Library(p: LibProps) {
           <h1>{title}</h1>
         </div>
         <span className="bib-muted bib-lib-count">
-          {items.length === 1 ? '1 nota' : `${items.length} notas`} · ordenadas por importancia
+          {items.length === 1 ? '1 nota' : `${items.length} notas`} · {p.center !== LOOSE && prefs.order[here?.id ?? ROOT_KEY]?.length ? 'en tu orden' : 'ordenadas por importancia'}
         </span>
         {here && (
           <button className="bib-link" onClick={() => p.onOpen(here.id)}>
@@ -446,8 +690,8 @@ export function Library(p: LibProps) {
               <button
                 key={r.id}
                 role="listitem"
-                className={`bib-row${i === at ? ' is-sel' : ''}${dim ? ' is-dim' : ''}`}
-                style={{ '--i': Math.min(i, 20), '--h': hueOf(r.id) } as CSSProperties}
+                className={`bib-row${i === at ? ' is-sel' : ''}${dim ? ' is-dim' : ''}${prefs.colors[r.id] ? ' has-tint' : ''}`}
+                {...itemProps(r, i)}
                 onMouseEnter={() => setSel(i)}
                 onClick={() => enter(r)}
               >
@@ -475,8 +719,8 @@ export function Library(p: LibProps) {
               <button
                 key={r.id}
                 role="listitem"
-                className={`bib-cover-it${i === at ? ' is-sel' : ''}${dim ? ' is-dim' : ''}`}
-                style={{ '--i': Math.min(i, 20), '--h': hueOf(r.id) } as CSSProperties}
+                className={`bib-cover-it${i === at ? ' is-sel' : ''}${dim ? ' is-dim' : ''}${prefs.colors[r.id] ? ' has-tint' : ''}`}
+                {...itemProps(r, i)}
                 onMouseEnter={() => setSel(i)}
                 onClick={() => enter(r)}
               >

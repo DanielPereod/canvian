@@ -12,6 +12,7 @@ import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { NoteSheet } from './NoteSheet';
 import { SectionName } from './SectionName';
+import { SectionPicker } from './SectionPicker';
 import type { OpenFrom } from './fluid';
 import { docText, docToMarkdown, markdownToDoc } from './markdown';
 import { parseBody } from './editor';
@@ -23,7 +24,7 @@ import { mergeTags, splitTags, tagsOf } from './tags';
 import { FocusHome } from './FocusHome';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
-import { BibBar, BibSidebar, Library, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
+import { BibBar, BibMenu, BibSidebar, Library, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 
 // La vista de Canvian: el mapa de secciones. Aquí viven las notas, los
 // enlaces y todo lo que se guarda; SectionMap solo dibuja y avisa.
@@ -93,6 +94,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
   const foco = focoExp && !bib;
   const [bibLayout, setBibLayout] = useBibLayout();
   const [bibFolded, toggleBibFolded] = useBibFolded();
+  // Menú con clic derecho sobre una nota, y «Mover a…» desde él.
+  const [bibMenu, setBibMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
   // Con «Foco», la lista es un menú que se abre con Ctrl P sobre los nodos,
   // que se alejan tras un velo; al cerrarse, se funde antes de desaparecer.
   const [listPhase, setListPhase] = useState<'closed' | 'open' | 'closing'>('closed');
@@ -832,6 +836,33 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
   }, [rows]);
   const inspected = inspectId ? (allRows.find((r) => r.id === inspectId) ?? null) : null;
 
+  // Abrir desde la barra lateral: la nota, con su colección detrás.
+  const bibOpen = (id: string) => {
+    setTasksOpen(false);
+    setOrganizeOpen(false);
+    if (focused) flush(focused.id);
+    setCenter(family.parent.get(id) ?? null);
+    openNote(id);
+  };
+
+  // Una nota con todo lo que cuelga de ella (no puede moverse ahí dentro).
+  const descendants = (id: string) => {
+    const out = new Set([id]);
+    for (const x of out) for (const k of family.kids.get(x) ?? []) out.add(k.id);
+    return out;
+  };
+
+  const bibPick = (a: MenuAction, id: string) => {
+    if (a === 'open') bibOpen(id);
+    else if (a === 'library') {
+      goLibrary(id);
+      if (bibLayout === 'nodos') setBibLayout('lista');
+    } else if (a === 'nodes') toNodes(id);
+    else if (a === 'child') act('section', id, null);
+    else if (a === 'move') setMovingId(id);
+    else act(a, id, null);
+  };
+
   const closeFocused = () => {
     if (!focused) return;
     const id = focused.id;
@@ -913,13 +944,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
             onProfiles={() => shell?.onProfiles()}
             onSettings={() => shell?.onSettings()}
             onLibrary={goLibrary}
-            onOpen={(id) => {
-              setTasksOpen(false);
-              setOrganizeOpen(false);
-              if (focused) flush(focused.id);
-              setCenter(family.parent.get(id) ?? null);
-              openNote(id);
-            }}
+            onOpen={bibOpen}
+            onMove={moveTo}
+            onMenu={(id, x, y) => setBibMenu({ id, x, y })}
             onTasks={() => {
               if (focused) closeFocused();
               setOrganizeOpen(false);
@@ -989,6 +1016,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           onCenter={setCenter}
           onOpen={(id) => openNote(id)}
           onAction={act}
+          onMenu={(id, x, y) => setBibMenu({ id, x, y })}
         />
       )}
       {loaded && (bib ? bibLayout === 'nodos' : !celdas) && (
@@ -1030,6 +1058,21 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
         </div>
       )}
       </div>
+      {bib && bibMenu && family.byId.get(bibMenu.id) && (
+        <BibMenu row={family.byId.get(bibMenu.id)!} kids={family.count(bibMenu.id)} x={bibMenu.x} y={bibMenu.y} onPick={(a) => bibPick(a, bibMenu.id)} onClose={() => setBibMenu(null)} />
+      )}
+      {movingId && (
+        <SectionPicker
+          options={sectionOptions}
+          current={family.parent.get(movingId) ?? null}
+          exclude={descendants(movingId)}
+          onPick={(zoneId) => {
+            moveTo(movingId, zoneId);
+            setMovingId(null);
+          }}
+          onClose={() => setMovingId(null)}
+        />
+      )}
       {renaming && (
         <SectionName
           initial={renaming.title}

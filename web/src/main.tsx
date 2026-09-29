@@ -29,9 +29,11 @@ import './canvas/sections.css';
 import './design/themes.css';
 import './canvas/biblioteca.css';
 import { startTheme } from './theme';
+import { startTypography } from './typography';
 import { App } from './App';
 
 startTheme();
+startTypography();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

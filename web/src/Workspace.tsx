@@ -10,6 +10,8 @@ import { Lab } from './lab/Lab';
 import { EXPERIMENTS, loadExperiments, useExperiments } from './lab/experiments';
 import { actionFor, keysBlocked, loadKeymap, useKeymap } from './keys';
 import { loadTheme, toggleMode } from './theme';
+import { loadTypography } from './typography';
+import { loadSidebarPrefs } from './canvas/sidebarPrefs';
 import { Keys } from './Kbd';
 import { Settings } from './Settings';
 import { Help } from './Help';
@@ -42,6 +44,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     void loadKeymap();
     void loadExperiments();
     void loadTheme();
+    void loadTypography();
+    void loadSidebarPrefs();
   }, []);
 
   useEffect(() => {
@@ -56,6 +60,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           void loadKeymap();
           void loadExperiments();
           void loadTheme();
+          void loadTypography();
+          void loadSidebarPrefs();
         } else if (scope === 'profiles') api.profiles().then(setProfiles, () => {});
       }),
     [],

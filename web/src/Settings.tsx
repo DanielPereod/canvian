@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ACTIONS, bind, comboOf, isDefault, keyParts, reserved, resetAll, resetKey, useKeymap, type ActionId } from './keys';
 import { Keys } from './Kbd';
 import { MODES, setMode, setTheme, THEMES, useAppearance, type Tone } from './theme';
+import { SIZES, TITLE_FONTS, UI_FONTS, setTypography, useTypography } from './typography';
 import { EXPERIMENTS, toggleExperiment, useExperiments } from './lab/experiments';
 import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
@@ -49,6 +50,7 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; la
 export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
   const keymap = useKeymap();
   const look = useAppearance();
+  const type = useTypography();
   const experiments = useExperiments();
   const [section, setSection] = useState<SectionId>(() => {
     try {
@@ -201,6 +203,33 @@ export function Settings({ onClose, onBackground, onLab, onProfiles }: Props) {
                   {MODES.map((m) => (
                     <button key={m.id} role="radio" aria-checked={look.mode === m.id} className={look.mode === m.id ? 'is-on' : ''} onClick={() => report(setMode(m.id))}>
                       {m.name}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <Row name="Letra" hint="La de menús, listas y botones en el diseño Biblioteca.">
+                <select className="set-select" value={type.ui} onChange={(e) => report(setTypography({ ui: e.target.value as typeof type.ui }))} aria-label="Letra">
+                  {UI_FONTS.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </Row>
+              <Row name="Letra de los títulos" hint="Títulos de colecciones, portadas y notas.">
+                <select className="set-select" value={type.titles} onChange={(e) => report(setTypography({ titles: e.target.value as typeof type.titles }))} aria-label="Letra de los títulos">
+                  {TITLE_FONTS.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </Row>
+              <Row name="Tamaño del texto" hint="Escala toda la interfaz; Estándar es 14 px.">
+                <div className="set-segmented" role="radiogroup" aria-label="Tamaño del texto">
+                  {SIZES.map((z) => (
+                    <button key={z.px} role="radio" aria-checked={type.size === z.px} className={type.size === z.px ? 'is-on' : ''} onClick={() => report(setTypography({ size: z.px }))}>
+                      {z.name}
                     </button>
                   ))}
                 </div>
