@@ -386,24 +386,10 @@ type MenuProps = {
   onClose: () => void;
 };
 
-export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
-  const prefs = useSidebarPrefs();
-  const ref = useRef<HTMLDivElement>(null);
+// Lo común a los menús con clic derecho: dentro de la ventana, el foco en el
+// primer botón, ↑↓ entre ellos y se cierra con Esc o al pulsar fuera.
+export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: number, y: number, onClose: () => void) {
   const [spot, setSpot] = useState({ x, y });
-  const task = row.kind === 'task' || row.kind === 'quick';
-  const items: ({ a: MenuAction; label: string; key?: string; danger?: boolean } | null)[] = [
-    { a: 'open', label: 'Abrir' },
-    ...(kids ? [{ a: 'library' as const, label: 'Ver como colección' }] : []),
-    { a: 'nodes', label: 'Ver en nodos', key: 'Ctrl G' },
-    null,
-    { a: 'child', label: 'Nota nueva dentro', key: 'G' },
-    { a: 'rename', label: 'Renombrar', key: 'R' },
-    { a: 'move', label: 'Mover a…' },
-    ...(row.kind !== 'canvas' ? [{ a: 'task' as const, label: task ? 'Convertir en nota' : 'Convertir en tarea', key: 'T' }] : []),
-    null,
-    { a: 'archive', label: row.archivedAt ? 'Desarchivar' : 'Archivar', key: 'Ctrl ⇧ X' },
-    { a: 'delete', label: 'Borrar', key: 'Supr', danger: true },
-  ];
   const buttons = () => [...(ref.current?.querySelectorAll<HTMLButtonElement>('button') ?? [])];
 
   // Dentro de la ventana siempre, aunque se abra junto al borde.
@@ -437,6 +423,27 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
       window.removeEventListener('resize', onClose);
     };
   });
+  return spot;
+}
+
+export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
+  const prefs = useSidebarPrefs();
+  const ref = useRef<HTMLDivElement>(null);
+  const spot = useContextMenu(ref, x, y, onClose);
+  const task = row.kind === 'task' || row.kind === 'quick';
+  const items: ({ a: MenuAction; label: string; key?: string; danger?: boolean } | null)[] = [
+    { a: 'open', label: 'Abrir' },
+    ...(kids ? [{ a: 'library' as const, label: 'Ver como colección' }] : []),
+    { a: 'nodes', label: 'Ver en nodos', key: 'Ctrl G' },
+    null,
+    { a: 'child', label: 'Nota nueva dentro', key: 'G' },
+    { a: 'rename', label: 'Renombrar', key: 'R' },
+    { a: 'move', label: 'Mover a…' },
+    ...(row.kind !== 'canvas' ? [{ a: 'task' as const, label: task ? 'Convertir en nota' : 'Convertir en tarea', key: 'T' }] : []),
+    null,
+    { a: 'archive', label: row.archivedAt ? 'Desarchivar' : 'Archivar', key: 'Ctrl ⇧ X' },
+    { a: 'delete', label: 'Borrar', key: 'Supr', danger: true },
+  ];
 
   const color = prefs.colors[row.id] ?? null;
   return (

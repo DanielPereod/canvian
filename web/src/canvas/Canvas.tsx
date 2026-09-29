@@ -1088,7 +1088,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           onSetTags={setTags}
           onEditQuick={editQuick}
           tagsOf={(r) => tagsOf(r, defs)}
-          onDeleteQuick={(id) => removeNotes([id])}
+          onDelete={(id) => removeNotes([id])}
+          onToNote={(id) => act('task', id, null)}
           onClose={() => setTasksOpen(false)}
         />
       )}

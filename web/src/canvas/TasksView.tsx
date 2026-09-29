@@ -6,6 +6,7 @@ import { actionFor, keysBlocked } from '../keys';
 import { mergeTags, splitTags } from './tags';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { Resizer, useSideWidth } from './Resizer';
+import { useContextMenu } from './Biblioteca';
 
 // Vista de tareas, fuera del mapa, en tres columnas: a la izquierda las
 // listas (Hoy, 7 días, rápidas, por nota madre y por etiqueta), en el centro
@@ -113,7 +114,9 @@ type Props = {
   sections: SectionOption[];
   onMoveTask: (id: string, zoneId: string | null) => void;
   onEditQuick: (id: string, title: string) => void;
-  onDeleteQuick: (id: string) => void;
+  onDelete: (id: string) => void;
+  /** Una tarea con nota detrás vuelve a ser una nota normal. */
+  onToNote: (id: string) => void;
   tagsOf: (r: NoteRow) => string[];
   onSetTags: (r: NoteRow, tags: string[]) => void;
   onClose: () => void;
@@ -145,6 +148,7 @@ export function TasksView(p: Props) {
   // Dónde estaba el «>» que se cerró con Esc, para no volver a abrir la lista por él.
   const [intoShut, setIntoShut] = useState(-1);
   const [moving, setMoving] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
   const choose = (g: TaskGrouping) => {
     setGrouping(g);
@@ -363,6 +367,23 @@ export function TasksView(p: Props) {
 
   const toggleDone = (r: NoteRow) => p.onPatch(r.id, r.status === 'done' ? { status: 'todo', doneAt: null } : { status: 'done', doneAt: new Date().toISOString() });
 
+  // Clic derecho sobre una tarea: la señala y abre el menú donde está el ratón.
+  const openMenu = (e: React.MouseEvent, r: NoteRow) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({ id: r.id, x: e.clientX, y: e.clientY });
+  };
+  const menuPick = (r: NoteRow, a: TaskMenuAction) => {
+    if (a === 'open') r.kind === 'quick' ? titleRef.current?.focus() : p.onOpen(r.id);
+    else if (a === 'done') toggleDone(r);
+    else if (a === 'move') setMoving(r.id);
+    else if (a === 'toNote') p.onToNote(r.id);
+    else if (a === 'delete') p.onDelete(r.id);
+    else if ('status' in a) moveTo(r, a.status);
+    else if ('priority' in a) p.onPatch(r.id, { priority: a.priority });
+    else p.onPatch(r.id, { dueAt: a.dueAt });
+  };
+
   // «Tarea >proy»: lo que va tras el último «>» busca la nota donde meterla.
   const gt = adding.lastIndexOf('>');
   const intoQuery = gt >= 0 && gt !== intoShut ? adding.slice(gt + 1) : null;
@@ -398,7 +419,7 @@ export function TasksView(p: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (paused || moving || keysBlocked()) return;
+      if (paused || moving || menu || keysBlocked()) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       const action = actionFor(e, ['tasks', 'cycleStatus', 'blockTask', 'newNote', 'deleteCell']);
@@ -407,8 +428,12 @@ export function TasksView(p: Props) {
       else if (action === 'cycleStatus') cur && p.onCycle(cur.id);
       else if (action === 'blockTask') cur && p.onBlock(cur.id);
       else if (action === 'newNote') addRef.current?.focus();
-      else if (action === 'deleteCell' && cur?.kind === 'quick') p.onDeleteQuick(cur.id);
-      else if (k === ' ' && cur) toggleDone(cur);
+      else if (action === 'deleteCell' && cur?.kind === 'quick') p.onDelete(cur.id);
+      // La tecla de menú (o Mayús F10) abre el menú de la señalada, junto a ella.
+      else if ((k === 'contextmenu' || (k === 'f10' && e.shiftKey)) && cur) {
+        const box = document.querySelector('.tv-row.is-cursor, .tv-card.is-cursor, .tv-cal-task.is-sel')?.getBoundingClientRect();
+        setMenu({ id: cur.id, x: box ? box.left + 24 : innerWidth / 2, y: box ? box.bottom : innerHeight / 3 });
+      } else if (k === ' ' && cur) toggleDone(cur);
       else if (k === 'm' && cur) setMoving(cur.id);
       else if (k === 'v' && view !== 'done' && !cal) pickLayout(board ? 'lista' : 'tablero');
       else if (board && e.shiftKey && (k === 'arrowleft' || k === 'arrowright' || k === 'h' || k === 'l') && cur) {
@@ -600,6 +625,10 @@ export function TasksView(p: Props) {
             onOpen={(r) => (r.kind === 'quick' ? titleRef.current?.focus() : p.onOpen(r.id))}
             onToggle={toggleDone}
             onMove={(id, iso) => p.onPatch(id, { dueAt: iso })}
+            onMenu={(e, r) => {
+              setCalSel(r.id);
+              openMenu(e, r);
+            }}
           />
         )}
         {board && (
@@ -640,6 +669,7 @@ export function TasksView(p: Props) {
                         onMouseDown={() => setCursorId(r.id)}
                         onClick={() => r.kind !== 'quick' && window.innerWidth <= 1100 && p.onOpen(r.id)}
                         onDoubleClick={() => (r.kind === 'quick' ? titleRef.current?.focus() : p.onOpen(r.id))}
+                        onContextMenu={(e) => openMenu(e, r)}
                       >
                         <div className="tv-card-top">
                           <Check row={r} onToggle={() => toggleDone(r)} />
@@ -702,6 +732,7 @@ export function TasksView(p: Props) {
                         // Sin sitio para el detalle (pantallas estrechas), un toque abre la nota.
                         onClick={() => r.kind !== 'quick' && window.innerWidth <= 1100 && p.onOpen(r.id)}
                         onDoubleClick={() => (r.kind === 'quick' ? titleRef.current?.focus() : p.onOpen(r.id))}
+                        onContextMenu={(e) => openMenu(e, r)}
                       >
                         <Check row={r} onToggle={() => toggleDone(r)} />
                         <span className="tv-row-title">{titleOf(r)}</span>
@@ -724,12 +755,15 @@ export function TasksView(p: Props) {
             ? `1–5 vista · ←→${calMode === 'mes' || calMode === 'semana' ? '↑↓' : ''} día · [ ] ${calMode === 'mes' ? 'mes' : calMode === 'dia' ? 'día' : calMode === 'tres' ? '3 días' : 'semana'} · T hoy · arrastra una tarea para cambiar su fecha · N añadir en el día · Esc salir`
             : board
               ? '←→↑↓ moverse · Mayús ←→ cambiar de columna · arrastra una tarjeta · Espacio hecha · M nota madre · V lista · Esc salir'
-              : '↑↓ moverse · Espacio hecha · X estado · M nota madre · N añadir (> dentro de una nota) · Tab agrupar · V tablero · Esc salir'}
+              : '↑↓ moverse · Espacio hecha · X estado · M nota madre · N añadir (> dentro de una nota) · Tab agrupar · V tablero · clic derecho más · Esc salir'}
         </p>
       </main>
 
       <Resizer size={detailWidth} edge="left" className="tv-resizer" />
       <Detail key={cur?.id ?? 'none'} row={cur} p={p} section={cur && homeOf(cur) ? noteTitle(homeOf(cur)!) : ''} path={cur && homeOf(cur) ? pathOf(homeOf(cur)!.id) : ''} titleRef={titleRef} onToggle={() => cur && toggleDone(cur)} onMove={() => cur && setMoving(cur.id)} />
+      {menu && all.find((r) => r.id === menu.id) && (
+        <TaskMenu row={all.find((r) => r.id === menu.id)!} x={menu.x} y={menu.y} onPick={(a) => menuPick(all.find((r) => r.id === menu.id)!, a)} onClose={() => setMenu(null)} />
+      )}
       {moving && (
         <SectionPicker
           // Una rápida no tiene «Arriba del todo»: sin madre ya es rápida.
@@ -899,7 +933,7 @@ function Detail({
 
       <div className="tv-detail-foot">
         {quick ? (
-          <button className="set-button tv-danger" onClick={() => p.onDeleteQuick(row.id)}>
+          <button className="set-button tv-danger" onClick={() => p.onDelete(row.id)}>
             Borrar
           </button>
         ) : (
@@ -911,6 +945,66 @@ function Detail({
         )}
       </div>
     </aside>
+  );
+}
+
+// ── Menú con clic derecho ─────────────────────────────────────────────
+
+export type TaskMenuAction = 'open' | 'done' | 'move' | 'toNote' | 'delete' | { status: TaskStatus } | { priority: number } | { dueAt: string | null };
+
+function TaskMenu({ row, x, y, onPick, onClose }: { row: NoteRow; x: number; y: number; onPick: (a: TaskMenuAction) => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const spot = useContextMenu(ref, x, y, onClose);
+  const quick = row.kind === 'quick';
+  const s = row.status ?? 'todo';
+  const dueDay = row.dueAt?.slice(0, 10) ?? null;
+  const pick = (a: TaskMenuAction) => {
+    onClose();
+    onPick(a);
+  };
+  const item = (a: TaskMenuAction, label: string, k?: string, danger?: boolean) => (
+    <button key={label} role="menuitem" className={`bib-menu-it${danger ? ' is-danger' : ''}`} onClick={() => pick(a)}>
+      {label}
+      {k && <span className="bib-menu-k">{k}</span>}
+    </button>
+  );
+  // Estado, prioridad y fecha, en una fila de botones cada uno.
+  const chips = (label: string, items: { a: TaskMenuAction; name: string; on: boolean; title?: string; className?: string }[]) => (
+    <div key={label} className="tv-menu-row" role="group" aria-label={label}>
+      <span className="tv-menu-label">{label}</span>
+      <div className="tv-menu-chips">
+        {items.map((it) => (
+          <button key={it.name} role="menuitemradio" aria-checked={it.on} className={`tv-menu-chip${it.on ? ' is-on' : ''}${it.className ? ` ${it.className}` : ''}`} title={it.title ?? it.name} onClick={() => pick(it.a)}>
+            {it.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+  const soon = [
+    { iso: isoDay(0), name: 'Hoy' },
+    { iso: isoDay(1), name: 'Mañana' },
+    { iso: isoDay(7), name: '+1 sem.', title: 'Dentro de una semana' },
+  ];
+
+  return (
+    <div className="bib-menu tv-menu" ref={ref} role="menu" aria-label={titleOf(row)} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
+      <div className="bib-menu-head bib-ellipsis">{titleOf(row)}</div>
+      {item('open', quick ? 'Editar el título' : 'Abrir', 'Enter')}
+      {item('done', s === 'done' ? 'Marcar pendiente' : 'Marcar hecha', 'Espacio')}
+      <div className="bib-menu-sep" role="separator" />
+      {chips('Estado', STATUSES.map((x) => ({ a: { status: x.id }, name: x.name, on: s === x.id })))}
+      {chips('Prioridad', [0, 1, 2, 3].map((n) => ({ a: { priority: n }, name: n ? '!'.repeat(n) : '—', title: PRIOS[n], on: (row.priority ?? 0) === n, className: `prio-${n}` })))}
+      {chips('Fecha', [
+        ...soon.map((d) => ({ a: { dueAt: d.iso }, name: d.name, title: d.title ?? dueLabel(d.iso), on: dueDay === d.iso })),
+        { a: { dueAt: null }, name: 'Sin fecha', on: !dueDay },
+      ])}
+      <div className="bib-menu-sep" role="separator" />
+      {item('move', quick ? 'Meter en una nota…' : 'Cambiar la nota madre…', 'M')}
+      {!quick && item('toNote', 'Convertir en nota')}
+      <div className="bib-menu-sep" role="separator" />
+      {item('delete', 'Borrar', quick ? 'Supr' : undefined, true)}
+    </div>
   );
 }
 
@@ -960,6 +1054,7 @@ type CalProps = {
   onOpen: (r: NoteRow) => void;
   onToggle: (r: NoteRow) => void;
   onMove: (id: string, iso: string) => void;
+  onMenu: (e: React.MouseEvent, r: NoteRow) => void;
 };
 
 // Un sitio donde soltar una tarea para darle ese día.
@@ -998,6 +1093,7 @@ function CalTask({ r, iso, p, where }: { r: NoteRow; iso: string; p: CalProps; w
         e.stopPropagation();
         p.onOpen(r);
       }}
+      onContextMenu={(e) => p.onMenu(e, r)}
     >
       <Check row={r} onToggle={() => p.onToggle(r)} />
       <span>{titleOf(r)}</span>
