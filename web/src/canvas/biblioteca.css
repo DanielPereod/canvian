@@ -110,9 +110,6 @@
 
 /* ── El esqueleto ───────────────────────────────────────────────────── */
 
-.exp-biblioteca .chrome-top-left,
-.exp-biblioteca .hints { display: none; }
-
 .canvas.is-bib {
   --bib-w: var(--bib-side-w, 240px);
   --bib-h: 52px;
@@ -363,15 +360,12 @@
 
 /* ── Tareas, ordenar y el buscador con este estilo ──────────────────── */
 
-.canvas.is-bib .tv-back,
-.canvas.is-bib .org-view .sheet-back:first-child { display: none; }
 .canvas.is-bib .tv-title,
-.canvas.is-bib .org-title,
-.canvas.is-bib .tasks-title { font-family: var(--font-ui); font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+.canvas.is-bib .org-title { font-family: var(--font-ui); font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
 .canvas.is-bib .tv-title em,
 .canvas.is-bib .org-title em { font-style: normal; color: inherit; }
-.exp-biblioteca .popover:has(#note-search) .list { counter-reset: hit; }
-.exp-biblioteca .popover:has(#note-search) .list-item:not(.static)::before {
+.canvas.is-bib .popover:has(#note-search) .list { counter-reset: hit; }
+.canvas.is-bib .popover:has(#note-search) .list-item:not(.static)::before {
   counter-increment: hit;
   content: counter(hit, decimal-leading-zero);
   position: static;
@@ -383,11 +377,11 @@
   font-weight: 700;
   opacity: 0.55;
 }
-.exp-biblioteca .popover:has(#note-search) .list-item[aria-selected='true'] { background: var(--accent-soft); color: var(--text); }
-.exp-biblioteca .popover:has(#note-search) .list-item[aria-selected='true']::before { color: var(--accent-ink); }
-.exp-biblioteca .popover:has(#note-search) .list-item[aria-selected='true'] .hit-snippet,
-.exp-biblioteca .popover:has(#note-search) .list-item[aria-selected='true'] .list-icon { color: var(--text-faint); }
-.exp-biblioteca #note-search { font-size: 22px; font-weight: 500; }
+.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] { background: var(--accent-soft); color: var(--text); }
+.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true']::before { color: var(--accent-ink); }
+.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] .hit-snippet,
+.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] .list-icon { color: var(--text-faint); }
+.canvas.is-bib #note-search { font-size: 22px; font-weight: 500; }
 
 @media (max-width: 760px) {
   .canvas.is-bib { --bib-w: 0px; }

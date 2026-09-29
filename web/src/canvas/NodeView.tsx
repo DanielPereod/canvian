@@ -3,7 +3,6 @@ import type { NoteRow } from '../api';
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { importanceOf, parentMap } from './sections';
 import { daysUntil, dueLabel } from './dates';
-import type { MapAction } from './SectionMap';
 
 // Vista de nodos: una nota en el centro y, alrededor, lo que tiene que ver con
 // ella. Sus hijas en un anillo (unidas con línea), las notas enlazadas en el
@@ -23,16 +22,19 @@ type Props = {
   onMove: (id: string, parentId: string | null) => void;
   lit: Set<string> | null;
   hide: boolean;
-  onLeave?: () => void;
 };
 
 type Role = 'center' | 'child' | 'link' | 'more' | 'parent' | 'ancestor' | 'sibling';
 type Placed = { id: string; row: NoteRow | null; title: string; role: Role; x: number; y: number; r: number; kids: number; ring: 1 | 2 };
 
 export const LOOSE = 'loose';
+
+// Lo que se pide desde los nodos o la biblioteca sobre la nota señalada (o,
+// para crear, dentro de la nota en la que estás).
+export type MapAction = 'create' | 'createCanvas' | 'section' | 'task' | 'status' | 'block' | 'props' | 'delete' | 'rename' | 'archive';
 const SIBLINGS = 6;
 const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
-const NODE_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newSection'];
+const NODE_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
 
 const ROLE_WORD: Record<Role, string> = { center: 'aquí', child: 'dentro de esta', link: 'enlazada', more: '', parent: 'nota madre', ancestor: 'más arriba', sibling: 'hermana' };
 
@@ -77,7 +79,7 @@ function Glyph({ p }: { p: Placed }) {
 
 const titleOf = (r: NoteRow) => r.title || (r.kind === 'task' ? 'Tarea sin título' : 'Nota sin título');
 
-export function NodeView({ rows, links, center, paused, onCenter, onOpen, onAction, onMove, lit, hide, onLeave }: Props) {
+export function NodeView({ rows, links, center, paused, onCenter, onOpen, onAction, onMove, lit, hide }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 800 });
   const [hover, setHover] = useState<string | null>(null);
@@ -243,7 +245,7 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
     onCenter(p.id === 'root' ? null : p.id);
   };
   const back = () => {
-    if (!centerId) return onLeave?.();
+    if (!centerId) return;
     if (centerId === LOOSE) return onCenter(null);
     const up = parent.get(centerId) ?? null;
     onCenter(up ?? (grouped && !kidCount(centerId) ? LOOSE : null));
@@ -266,6 +268,7 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
         if (id) onAction(KEYS[action]!, id, null);
       } else if (action === 'toRoot') onCenter(null);
       else if (action === 'newNote') onAction('create', null, here ? here.id : null);
+      else if (action === 'newCanvas') onAction('createCanvas', null, here ? here.id : null);
       else if (action === 'newSection') onAction('section', null, noteOf(target) ?? (here ? here.id : null));
       else if (plain && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         // Arriba y abajo recorren las hijas (y después las enlazadas).

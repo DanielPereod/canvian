@@ -29,7 +29,7 @@ npm start        # sirve todo desde :3210
 | Carpeta   | Qué hay |
 |-----------|---------|
 | `server/` | Hono + better-sqlite3 + Drizzle. Esquema en `src/db/schema.ts`, migraciones en `drizzle/` (se generan con `npm run db:generate -w server`) y se aplican al arrancar. |
-| `web/`    | React 19 + Vite. El mapa (una nota con hijas es una sección en la que se entra) se dibuja en SVG (`web/src/canvas/fluid.ts`). |
+| `web/`    | React 19 + Vite. La interfaz es una biblioteca (`web/src/canvas/Biblioteca.tsx`): barra lateral con el árbol de notas, la colección en lista, portadas o nodos, y un lector con su panel de detalles. |
 
 Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (imágenes, vídeo y audio de las notas; por defecto `media/` junto a la base, así que en Docker también quedan en el volumen `/data`), `CANVIAN_WEB_DIR` (por defecto `web/dist`).
 
@@ -39,46 +39,44 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (i
 
 ## Temas
 
-**Configuración** (`Ctrl ,`) está ordenada como Obsidian: secciones a la izquierda (General, Aspecto, Atajos de teclado, Laboratorio) y sus ajustes a la derecha. En **Aspecto** se elige el modo (claro, oscuro o automático, que sigue al sistema) y un tema para cada tono: oscuros Jardín nocturno, Observatorio, Plano y Mínimo; claros Papel, Bloques, Piedras de río y Mínimo claro. El modo también se cambia con `Ctrl Mayús L` o desde la paleta de comandos (`Ctrl Mayús P`, «Modo claro/oscuro/automático»). Todo se guarda en el servidor, así que vale en todos tus dispositivos.
+**Configuración** (`Ctrl ,`) está ordenada como Obsidian: secciones a la izquierda (General, Aspecto y Atajos de teclado) y sus ajustes a la derecha. En **Aspecto** se elige el modo (claro, oscuro o automático, que sigue al sistema) y un tema para cada tono: oscuros Jardín nocturno, Observatorio, Plano y Mínimo; claros Papel, Bloques, Piedras de río y Mínimo claro. El modo también se cambia con `Ctrl Mayús L` o desde la paleta de comandos (`Ctrl Mayús P`, «Modo claro/oscuro/automático»). Todo se guarda en el servidor, así que vale en todos tus dispositivos.
 
 ## Atajos
 
-Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que tengas, y en **Configuración** (`Ctrl ,` o el botón junto al perfil) se pueden cambiar; se guardan en el servidor.
+Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que tengas, y en **Configuración** (`Ctrl ,` o el botón junto al perfil en la barra lateral) se pueden cambiar; se guardan en el servidor.
 
 | Atajo | Acción |
 |-------|--------|
 | Vista de nodos | La nota del centro con sus hijas en anillo (línea), sus enlaces (discontinua), su madre arriba y sus hermanas alrededor. Clic en un nodo lo trae al centro; clic en el centro o `Enter` abre la nota; `←`/`→` recorren el anillo; `Esc` sube a la madre; arrastrar un nodo sobre otro lo mete dentro |
-| `⌘/Ctrl G` | Modo nodo, desde cualquier sitio: la nota abierta (o la señalada en la lista) pasa al centro de la vista de nodos; otra vez `⌘/Ctrl G` vuelve a donde estabas (también con el botón «Nodos») |
-| Rueda (mapa de celdas, en el Laboratorio) | Acercar la celda señalada; hacia atrás, alejar |
-| Clic en una nota con hijas | Entrar en ella (dentro, si tiene texto propio, hay una celda para abrirla) |
-| Clic en una nota (o `Enter`) | Acercarse hasta que la celda se abre como hoja a pantalla completa |
-| `Esc` / `Retroceso` | Salir: cierra la hoja o sube un nivel |
-| Clic en una miga de pan | Volver a ese nivel; la del nivel en el que estás abre esa nota, y doble clic la renombra |
-| `1` | Volver a Todo |
+| `⌘/Ctrl G` | Modo nodo: la nota abierta pasa al centro de la vista de nodos (también con el botón «Nodos»); sin nota abierta, abre la del centro |
+| `⌘/Ctrl .` | Plegar la barra lateral (sale flotando al acercar el ratón al borde) o fijarla |
+| Clic en una nota con hijas (o `Enter`) | Entrar en ella: la colección muestra lo que tiene dentro |
+| Clic en una nota sin hijas (o `Enter`) | Abrirla en el lector, con su panel de detalles a la derecha |
+| `Esc` / `Retroceso` | Salir: cierra el lector o sube un nivel |
+| Clic en una miga de pan | Volver a ese nivel |
+| `1` | Volver a todas las notas |
 | `N` | Nota nueva en la nota con hijas señalada o en la que estás |
 | `C` | Canvas nuevo: una nota que es un lienzo libre, como los de Obsidian. Doble clic en el vacío crea una tarjeta; desde los bordes de una tarjeta se tiran flechas a otra; abajo se añaden tarjetas, notas existentes (doble clic las abre), grupos e imágenes (también pegando o soltando). `Supr` borra lo seleccionado. Se guarda en formato JSON Canvas |
 | `G` | Nota nueva dentro de la señalada (así se anidan) |
 | `R` | Renombrar la nota señalada (cambia su primera línea) |
 | `⌘/Ctrl Mayús X` | Archivar o desarchivar la nota abierta o señalada: se oculta con todo lo que cuelga de ella (también con el botón «Archivar») |
 | `⌘/Ctrl Mayús H` | Mostrar u ocultar las notas archivadas |
-| Arrastrar una celda | Meterla dentro de otra nota (soltándola sobre ella) o subirla de nivel (soltándola en las migas) |
 | `T` | Convertir la nota señalada en tarea (o volver a nota) |
 | `X` | Avanzar el estado de la tarea señalada: pendiente → en curso → hecha |
 | `P` | Propiedades de la nota señalada: tipo (nota, tarea o canvas), estado, prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
 | `Supr` | Borrar la nota señalada (sus hijas pasan a su madre) |
-| En la hoja de una nota | Escribir; arriba, hacer tarea, propiedades y borrar; abajo, sus enlaces (`+ Enlazar` busca otra nota, `×` quita el enlace) |
-| `[[` (escribiendo en una nota) | Abre el buscador de notas para enlazar, como en Obsidian: `↑`/`↓` eligen, `Enter` o `Tab` ponen el `[[enlace]]` (y unen las dos notas en el mapa), `Esc` lo cierra. Si no existe, «Crear nota» la crea al lado. Vale `[[Nota#Sección\|alias]]`, y escribir `[[Nota]]` entero también enlaza. Clic en el enlace abre la nota |
+| En el lector | Escribir; en el panel de la derecha, sus datos, sus enlaces (`＋ Enlazar` busca otra nota, `×` quita el enlace) y hacer tarea, archivar, propiedades o borrar |
+| `[[` (escribiendo en una nota) | Abre el buscador de notas para enlazar, como en Obsidian: `↑`/`↓` eligen, `Enter` o `Tab` ponen el `[[enlace]]` (y unen las dos notas), `Esc` lo cierra. Si no existe, «Crear nota» la crea al lado. Vale `[[Nota#Sección\|alias]]`, y escribir `[[Nota]]` entero también enlaza. Clic en el enlace abre la nota |
 | Markdown al escribir | El de Obsidian: `#`…`######`, `**negrita**`, `*cursiva*`, `~~tachado~~`, `==resaltado==` (también `⌘/Ctrl ⇧ H`), `` `código` ``, `[texto](url)`, `- `, `1. `, `- [ ] ` (casillas), `> `, ` ``` ` y `---` |
-| `A` | Vista de tareas: todas las tareas activas del perfil en una lista, agrupadas por estado, fecha o nota madre (`Tab` cambia). `↑`/`↓` para moverse, `Enter` abre, `X` avanza el estado, `N` apunta una tarea rápida (solo vive en esta vista: no es una nota, no sale en el mapa ni al buscar; `Enter` o clic la edita en su sitio, `Supr` la borra), `Esc` vuelve al mapa |
+| `A` | Vista de tareas: todas las tareas activas del perfil en una lista, agrupadas por estado, fecha o nota madre (`Tab` cambia). `↑`/`↓` para moverse, `Enter` abre, `X` avanza el estado, `N` apunta una tarea rápida (solo vive en esta vista: no es una nota, no sale en la biblioteca ni al buscar; `Enter` o clic la edita en su sitio, `Supr` la borra), `Esc` vuelve |
 | `O` | Ordenar: el árbol de notas con hijas a un lado y lo que hay dentro de la elegida al otro (también desde Configuración). Clic o `Espacio` marca, `⇧` marca seguidas; se mueven arrastrándolas a otra nota, con `M` o aceptando el sitio sugerido (`S`). `←`/`→` cambia de rama, `/` busca en todas, `Z` deshace, `Esc` vuelve |
-| `F` | Linterna: filtra el mapa en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea` (o `nota`, `canvas`), `estado:pendiente\|curso\|bloqueada\|hecha` (o `-hecha`), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d`, `en:viaje` (dentro de una nota), `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
-| `Tab` (con la linterna) | Cambia el modo: atenuar (lo demás se apaga) u ocultar (lo demás encoge) |
+| `F` | Linterna: filtra la colección o los nodos en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea` (o `nota`, `canvas`), `estado:pendiente\|curso\|bloqueada\|hecha` (o `-hecha`), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d`, `en:viaje` (dentro de una nota), `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
+| `Tab` (con la linterna) | Cambia el modo: atenuar (lo demás se apaga) u ocultar |
 | `⌘/Ctrl S` (en la linterna) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |
 | `B` | Elegir el fondo del perfil (liso, estrellas, luciérnagas, aurora) |
-| `E` | Laboratorio: encender o apagar las ideas en prueba (se guarda en el servidor, igual en cualquier navegador) |
 | Arrastrar archivos `.md` | Importarlos como notas dentro de la nota en la que estás; los `[[enlaces]]` entre ellas se convierten en enlaces, y las tablas en tablas de verdad |
-| Pegar o arrastrar imágenes, vídeo o audio | Dentro de una nota abierta, se añaden donde está el cursor o donde los sueltas. Sobre el mapa, crean una nota nueva con ellos. Hasta 200 MB por archivo |
+| Pegar o arrastrar imágenes, vídeo o audio | Dentro de una nota abierta, se añaden donde está el cursor o donde los sueltas. Sobre la biblioteca, crean una nota nueva con ellos. Hasta 200 MB por archivo |
 | `⌘/Ctrl ⇧ E` | Exportar el perfil a JSON Canvas (`.canvas`, se abre en Obsidian) |
-| `⌘/Ctrl P` | Abre la lista sobre los nodos (con Foco, del Laboratorio; sin él, el buscador): buscar notas y abrirlas, o crear una. `Padre>Hija>Nota` busca dentro de esa ruta y crea ahí lo que falte; `Tab` completa con la señalada. `#etiqueta` en el texto pone esa etiqueta a la nota nueva (también en las tareas rápidas) |
+| `⌘/Ctrl P` | El buscador: buscar notas y abrirlas, o crear una. `Padre>Hija>Nota` busca dentro de esa ruta y crea ahí lo que falte; `Tab` completa con la señalada. `#etiqueta` en el texto pone esa etiqueta a la nota nueva (también en las tareas rápidas) |
 | `⌘/Ctrl ⇧ P` | Paleta de comandos: todas las acciones, se ejecutan al elegirlas |
 | `⌘/Ctrl ⌥/Alt P` | Cambiar de perfil, crear uno o cerrar sesión |

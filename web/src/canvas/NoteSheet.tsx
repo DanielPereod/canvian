@@ -1,12 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
-import type { OpenFrom } from './fluid';
 import { applyRemote, editingExtensions, extensions, parseBody, titleFrom } from './editor';
 import { repairTables } from './markdown';
 import { NoteChips } from './NoteChips';
 import { TaskGlyph } from './TaskGlyph';
-import { useExperiments } from '../lab/experiments';
 import { MediaUpload } from './media';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
@@ -18,12 +16,9 @@ import { editedLabel, kindOf } from './Biblioteca';
 import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian';
 import { WikiMenu, type WikiItem } from './WikiMenu';
 
-// En el mapa de secciones una nota se abre como hoja a pantalla completa: la
-// celda termina de crecer hasta los bordes con su mismo tinte, y al cerrar
-// vuelve a encogerse hasta ella.
+// Una nota se abre como lector: el texto a la izquierda y un panel de detalles
+// a la derecha. Un canvas se abre en su hoja, con el lienzo a pantalla completa.
 
-const OPEN_MS = 620;
-const CLOSE_MS = 420;
 const MAX_LINKS = 24;
 
 export type NoteContent = { bodyJson: string; bodyText: string; title: string | null };
@@ -194,7 +189,6 @@ type Props = {
   note: NoteRow;
   neighbors: NoteRow[];
   defs: PropertyDef[];
-  from: OpenFrom | null;
   onNavigate: (id: string) => void;
   onSave: (id: string, content: NoteContent) => void;
   onCycle: (id: string) => void;
@@ -220,28 +214,9 @@ type Props = {
   onPickNote: (then: (id: string) => void) => void;
   // Crear una nota para un [[enlace]] que aún no existe; devuelve su id.
   onCreateLinked: (title: string) => string;
-  // Diseño Biblioteca: la nota como lector, con un panel de detalles a la derecha.
-  reader?: boolean;
 };
 
-// Recorte con la forma de la celda, relativo a la hoja.
-function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
-  const b = sheet.getBoundingClientRect();
-  if (!from) {
-    const x = b.width * 0.3;
-    const y = b.height * 0.3;
-    return `inset(${y}px ${x}px ${y}px ${x}px round 48px)`;
-  }
-  const host = sheet.parentElement!.getBoundingClientRect();
-  const left = Math.max(0, from.rect.x + host.left - b.left);
-  const top = Math.max(0, from.rect.y + host.top - b.top);
-  const right = Math.max(0, b.width - left - from.rect.w);
-  const bottom = Math.max(0, b.height - top - from.rect.h);
-  return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
-}
-
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, reader = false }: Props) {
-  const { maduran } = useExperiments();
+export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked }: Props) {
   const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -286,20 +261,10 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
   );
   const shown = neighbors.slice(0, MAX_LINKS);
   const wiki: WikiHandlers = { rows, onOpen: onNavigate, onLink: onConnect, onCreate: onCreateLinked };
-  const hue = from?.hue;
 
+  // Solo al abrir: navegar entre notas cambia el contenido, no la hoja.
   useLayoutEffect(() => {
-    const el = ref.current!;
-    if (reader) {
-      el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
-      return;
-    }
-    el.animate([{ clipPath: insetOf(el, from), opacity: from ? 1 : 0 }, { clipPath: 'inset(0px 0px 0px 0px round 0px)', opacity: 1 }], {
-      duration: OPEN_MS,
-      easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-    });
-    // Solo al abrir: navegar entre notas cambia el contenido, no la hoja.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ref.current!.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
   }, []);
 
   const close = (then: () => void = onClose) => {
@@ -307,16 +272,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
     if (!el || leaving.current) return;
     leaving.current = true;
     el.classList.add('is-leaving');
-    if (reader) {
-      then();
-      return;
-    }
-    const a = el.animate([{ clipPath: 'inset(0px 0px 0px 0px round 0px)', opacity: 1 }, { clipPath: insetOf(el, from), opacity: from ? 1 : 0 }], {
-      duration: CLOSE_MS,
-      easing: 'cubic-bezier(0.45, 0, 0.2, 1)',
-      fill: 'forwards',
-    });
-    a.onfinish = then;
+    then();
   };
 
   useEffect(() => {
@@ -356,7 +312,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
     />
   );
 
-  if (reader && !isCanvas) {
+  if (!isCanvas) {
     const kids = rows.filter((r) => r.zoneId === note.id).length;
     const madre = chain.at(-1);
     let created = '—';
@@ -374,7 +330,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
             <span className="reader-meta">
               {madre ? madre.title || 'Nota sin título' : 'Arriba del todo'} · {kindOf(note, kids)} · editada {editedLabel(note.updatedAt)}
             </span>
-            {task && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}
+            {task && <TaskGlyph status={note.status ?? 'todo'} onCycle={() => onCycle(note.id)} />}
             <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} wiki={wiki} />
             <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
           </article>
@@ -449,22 +405,12 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
   }
 
   return (
-    <div ref={ref} className={`sheet${isCanvas ? ' is-canvas' : ''}`} style={(hue !== undefined ? { '--hue': hue } : {}) as CSSProperties}>
+    <div ref={ref} className="sheet is-canvas">
       <header className="sheet-top meta">
         <button className="sheet-back" onClick={() => close()}>
           <BackArrow /> Volver
         </button>
         <span className="sheet-actions">
-          {!isCanvas && (
-            <button className="sheet-back" onClick={onTask}>
-              {note.kind === 'task' ? 'Quitar tarea' : 'Hacer tarea'}
-            </button>
-          )}
-          {note.kind === 'task' && (
-            <button className="sheet-back" onClick={onBlock}>
-              {note.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
-            </button>
-          )}
           <button className="sheet-back" onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
             Nodos
           </button>
@@ -479,67 +425,30 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
           </button>
         </span>
       </header>
-      {isCanvas ? (
-        <div className="sheet-canvas" key={note.id + note.kind}>
-          <div className="sheet-canvas-head">
-            {whereButton}
-            <input
-              className="sheet-canvas-title"
-              defaultValue={note.title ?? ''}
-              placeholder="Canvas sin título"
-              autoFocus={!note.title}
-              onChange={(e) => onRename(e.target.value.trim())}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur();
-              }}
-            />
-          </div>
-          <CanvasBoard
-            note={note}
-            rows={rows}
-            onSave={(c) => onSave(note.id, { ...c, title: note.title })}
-            onOpenNote={onNavigate}
-            onPickNote={onPickNote}
-            onError={onError}
+      <div className="sheet-canvas" key={note.id + note.kind}>
+        <div className="sheet-canvas-head">
+          {whereButton}
+          <input
+            className="sheet-canvas-title"
+            defaultValue={note.title ?? ''}
+            placeholder="Canvas sin título"
+            autoFocus={!note.title}
+            onChange={(e) => onRename(e.target.value.trim())}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
           />
         </div>
-      ) : (
-      <article className="sheet-body" key={note.id + note.kind}>
-        {whereButton}
-        {note.kind === 'task' && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}
-        <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} wiki={wiki} />
-        <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
-        <nav className="sheet-links">
-          <span className="meta">{neighbors.length === 0 ? 'Sin enlaces' : neighbors.length === 1 ? '1 enlace' : `${neighbors.length} enlaces`}</span>
-          {shown.map((n, i) => (
-            <span key={n.id} className="sheet-link" style={{ '--i': i } as CSSProperties}>
-              <button className="sheet-link-go" onClick={() => onNavigate(n.id)}>
-                {n.title || 'Nota sin título'}
-              </button>
-              <button className="sheet-link-x" onClick={() => onUnlink(n.id)} aria-label={`Quitar el enlace con ${n.title || 'esta nota'}`} title="Quitar enlace">
-                ×
-              </button>
-            </span>
-          ))}
-          {neighbors.length > MAX_LINKS && <span className="meta">+{neighbors.length - MAX_LINKS} más</span>}
-          <button className="sheet-link sheet-link-add" style={{ '--i': shown.length } as CSSProperties} onClick={onLink}>
-            + Enlazar
-          </button>
-        </nav>
-      </article>
-      )}
-      {moving && (
-        <SectionPicker
-          options={sections}
-          current={note.zoneId}
-          exclude={family}
-          onPick={(zoneId) => {
-            setMoving(false);
-            onMove(zoneId);
-          }}
-          onClose={() => setMoving(false)}
+        <CanvasBoard
+          note={note}
+          rows={rows}
+          onSave={(c) => onSave(note.id, { ...c, title: note.title })}
+          onOpenNote={onNavigate}
+          onPickNote={onPickNote}
+          onError={onError}
         />
-      )}
+      </div>
+      {picker}
     </div>
   );
 }

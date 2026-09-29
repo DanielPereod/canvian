@@ -12,7 +12,9 @@ La muestra viva está en la propia app: abre `http://localhost:5173/#sistema`.
 | `web/src/design/base.css` | Reset, tipografía base, fondo nocturno |
 | `web/src/design/components.css` | Superficies, botón, campo, tecla, píldora, popover, lista, toast |
 | `web/src/canvas/canvas.css` | Texto de las notas (prosa) |
-| `web/src/canvas/sections.css` | Mapa de secciones, hoja de nota, arrastre |
+| `web/src/canvas/sections.css` | Vista de nodos, hoja de canvas, tareas y ordenar |
+| `web/src/canvas/biblioteca.css` | La biblioteca: barra lateral, cabecera, colección, lector y los temas Biblioteca |
+| `web/src/canvas/pieces.css` | Linterna, estado de tarea e interruptor |
 | `web/src/app.css` | Cromo de la pantalla y luciérnagas |
 
 ## Reglas
@@ -21,18 +23,10 @@ La muestra viva está en la propia app: abre `http://localhost:5173/#sistema`.
 - **El acento es del perfil.** Se fija en `:root` desde `Workspace` y está registrado con `@property`, así que al cambiar de perfil la luz se funde. Los tokens derivados (`--accent-soft`, `--accent-glow`, `--pool`) se recalculan solos.
 - **Tres superficies.** `surface-1` para notas (sin blur, hay cientos), `surface-2` para el cromo flotante, `surface-3` para popovers y diálogos (glass denso con un filo de luz arriba).
 - **Tres voces tipográficas.** Instrument Sans para todo lo funcional; Instrument Serif (a menudo itálica) para títulos de notas y zonas y para una palabra de acento en los titulares (`<h1 class="display">Hola de <em>nuevo</em></h1>`); Silkscreen solo para la marca y metadatos diminutos (`.meta`).
-- **Movimiento.** Entradas con `--ease-spring`, salidas rápidas con `--ease-in`, desvanecidos con `--ease-out`. En el mapa todo va despacio: las celdas respiran, los bordes ondulan poco y una nota se abre creciendo desde su celda. Todo respeta `prefers-reduced-motion`.
+- **Movimiento.** Entradas con `--ease-spring`, salidas rápidas con `--ease-in`, desvanecidos con `--ease-out`. Una nota se abre fundiéndose en el lector. Todo respeta `prefers-reduced-motion`.
 - **Fondos por perfil** (`B`): liso, estrellas (derivan despacio), luciérnagas y aurora; son capas ambientales detrás del mapa (`web/src/backgrounds/`).
 - **Tema oscuro único**, a propósito.
 
-## El mapa de secciones
+## La biblioteca
 
-Canvian es un solo mapa vivo (`web/src/canvas/SectionMap.tsx` + `fluid.ts`). Cada nivel es un diagrama de potencia que se recalcula en cada fotograma: las celdas ocupan área según su importancia (enlaces, prioridad, en curso, vencida, reciente) y los bordes fluyen despacio. La jerarquía está en los datos: `zoneId` es la sección madre de cada nota o sección; muchas notas en una misma sección se agrupan por cercanía. La rueda acerca y aleja sin saltos; clic entra en una sección o, en una nota, sigue acercándose hasta que la celda se convierte en una hoja a pantalla completa (`NoteSheet`). Arrastrar una celda sobre una sección (o sobre una miga de pan) la mueve allí. La linterna atenúa las celdas que no encajan u, ocultando, las encoge para que las demás ocupen su sitio.
-
-## Experimentos
-
-Ideas en prueba, cada una detrás de una clase `exp-*` en `.workspace` que se
-enciende desde el laboratorio (`E`, `web/src/lab/`). Se guardan en el navegador.
-
-- **Luz como memoria** (`memoria`): las celdas que no tocas en un mes se van apagando.
-- **Tareas que maduran** (`maduran`): semilla, brote y flor en lugar del círculo que se llena.
+Canvian es una biblioteca (`web/src/canvas/Biblioteca.tsx`). A la izquierda, la barra lateral con el perfil, las vistas (todas las notas, tareas, ordenar, archivadas) y el árbol de notas; se pliega con `Ctrl .` y sale flotando al acercar el ratón al borde. Arriba, la ruta y el buscador. En el centro, la colección en la que estás, en lista, en portadas o en nodos (`NodeView.tsx`). La jerarquía está en los datos: `zoneId` es la nota madre de cada nota, y una nota con hijas es una colección en la que se entra. Una nota se abre en el lector (`NoteSheet`), con el texto a la izquierda y un panel de detalles a la derecha; un canvas se abre en su hoja a pantalla completa. La linterna atenúa u oculta lo que no encaja.

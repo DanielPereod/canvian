@@ -3,7 +3,6 @@ import { parentMap } from './sections';
 import type { NoteInput, NoteRow, TaskStatus } from '../api';
 import { daysUntil, dueLabel, localToday } from './dates';
 import { actionFor, keysBlocked } from '../keys';
-import { BackArrow } from '../BackArrow';
 import { mergeTags, splitTags } from './tags';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { Resizer, useSideWidth } from './Resizer';
@@ -93,8 +92,6 @@ type Props = {
   tagsOf: (r: NoteRow) => string[];
   onSetTags: (r: NoteRow, tags: string[]) => void;
   onClose: () => void;
-  /** A dónde vuelve «←»: el mapa o la lista de Foco. */
-  back: string;
   paused: boolean;
 };
 
@@ -357,9 +354,6 @@ export function TasksView(p: Props) {
   return (
     <div className="tasks-view tv" style={{ '--tv-side-w': `${sideWidth.width}px`, '--tv-detail-w': `${detailWidth.width}px` } as CSSProperties}>
       <nav className="tv-side" aria-label="Listas de tareas">
-        <button className="sheet-back meta tv-back" onClick={p.onClose}>
-          <BackArrow /> {p.back}
-        </button>
         {smart.map((s) => (
           <Nav key={s.id} id={s.id} name={s.name} icon={s.icon} n={active.filter(s.test).length} />
         ))}

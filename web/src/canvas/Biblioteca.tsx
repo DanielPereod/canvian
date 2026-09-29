@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { NoteRow } from '../api';
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { importanceOf, parentMap } from './sections';
-import { LOOSE } from './NodeView';
-import type { MapAction } from './SectionMap';
+import { LOOSE, type MapAction } from './NodeView';
 import { Resizer, type SideWidth } from './Resizer';
 
 // Diseño «Biblioteca»: la app como una biblioteca de investigación. A la
@@ -340,7 +339,7 @@ type LibProps = {
 };
 
 const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
-const LIB_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newSection'];
+const LIB_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
 
 export function Library(p: LibProps) {
   const { kids, count, byId, parent } = p.family;
@@ -391,6 +390,7 @@ export function Library(p: LibProps) {
         else if (here) p.onAction(KEYS[action]!, here.id, null);
       } else if (action === 'toRoot') p.onCenter(null);
       else if (action === 'newNote') p.onAction('create', null, here?.id ?? null);
+      else if (action === 'newCanvas') p.onAction('createCanvas', null, here?.id ?? null);
       else if (action === 'newSection') p.onAction('section', null, cur?.id ?? here?.id ?? null);
       else if (plain && e.key === 'ArrowDown') setSel(Math.min(items.length - 1, at + cols));
       else if (plain && e.key === 'ArrowUp') setSel(Math.max(0, at - cols));

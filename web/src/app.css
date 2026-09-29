@@ -1,31 +1,9 @@
 /* Cromo de la pantalla principal: lo mínimo alrededor del canvas */
 .workspace { position: relative; height: 100%; }
 
-.chrome-top-left { position: absolute; top: var(--space-4); left: var(--space-4); z-index: var(--z-chrome); display: flex; align-items: center; gap: var(--space-3); animation: rise-in var(--dur-slow) var(--ease-out) both; }
 .pill-name { font-family: var(--font-serif); font-size: 17px; font-style: italic; }
 
-.hints {
-  position: absolute;
-  right: var(--space-4);
-  bottom: var(--space-4);
-  z-index: var(--z-chrome);
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  background: none;
-  border: 0;
-  padding: var(--space-1);
-  font: inherit;
-  font-size: var(--text-sm);
-  color: var(--text-ghost);
-  cursor: pointer;
-  transition: color var(--dur-fast);
-  animation: fade var(--dur-grow) var(--ease-out) 400ms both;
-}
-.hints:hover { color: var(--text-muted); }
 .keys { display: inline-flex; gap: 3px; align-items: center; }
-.pill-icon { padding-inline: 10px; color: var(--text-muted); }
-.pill-icon:hover { color: var(--text); }
 
 /* ── Páginas a pantalla completa (configuración) ─────────────────── */
 .page-view {
@@ -37,24 +15,14 @@
   background: radial-gradient(80% 60% at 50% 20%, var(--accent-soft), transparent 70%), var(--bg);
   animation: tasks-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.page-top { display: flex; justify-content: space-between; align-items: center; padding: var(--space-4) var(--space-5); }
-.page-body { flex: 1; overflow-y: auto; width: 100%; max-width: 760px; margin: 0 auto; padding: var(--space-4) var(--space-5) 96px; }
-.page-title { font-family: var(--font-serif); font-weight: 400; font-size: clamp(34px, 5vw, 52px); line-height: 1.1; margin: 0 0 var(--space-6); }
 .settings-section { margin-bottom: 48px; }
-.settings-heading { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 24px; margin: 0 0 var(--space-1); }
-.settings-hint { margin: 0 0 var(--space-4); }
 .settings-note { color: var(--accent-ink); margin: 0 0 var(--space-4); font-size: var(--text-sm); }
 .settings-group { margin-bottom: var(--space-6); }
 .settings-subheading { font-family: var(--font-mono, inherit); font-weight: 400; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-ghost); margin: 0 0 var(--space-2); }
-.settings-row { display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-3); align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
-.settings-label { font-size: var(--text-md); }
 .settings-key { min-width: 120px; display: inline-flex; justify-content: flex-end; background: none; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; color: inherit; transition: border-color var(--dur-fast), background var(--dur-fast); }
 .settings-key:hover { border-color: var(--line-strong); }
-.settings-row.is-capturing .settings-key { border-color: var(--accent-line); background: var(--accent-soft); }
 .settings-reset { background: none; border: 0; cursor: pointer; color: var(--text-ghost); }
 .settings-reset:hover { color: var(--text); }
-.settings-links { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-@media (max-width: 640px) { .settings-row { grid-template-columns: 1fr auto; } .settings-reset { grid-column: 2; justify-self: end; } }
 
 /* ── Lista de atajos ─────────────────────────────────────────────── */
 .help { background: color-mix(in oklab, var(--bg) 92%, transparent); backdrop-filter: blur(18px); width: min(760px, 100%); max-height: 76vh; overflow-y: auto; padding: var(--space-4); gap: var(--space-4); }
@@ -116,14 +84,6 @@
 .sg-bar { display: block; height: 14px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 12px var(--accent-glow); }
 .sg-radius { width: 72px; height: 56px; display: grid; place-items: end start; padding: var(--space-2); }
 .sg-static { position: static; transform: none; width: auto; animation: none; }
-.sg-canvas {
-  position: relative;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
-  overflow: hidden;
-  padding: var(--space-3);
-}
-.sg-map { display: block; width: 100%; height: auto; }
 .sg-motion { display: grid; gap: var(--space-3); max-width: 70ch; }
 .sg-motion-list { margin: 0; padding-left: 1.1em; display: grid; gap: var(--space-1); color: var(--text-muted); font-size: var(--text-md); }
 @media (max-width: 680px) {
@@ -242,7 +202,6 @@
 .set-info { min-width: 0; }
 .set-name { font-size: var(--text-md); color: var(--text); }
 .set-hint { font-size: var(--text-sm); color: var(--text-faint); margin-top: 2px; line-height: 1.45; }
-.set-intro { margin: 0 0 var(--space-3); }
 .set-control { flex: none; display: flex; align-items: center; gap: var(--space-2); }
 .set-row.is-capturing .settings-key { border-color: var(--accent-line); background: var(--accent-soft); }
 .set-block { padding: var(--space-4) 0; border-bottom: 1px solid var(--line); }
@@ -253,10 +212,6 @@
 .set-segmented button { background: none; border: 0; border-radius: calc(var(--radius-sm) - 2px); padding: 5px 12px; font: inherit; font-size: var(--text-sm); color: var(--text-faint); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
 .set-segmented button:hover { color: var(--text); }
 .set-segmented button.is-on { background: var(--surface-1); color: var(--text); box-shadow: var(--shadow-1); }
-.set-toggle { position: relative; width: 38px; height: 22px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface-sunken); cursor: pointer; transition: background var(--dur-base), border-color var(--dur-base); }
-.set-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--text-faint); transition: transform var(--dur-base) cubic-bezier(0.16, 1, 0.3, 1), background var(--dur-base); }
-.set-toggle.is-on { background: var(--accent); border-color: var(--accent); }
-.set-toggle.is-on::after { transform: translateX(16px); background: var(--accent-contrast); }
 .set-toolbar { display: flex; gap: var(--space-2); align-items: center; margin-bottom: var(--space-4); }
 .set-search { flex: 1; }
 @media (max-width: 720px) {
