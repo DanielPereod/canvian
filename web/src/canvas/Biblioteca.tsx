@@ -141,16 +141,28 @@ export function BibSidebar(p: SideProps) {
       return new Set();
     }
   });
-  const toggle = (id: string) =>
+  // Lo que estás viendo siempre tiene abierta su rama.
+  const trail = useMemo(() => new Set(pathTo(p.here ?? null).map((r) => r.id)), [pathTo, p.here]);
+  // …salvo que la pliegues tú; al ir a otra nota vuelve a abrirse su rama.
+  const [shutTrail, setShutTrail] = useState<Set<string>>(() => new Set());
+  useEffect(() => setShutTrail(new Set()), [p.here]);
+  const isOpen = (id: string) => open.has(id) || (trail.has(id) && !shutTrail.has(id));
+  const toggle = (id: string) => {
+    const opening = !isOpen(id);
     setOpen((s) => {
       const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (opening) next.add(id);
+      else next.delete(id);
       write(OPEN_KEY, JSON.stringify([...next]));
       return next;
     });
-  // Lo que estás viendo siempre tiene abierta su rama.
-  const trail = useMemo(() => new Set(pathTo(p.here ?? null).map((r) => r.id)), [pathTo, p.here]);
+    setShutTrail((s) => {
+      const next = new Set(s);
+      if (opening) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const roots = kids.get(null) ?? [];
   const branches = roots.filter((r) => count(r.id)).sort((a, b) => count(b.id) - count(a.id) || titleOf(a).localeCompare(titleOf(b)));
@@ -159,7 +171,7 @@ export function BibSidebar(p: SideProps) {
   const rows: { row: NoteRow; depth: number }[] = [];
   const walk = (r: NoteRow, depth: number) => {
     rows.push({ row: r, depth });
-    if (!count(r.id) || !(open.has(r.id) || trail.has(r.id))) return;
+    if (!count(r.id) || !isOpen(r.id)) return;
     const list = [...(kids.get(r.id) ?? [])].sort((a, b) => count(b.id) - count(a.id) || titleOf(a).localeCompare(titleOf(b)));
     for (const k of list) walk(k, depth + 1);
   };
@@ -204,7 +216,7 @@ export function BibSidebar(p: SideProps) {
       <div className="bib-tree">
         {rows.map(({ row, depth }) => {
           const n = count(row.id);
-          const shut = !(open.has(row.id) || trail.has(row.id));
+          const shut = !isOpen(row.id);
           const on = p.here === row.id;
           return (
             <div key={row.id} className="bib-tree-row" style={{ paddingLeft: depth * 14 } as CSSProperties}>
