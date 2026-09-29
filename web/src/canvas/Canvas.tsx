@@ -41,6 +41,18 @@ const isTyping = (target: EventTarget | null) =>
 // cosa respecto a sus hermanas en el mapa.
 const spotIn = (r: Rect) => ({ x: r.x + 40 + Math.random() * Math.max(0, r.w - NOTE_W - 80), y: r.y + 90 + Math.random() * Math.max(0, r.h - 160) });
 
+// Dónde estás (la nota abierta, la vista, el centro de los nodos) se recuerda
+// en este navegador y por perfil: al recargar vuelves al mismo sitio.
+type Place = { note: string | null; center: string | null; tasks: boolean; organize: boolean; list: boolean };
+const placeKey = (profileId: string) => `canvian.place.${profileId}`;
+function readPlace(profileId: string): Partial<Place> {
+  try {
+    return JSON.parse(localStorage.getItem(placeKey(profileId)) ?? '{}') as Partial<Place>;
+  } catch {
+    return {};
+  }
+}
+
 export function Canvas({ profile }: { profile: Profile }) {
   const [allRows, setRows] = useState<NoteRow[]>([]);
   // Las archivadas (y lo que cuelga de ellas) no se ven salvo que se pidan.
@@ -126,6 +138,16 @@ export function Canvas({ profile }: { profile: Profile }) {
     return () => clearTimeout(t);
   }, [problem]);
 
+  useEffect(() => {
+    if (!loaded) return;
+    const place: Place = { note: focusId, center, tasks: tasksOpen, organize: organizeOpen, list: listPhase === 'open' };
+    try {
+      localStorage.setItem(placeKey(profile.id), JSON.stringify(place));
+    } catch {
+      // Sin almacenamiento local, al recargar se empieza desde el principio.
+    }
+  }, [loaded, profile.id, focusId, center, tasksOpen, organizeOpen, listPhase]);
+
   const patchRow = useCallback((id: string, patch: Partial<NoteRow>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r))), []);
 
   // Carga del perfil: notas, enlaces, propiedades y lentes guardadas.
@@ -137,6 +159,13 @@ export function Canvas({ profile }: { profile: Profile }) {
       setLenses(saved);
       setRows(canvas.notes);
       setLinks(canvas.edges.map((e) => ({ id: e.id, source: e.fromId, target: e.toId })));
+      const place = readPlace(profile.id);
+      const exists = (id: string | null | undefined) => !!id && canvas.notes.some((r) => r.id === id);
+      if (place.center === LOOSE || exists(place.center)) setCenter(place.center!);
+      if (exists(place.note)) setFocusId(place.note!);
+      else if (place.tasks) setTasksOpen(true);
+      else if (place.organize) setOrganizeOpen(true);
+      else if (place.list) setListPhase('open');
       setLoaded(true);
     }, report);
     return () => {
