@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ulid } from 'ulidx';
 import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type TaskStatus } from '../api';
 import type { NoteContent } from './NoteSheet';
@@ -10,6 +10,7 @@ import { Lantern, nextMode, type LensMode } from './Lantern';
 import { parseLens } from './lanternMatch';
 import { NoteSheet } from './NoteSheet';
 import { SectionName } from './SectionName';
+import { SectionPicker } from './SectionPicker';
 import { docText, docToMarkdown, markdownToDoc } from './markdown';
 import { parseBody } from './editor';
 import { hasMedia, isMedia, uploadMedia } from './media';
@@ -20,7 +21,7 @@ import { mergeTags, splitTags, tagsOf } from './tags';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
 import { useSideWidth } from './Resizer';
-import { BibBar, BibSidebar, Library, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
+import { BibBar, BibMenu, BibSidebar, Library, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 
 // La vista de Canvian: la biblioteca. Aquí viven las notas, los enlaces y todo
 // lo que se guarda; la barra lateral, la colección, los nodos y el lector solo
@@ -87,6 +88,11 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [bibLayout, setBibLayout] = useBibLayout();
   const [bibFolded, toggleBibFolded] = useBibFolded();
   const bibWidth = useSideWidth('canvian.bibWidth', 240, 180, 440);
+  // Menú con clic derecho sobre una nota, y «Mover a…» desde él.
+  const [bibMenu, setBibMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
+  // Nota abierta en grande sobre la vista de tareas, sin salir de ella.
+  const [peek, setPeek] = useState(false);
   // Nota del centro en la vista de nodos (null: la raíz).
   const [center, setCenter] = useState<string | null>(null);
 
@@ -778,7 +784,70 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   }, [rows]);
   const inspected = inspectId ? (allRows.find((r) => r.id === inspectId) ?? null) : null;
 
+  // Abrir desde la barra lateral: la nota, con su colección detrás.
+  const bibOpen = (id: string) => {
+    setTasksOpen(false);
+    setOrganizeOpen(false);
+    if (focused) flush(focused.id);
+    setCenter(family.parent.get(id) ?? null);
+    openNote(id);
+  };
+
+  // Una nota con todo lo que cuelga de ella (no puede moverse ahí dentro).
+  const descendants = (id: string) => {
+    const out = new Set([id]);
+    for (const x of out) for (const k of family.kids.get(x) ?? []) out.add(k.id);
+    return out;
+  };
+
+  const bibPick = (a: MenuAction, id: string) => {
+    if (a === 'open') bibOpen(id);
+    else if (a === 'library') {
+      goLibrary(id);
+      if (bibLayout === 'nodos') setBibLayout('lista');
+    } else if (a === 'nodes') toNodes(id);
+    else if (a === 'child') act('section', id, null);
+    else if (a === 'move') setMovingId(id);
+    else act(a, id, null);
+  };
+
+  // En grande, en el centro, con un botón para ir a la nota de verdad.
+  const wrapPeek = (sheet: ReactNode) =>
+    peek && focused ? (
+      <div className="note-popup-layer">
+        <div className="note-popup-back" onClick={closeFocused} />
+        <div className="note-popup" role="dialog" aria-label={focused.title || 'Nota'}>
+          <div className="note-popup-bar">
+            <button
+              className="note-popup-btn"
+              onClick={() => {
+                flush(focused.id);
+                setPeek(false);
+                setTasksOpen(false);
+              }}
+              title="Ir a la nota"
+              aria-label="Ir a la nota"
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M14 4h6v6M20 4l-8 8M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+              </svg>
+              Ir a la nota
+            </button>
+            <button className="note-popup-btn" onClick={closeFocused} title="Cerrar (Esc)" aria-label="Cerrar">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+          {sheet}
+        </div>
+      </div>
+    ) : (
+      sheet
+    );
+
   const closeFocused = () => {
+    setPeek(false);
     if (!focused) return;
     const id = focused.id;
     flush(id);
@@ -789,7 +858,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
 
   // ── Barra lateral, ruta y la colección ──────────────────────────────
   const family = useFamily(rows);
-  const bibView: BibView = focused ? 'note' : tasksOpen ? 'tasks' : organizeOpen ? 'organize' : 'library';
+  const bibView: BibView = focused && !peek ? 'note' : tasksOpen ? 'tasks' : organizeOpen ? 'organize' : 'library';
   const goLibrary = (id: string | null) => {
     if (focused) closeFocused();
     setTasksOpen(false);
@@ -861,13 +930,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             onProfiles={shell.onProfiles}
             onSettings={shell.onSettings}
             onLibrary={goLibrary}
-            onOpen={(id) => {
-              setTasksOpen(false);
-              setOrganizeOpen(false);
-              if (focused) flush(focused.id);
-              setCenter(family.parent.get(id) ?? null);
-              openNote(id);
-            }}
+            onOpen={bibOpen}
+            onMove={moveTo}
+            onMenu={(id, x, y) => setBibMenu({ id, x, y })}
             onTasks={() => {
               if (focused) closeFocused();
               setOrganizeOpen(false);
@@ -909,6 +974,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           onCenter={setCenter}
           onOpen={(id) => openNote(id)}
           onAction={act}
+          onMenu={(id, x, y) => setBibMenu({ id, x, y })}
         />
       )}
       {loaded && bibLayout === 'nodos' && (
@@ -926,6 +992,21 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         />
       )}
       </div>
+      {bibMenu && family.byId.get(bibMenu.id) && (
+        <BibMenu row={family.byId.get(bibMenu.id)!} kids={family.count(bibMenu.id)} x={bibMenu.x} y={bibMenu.y} onPick={(a) => bibPick(a, bibMenu.id)} onClose={() => setBibMenu(null)} />
+      )}
+      {movingId && (
+        <SectionPicker
+          options={sectionOptions}
+          current={family.parent.get(movingId) ?? null}
+          exclude={descendants(movingId)}
+          onPick={(zoneId) => {
+            moveTo(movingId, zoneId);
+            setMovingId(null);
+          }}
+          onClose={() => setMovingId(null)}
+        />
+      )}
       {renaming && (
         <SectionName
           initial={renaming.title}
@@ -991,7 +1072,10 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         <TasksView
           rows={rows}
           paused={!!focusId || !!inspectId || !!paletteOpen}
-          onOpen={(id) => openNote(id)}
+          onOpen={(id) => {
+            setPeek(true);
+            openNote(id);
+          }}
           onCycle={cycleStatus}
           onBlock={toggleBlocked}
           quick={quick}
@@ -1008,7 +1092,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           onClose={() => setTasksOpen(false)}
         />
       )}
-      {focused && (
+      {focused && wrapPeek(
         <NoteSheet
           note={focused}
           neighbors={focusNeighbors}

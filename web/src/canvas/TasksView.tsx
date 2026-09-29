@@ -746,8 +746,10 @@ function Detail({
             Borrar
           </button>
         ) : (
-          <button className="set-button" onClick={() => p.onOpen(row.id)}>
-            Abrir nota
+          <button className="set-button tv-expand" onClick={() => p.onOpen(row.id)} title="Ver en grande (Enter)" aria-label="Ver en grande">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6" />
+            </svg>
           </button>
         )}
       </div>
