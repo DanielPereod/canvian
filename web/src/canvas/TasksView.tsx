@@ -108,7 +108,7 @@ type Props = {
   onPatch: (id: string, change: NoteInput) => void;
   onRename: (id: string, title: string) => void;
   onAddQuick: (raw: string, extra?: { dueAt?: string }) => void;
-  onAddTask: (raw: string, zoneId: string) => void;
+  onAddTask: (raw: string, zoneId: string, extra?: { dueAt?: string }) => void;
   /** Notas que pueden ser madre de una tarea, con su ruta. */
   sections: SectionOption[];
   onMoveTask: (id: string, zoneId: string | null) => void;
@@ -139,6 +139,11 @@ export function TasksView(p: Props) {
   const addRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [adding, setAdding] = useState('');
+  // «>» en lo que se apunta: la nota donde meter la tarea, elegida de una lista.
+  const [into, setInto] = useState<string | null>(null);
+  const [intoCursor, setIntoCursor] = useState(0);
+  // Dónde estaba el «>» que se cerró con Esc, para no volver a abrir la lista por él.
+  const [intoShut, setIntoShut] = useState(-1);
   const [moving, setMoving] = useState<string | null>(null);
 
   const choose = (g: TaskGrouping) => {
@@ -358,20 +363,38 @@ export function TasksView(p: Props) {
 
   const toggleDone = (r: NoteRow) => p.onPatch(r.id, r.status === 'done' ? { status: 'todo', doneAt: null } : { status: 'done', doneAt: new Date().toISOString() });
 
-  // Lo que se apunta arriba va a la lista elegida: con su fecha, su etiqueta o dentro de su nota.
+  // «Tarea >proy»: lo que va tras el último «>» busca la nota donde meterla.
+  const gt = adding.lastIndexOf('>');
+  const intoQuery = gt >= 0 && gt !== intoShut ? adding.slice(gt + 1) : null;
+  // Se mete en notas, no dentro de otra tarea.
+  const intoOptions = useMemo(() => p.sections.filter((o) => o.id && byId.get(o.id)?.kind !== 'task'), [p.sections, byId]);
+  const intoItems = useMemo(() => (intoQuery === null ? [] : matchNotes(intoOptions, intoQuery)), [intoQuery, intoOptions]);
+  const intoAt = Math.min(intoCursor, Math.max(0, intoItems.length - 1));
+  const intoPath = into ? (p.sections.find((o) => o.id === into)?.path ?? null) : null;
+  const pickInto = (id: string) => {
+    setInto(id);
+    setAdding(adding.slice(0, gt).trimEnd());
+    setIntoCursor(0);
+    addRef.current?.focus();
+  };
+
+  // Lo que se apunta arriba va a la lista elegida: con su fecha, su etiqueta o dentro de su nota
+  // (la elegida con «>», o la de la lista si es la de una nota).
   const add = () => {
     const raw = adding.trim();
     if (!raw) return;
-    if (view.startsWith('sec:')) p.onAddTask(raw, view.slice(4));
-    else if (view.startsWith('tag:')) p.onAddQuick(`${raw} #${view.slice(4)}`);
-    else if (view === 'today') p.onAddQuick(raw, { dueAt: isoDay(0) });
-    else if (cal) p.onAddQuick(raw, { dueAt: calDay });
-    else p.onAddQuick(raw);
+    const text = view.startsWith('tag:') ? `${raw} #${view.slice(4)}` : raw;
+    const extra = view === 'today' ? { dueAt: isoDay(0) } : cal ? { dueAt: calDay } : {};
+    const zone = (intoPath && into) || (view.startsWith('sec:') ? view.slice(4) : null);
+    if (zone) p.onAddTask(text, zone, extra);
+    else p.onAddQuick(text, extra);
     setAdding('');
+    setInto(null);
+    setIntoShut(-1);
   };
   const addHint = cal
     ? `Añadir tarea para ${calDay === isoDay(0) ? 'hoy' : dueLabel(calDay)}…`
-    : view.startsWith('sec:') ? `Añadir tarea en ${current.name}…` : view === 'today' ? 'Añadir tarea para hoy…' : 'Añadir tarea… (#etiqueta)';
+    : view.startsWith('sec:') ? `Añadir tarea en ${current.name}…` : view === 'today' ? 'Añadir tarea para hoy…' : 'Añadir tarea… (#etiqueta, > nota)';
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -501,21 +524,62 @@ export function TasksView(p: Props) {
             <span className="tv-add-plus" aria-hidden="true">
               +
             </span>
+            {intoPath && (
+              <span className="tv-add-into" title={intoPath}>
+                <span className="tv-add-into-name">{intoPath.split(' › ').at(-1)}</span>
+                <button onClick={() => (setInto(null), addRef.current?.focus())} aria-label="Quitar la nota" title="Quitar la nota">
+                  ×
+                </button>
+              </span>
+            )}
             <input
               ref={addRef}
-              placeholder={addHint}
+              placeholder={intoPath ? 'Tarea dentro de esta nota…' : addHint}
               aria-label="Añadir tarea"
+              aria-expanded={intoQuery !== null}
+              aria-controls="tv-add-menu"
               value={adding}
-              onChange={(e) => setAdding(e.target.value)}
+              onChange={(e) => {
+                setAdding(e.target.value);
+                setIntoCursor(0);
+                if (e.target.value.lastIndexOf('>') !== intoShut) setIntoShut(-1);
+              }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') add();
+                const menu = intoQuery !== null;
+                if (menu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) setIntoCursor((intoAt + (e.key === 'ArrowDown' ? 1 : -1) + intoItems.length) % Math.max(1, intoItems.length));
+                else if (menu && (e.key === 'Enter' || e.key === 'Tab')) {
+                  // Sin ninguna nota que case, Enter no apunta nada: Esc cierra la lista y deja el «>» como texto.
+                  if (intoItems[intoAt]) pickInto(intoItems[intoAt].id!);
+                } else if (menu && e.key === 'Escape') setIntoShut(gt);
+                else if (e.key === 'Backspace' && into && e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) setInto(null);
+                else if (e.key === 'Enter') add();
                 else if (e.key === 'Escape') e.currentTarget.blur();
                 else return;
                 e.preventDefault();
                 e.stopPropagation();
               }}
+              onFocus={() => setIntoShut(-1)}
+              onBlur={() => setTimeout(() => document.activeElement !== addRef.current && gt >= 0 && setIntoShut(gt), 0)}
             />
             <span className="tv-add-key">N</span>
+            {intoQuery !== null && (
+              <div className="surface-3 tv-add-menu" id="tv-add-menu" role="listbox" aria-label="Meter la tarea dentro de" onMouseDown={(e) => e.preventDefault()}>
+                {intoItems.length === 0 ? (
+                  <div className="list-item static">{intoQuery.trim() ? 'Ninguna nota se llama así · Esc para dejar el «>»' : 'Escribe el nombre de una nota'}</div>
+                ) : (
+                  <ul className="list">
+                    {intoItems.map((o, n) => (
+                      <li key={o.id} role="option" aria-selected={n === intoAt} className="list-item" onMouseEnter={() => setIntoCursor(n)} onClick={() => pickInto(o.id!)}>
+                        <div className="hit">
+                          <span className="hit-title">{o.path.split(' › ').at(-1)}</span>
+                          {o.path.includes(' › ') && <span className="hit-snippet">en {o.path.split(' › ').slice(0, -1).join(' › ')}</span>}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         )}
         {cal && (
@@ -660,7 +724,7 @@ export function TasksView(p: Props) {
             ? `1–5 vista · ←→${calMode === 'mes' || calMode === 'semana' ? '↑↓' : ''} día · [ ] ${calMode === 'mes' ? 'mes' : calMode === 'dia' ? 'día' : calMode === 'tres' ? '3 días' : 'semana'} · T hoy · arrastra una tarea para cambiar su fecha · N añadir en el día · Esc salir`
             : board
               ? '←→↑↓ moverse · Mayús ←→ cambiar de columna · arrastra una tarjeta · Espacio hecha · M nota madre · V lista · Esc salir'
-              : '↑↓ moverse · Espacio hecha · X estado · M nota madre · N añadir · Tab agrupar · V tablero · Esc salir'}
+              : '↑↓ moverse · Espacio hecha · X estado · M nota madre · N añadir (> dentro de una nota) · Tab agrupar · V tablero · Esc salir'}
         </p>
       </main>
 
@@ -848,6 +912,24 @@ function Detail({
       </div>
     </aside>
   );
+}
+
+// Las notas que casan con lo escrito tras «>»: primero por el nombre (exacto, que
+// empieza así, que lo contiene) y luego por la ruta. Como mucho ocho.
+const normQ = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+function matchNotes(options: SectionOption[], query: string) {
+  const q = normQ(query);
+  const words = q.split(/\s+/).filter(Boolean);
+  const hits: { o: SectionOption; score: number }[] = [];
+  for (const o of options) {
+    if (!o.id) continue;
+    const name = normQ(o.path.split(' › ').at(-1) ?? '');
+    const path = normQ(o.path);
+    const score = !words.length ? 3 : name === q ? 0 : name.startsWith(q) ? 1 : words.every((w) => name.includes(w)) ? 2 : words.every((w) => path.includes(w)) ? 4 : -1;
+    if (score >= 0) hits.push({ o, score });
+  }
+  hits.sort((a, b) => a.score - b.score || a.o.path.length - b.o.path.length);
+  return hits.slice(0, 8).map((h) => h.o);
 }
 
 // Las tareas con fecha, por día; en cada uno, primero las pendientes y lo que más urge.

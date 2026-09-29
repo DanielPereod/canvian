@@ -420,10 +420,10 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     createNote({ x: 0, y: 0 }, 'quick', { title: text || null, status: 'todo', ...extra, ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
   };
   // Tarea con nota, dentro de `zoneId`, sin abrirla (desde la vista de tareas).
-  const newTaskIn = (raw: string, zoneId: string) => {
+  const newTaskIn = (raw: string, zoneId: string, extra: { dueAt?: string } = {}) => {
     const { text, tags } = splitTags(raw);
     if (!text) return;
-    const row = createNote(spotFor(zoneId), 'task', { zoneId, status: 'todo', ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
+    const row = createNote(spotFor(zoneId), 'task', { zoneId, status: 'todo', ...extra, ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
     const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
     saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
   };
