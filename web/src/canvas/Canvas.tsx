@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ulid } from 'ulidx';
 import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type TaskStatus } from '../api';
 import type { NoteContent } from './NoteSheet';
@@ -23,6 +23,7 @@ import { mergeTags, splitTags, tagsOf } from './tags';
 import { FocusHome } from './FocusHome';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
+import { useSideWidth } from './Resizer';
 import { BibBar, BibSidebar, Library, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 
 // La vista de Canvian: el mapa de secciones. Aquí viven las notas, los
@@ -93,6 +94,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
   const foco = focoExp && !bib;
   const [bibLayout, setBibLayout] = useBibLayout();
   const [bibFolded, toggleBibFolded] = useBibFolded();
+  const bibWidth = useSideWidth('canvian.bibWidth', 240, 180, 440);
   // Con «Foco», la lista es un menú que se abre con Ctrl P sobre los nodos,
   // que se alejan tras un velo; al cerrarse, se funde antes de desaparecer.
   const [listPhase, setListPhase] = useState<'closed' | 'open' | 'closing'>('closed');
@@ -883,6 +885,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
   return (
     <div
       className={`canvas${bib ? ' is-bib' : ''}${bib && bibFolded ? ' is-bib-folded' : ''}`}
+      style={bib ? ({ '--bib-side-w': `${bibWidth.width}px` } as CSSProperties) : undefined}
       onDragOver={(e) => {
         if (focusId || ![...e.dataTransfer.types].includes('Files')) return;
         e.preventDefault();
@@ -909,6 +912,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
             tasks={openTasksCount}
             showArchived={showArchived}
             folded={bibFolded}
+            width={bibWidth}
             onFold={toggleBibFolded}
             onProfiles={() => shell?.onProfiles()}
             onSettings={() => shell?.onSettings()}

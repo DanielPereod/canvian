@@ -4,6 +4,7 @@ import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { importanceOf, parentMap } from './sections';
 import { LOOSE } from './NodeView';
 import type { MapAction } from './SectionMap';
+import { Resizer, type SideWidth } from './Resizer';
 
 // Diseño «Biblioteca»: la app como una biblioteca de investigación. A la
 // izquierda, la barra con el perfil, las vistas y el árbol de colecciones;
@@ -121,6 +122,7 @@ type SideProps = {
   tasks: number;
   showArchived: boolean;
   folded: boolean;
+  width: SideWidth;
   onFold: () => void;
   onProfiles: () => void;
   onSettings: () => void;
@@ -247,6 +249,7 @@ export function BibSidebar(p: SideProps) {
         ＋ Colección nueva
       </button>
     </aside>
+      {!p.folded && <Resizer size={p.width} edge="right" className="bib-resizer" />}
     </div>
   );
 }

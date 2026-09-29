@@ -114,7 +114,7 @@
 .exp-biblioteca .hints { display: none; }
 
 .canvas.is-bib {
-  --bib-w: 240px;
+  --bib-w: var(--bib-side-w, 240px);
   --bib-h: 52px;
   font-family: var(--font-ui);
   background: var(--bg);
@@ -177,12 +177,13 @@
 .bib-tree-it.is-near { color: var(--text); }
 .bib-side-new { margin-top: 6px; color: var(--text-faint) !important; }
 .bib-side-new:hover { color: var(--text) !important; }
+.side-resizer.bib-resizer { position: absolute; top: 0; bottom: 0; left: var(--bib-w); }
 
 /* Plegada: no se ve nada; al acercar el ratón al borde sale flotando por encima. */
 .canvas.is-bib-folded { --bib-w: 0px; }
 .bib-dock.is-folded .bib-hot { position: absolute; inset: 0 auto 0 0; width: 14px; z-index: 6; }
 .bib-dock.is-folded .bib-side {
-  --bib-w: 248px;
+  --bib-w: calc(var(--bib-side-w, 240px) + 8px);
   inset: 10px auto 10px 10px;
   z-index: 7;
   border-radius: 12px;
@@ -330,7 +331,7 @@
 .sheet.is-reader .sheet-prose h3 { font-family: var(--font-ui); font-weight: 600; letter-spacing: -0.01em; }
 .sheet.is-reader .sheet-prose a { color: var(--accent-ink); }
 .sheet.is-reader .note-chips { padding: 0; }
-.reader-side { width: 300px; flex: none; overflow-y: auto; border-left: 1px solid var(--line); padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: var(--text); animation: bib-in 360ms var(--ease-out) 60ms both; }
+.reader-side { width: var(--reader-w, 300px); flex: none; overflow-y: auto; border-left: 1px solid var(--line); padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: var(--text); animation: bib-in 360ms var(--ease-out) 60ms both; }
 .reader-side button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
 .reader-side-h { font-weight: 500; }
 .reader-side-row { display: flex; justify-content: space-between; }
@@ -387,11 +388,11 @@
 
 @media (max-width: 760px) {
   .canvas.is-bib { --bib-w: 0px; }
-  .bib-side { display: none; }
+  .bib-side, .bib-resizer { display: none; }
   .bib-bar { grid-template-columns: minmax(0, 1fr) auto; }
   .bib-search { display: none !important; }
   .bib-thead, .bib-row { grid-template-columns: 28px minmax(0, 1fr) 90px; }
   .bib-thead > :nth-child(4), .bib-thead > :nth-child(5), .bib-row > :nth-child(4), .bib-row > :nth-child(5) { display: none; }
-  .reader-side { display: none; }
+  .reader-side, .reader-resizer { display: none; }
   .bib-lib { padding: 20px 16px 80px; }
 }

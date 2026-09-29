@@ -10,6 +10,7 @@ import { useExperiments } from '../lab/experiments';
 import { MediaUpload } from './media';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
+import { Resizer, useSideWidth } from './Resizer';
 import { BackArrow } from '../BackArrow';
 import { parentMap } from './sections';
 import { decodeTime } from 'ulidx';
@@ -154,6 +155,7 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
 
 export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onArchive, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, reader = false }: Props) {
   const { maduran } = useExperiments();
+  const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
   const editorRef = useRef<Editor | null>(null);
@@ -278,7 +280,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
     const words = (note.bodyText ?? '').split(/\s+/).filter(Boolean).length;
     const task = note.kind === 'task';
     return (
-      <div ref={ref} className="sheet is-reader">
+      <div ref={ref} className="sheet is-reader" style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
         <div className="reader-main">
           <article className="reader-body" key={note.id + note.kind}>
             <span className="reader-meta">
@@ -289,6 +291,7 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
             <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
           </article>
         </div>
+        <Resizer size={sideWidth} edge="left" className="reader-resizer" />
         <aside className="reader-side" aria-label="Detalles de la nota">
           <span className="reader-side-h">Detalles</span>
           <dl className="reader-facts">
