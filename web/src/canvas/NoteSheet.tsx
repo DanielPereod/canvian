@@ -34,8 +34,11 @@ function SheetEditor({ note, onSave, onError, editorRef }: EditorProps) {
   const editor = useEditor({
     extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError })],
     content: initial.doc ?? '',
-    // Abrir una nota es para escribir: el cursor ya está al final.
-    autofocus: 'end',
+    // Abrir una nota es para escribir: el cursor ya está al final, pero la
+    // nota se ve desde el principio (sin saltar hasta el cursor).
+    onCreate: ({ editor }) => {
+      editor.commands.focus('end', { scrollIntoView: false });
+    },
     editorProps: {
       attributes: { class: 'note-body prose sheet-prose' },
       // Ctrl/⌘ clic (o clic central) abre el enlace en otra pestaña.
