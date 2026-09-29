@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ulid } from 'ulidx';
 import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type TaskStatus } from '../api';
 import type { NoteContent } from './NoteSheet';
@@ -97,6 +97,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
   // Menú con clic derecho sobre una nota, y «Mover a…» desde él.
   const [bibMenu, setBibMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
+  // Nota abierta en grande sobre la vista de tareas, sin salir de ella.
+  const [peek, setPeek] = useState(false);
   // Con «Foco», la lista es un menú que se abre con Ctrl P sobre los nodos,
   // que se alejan tras un velo; al cerrarse, se funde antes de desaparecer.
   const [listPhase, setListPhase] = useState<'closed' | 'open' | 'closing'>('closed');
@@ -863,7 +865,43 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
     else act(a, id, null);
   };
 
+  // En grande, en el centro, con un botón para ir a la nota de verdad.
+  const wrapPeek = (sheet: ReactNode) =>
+    peek && focused ? (
+      <div className="note-popup-layer">
+        <div className="note-popup-back" onClick={closeFocused} />
+        <div className="note-popup" role="dialog" aria-label={focused.title || 'Nota'}>
+          <div className="note-popup-bar">
+            <button
+              className="note-popup-btn"
+              onClick={() => {
+                flush(focused.id);
+                setPeek(false);
+                setTasksOpen(false);
+              }}
+              title="Ir a la nota"
+              aria-label="Ir a la nota"
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M14 4h6v6M20 4l-8 8M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+              </svg>
+              Ir a la nota
+            </button>
+            <button className="note-popup-btn" onClick={closeFocused} title="Cerrar (Esc)" aria-label="Cerrar">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+          {sheet}
+        </div>
+      </div>
+    ) : (
+      sheet
+    );
+
   const closeFocused = () => {
+    setPeek(false);
     if (!focused) return;
     const id = focused.id;
     flush(id);
@@ -874,7 +912,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
 
   // ── Diseño Biblioteca: barra lateral, ruta y la colección ───────────
   const family = useFamily(rows);
-  const bibView: BibView = focused ? 'note' : tasksOpen ? 'tasks' : organizeOpen ? 'organize' : 'library';
+  const bibView: BibView = focused && !peek ? 'note' : tasksOpen ? 'tasks' : organizeOpen ? 'organize' : 'library';
   const goLibrary = (id: string | null) => {
     if (focused) closeFocused();
     setTasksOpen(false);
@@ -1147,7 +1185,10 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
         <TasksView
           rows={rows}
           paused={!!focusId || !!inspectId || !!paletteOpen}
-          onOpen={(id) => openNote(id)}
+          onOpen={(id) => {
+            setPeek(true);
+            openNote(id);
+          }}
           onCycle={cycleStatus}
           onBlock={toggleBlocked}
           quick={quick}
@@ -1165,7 +1206,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
           back={showFocus ? 'Lista' : 'Mapa'}
         />
       )}
-      {focused && (
+      {focused && wrapPeek(
         <NoteSheet
           from={openFrom}
           note={focused}
@@ -1199,7 +1240,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell?: Shell }) 
             removeNotes([id]);
           }}
           onClose={closeFocused}
-          reader={bib}
+          reader={bib || peek}
         />
       )}
       {inspectId && (

@@ -640,3 +640,24 @@
 .nodes-legend-item svg { flex: none; overflow: visible; }
 .nodes-legend .nodes-line { animation: none; }
 @media (max-width: 760px) { .nodes-legend { grid-template-columns: repeat(2, auto); left: var(--space-3); } }
+
+/* Nota en grande sobre la vista de tareas: centrada, con el fondo atenuado. */
+.tv-expand { width: 34px; height: 30px; padding: 0 !important; display: grid; place-items: center; }
+.note-popup-layer { position: fixed; inset: 0; z-index: calc(var(--z-chrome) + 20); display: grid; place-items: center; }
+.note-popup-back { position: absolute; inset: 0; background: rgba(10, 10, 12, 0.42); animation: note-popup-fade 180ms ease-out both; }
+.note-popup {
+  position: relative;
+  width: min(1040px, calc(100vw - 48px));
+  height: min(860px, calc(100vh - 64px));
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--line), 0 30px 80px -20px rgba(0, 0, 0, 0.45);
+  animation: note-popup-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.note-popup > .sheet { position: absolute; inset: 44px 0 0 0; z-index: 1; box-shadow: none; }
+.note-popup-bar { position: absolute; inset: 0 0 auto 0; height: 44px; z-index: 2; display: flex; align-items: center; justify-content: flex-end; gap: 4px; padding: 0 10px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.note-popup-btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); font: inherit; font-size: var(--text-sm); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
+.note-popup-btn:hover { background: var(--surface-hover); color: var(--text); }
+@keyframes note-popup-fade { from { opacity: 0; } }
+@keyframes note-popup-in { from { opacity: 0; transform: translateY(8px) scale(0.985); } }
