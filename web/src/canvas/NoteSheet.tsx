@@ -40,7 +40,16 @@ function SheetEditor({ note, onSave, onError, editorRef }: EditorProps) {
       attributes: { class: 'note-body prose sheet-prose' },
       // Ctrl/⌘ clic (o clic central) abre el enlace en otra pestaña.
       handleClick: (_view, _pos, e) => openLink(e),
-      handleDOMEvents: { auxclick: (_view, e) => e.button === 1 && openLink(e, true) },
+      handleDOMEvents: {
+        auxclick: (_view, e) => e.button === 1 && openLink(e, true),
+        // Pulsar dentro de un texto ya seleccionado empieza una selección nueva,
+        // como en un editor de texto, en vez de arrastrar lo seleccionado.
+        mousedown: (_view, e) => {
+          const sel = window.getSelection();
+          if (e.button === 0 && !e.shiftKey && !(e.target as HTMLElement).closest('img, video, [data-drag-handle]') && sel && !sel.isCollapsed) sel.removeAllRanges();
+          return false;
+        },
+      },
     },
     onUpdate: ({ editor }) => {
       const bodyText = editor.getText({ blockSeparator: '\n' });
