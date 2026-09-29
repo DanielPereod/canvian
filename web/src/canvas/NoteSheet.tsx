@@ -12,6 +12,8 @@ import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
 import { BackArrow } from '../BackArrow';
 import { parentMap } from './sections';
+import { decodeTime } from 'ulidx';
+import { editedLabel, kindOf } from './Biblioteca';
 
 // En el mapa de secciones una nota se abre como hoja a pantalla completa: la
 // celda termina de crecer hasta los bordes con su mismo tinte, y al cerrar
@@ -34,8 +36,11 @@ function SheetEditor({ note, onSave, onError, editorRef }: EditorProps) {
   const editor = useEditor({
     extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError })],
     content: initial.doc ?? '',
-    // Abrir una nota es para escribir: el cursor ya está al final.
-    autofocus: 'end',
+    // Abrir una nota es para escribir: el cursor ya está al final, pero la
+    // nota se ve desde el principio (sin saltar hasta el cursor).
+    onCreate: ({ editor }) => {
+      editor.commands.focus('end', { scrollIntoView: false });
+    },
     editorProps: {
       attributes: { class: 'note-body prose sheet-prose' },
       // Ctrl/⌘ clic (o clic central) abre el enlace en otra pestaña.
@@ -127,6 +132,8 @@ type Props = {
   rows: NoteRow[];
   onRename: (title: string) => void;
   onPickNote: (then: (id: string) => void) => void;
+  // Diseño Biblioteca: la nota como lector, con un panel de detalles a la derecha.
+  reader?: boolean;
 };
 
 // Recorte con la forma de la celda, relativo a la hoja.
@@ -145,7 +152,7 @@ function insetOf(sheet: HTMLElement, from: OpenFrom | null) {
   return `inset(${top}px ${right}px ${bottom}px ${left}px round 48px)`;
 }
 
-export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onArchive, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote }: Props) {
+export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onArchive, onLink, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, reader = false }: Props) {
   const { maduran } = useExperiments();
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -193,6 +200,10 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
 
   useLayoutEffect(() => {
     const el = ref.current!;
+    if (reader) {
+      el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
+      return;
+    }
     el.animate([{ clipPath: insetOf(el, from), opacity: from ? 1 : 0 }, { clipPath: 'inset(0px 0px 0px 0px round 0px)', opacity: 1 }], {
       duration: OPEN_MS,
       easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
@@ -206,6 +217,10 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
     if (!el || leaving.current) return;
     leaving.current = true;
     el.classList.add('is-leaving');
+    if (reader) {
+      then();
+      return;
+    }
     const a = el.animate([{ clipPath: 'inset(0px 0px 0px 0px round 0px)', opacity: 1 }, { clipPath: insetOf(el, from), opacity: from ? 1 : 0 }], {
       duration: CLOSE_MS,
       easing: 'cubic-bezier(0.45, 0, 0.2, 1)',
@@ -237,6 +252,110 @@ export function NoteSheet({ note, neighbors, defs, from, onNavigate, onSave, onC
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   });
+
+  const picker = moving && (
+    <SectionPicker
+      options={sections}
+      current={note.zoneId}
+      exclude={family}
+      onPick={(zoneId) => {
+        setMoving(false);
+        onMove(zoneId);
+      }}
+      onClose={() => setMoving(false)}
+    />
+  );
+
+  if (reader && !isCanvas) {
+    const kids = rows.filter((r) => r.zoneId === note.id).length;
+    const madre = chain.at(-1);
+    let created = '—';
+    try {
+      created = editedLabel(new Date(decodeTime(note.id)).toISOString());
+    } catch {
+      // Un id que no es ULID no dice cuándo se creó.
+    }
+    const words = (note.bodyText ?? '').split(/\s+/).filter(Boolean).length;
+    const task = note.kind === 'task';
+    return (
+      <div ref={ref} className="sheet is-reader">
+        <div className="reader-main">
+          <article className="reader-body" key={note.id + note.kind}>
+            <span className="reader-meta">
+              {madre ? madre.title || 'Nota sin título' : 'Arriba del todo'} · {kindOf(note, kids)} · editada {editedLabel(note.updatedAt)}
+            </span>
+            {task && <TaskGlyph status={note.status ?? 'todo'} ripe={maduran} onCycle={() => onCycle(note.id)} />}
+            <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} />
+            <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
+          </article>
+        </div>
+        <aside className="reader-side" aria-label="Detalles de la nota">
+          <span className="reader-side-h">Detalles</span>
+          <dl className="reader-facts">
+            <dt>Tipo</dt>
+            <dd>{kindOf(note, kids)}</dd>
+            <dt>Madre</dt>
+            <dd>
+              <button className="reader-madre" onClick={() => setMoving(true)} title="Mover dentro de otra nota">
+                {madre ? madre.title || 'Nota sin título' : 'Arriba del todo'}
+              </button>
+            </dd>
+            {kids > 0 && (
+              <>
+                <dt>Dentro</dt>
+                <dd>{kids === 1 ? '1 nota' : `${kids} notas`}</dd>
+              </>
+            )}
+            <dt>Creada</dt>
+            <dd>{created}</dd>
+            <dt>Editada</dt>
+            <dd>{editedLabel(note.updatedAt)}</dd>
+            <dt>Palabras</dt>
+            <dd>{words}</dd>
+          </dl>
+          <div className="reader-rule" />
+          <div className="reader-side-row">
+            <span className="reader-side-h">Enlaces</span>
+            <span className="reader-muted">{neighbors.length}</span>
+          </div>
+          <div className="reader-links">
+            {shown.map((n) => (
+              <span key={n.id} className="reader-link">
+                <button className="reader-link-go" onClick={() => onNavigate(n.id)}>
+                  <span className="reader-link-g" aria-hidden="true">
+                    {n.kind === 'task' ? (n.status === 'done' ? '■' : '□') : '·'}
+                  </span>
+                  <span className="reader-ellipsis">{n.title || 'Nota sin título'}</span>
+                </button>
+                <button className="reader-link-x" onClick={() => onUnlink(n.id)} aria-label={`Quitar el enlace con ${n.title || 'esta nota'}`} title="Quitar enlace">
+                  ×
+                </button>
+              </span>
+            ))}
+            {neighbors.length > MAX_LINKS && <span className="reader-muted">+{neighbors.length - MAX_LINKS} más</span>}
+            <button className="reader-add" onClick={onLink}>
+              ＋ Enlazar
+            </button>
+          </div>
+          <div className="reader-actions">
+            <button onClick={onTask}>{task ? 'Quitar tarea' : 'Hacer tarea'}</button>
+            {task && <button onClick={onBlock}>{note.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}</button>}
+            <button onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
+              Nodos
+            </button>
+            <button onClick={onArchive} title="Archivar: se oculta con lo que cuelga de ella (Ctrl Mayús X)">
+              {note.archivedAt ? 'Desarchivar' : 'Archivar'}
+            </button>
+            <button onClick={() => onProps(note.id)}>Propiedades</button>
+            <button className="danger" onClick={() => close(() => onDelete(note.id))}>
+              Borrar
+            </button>
+          </div>
+        </aside>
+        {picker}
+      </div>
+    );
+  }
 
   return (
     <div ref={ref} className={`sheet${isCanvas ? ' is-canvas' : ''}`} style={(hue !== undefined ? { '--hue': hue } : {}) as CSSProperties}>
