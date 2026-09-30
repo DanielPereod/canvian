@@ -310,7 +310,12 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   );
 
   if (!isCanvas) {
-    const kids = rows.filter((r) => r.zoneId === note.id).length;
+    // Lo que tiene dentro, como el contenido de una carpeta: madres primero y por nombre.
+    const inside = rows
+      .filter((r) => r.zoneId === note.id)
+      .map((r) => ({ r, n: rows.filter((k) => k.zoneId === r.id).length }))
+      .sort((a, b) => Number(!!b.n) - Number(!!a.n) || (a.r.title || '').localeCompare(b.r.title || '', 'es', { numeric: true }));
+    const kids = inside.length;
     const madre = chain.at(-1);
     let created = '—';
     try {
@@ -362,6 +367,29 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
               </>
             )}
           </dl>
+          {kids > 0 && (
+            <>
+              <div className="reader-rule" />
+              <div className="reader-side-row">
+                <span className="reader-side-h">Dentro</span>
+                <span className="reader-muted">{kids}</span>
+              </div>
+              <div className="reader-links">
+                {inside.slice(0, MAX_LINKS).map(({ r, n }) => (
+                  <span key={r.id} className="reader-link">
+                    <button className="reader-link-go" onClick={() => onNavigate(r.id)}>
+                      <span className="reader-link-g" aria-hidden="true">
+                        {n ? '▸' : '·'}
+                      </span>
+                      <span className="reader-ellipsis">{r.kind === 'canvas' ? r.title || 'Canvas sin título' : r.title || 'Nota sin título'}</span>
+                      {n > 0 && <span className="reader-muted reader-link-n">{n}</span>}
+                    </button>
+                  </span>
+                ))}
+                {kids > MAX_LINKS && <span className="reader-muted">+{kids - MAX_LINKS} más</span>}
+              </div>
+            </>
+          )}
           <div className="reader-rule" />
           <div className="reader-side-row">
             <span className="reader-side-h">Enlaces</span>
