@@ -212,7 +212,6 @@
 .org-check { position: absolute; left: 12px; top: 50%; width: 16px; height: 16px; margin-top: -8px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--line-strong); transition: background var(--dur-fast), box-shadow var(--dur-fast); }
 .org-check.is-on { background: var(--accent-ink); box-shadow: none; }
 .org-check.is-on::after { content: ''; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px; border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg); }
-.org-row .task-glyph { position: absolute; left: 40px; top: 50%; transform: translateY(-50%); pointer-events: none; }
 .org-kind { position: absolute; left: 44px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--text-faint); }
 .org-kind-canvas { border-radius: 3px; }
 .org-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-md); }
@@ -270,10 +269,6 @@
 .nodes-node.has-kids .nodes-dot { fill: color-mix(in oklab, var(--text) 10%, var(--bg)); stroke: var(--text-muted); }
 .nodes-dot.is-branch { fill: color-mix(in oklab, var(--text) 8%, var(--bg)); stroke: var(--text-muted); }
 .nodes-num { font-family: var(--font-ui); font-size: 10px; font-weight: 600; fill: var(--text); pointer-events: none; }
-.nodes-task { fill: var(--bg); stroke: var(--text-muted); stroke-width: 1.3; transition: stroke 300ms; }
-.nodes-task.is-done { fill: var(--text-ghost); stroke: var(--text-ghost); }
-.nodes-check { fill: none; stroke: var(--bg); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.nodes-node.on .nodes-task { stroke: var(--text); }
 .nodes-meta { font-family: var(--font-ui); font-size: 11px; fill: var(--text-faint); }
 .nodes-meta.is-late { fill: var(--danger); }
 .nodes-node.role-link .nodes-meta { fill: var(--accent-ink); opacity: 0.8; }
@@ -352,6 +347,10 @@
 .tv-row.is-cursor { background: var(--surface-sunken); border-radius: 8px; border-bottom-color: transparent; }
 .tv-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-md); color: var(--text); }
 .tv-row.is-done .tv-row-title { color: var(--text-faint); text-decoration: line-through; text-decoration-color: var(--text-ghost); }
+/* Subtareas bajo su tarea, sangradas por su profundidad. */
+.tv-row.is-sub { min-height: 34px; padding-left: calc(16px + var(--depth, 1) * 26px); }
+.tv-row.is-sub .tv-row-title { font-size: var(--text-sm); color: var(--text-muted); }
+.tv-kids { flex: none; color: var(--text-ghost); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 .tv-tag { color: var(--text-faint); font-size: var(--text-xs); white-space: nowrap; }
 .tv-where { color: var(--text-ghost); font-size: var(--text-xs); max-width: 28%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-due { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -393,8 +392,18 @@
 .tv-tag.is-chip span { color: var(--text-ghost); margin-left: 2px; }
 .tv-tag-add { width: 110px; background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: var(--text-xs); }
 .tv-tag-add::placeholder { color: var(--text-ghost); }
-.tv-detail-body { margin: 0; color: var(--text-muted); font-size: var(--text-md); line-height: 1.6; white-space: pre-wrap; }
-.tv-detail-foot { margin-top: auto; padding-top: var(--space-3); border-top: 1px solid var(--line); display: flex; justify-content: flex-end; }
+.tv-detail-up { align-self: flex-start; max-width: 100%; margin: var(--space-1) 0 -10px; padding: 0; background: none; border: 0; color: var(--text-ghost); font: inherit; font-size: var(--text-xs); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-detail-up span { color: var(--text-faint); }
+.tv-detail-up:hover span, .tv-detail-up:focus-visible span { color: var(--accent-ink); }
+.tv-subs { display: flex; flex-direction: column; gap: 2px; padding-top: var(--space-3); border-top: 1px solid var(--line); }
+.tv-subs-h { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: 4px; color: var(--text-faint); font-size: var(--text-xs); }
+.tv-sub { display: flex; align-items: center; gap: 10px; min-height: 30px; padding: 0 6px; border-radius: 6px; cursor: pointer; }
+.tv-sub:hover { background: var(--surface-sunken); }
+.tv-sub-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); color: var(--text); }
+.tv-sub.is-done .tv-sub-title { color: var(--text-faint); text-decoration: line-through; text-decoration-color: var(--text-ghost); }
+.tv-sub-add { margin-top: 2px; padding: 5px 6px; background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: var(--text-sm); }
+.tv-sub-add::placeholder { color: var(--text-ghost); }
+.tv-detail-foot { margin-top: auto; padding-top: var(--space-3); border-top: 1px solid var(--line); display: flex; justify-content: space-between; }
 .tv-danger:hover { color: var(--danger); }
 
 /* Menú con clic derecho sobre una tarea: el de la biblioteca, con filas de botones. */

@@ -3,6 +3,7 @@ import { COLORS, ROOT_KEY, setColor, setOrder, sortByOrder, useSidebarPrefs } fr
 import type { NoteRow } from '../api';
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { importanceOf, parentMap } from './sections';
+import { taskCount } from './tasks';
 import { LOOSE, type MapAction } from './NodeView';
 import { Resizer, type SideWidth } from './Resizer';
 
@@ -76,9 +77,7 @@ type Family = ReturnType<typeof useFamily>;
 
 export const titleOf = (r: NoteRow | null | undefined) => (r?.kind === 'canvas' ? r.title || 'Canvas sin título' : r?.title || 'Nota sin título');
 
-const STATUS: Record<string, string> = { todo: 'Tarea pendiente', doing: 'Tarea en curso', blocked: 'Tarea bloqueada', done: 'Tarea hecha' };
 export function kindOf(r: NoteRow, kids: number) {
-  if (r.kind === 'task' || r.kind === 'quick') return STATUS[r.status ?? 'todo'];
   if (r.kind === 'canvas') return 'Canvas';
   return kids ? 'Colección' : 'Nota';
 }
@@ -181,10 +180,10 @@ export function BibSidebar(p: SideProps) {
   };
 
   const fallback = byDefault(count);
-  const kidsOf = (id: string | null) => sortByOrder(id, (kids.get(id) ?? []).filter((r) => r.kind !== 'quick'), fallback, prefs);
+  const kidsOf = (id: string | null) => sortByOrder(id, kids.get(id) ?? [], fallback, prefs);
   const roots = kids.get(null) ?? [];
   const branches = sortByOrder(null, roots.filter((r) => count(r.id)), fallback, prefs);
-  const loose = roots.filter((r) => !count(r.id) && r.kind !== 'quick');
+  const loose = roots.filter((r) => !count(r.id));
 
   // ── Arrastrar y soltar ──
   const [dragId, setDragId] = useState<string | null>(null);
@@ -375,7 +374,7 @@ export function BibSidebar(p: SideProps) {
 
 // ── Menú contextual ───────────────────────────────────────────────────
 
-export type MenuAction = 'open' | 'library' | 'nodes' | 'child' | 'rename' | 'move' | 'task' | 'archive' | 'delete';
+export type MenuAction = 'open' | 'library' | 'nodes' | 'child' | 'rename' | 'move' | 'archive' | 'delete';
 
 type MenuProps = {
   row: NoteRow;
@@ -430,7 +429,6 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
   const prefs = useSidebarPrefs();
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
-  const task = row.kind === 'task' || row.kind === 'quick';
   const items: ({ a: MenuAction; label: string; key?: string; danger?: boolean } | null)[] = [
     { a: 'open', label: 'Abrir' },
     ...(kids ? [{ a: 'library' as const, label: 'Ver como colección' }] : []),
@@ -439,7 +437,6 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
     { a: 'child', label: 'Nota nueva dentro', key: 'G' },
     { a: 'rename', label: 'Renombrar', key: 'R' },
     { a: 'move', label: 'Mover a…' },
-    ...(row.kind !== 'canvas' ? [{ a: 'task' as const, label: task ? 'Convertir en nota' : 'Convertir en tarea', key: 'T' }] : []),
     null,
     { a: 'archive', label: row.archivedAt ? 'Desarchivar' : 'Archivar', key: 'Ctrl ⇧ X' },
     { a: 'delete', label: 'Borrar', key: 'Supr', danger: true },
@@ -573,8 +570,8 @@ type LibProps = {
   onMenu: (id: string, x: number, y: number) => void;
 };
 
-const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
-const LIB_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
+const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
+const LIB_ACTIONS: ActionId[] = ['properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
 
 export function Library(p: LibProps) {
   const { kids, count, byId, parent } = p.family;
@@ -595,7 +592,7 @@ export function Library(p: LibProps) {
     else list = kids.get(here?.id ?? null) ?? [];
     // Arriba del todo, muchas sueltas taparían las colecciones: van en «Sueltas».
     if (p.center === null && list.some((r) => count(r.id)) && list.filter((r) => !count(r.id)).length > 6) list = list.filter((r) => count(r.id));
-    list = list.filter((r) => r.kind !== 'quick' && (!p.hide || !p.lit || p.lit.has(r.id)));
+    list = list.filter((r) => !p.hide || !p.lit || p.lit.has(r.id));
     const weight = (r: NoteRow) => importanceOf(r, degree.get(r.id) ?? 0) + Math.min(8, count(r.id)) * 0.6;
     // Arriba, las colecciones; después, por importancia (o como las ordenaste en la barra).
     const auto = (a: NoteRow, b: NoteRow) => Number(!!count(b.id)) - Number(!!count(a.id)) || weight(b) - weight(a);
@@ -711,7 +708,7 @@ export function Library(p: LibProps) {
                   <span className="bib-row-s">{snippetOf(r) || (n ? `${n} notas dentro` : 'Sin texto todavía.')}</span>
                 </span>
                 <span>
-                  <span className={`bib-pill${r.status === 'doing' && r.kind !== 'text' ? ' is-accent' : ''}`}>{kind}</span>
+                  <span className="bib-pill">{kind}</span>
                 </span>
                 <span className="bib-muted">{n ? `${n} notas` : '—'}</span>
                 <span className="bib-muted bib-right">{editedLabel(r.updatedAt)}</span>
@@ -757,10 +754,11 @@ export function Library(p: LibProps) {
   );
 }
 
-// El lomo de cada fila: la cuenta de una colección o la casilla de una tarea.
+// El lomo de cada fila: la cuenta de una colección o, si tiene tareas, una
+// casilla (llena cuando están todas hechas).
 function Spine({ row, kids }: { row: NoteRow; kids: number }) {
-  const task = row.kind === 'task' || row.kind === 'quick';
-  const glyph = task ? (row.status === 'done' ? '■' : row.status === 'doing' ? '◧' : row.status === 'blocked' ? '⊘' : '□') : kids ? String(kids) : '';
+  const tasks = taskCount(row);
+  const glyph = kids ? String(kids) : tasks.total ? (tasks.open.length ? '□' : '■') : '';
   return (
     <span className={`bib-spine${kids ? ' is-branch' : ''}`} aria-hidden="true">
       {glyph}

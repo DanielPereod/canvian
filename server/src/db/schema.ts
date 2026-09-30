@@ -39,7 +39,7 @@ export const notes = sqliteTable(
     profileId: text('profile_id')
       .notNull()
       .references(() => profiles.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(), // text | task | quick | canvas | link | image | checklist | code | zone
+    kind: text('kind').notNull(), // text | canvas | link | image | checklist | code (task, quick y zone son de antes: ver tasks.ts)
     title: text('title'),
     bodyJson: text('body_json'), // documento Tiptap
     bodyText: text('body_text'), // texto plano para la búsqueda
@@ -50,7 +50,7 @@ export const notes = sqliteTable(
     h: real('h'),
     z: integer('z').notNull().default(0),
     zoneId: text('zone_id'),
-    status: text('status'), // todo | doing | blocked | done (solo tareas)
+    status: text('status'), // de las notas-tarea de antes; las tareas son ahora casillas del texto
     priority: integer('priority'),
     dueAt: text('due_at'),
     doneAt: text('done_at'),

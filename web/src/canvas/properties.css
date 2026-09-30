@@ -76,7 +76,6 @@
 .insp-remove.confirm { color: var(--danger); background: color-mix(in oklab, var(--danger) 14%, transparent); }
 .insp-control { min-width: 0; }
 .insp-status { display: flex; align-items: center; gap: var(--space-1); }
-.insp-status .task-glyph { position: static; pointer-events: none; }
 .insp-status .segmented { flex: 1; min-width: 0; }
 
 .insp-input {

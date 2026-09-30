@@ -28,7 +28,7 @@ export function wikiItems(rows: NoteRow[], query: string, exclude: string): Wiki
   const time = (r: NoteRow) => (r.updatedAt ? Date.parse(r.updatedAt) : 0);
   const hits: { row: NoteRow; score: number }[] = [];
   for (const r of rows) {
-    if (r.id === exclude || r.kind === 'quick') continue;
+    if (r.id === exclude) continue;
     const { title, body } = textOf(r);
     // Primero el nombre exacto, luego lo que empieza así, lo que lo contiene
     // en el nombre y, al final, lo que lo dice en el texto.

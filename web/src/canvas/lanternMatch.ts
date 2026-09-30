@@ -1,6 +1,7 @@
 import { parseProps, type NoteRow, type PropertyDef } from '../api';
 import { tagsOf } from './tags';
 import { daysUntil } from './dates';
+import { tasksOf, type Task } from './tasks';
 
 type Test = (r: NoteRow) => boolean;
 
@@ -30,23 +31,28 @@ function textOf(r: NoteRow) {
   return t;
 }
 
+// Las tareas son casillas dentro de las notas: «tipo:tarea», «estado:» y
+// «vence:» alumbran las notas que tienen alguna así.
+const withTask = (test: (t: Task) => boolean): Test => (r) => tasksOf(r).some(test);
 const KIND: Record<string, Test> = {
-  tarea: (r) => r.kind === 'task',
-  nota: (r) => r.kind !== 'task' && r.kind !== 'canvas',
+  tarea: withTask((t) => t.status !== 'done'),
+  tareas: withTask(() => true),
+  nota: (r) => r.kind !== 'canvas',
   canvas: (r) => r.kind === 'canvas',
   lienzo: (r) => r.kind === 'canvas',
 };
 const STATUS: Record<string, 'todo' | 'doing' | 'blocked' | 'done'> = { pendiente: 'todo', curso: 'doing', encurso: 'doing', bloqueada: 'blocked', bloqueo: 'blocked', hecha: 'done' };
-const STATUS_LABEL = { todo: 'pendientes', doing: 'en curso', blocked: 'bloqueadas', done: 'hechas' };
+const STATUS_LABEL = { todo: 'con tareas pendientes', doing: 'con tareas en curso', blocked: 'con tareas bloqueadas', done: 'con tareas hechas' };
 const PRIORITY: Record<string, number> = { ninguna: 0, baja: 1, media: 2, alta: 3 };
-const open = (r: NoteRow) => r.status !== 'done';
-const due = (test: (days: number) => boolean): Test => (r) => !!r.dueAt && test(daysUntil(r.dueAt));
+// Vence: la fecha de la nota o la de alguna de sus tareas sin hacer.
+const due = (test: (days: number) => boolean): Test => (r) => (!!r.dueAt && test(daysUntil(r.dueAt))) || withTask((t) => t.status !== 'done' && !!t.dueAt && test(daysUntil(t.dueAt)))(r);
+const open = due;
 const DUE: Record<string, [string, Test]> = {
   hoy: ['vence hoy', due((n) => n === 0)],
   manana: ['vence mañana', due((n) => n === 1)],
   semana: ['vence esta semana', due((n) => n >= 0 && n <= 7)],
-  vencida: ['vencidas', (r) => open(r) && due((n) => n < 0)(r)],
-  pronto: ['vence pronto', (r) => open(r) && due((n) => n <= 2)(r)],
+  vencida: ['vencidas', open((n) => n < 0)],
+  pronto: ['vence pronto', open((n) => n <= 2)],
 };
 const pick = <T,>(table: Record<string, T>, value: string) => Object.entries(table).find(([k]) => k.startsWith(value))?.[1];
 
@@ -106,7 +112,8 @@ export function parseLens(query: string, ctx: LensContext): { test: Test | null;
         label = `#${tag}`;
       } else if (STATUS[value]) {
         // «hecha» o «-hecha» a secas se entienden como estado.
-        test = (r) => r.kind === 'task' && (r.status ?? 'todo') === STATUS[value];
+        const s = STATUS[value];
+        test = withTask((t) => t.status === s);
         label = STATUS_LABEL[STATUS[value]];
       } else {
         kind = 'text';
@@ -118,24 +125,24 @@ export function parseLens(query: string, ctx: LensContext): { test: Test | null;
       }
     } else if (name === 'tipo' && KIND[value]) {
       test = KIND[value];
-      label = { tarea: 'tareas', nota: 'notas', zona: 'zonas' }[value as 'tarea'];
+      label = { tarea: 'con tareas pendientes', tareas: 'con tareas', nota: 'notas', canvas: 'canvas', lienzo: 'canvas' }[value] ?? value;
     } else if (name === 'estado' && value && pick(STATUS, value)) {
       const s = pick(STATUS, value)!;
-      test = (r) => r.kind === 'task' && (r.status ?? 'todo') === s;
+      test = withTask((t) => t.status === s);
       label = STATUS_LABEL[s];
     } else if (name === 'prio' || name === 'prioridad') {
       const p = value ? pick(PRIORITY, value) : undefined;
-      test = p === undefined ? (r) => !!r.priority : (r) => (r.priority ?? 0) === p;
+      test = p === undefined ? (r) => !!r.priority || withTask((t) => t.status !== 'done' && !!t.priority)(r) : (r) => (r.priority ?? 0) === p || (!!p && withTask((t) => t.status !== 'done' && t.priority === p)(r));
       label = p === undefined ? 'con prioridad' : `prioridad ${Object.keys(PRIORITY)[p]}`;
     } else if (name === 'vence' || name === 'fecha') {
       const range = /^([<>])(\d+)d?$/.exec(value);
       if (range) {
         const n = Number(range[2]);
-        test = range[1] === '<' ? (r) => open(r) && due((d) => d <= n)(r) : due((d) => d > n);
+        test = range[1] === '<' ? open((d) => d <= n) : due((d) => d > n);
         label = range[1] === '<' ? `vence en ${n} días o menos` : `vence en más de ${n} días`;
       } else {
         const hit = value ? pick(DUE, value) : undefined;
-        [label, test] = hit ?? ['con fecha', (r: NoteRow) => !!r.dueAt];
+        [label, test] = hit ?? ['con fecha', due(() => true)];
       }
     } else if (name === 'zona' || name === 'en' || name === 'dentro') {
       const zones = new Set(ctx.notes.filter((n) => fold(n.title ?? '').startsWith(value)).map((n) => n.id));

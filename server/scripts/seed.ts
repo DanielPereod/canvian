@@ -14,6 +14,8 @@ import { ulid } from 'ulidx';
 import { openDb } from '../src/db/index.js';
 import { edges, notes, profiles } from '../src/db/schema.js';
 
+// Con `task`, el elemento no es una nota: es una casilla en la nota de su zona
+// (y, si trae una lista, esas líneas son sus subtareas).
 type Item = { t: string; body?: string | string[]; task?: 'todo' | 'doing' | 'done' };
 // Una zona puede tener subzonas dentro (secciones y subsecciones).
 type Zone = { name: string; items: Item[]; subs?: Zone[] };
@@ -259,8 +261,7 @@ function doc(title: string, body?: string | string[]) {
 }
 
 // Altura aproximada de una nota para colocarlas sin que se pisen.
-const heightOf = (it: Item) =>
-  64 + (it.task ? 30 : 0) + (typeof it.body === 'string' ? 24 * Math.ceil(it.body.length / 28) : (it.body?.length ?? 0) * 26);
+const heightOf = (it: Item) => 64 + (typeof it.body === 'string' ? 24 * Math.ceil(it.body.length / 28) : (it.body?.length ?? 0) * 26);
 
 const args = process.argv.slice(2);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -294,6 +295,33 @@ const dueIn = (days: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 const DAY = 86_400_000;
+const PRIO_MARK = ['', '🔽', '🔼', '⏫'];
+
+// La nota de una zona: su nombre y, debajo, sus tareas como casillas «- [ ]»,
+// con fecha y prioridad escritas como en Obsidian (📅 2026-10-02 ⏫).
+function withTasks(title: string, tasks: Item[]) {
+  const { bodyJson, bodyText } = doc(title);
+  if (!tasks.length) return { bodyJson, bodyText };
+  const lines: string[] = [];
+  const item = (text: string, state: Item['task'], meta: boolean, subs: string[] = []): unknown => {
+    const tail = meta
+      ? [random() < 0.5 ? `📅 ${dueIn(Math.round(random() * 24) - 5)}` : '', random() < 0.6 ? PRIO_MARK[1 + Math.floor(random() * 3)] : '', state === 'done' ? `✅ ${dueIn(-Math.round(random() * 10))}` : '']
+          .filter(Boolean)
+          .join(' ')
+      : '';
+    const line = tail ? `${text} ${tail}` : text;
+    lines.push(line);
+    const kids = subs.map((sub, i) => item(sub, state === 'done' || (state === 'doing' && i === 0) ? 'done' : 'todo', false));
+    return {
+      type: 'taskItem',
+      attrs: { checked: state === 'done', ...(state === 'doing' ? { status: 'doing' } : {}) },
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: line }] }, ...(kids.length ? [{ type: 'taskList', content: kids }] : [])],
+    };
+  };
+  const list = { type: 'taskList', content: tasks.map((t) => item(t.t, t.task, true, Array.isArray(t.body) ? t.body : [])) };
+  const parsed = JSON.parse(bodyJson);
+  return { bodyJson: JSON.stringify({ ...parsed, content: [...parsed.content, list] }), bodyText: [bodyText, ...lines].join('\n') };
+}
 const NOTE_W = 250;
 const GAP = 36;
 const COLS = 4;
@@ -312,9 +340,12 @@ function seedProfile(profileId: string, zones: Zone[], loose: string[], extraCou
   const placeZone = (zone: Zone, x: number, y: number, parentId: string | null): { w: number; h: number; hub: string | null } => {
     const zoneId = ulid();
     const updated = when(20);
-    // Ya no hay zonas: la sección es una nota con su nombre, madre de lo que contiene.
-    const row: typeof notes.$inferInsert = { id: zoneId, profileId, kind: 'text', title: zone.name, ...doc(zone.name), x, y, zoneId: parentId, props, createdAt: updated, updatedAt: updated };
+    // Ya no hay zonas: la sección es una nota con su nombre, madre de lo que
+    // contiene. Sus tareas son casillas en su texto.
+    const tasks = zone.items.filter((it) => it.task);
+    const row: typeof notes.$inferInsert = { id: zoneId, profileId, kind: 'text', title: zone.name, ...withTasks(zone.name, tasks), x, y, zoneId: parentId, props, createdAt: updated, updatedAt: updated };
     noteRows.push(row);
+    zone = { ...zone, items: zone.items.filter((it) => !it.task) };
 
     // Las notas en columnas, cada una bajo la anterior.
     const cols = Math.min(COLS, Math.max(1, zone.items.length));
@@ -334,7 +365,7 @@ function seedProfile(profileId: string, zones: Zone[], loose: string[], extraCou
       noteRows.push({
         id,
         profileId,
-        kind: it.task ? 'task' : 'text',
+        kind: 'text',
         title: it.t,
         bodyJson,
         bodyText,
@@ -342,10 +373,6 @@ function seedProfile(profileId: string, zones: Zone[], loose: string[], extraCou
         y: y + 96 + placed[i].y,
         w: NOTE_W,
         zoneId,
-        status: it.task ?? null,
-        doneAt: it.task === 'done' ? updatedAt : null,
-        priority: it.task && random() < 0.6 ? 1 + Math.floor(random() * 3) : null,
-        dueAt: it.task && random() < 0.5 ? dueIn(Math.round(random() * 24) - 5) : null,
         props,
         createdAt: updatedAt,
         updatedAt,
@@ -410,18 +437,15 @@ function seedProfile(profileId: string, zones: Zone[], loose: string[], extraCou
   items.forEach((it, i) => {
     const id = ulid();
     const updatedAt = when(90);
-    const task = random() < 0.25 ? (['todo', 'doing', 'done'] as const)[Math.floor(random() * 3)] : null;
     noteRows.push({
       id,
       profileId,
-      kind: task ? 'task' : 'text',
+      kind: 'text',
       title: it.t,
       ...doc(it.t),
       x: (i % 12) * (NOTE_W + GAP) + (random() - 0.5) * 40,
       y: top + Math.floor(i / 12) * 110 + (random() - 0.5) * 30,
       w: NOTE_W,
-      status: task,
-      doneAt: task === 'done' ? updatedAt : null,
       props,
       createdAt: updatedAt,
       updatedAt,

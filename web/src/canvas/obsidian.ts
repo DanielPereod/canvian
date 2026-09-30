@@ -77,19 +77,54 @@ export const Highlight = Mark.create({
 
 // Casillas: «- [ ] » al escribir, como en Obsidian. El «- » ya hace una lista,
 // así que «[ ] » al principio de un punto la convierte en lista de tareas.
+// Cada casilla es una tarea (las sangradas, subtareas): además de hecha puede
+// estar en curso («[/]») o bloqueada («[!]»).
+const BOX: Record<string, { checked: boolean; status: string | null }> = {
+  ' ': { checked: false, status: null },
+  x: { checked: true, status: null },
+  '/': { checked: false, status: 'doing' },
+  '!': { checked: false, status: 'blocked' },
+};
 const TaskInput = TaskItem.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      status: {
+        default: null,
+        keepOnSplit: false,
+        parseHTML: (el) => el.getAttribute('data-status'),
+        renderHTML: (a) => (a.status ? { 'data-status': a.status } : {}),
+      },
+    };
+  },
   addInputRules() {
     return [
       new InputRule({
-        find: /^\s*\[([ xX])?\]\s$/,
+        find: /^\s*\[([ xX/!])?\]\s$/,
         handler: ({ state, range, match, chain }) => {
           const $from = state.doc.resolve(range.from);
           const inList = $from.depth >= 2 && $from.node(-1).type.name === 'listItem';
           chain()
             .deleteRange(range)
             .command(({ commands }) => (inList ? commands.toggleList('taskList', 'taskItem') : commands.toggleTaskList()))
-            .updateAttributes('taskItem', { checked: !!match[1]?.trim() })
+            .updateAttributes('taskItem', BOX[(match[1] ?? ' ').toLowerCase()])
             .run();
+        },
+      }),
+    ];
+  },
+  addProseMirrorPlugins() {
+    // Una casilla que se marca deja de estar en curso o bloqueada.
+    return [
+      ...(this.parent?.() ?? []),
+      new Plugin({
+        appendTransaction: (trs, _old, state) => {
+          if (!trs.some((tr) => tr.docChanged)) return null;
+          const tr = state.tr;
+          state.doc.descendants((node, pos) => {
+            if (node.type.name === 'taskItem' && node.attrs.checked && node.attrs.status) tr.setNodeMarkup(pos, undefined, { ...node.attrs, status: null });
+          });
+          return tr.docChanged ? tr.setMeta('addToHistory', false) : null;
         },
       }),
     ];

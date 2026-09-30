@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NoteRow } from '../api';
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { importanceOf, parentMap } from './sections';
-import { daysUntil, dueLabel } from './dates';
+import { daysUntil } from './dates';
+import { taskCount } from './tasks';
 
 // Vista de nodos: una nota en el centro y, alrededor, lo que tiene que ver con
 // ella. Sus hijas en un anillo (unidas con línea), las notas enlazadas en el
@@ -31,10 +32,10 @@ export const LOOSE = 'loose';
 
 // Lo que se pide desde los nodos o la biblioteca sobre la nota señalada (o,
 // para crear, dentro de la nota en la que estás).
-export type MapAction = 'create' | 'createCanvas' | 'section' | 'task' | 'status' | 'block' | 'props' | 'delete' | 'rename' | 'archive';
+export type MapAction = 'create' | 'createCanvas' | 'section' | 'props' | 'delete' | 'rename' | 'archive';
 const SIBLINGS = 6;
-const KEYS: Partial<Record<ActionId, MapAction>> = { toggleTask: 'task', cycleStatus: 'status', blockTask: 'block', properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
-const NODE_ACTIONS: ActionId[] = ['toggleTask', 'cycleStatus', 'blockTask', 'properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
+const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
+const NODE_ACTIONS: ActionId[] = ['properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
 
 const ROLE_WORD: Record<Role, string> = { center: 'aquí', child: 'dentro de esta', link: 'enlazada', more: '', parent: 'nota madre', ancestor: 'más arriba', sibling: 'hermana' };
 
@@ -49,20 +50,10 @@ const LEGEND_LINES: [Role, string][] = [
 const bend = (x1: number, y1: number, x2: number, y2: number, horiz: boolean) =>
   horiz ? `M${x1} ${y1} C${(x1 + x2) / 2} ${y1} ${(x1 + x2) / 2} ${y2} ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2} ${x2} ${(y1 + y2) / 2} ${x2} ${y2}`;
 
-// El dibujo de cada nodo dice qué es: tarea (casilla), nota con notas dentro
-// (círculo con su cuenta) o nota sola (punto).
+// El dibujo de cada nodo dice qué es: nota con notas dentro (círculo con su
+// cuenta) o nota sola (punto).
 function Glyph({ p }: { p: Placed }) {
   const big = p.role === 'center';
-  if (p.row?.kind === 'task') {
-    const s = big ? 18 : 11;
-    const done = p.row.status === 'done';
-    return (
-      <>
-        <rect className={`nodes-task${done ? ' is-done' : ''}`} x={-s / 2} y={-s / 2} width={s} height={s} rx={3} />
-        {done && <path className="nodes-check" d={`M${-s * 0.25} 0 l${s * 0.18} ${s * 0.2} l${s * 0.32} ${-s * 0.4}`} />}
-      </>
-    );
-  }
   if (p.kids > 0 && p.role !== 'sibling' && p.role !== 'ancestor') {
     const r = (big ? 14 : 8) + Math.min(6, Math.sqrt(p.kids) * 1.6);
     return (
@@ -77,7 +68,7 @@ function Glyph({ p }: { p: Placed }) {
   return <circle className="nodes-dot" r={big ? 9 : p.r} />;
 }
 
-const titleOf = (r: NoteRow) => r.title || (r.kind === 'task' ? 'Tarea sin título' : 'Nota sin título');
+const titleOf = (r: NoteRow) => r.title || 'Nota sin título';
 
 export function NodeView({ rows, links, center, paused, onCenter, onOpen, onAction, onMove, lit, hide }: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -334,10 +325,9 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
   // Bajo el título del centro: cuánto contiene, sus tareas y sus enlaces.
   const summary = (() => {
     const inside = placed[0]?.kids ?? 0;
-    const tasks = here ? (kids.get(here.id) ?? []).filter((r) => r.kind === 'task') : [];
-    const doneN = tasks.filter((r) => r.status === 'done').length;
+    const tasks = here ? taskCount(here) : { total: 0, done: 0 };
     const linkN = placed.filter((p) => p.role === 'link').length;
-    return [inside && `${inside} dentro`, tasks.length && `${doneN}/${tasks.length} tareas`, linkN && `${linkN} enlazada${linkN > 1 ? 's' : ''}`].filter(Boolean).join(' · ');
+    return [inside && `${inside} dentro`, tasks.total && `${tasks.done}/${tasks.total} tareas`, linkN && `${linkN} enlazada${linkN > 1 ? 's' : ''}`].filter(Boolean).join(' · ');
   })();
 
   return (
@@ -365,13 +355,15 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
         })}
         {placed.map((p) => {
           const label = p.title.length > 34 ? p.title.slice(0, 33) + '…' : p.title;
-          const task = p.row?.kind === 'task';
-          const meta = task ? (p.row!.status === 'done' ? 'hecha' : p.row!.dueAt ? dueLabel(p.row!.dueAt) : '') : p.kids ? `${p.kids} dentro` : '';
+          // Bajo el nombre: cuánto tiene dentro o, si no, cómo van sus tareas.
+          const tasks = p.row && !p.kids ? taskCount(p.row) : null;
+          const meta = p.kids ? `${p.kids} dentro` : tasks?.total ? `${tasks.done}/${tasks.total} tareas` : '';
+          const late = !!tasks?.open.some((t) => t.dueAt && daysUntil(t.dueAt) < 0);
           return (
             <g
               key={`${p.role}:${p.id}`}
               data-node={p.id}
-              className={`nodes-node role-${p.role} ring-${p.ring}${p.kids ? ' has-kids' : ''}${task ? ' is-task' : ''}${p.row?.status === 'done' ? ' is-done' : ''}${focusOn === p.id ? ' on' : ''}${drag?.over === p.id ? ' drop' : ''}${dim(p) ? ' dim' : ''}${p.row?.archivedAt ? ' is-archived' : ''}`}
+              className={`nodes-node role-${p.role} ring-${p.ring}${p.kids ? ' has-kids' : ''}${focusOn === p.id ? ' on' : ''}${drag?.over === p.id ? ' drop' : ''}${dim(p) ? ' dim' : ''}${p.row?.archivedAt ? ' is-archived' : ''}`}
               style={{ transform: `translate(${p.x}px, ${p.y}px)` }}
               onMouseEnter={() => !drag && setHover(p.id)}
               onMouseLeave={() => !drag && setHover(null)}
@@ -423,7 +415,7 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
                     {label}
                   </text>
                   {meta && (
-                    <text className={`nodes-meta${task && p.row!.status !== 'done' && p.row!.dueAt && daysUntil(p.row!.dueAt) < 0 ? ' is-late' : ''}`} x={p.r + 10} y={14}>
+                    <text className={`nodes-meta${late ? ' is-late' : ''}`} x={p.r + 10} y={14}>
                       {meta}
                     </text>
                   )}
@@ -443,12 +435,6 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
             {name}
           </span>
         ))}
-        <span className="nodes-legend-item">
-          <svg width="12" height="12" aria-hidden="true">
-            <rect className="nodes-task" x="1.5" y="1.5" width="9" height="9" rx="2" />
-          </svg>
-          tarea
-        </span>
         <span className="nodes-legend-item">
           <svg width="14" height="14" aria-hidden="true">
             <circle className="nodes-dot is-branch" cx="7" cy="7" r="6" />

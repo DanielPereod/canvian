@@ -10,7 +10,8 @@ export type Viewport = { x: number; y: number; zoom: number };
 
 export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
 
-export type NoteKind = 'text' | 'task' | 'quick' | 'canvas' | 'link' | 'image' | 'checklist' | 'code';
+// Las tareas no son un tipo de nota: son las casillas «- [ ]» de dentro (ver canvas/tasks.ts).
+export type NoteKind = 'text' | 'canvas' | 'link' | 'image' | 'checklist' | 'code';
 
 export type NoteRow = {
   id: string;

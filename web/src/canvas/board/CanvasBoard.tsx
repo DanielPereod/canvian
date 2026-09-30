@@ -102,7 +102,7 @@ function NoteCard({ data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ctx })
     <div className={`board-card board-note${selected ? ' is-selected' : ''}${row ? '' : ' is-missing'}`} onDoubleClick={() => row && ctx.onOpenNote(row.id)}>
       <NodeResizer isVisible={selected} minWidth={160} minHeight={60} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
       {handles}
-      <span className="board-note-kind meta">{row?.kind === 'task' ? 'Tarea' : row?.kind === 'canvas' ? 'Canvas' : 'Nota'}</span>
+      <span className="board-note-kind meta">{row?.kind === 'canvas' ? 'Canvas' : 'Nota'}</span>
       <strong className="board-note-title">{row ? row.title || 'Nota sin título' : 'Nota borrada'}</strong>
       {body && <p className="board-note-body">{body}</p>}
       {row && <span className="board-note-open meta">Doble clic para abrir</span>}

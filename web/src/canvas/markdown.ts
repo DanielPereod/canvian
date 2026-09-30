@@ -75,10 +75,56 @@ const cells = (line: string) =>
     .split(/(?<!\\)\|/)
     .map((c) => c.trim().replace(/\\\|/g, '|'));
 
+// Una línea de Markdown → su contenido en línea (texto con marcas y [[enlaces]]).
+export const inlineFromMd = (text: string): JSONContent[] => inline(text, []);
+
+const wikiMd = (c: JSONContent) => `[[${String(c.attrs?.target ?? '')}${c.attrs?.alias ? `|${String(c.attrs.alias)}` : ''}]]`;
+// Y al revés: el contenido de un párrafo como una línea de Markdown.
+export const inlineToMd = (content: JSONContent[] | undefined): string =>
+  (content ?? []).map((c) => (c.type === 'hardBreak' ? '\n' : c.type === 'wikilink' ? wikiMd(c) : marksToMd(c))).join('');
+
 const para = (text: string, links: string[]): JSONContent => {
   const content = inline(text, links);
   return content.length ? { type: 'paragraph', content } : { type: 'paragraph' };
 };
+
+// Una línea de lista: «- », «1. » o una casilla «- [ ] » (también «[x]», «[/]»
+// en curso y «[!]» bloqueada), con su sangría.
+type ListLine = { indent: number; type: 'taskList' | 'bulletList' | 'orderedList'; box: string | undefined; text: string };
+function listLine(line: string): ListLine | null {
+  const m = /^(\s*)([-*+]|\d+[.)])\s+(?:\[([ xX/!])\](?=\s|$)\s?)?/.exec(line);
+  if (!m) return null;
+  const type = m[3] !== undefined ? 'taskList' : /\d/.test(m[2]) ? 'orderedList' : 'bulletList';
+  return { indent: m[1].replace(/\t/g, '    ').length, type, box: m[3], text: line.slice(m[0].length) };
+}
+
+const BOX_STATUS: Record<string, string> = { '/': 'doing', '!': 'blocked' };
+
+// Una lista y lo que cuelga de ella: lo más sangrado va dentro del punto de
+// encima (así, una casilla sangrada bajo otra es su subtarea).
+function parseList(lines: string[], start: number, links: string[]): [JSONContent, number] {
+  const first = listLine(lines[start])!;
+  const items: JSONContent[] = [];
+  let i = start;
+  while (i < lines.length) {
+    const l = listLine(lines[i]);
+    if (!l || l.indent < first.indent || (l.indent === first.indent && l.type !== first.type)) break;
+    if (l.indent > first.indent && items.length) {
+      const [sub, next] = parseList(lines, i, links);
+      items[items.length - 1].content!.push(sub);
+      i = next;
+      continue;
+    }
+    const status = BOX_STATUS[l.box ?? ''];
+    items.push(
+      first.type === 'taskList'
+        ? { type: 'taskItem', attrs: { checked: /x/i.test(l.box ?? ''), ...(status ? { status } : {}) }, content: [para(l.text, links)] }
+        : { type: 'listItem', content: [para(l.text, links)] },
+    );
+    i++;
+  }
+  return [{ type: first.type, content: items }, i];
+}
 
 export function markdownToDoc(md: string): { doc: JSONContent; links: string[]; heading: string | null } {
   const links: string[] = [];
@@ -131,24 +177,10 @@ export function markdownToDoc(md: string): { doc: JSONContent; links: string[]; 
       content.push({ type: 'table', content: [row(head, 'tableHeader'), ...body.map((r) => row(r, 'tableCell'))] });
       continue;
     }
-    const bullet = /^\s*([-*+]|\d+[.)])\s+/;
-    const task = /^\s*[-*+]\s+\[( |x|X)\]\s?/;
-    if (task.test(line)) {
-      // Casillas de tareas: - [ ] y - [x].
-      const items: JSONContent[] = [];
-      for (let m; i < lines.length && (m = task.exec(lines[i])); i++) {
-        items.push({ type: 'taskItem', attrs: { checked: !!m[1].trim() }, content: [para(lines[i].replace(task, ''), links)] });
-      }
-      content.push({ type: 'taskList', content: items });
-      continue;
-    }
-    if (bullet.test(line)) {
-      const ordered = /^\s*\d/.test(line);
-      const items: JSONContent[] = [];
-      while (i < lines.length && bullet.test(lines[i]) && !task.test(lines[i])) {
-        items.push({ type: 'listItem', content: [para(lines[i++].replace(bullet, ''), links)] });
-      }
-      content.push({ type: ordered ? 'orderedList' : 'bulletList', content: items });
+    if (listLine(line)) {
+      const [list, next] = parseList(lines, i, links);
+      content.push(list);
+      i = next;
       continue;
     }
     const text: string[] = [];
@@ -183,8 +215,7 @@ function marksToMd(n: JSONContent): string {
 
 export function docToMarkdown(doc: JSONContent | null): string {
   if (!doc) return '';
-  const wiki = (c: JSONContent) => `[[${String(c.attrs?.target ?? '')}${c.attrs?.alias ? `|${String(c.attrs.alias)}` : ''}]]`;
-  const inl = (n: JSONContent) => (n.content ?? []).map((c) => (c.type === 'hardBreak' ? '\n' : c.type === 'wikilink' ? wiki(c) : marksToMd(c))).join('');
+  const inl = (n: JSONContent) => inlineToMd(n.content);
   const block = (n: JSONContent, indent = ''): string => {
     switch (n.type) {
       case 'heading':
@@ -204,7 +235,8 @@ export function docToMarkdown(doc: JSONContent | null): string {
         return (n.content ?? [])
           .map((li) => {
             const [first, ...rest] = li.content ?? [];
-            const head = `${indent}- [${li.attrs?.checked ? 'x' : ' '}] ${first ? inl(first) : ''}`;
+            const box = li.attrs?.checked ? 'x' : li.attrs?.status === 'doing' ? '/' : li.attrs?.status === 'blocked' ? '!' : ' ';
+            const head = `${indent}- [${box}] ${first ? inl(first) : ''}`;
             return [head, ...rest.map((r) => block(r, indent + '  '))].join('\n');
           })
           .join('\n');

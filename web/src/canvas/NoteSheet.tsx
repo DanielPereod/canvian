@@ -4,7 +4,7 @@ import type { NoteRow, PropertyDef } from '../api';
 import { applyRemote, editingExtensions, extensions, parseBody, titleFrom } from './editor';
 import { repairTables } from './markdown';
 import { NoteChips } from './NoteChips';
-import { TaskGlyph } from './TaskGlyph';
+import { taskCount } from './tasks';
 import { MediaUpload } from './media';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
@@ -191,10 +191,7 @@ type Props = {
   defs: PropertyDef[];
   onNavigate: (id: string) => void;
   onSave: (id: string, content: NoteContent) => void;
-  onCycle: (id: string) => void;
   onProps: (id: string) => void;
-  onTask: () => void;
-  onBlock: () => void;
   // Modo nodo: la nota en el centro de la vista de nodos.
   onNodes: () => void;
   onArchive: () => void;
@@ -216,7 +213,7 @@ type Props = {
   onCreateLinked: (title: string) => string;
 };
 
-export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onCycle, onProps, onTask, onBlock, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked }: Props) {
+export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked }: Props) {
   const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -322,7 +319,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onCycle, 
       // Un id que no es ULID no dice cuándo se creó.
     }
     const words = (note.bodyText ?? '').split(/\s+/).filter(Boolean).length;
-    const task = note.kind === 'task';
+    const tasks = taskCount(note);
     return (
       <div ref={ref} className="sheet is-reader" style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
         <div className="reader-main">
@@ -330,7 +327,6 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onCycle, 
             <span className="reader-meta">
               {madre ? madre.title || 'Nota sin título' : 'Arriba del todo'} · {kindOf(note, kids)} · editada {editedLabel(note.updatedAt)}
             </span>
-            {task && <TaskGlyph status={note.status ?? 'todo'} onCycle={() => onCycle(note.id)} />}
             <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} wiki={wiki} />
             <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
           </article>
@@ -359,6 +355,12 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onCycle, 
             <dd>{editedLabel(note.updatedAt)}</dd>
             <dt>Palabras</dt>
             <dd>{words}</dd>
+            {tasks.total > 0 && (
+              <>
+                <dt>Tareas</dt>
+                <dd>{tasks.done === tasks.total ? `${tasks.total} hechas` : `${tasks.done} de ${tasks.total} hechas`}</dd>
+              </>
+            )}
           </dl>
           <div className="reader-rule" />
           <div className="reader-side-row">
@@ -370,7 +372,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onCycle, 
               <span key={n.id} className="reader-link">
                 <button className="reader-link-go" onClick={() => onNavigate(n.id)}>
                   <span className="reader-link-g" aria-hidden="true">
-                    {n.kind === 'task' ? (n.status === 'done' ? '■' : '□') : '·'}
+                    ·
                   </span>
                   <span className="reader-ellipsis">{n.title || 'Nota sin título'}</span>
                 </button>
@@ -385,8 +387,6 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onCycle, 
             </button>
           </div>
           <div className="reader-actions">
-            <button onClick={onTask}>{task ? 'Quitar tarea' : 'Hacer tarea'}</button>
-            {task && <button onClick={onBlock}>{note.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}</button>}
             <button onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
               Nodos
             </button>
