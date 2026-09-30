@@ -46,16 +46,15 @@ export function boardFromText(text: string | null): Board {
 // Cambio de tipo de una nota. El cuerpo se convierte cuando se entra o se sale
 // de canvas: el texto pasa a una tarjeta, y el título y el texto de las
 // tarjetas, a párrafos.
-export function kindChange(row: NoteRow, kind: 'text' | 'task' | 'canvas'): NoteInput {
+export function kindChange(row: NoteRow, kind: 'text' | 'canvas'): NoteInput {
   if (row.kind === kind) return {};
   // La primera línea de una nota es su título, que el canvas guarda aparte.
   if (kind === 'canvas') {
     const text = (row.bodyText ?? '').split('\n').slice(1).join('\n').trim();
-    return { kind, status: null, bodyJson: JSON.stringify(boardFromText(text)), bodyText: text || null };
+    return { kind, bodyJson: JSON.stringify(boardFromText(text)), bodyText: text || null };
   }
-  const status = kind === 'task' ? (row.status ?? 'todo') : row.status;
-  if (row.kind !== 'canvas') return kind === 'task' ? { kind, status } : { kind };
+  if (row.kind !== 'canvas') return { kind };
   const lines = [row.title ?? '', ...(row.bodyText ?? '').split('\n')].filter((l) => l.trim());
   const doc = { type: 'doc', content: lines.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })) };
-  return { kind, status: kind === 'task' ? status : null, bodyJson: lines.length ? JSON.stringify(doc) : null, bodyText: lines.join('\n') || null };
+  return { kind, bodyJson: lines.length ? JSON.stringify(doc) : null, bodyText: lines.join('\n') || null };
 }

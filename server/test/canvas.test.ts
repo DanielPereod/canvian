@@ -46,15 +46,10 @@ describe('notes', () => {
     expect((await call('PATCH', `/api/notes/${note.id}`, { title: 'x' })).status).toBe(404);
   });
 
-  it('turns a note into a task and moves it through its states', async () => {
+  it('no longer has task notes: tasks are checkboxes inside a note', async () => {
     const note = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, title: 'Comprar pan' });
-    const task = await data('PATCH', `/api/notes/${note.id}`, { kind: 'task', status: 'todo' });
-    expect(task).toMatchObject({ kind: 'task', status: 'todo' });
-    expect(await data('PATCH', `/api/notes/${note.id}`, { status: 'blocked' })).toMatchObject({ status: 'blocked' });
-    expect((await call('PATCH', `/api/notes/${note.id}`, { status: 'parada' })).status).toBe(400);
-    const done = await data('PATCH', `/api/notes/${note.id}`, { status: 'done', doneAt: '2026-09-26T12:00:00.000Z' });
-    expect(done).toMatchObject({ status: 'done', doneAt: '2026-09-26T12:00:00.000Z' });
-    expect((await call('PATCH', `/api/notes/${note.id}`, { status: 'quizás' })).status).toBe(400);
+    expect((await call('PATCH', `/api/notes/${note.id}`, { kind: 'task' })).status).toBe(400);
+    expect((await call('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, kind: 'quick', title: 'Pan' })).status).toBe(400);
   });
 
   it('accepts client-generated ids so the UI can create optimistically', async () => {
@@ -118,16 +113,6 @@ describe('search', () => {
     expect(await data('GET', `/api/profiles/${personal}/search?q=`)).toHaveLength(2);
   });
 
-  it('keeps quick tasks out of search', async () => {
-    const quick = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, kind: 'quick', title: 'Comprar pan', bodyText: 'Comprar pan', status: 'todo' });
-    expect(quick).toMatchObject({ kind: 'quick', status: 'todo' });
-    await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, title: 'Pan de masa madre', bodyText: 'Pan de masa madre' });
-    expect((await data('GET', `/api/profiles/${personal}/search?q=pan`)).map((h: { title: string }) => h.title)).toEqual(['Pan de masa madre']);
-    expect(await data('GET', `/api/profiles/${personal}/search?q=`)).toHaveLength(1);
-    const { notes } = await data('GET', `/api/profiles/${personal}/canvas`);
-    expect(notes.some((n: { kind: string }) => n.kind === 'quick')).toBe(true);
-  });
-
   it('builds safe FTS queries', () => {
     expect(toFtsQuery('  hola  "mundo" ')).toBe('"hola"* "mundo"*');
     expect(toFtsQuery('   ')).toBeNull();
@@ -149,8 +134,8 @@ describe('properties', () => {
 
     const note = await data('POST', `/api/profiles/${personal}/notes`, { x: 0, y: 0, props: { [zona.id]: 'casa', [horas.id]: 2 } });
     expect(JSON.parse(note.props)).toEqual({ [zona.id]: 'casa', [horas.id]: 2 });
-    const task = await data('PATCH', `/api/notes/${note.id}`, { kind: 'task', priority: 3, dueAt: '2026-10-03' });
-    expect(task).toMatchObject({ priority: 3, dueAt: '2026-10-03' });
+    const dated = await data('PATCH', `/api/notes/${note.id}`, { priority: 3, dueAt: '2026-10-03' });
+    expect(dated).toMatchObject({ priority: 3, dueAt: '2026-10-03' });
     expect((await call('PATCH', `/api/notes/${note.id}`, { props: { x: { nested: true } } })).status).toBe(400);
 
     expect((await call('DELETE', `/api/properties/${zona.id}`)).status).toBe(204);

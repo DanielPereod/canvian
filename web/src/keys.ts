@@ -9,7 +9,6 @@ export type ActionId =
   | 'newNote'
   | 'newSection'
   | 'newCanvas'
-  | 'toggleTask'
   | 'cycleStatus'
   | 'blockTask'
   | 'properties'
@@ -34,12 +33,11 @@ export type ActionId =
 export type KeyAction = { id: ActionId; label: string; group: 'Notas' | 'Vistas y paneles'; key: string };
 
 export const ACTIONS: KeyAction[] = [
-  { id: 'newNote', label: 'Nota nueva (en la vista de tareas, apuntar una tarea rápida)', group: 'Notas', key: 'n' },
+  { id: 'newNote', label: 'Nota nueva (en la vista de tareas, apuntar una tarea)', group: 'Notas', key: 'n' },
   { id: 'newSection', label: 'Nota dentro de la señalada', group: 'Notas', key: 'g' },
   { id: 'newCanvas', label: 'Canvas nuevo (tarjetas libres y flechas)', group: 'Notas', key: 'c' },
-  { id: 'toggleTask', label: 'Convertir en tarea o en nota', group: 'Notas', key: 't' },
-  { id: 'cycleStatus', label: 'Avanzar el estado de una tarea', group: 'Notas', key: 'x' },
-  { id: 'blockTask', label: 'Bloquear o desbloquear una tarea', group: 'Notas', key: 'shift+x' },
+  { id: 'cycleStatus', label: 'Avanzar el estado de la tarea señalada (vista de tareas)', group: 'Notas', key: 'x' },
+  { id: 'blockTask', label: 'Bloquear o desbloquear la tarea señalada (vista de tareas)', group: 'Notas', key: 'shift+x' },
   { id: 'properties', label: 'Propiedades', group: 'Notas', key: 'p' },
   { id: 'deleteCell', label: 'Borrar lo señalado', group: 'Notas', key: 'delete' },
   { id: 'rename', label: 'Renombrar la nota señalada', group: 'Notas', key: 'r' },

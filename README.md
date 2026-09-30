@@ -1,6 +1,6 @@
 # Canvian
 
-Canvas infinito de notas y tareas enlazadas, con perfiles (Personal, Trabajo…) y filtros por teclado. Self-hosted: un contenedor y un archivo SQLite.
+Canvas infinito de notas enlazadas, con sus tareas dentro, con perfiles (Personal, Trabajo…) y filtros por teclado. Self-hosted: un contenedor y un archivo SQLite.
 
 Estado: **fase 1**. Login, perfiles, y notas con texto enriquecido en el canvas: se crean, enlazan, anidan (cualquier nota puede tener hijas) y se buscan con ⌘P.
 
@@ -35,11 +35,27 @@ Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (i
 
 ## Datos de ejemplo
 
-`npm run seed -w server` llena Personal y Trabajo con notas anidadas, tareas y enlaces de ejemplo (añade `-- --extra 400` para cientos de notas más). `npm run seed -w server -- --borrar` quita solo lo que creó.
+`npm run seed -w server` llena Personal y Trabajo con notas anidadas, tareas (casillas con subtareas) y enlaces de ejemplo (añade `-- --extra 400` para cientos de notas más). `npm run seed -w server -- --borrar` quita solo lo que creó.
 
 ## Temas
 
 **Configuración** (`Ctrl ,`) está ordenada como Obsidian: secciones a la izquierda (General, Aspecto y Atajos de teclado) y sus ajustes a la derecha. En **Aspecto** se elige el modo (claro, oscuro o automático, que sigue al sistema) y un tema para cada tono: oscuros Jardín nocturno, Observatorio, Plano, Mínimo y Biblioteca; claros Papel, Bloques, Piedras de río, Mínimo claro y Biblioteca. Todos visten la misma biblioteca, cada uno con sus colores, su letra para los títulos y su letra para leer. El modo también se cambia con `Ctrl Mayús L` o desde la paleta de comandos (`Ctrl Mayús P`, «Modo claro/oscuro/automático»). Todo se guarda en el servidor, así que vale en todos tus dispositivos.
+
+## Tareas
+
+Las tareas no son notas aparte: son las casillas que escribes dentro de cualquier nota, como en Obsidian. Una casilla sangrada bajo otra (`Tab`) es su subtarea.
+
+```md
+- [ ] Pintar el salón #obra 📅 2026-10-05 ⏫
+  - [x] Comprar pintura ✅ 2026-09-20
+  - [/] Mover los muebles
+    - [ ] El sofá
+- [!] Llamar al fontanero
+```
+
+`[ ]` pendiente, `[/]` en curso, `[!]` bloqueada y `[x]` hecha. Lo demás va en la propia línea: `📅 AAAA-MM-DD` es la fecha, `⏫` `🔼` `🔽` la prioridad (alta, media, baja), `#palabra` una etiqueta y `✅ AAAA-MM-DD` cuándo se hizo. No hace falta escribirlo a mano: la vista de tareas (`A`) lo pone al cambiar la fecha, la prioridad o el estado, y lo escribe en la nota.
+
+Al actualizar desde una versión en la que las tareas eran notas, el servidor las pasa solo, una vez, a casillas dentro de su nota madre (con su estado, fecha, prioridad y etiquetas). Una tarea que tenía más texto, notas dentro o enlaces se queda como nota y su casilla la enlaza (`- [ ] [[Título]]`); las tareas rápidas y las que no estaban dentro de ninguna nota van a una nota «Tareas».
 
 ## Atajos
 
@@ -61,16 +77,14 @@ Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que te
 | `R` | Renombrar la nota señalada (cambia su primera línea) |
 | `⌘/Ctrl Mayús X` | Archivar o desarchivar la nota abierta o señalada: se oculta con todo lo que cuelga de ella (también con el botón «Archivar») |
 | `⌘/Ctrl Mayús H` | Mostrar u ocultar las notas archivadas |
-| `T` | Convertir la nota señalada en tarea (o volver a nota) |
-| `X` | Avanzar el estado de la tarea señalada: pendiente → en curso → hecha |
-| `P` | Propiedades de la nota señalada: tipo (nota, tarea o canvas), estado, prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
+| `P` | Propiedades de la nota señalada: tipo (nota o canvas), prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
 | `Supr` | Borrar la nota señalada (sus hijas pasan a su madre) |
-| En el lector | Escribir; en el panel de la derecha, sus datos, sus enlaces (`＋ Enlazar` busca otra nota, `×` quita el enlace) y hacer tarea, archivar, propiedades o borrar |
+| En el lector | Escribir; en el panel de la derecha, sus datos (también cuántas de sus tareas están hechas), sus enlaces (`＋ Enlazar` busca otra nota, `×` quita el enlace) y archivar, propiedades o borrar |
 | `[[` (escribiendo en una nota) | Abre el buscador de notas para enlazar, como en Obsidian: `↑`/`↓` eligen, `Enter` o `Tab` ponen el `[[enlace]]` (y unen las dos notas), `Esc` lo cierra. Si no existe, «Crear nota» la crea al lado. Vale `[[Nota#Sección\|alias]]`, y escribir `[[Nota]]` entero también enlaza. Clic en el enlace abre la nota |
-| Markdown al escribir | El de Obsidian: `#`…`######`, `**negrita**`, `*cursiva*`, `~~tachado~~`, `==resaltado==` (también `⌘/Ctrl ⇧ H`), `` `código` ``, `[texto](url)`, `- `, `1. `, `- [ ] ` (casillas), `> `, ` ``` ` y `---` |
-| `A` | Vista de tareas: todas las tareas activas del perfil en una lista, agrupadas por estado, fecha o nota madre (`Tab` cambia). `↑`/`↓` para moverse, `Enter` abre, `X` avanza el estado, `N` apunta una tarea rápida (solo vive en esta vista: no es una nota, no sale en la biblioteca ni al buscar; `Enter` o clic la edita en su sitio, `Supr` la borra), `Esc` vuelve |
+| Markdown al escribir | El de Obsidian: `#`…`######`, `**negrita**`, `*cursiva*`, `~~tachado~~`, `==resaltado==` (también `⌘/Ctrl ⇧ H`), `` `código` ``, `[texto](url)`, `- `, `1. `, `- [ ] ` (casillas: tareas; `[/]` en curso, `[!]` bloqueada, y con `Tab` subtareas), `> `, ` ``` ` y `---` |
+| `A` | Vista de tareas: todas las casillas de todas las notas del perfil, agrupadas por fecha, estado o nota (`Tab` cambia), con sus subtareas debajo. `↑`/`↓` para moverse, `Enter` abre su nota con la tarea señalada, `Espacio` la marca hecha (y sus subtareas), `X` avanza el estado, `⇧X` la bloquea, `E` edita el texto, `M` la lleva a otra nota, `Supr` la borra (con sus subtareas), `N` apunta una tarea (va a la nota «Tareas», o a otra con `> nota`), `Esc` vuelve. En el detalle se ponen fecha, prioridad, etiquetas y subtareas |
 | `O` | Ordenar: el árbol de notas con hijas a un lado y lo que hay dentro de la elegida al otro (también desde Configuración). Clic o `Espacio` marca, `⇧` marca seguidas; se mueven arrastrándolas a otra nota, con `M` o aceptando el sitio sugerido (`S`). `←`/`→` cambia de rama, `/` busca en todas, `Z` deshace, `Esc` vuelve |
-| `F` | Linterna: filtra la colección o los nodos en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea` (o `nota`, `canvas`), `estado:pendiente\|curso\|bloqueada\|hecha` (o `-hecha`), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d`, `en:viaje` (dentro de una nota), `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
+| `F` | Linterna: filtra la colección o los nodos en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea` (notas con tareas pendientes; o `nota`, `canvas`), `estado:pendiente\|curso\|bloqueada\|hecha` (notas con alguna tarea así), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d` (la fecha de la nota o de sus tareas), `en:viaje` (dentro de una nota), `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
 | `Tab` (con la linterna) | Cambia el modo: atenuar (lo demás se apaga) u ocultar |
 | `⌘/Ctrl S` (en la linterna) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |
 | Arrastrar archivos `.md` | Importarlos como notas dentro de la nota en la que estás; los `[[enlaces]]` entre ellas se convierten en enlaces, y las tablas en tablas de verdad |

@@ -8,17 +8,10 @@ import {
   type PropertyDef,
   type PropertyType,
   type PropValue,
-  type TaskStatus,
 } from '../api';
 import { kindChange } from './board/board';
 
 export const PRIORITIES = ['Sin prioridad', 'Baja', 'Media', 'Alta'] as const;
-const STATUSES: { id: TaskStatus; name: string }[] = [
-  { id: 'todo', name: 'Pendiente' },
-  { id: 'doing', name: 'En curso' },
-  { id: 'blocked', name: 'Bloqueada' },
-  { id: 'done', name: 'Hecha' },
-];
 const TYPES: { id: PropertyType; name: string }[] = [
   { id: 'text', name: 'Texto' },
   { id: 'select', name: 'Opciones' },
@@ -68,7 +61,6 @@ export function Inspector({ note, defs, profileId, onChange, onDefsChange, onErr
   };
 
   const props = parseProps(note?.props);
-  const task = note?.kind === 'task';
 
   return (
     <aside
@@ -95,29 +87,14 @@ export function Inspector({ note, defs, profileId, onChange, onDefsChange, onErr
 
           <Row label="Tipo" i={0}>
             <Segmented
-              value={note.kind === 'canvas' ? 'canvas' : task ? 'task' : 'text'}
+              value={note.kind === 'canvas' ? 'canvas' : 'text'}
               options={[
                 { id: 'text', name: 'Nota' },
-                { id: 'task', name: 'Tarea' },
                 { id: 'canvas', name: 'Canvas' },
               ]}
-              onChange={(v) => onChange(note.id, kindChange(note, v as 'text' | 'task' | 'canvas'))}
+              onChange={(v) => onChange(note.id, kindChange(note, v as 'text' | 'canvas'))}
             />
           </Row>
-
-          {task && (
-            <Row label="Estado" i={1} wide>
-              <div className="insp-status">
-                <Segmented
-                  value={note.status ?? 'todo'}
-                  options={STATUSES}
-                  onChange={(status) =>
-                    onChange(note.id, { status, doneAt: status === 'done' ? new Date().toISOString() : null })
-                  }
-                />
-              </div>
-            </Row>
-          )}
 
           <Row label="Prioridad" i={2}>
             <Segmented

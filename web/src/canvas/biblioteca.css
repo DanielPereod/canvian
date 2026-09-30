@@ -435,7 +435,6 @@
 .reader-main { flex: 1; min-width: 0; overflow-y: auto; display: flex; justify-content: center; }
 .reader-body { position: relative; width: min(680px, calc(100% - 48px)); padding: 48px 0 18vh; display: flex; flex-direction: column; gap: 14px; animation: bib-in 320ms var(--ease-out) both; }
 .reader-meta { font-size: calc(12px * var(--type-scale, 1)); color: var(--text-faint); }
-.reader-body .task-glyph { position: absolute; top: 44px; right: 0; }
 .sheet.is-reader .sheet-prose { font-family: var(--read-font); font-size: calc(var(--read-size) * var(--type-scale, 1)); line-height: 1.7; min-height: 40vh; }
 .sheet.is-reader .sheet-prose > :first-child,
 .sheet.is-reader .sheet-prose > p:first-child strong { font-size: calc(32px * var(--title-scale) * var(--type-scale, 1)); line-height: 1.15; margin-bottom: 8px; }

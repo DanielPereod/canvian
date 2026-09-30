@@ -1,5 +1,6 @@
 import type { NoteRow } from '../api';
 import { daysUntil } from './dates';
+import { tasksOf } from './tasks';
 
 // Las notas como un árbol: cualquier nota puede ser madre de otras (`zoneId`
 // es su madre). Aquí están la madre de cada una, las rutas «Padre>Hijo» y la
@@ -15,16 +16,14 @@ export const bounds = (rs: Rect[]): Rect => {
   return { x, y, w: Math.max(...rs.map((r) => r.x + r.w)) - x || 1, h: Math.max(...rs.map((r) => r.y + r.h)) - y || 1 };
 };
 
-// Importancia de una nota: enlaces, prioridad, si está en curso o vencida, si
-// la tocaste hace poco y cuánto texto tiene. Lo hecho pesa menos.
+// Importancia de una nota: enlaces, prioridad, sus tareas (en curso o a punto
+// de vencer), si la tocaste hace poco y cuánto texto tiene.
 export function importanceOf(row: NoteRow, degree: number, now = Date.now()) {
   let imp = 1 + 0.55 * Math.min(degree, 8) + 0.5 * (row.priority ?? 0);
-  if (row.kind === 'task') {
-    if (row.status === 'doing') imp += 0.8;
-    if (row.status === 'done') imp *= 0.55;
-    if (row.status === 'blocked') imp *= 0.8;
-    if (row.status !== 'done' && row.dueAt && daysUntil(row.dueAt) <= 2) imp += 1;
-  }
+  const open = tasksOf(row).filter((t) => t.status !== 'done');
+  if (open.some((t) => t.status === 'doing')) imp += 0.8;
+  if (open.some((t) => t.dueAt && daysUntil(t.dueAt) <= 2) || (row.dueAt && daysUntil(row.dueAt) <= 2)) imp += 1;
+  imp += 0.15 * Math.min(open.length, 6);
   if (row.updatedAt) imp += 1.5 * Math.exp(-(now - Date.parse(row.updatedAt)) / DAY / 10);
   imp += 0.2 * Math.log1p((row.bodyText?.length ?? 0) / 80);
   return Math.max(0.3, imp);

@@ -24,34 +24,6 @@
 .lantern-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px 2px var(--accent-glow); animation: breathe 2.4s ease-in-out infinite; }
 @keyframes breathe { 50% { box-shadow: 0 0 22px 5px var(--accent-glow); } }
 
-/* ── Tareas: estado en la esquina ── */
-
-.task-glyph {
-  position: absolute;
-  top: 7px;
-  right: 7px;
-  z-index: 1;
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: var(--accent-ink);
-  transition: background var(--dur-fast), scale var(--dur-base) var(--ease-spring);
-}
-.task-glyph:hover { background: var(--accent-soft); scale: 1.12; }
-.task-glyph:active { scale: 0.9; }
-.task-glyph svg { width: 22px; height: 22px; overflow: visible; }
-
-/* Un círculo que se llena */
-.task-glyph .ring { fill: none; stroke: var(--text-faint); stroke-width: 1.5; transition: fill var(--dur-base), stroke var(--dur-base); }
-.task-glyph .half { fill: var(--accent); opacity: 0; transition: opacity var(--dur-base); }
-.task-glyph .tick { fill: none; stroke: var(--accent-contrast); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 14; stroke-dashoffset: 14; transition: stroke-dashoffset var(--dur-slow) var(--ease-out); }
-.task-glyph.is-doing .ring { stroke: var(--accent); }
-.task-glyph.is-doing .half { opacity: 0.85; }
-.task-glyph.is-done .ring { stroke: var(--accent); fill: var(--accent); }
-.task-glyph.is-done .tick { stroke-dashoffset: 0; }
-
 /* Interruptor (propiedades de sí o no) */
 .switch {
   position: relative;

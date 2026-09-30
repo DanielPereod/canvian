@@ -40,7 +40,17 @@
 .prose ul[data-type='taskList'] > li > label { flex: none; display: inline-flex; margin-top: 0.3em; user-select: none; }
 .prose ul[data-type='taskList'] > li > label input { margin: 0; accent-color: var(--accent); cursor: pointer; }
 .prose ul[data-type='taskList'] > li > div { flex: 1; min-width: 0; }
-.prose ul[data-type='taskList'] > li[data-checked='true'] > div { color: var(--text-faint); text-decoration: line-through; text-decoration-color: var(--text-ghost); }
+/* Tachada solo su línea: sus subtareas van por su cuenta. */
+.prose ul[data-type='taskList'] > li[data-checked='true'] > div > p:first-child { color: var(--text-faint); text-decoration: line-through; text-decoration-color: var(--text-ghost); }
+/* En curso ([/]): un punto dentro de la casilla. Bloqueada ([!]): una raya. */
+.prose ul[data-type='taskList'] > li > label { position: relative; }
+.prose ul[data-type='taskList'] > li[data-status] > label::after { content: ''; position: absolute; pointer-events: none; }
+.prose ul[data-type='taskList'] > li[data-status='doing'] > label::after { inset: 32%; border-radius: 50%; background: var(--accent); }
+.prose ul[data-type='taskList'] > li[data-status='blocked'] > label::after { left: 22%; right: 22%; top: calc(50% - 1px); height: 2px; border-radius: 1px; background: var(--prio-3); }
+.prose ul[data-type='taskList'] > li[data-status='blocked'] > div > p:first-child { color: var(--text-faint); }
+/* La tarea a la que se llega desde la vista de tareas. */
+.prose ul[data-type='taskList'] > li.is-flash > div { animation: task-flash 1.6s ease-out; border-radius: 4px; }
+@keyframes task-flash { 0%, 30% { background: var(--accent-soft); } 100% { background: transparent; } }
 
 /* La lista que sale al escribir «[[» */
 .wiki-suggest { position: fixed; z-index: 60; width: min(340px, calc(100vw - 16px)); padding: var(--space-1); border-radius: var(--radius-md); animation: bloom var(--dur-fast) var(--ease-out) both; }

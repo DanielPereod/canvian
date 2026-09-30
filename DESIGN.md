@@ -14,7 +14,7 @@ La muestra viva está en la propia app: abre `http://localhost:5173/#sistema`.
 | `web/src/canvas/canvas.css` | Texto de las notas (prosa) |
 | `web/src/canvas/sections.css` | Vista de nodos, hoja de canvas, tareas y ordenar |
 | `web/src/canvas/biblioteca.css` | La biblioteca: barra lateral, cabecera, colección, lector y los temas Biblioteca |
-| `web/src/canvas/pieces.css` | Linterna, estado de tarea e interruptor |
+| `web/src/canvas/pieces.css` | Linterna e interruptor |
 | `web/src/app.css` | Configuración, atajos, guía de estilo y las luciérnagas de la entrada |
 
 ## Reglas

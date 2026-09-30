@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ulid } from 'ulidx';
-import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type TaskStatus } from '../api';
+import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef } from '../api';
 import type { NoteContent } from './NoteSheet';
 import { CommandPalette } from './CommandPalette';
 import { onLive } from '../live';
@@ -14,10 +14,11 @@ import { SectionPicker } from './SectionPicker';
 import { docText, docToMarkdown, markdownToDoc } from './markdown';
 import { parseBody } from './editor';
 import { hasMedia, isMedia, uploadMedia } from './media';
-import { emptyBoard, kindChange, parseBoard } from './board/board';
+import { emptyBoard, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
-import { TasksView } from './TasksView';
-import { mergeTags, splitTags, tagsOf } from './tags';
+import { INBOX, TasksView } from './TasksView';
+import { addTaskItem, allTasks, changeTask, contentOf, newTaskItem, removeTask, takeTask, type Task, type TaskChange } from './tasks';
+import { mergeTags, splitTags } from './tags';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keysBlocked } from '../keys';
 import { useSideWidth } from './Resizer';
@@ -30,8 +31,6 @@ import { BibBar, BibMenu, BibSidebar, Library, type MenuAction, titleOf as bibTi
 export type Link = { id: string; source: string; target: string };
 
 const NOTE_W = 240;
-// X avanza; una tarea bloqueada vuelve a pendiente al desbloquearla.
-const NEXT: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', blocked: 'todo', done: 'todo' };
 const now = () => new Date().toISOString();
 
 const isTyping = (target: EventTarget | null) =>
@@ -60,12 +59,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [allRows, setRows] = useState<NoteRow[]>([]);
   // Las archivadas (y lo que cuelga de ellas) no se ven salvo que se pidan.
   const [showArchived, setShowArchived] = useState(false);
-  // Las tareas rápidas viven solo en la vista de tareas: fuera del mapa y de todo lo demás.
-  const quick = useMemo(() => allRows.filter((r) => r.kind === 'quick'), [allRows]);
-  const rows = useMemo(() => {
-    const notes = allRows.filter((r) => r.kind !== 'quick');
-    return showArchived ? notes : visibleRows(notes);
-  }, [allRows, showArchived]);
+  const rows = useMemo(() => (showArchived ? allRows : visibleRows(allRows)), [allRows, showArchived]);
   const [links, setLinks] = useState<Link[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState<false | 'open' | 'link' | 'card'>(false);
@@ -77,7 +71,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [mode, setMode] = useState<LensMode>('dim');
   const [lenses, setLenses] = useState<Lens[]>([]);
   const [focusId, setFocusId] = useState<string | null>(null);
-  // La otra vista: todas las tareas activas en una lista.
+  // La otra vista: las tareas (las casillas de todas las notas) en una lista.
   const [tasksOpen, setTasksOpen] = useState(false);
   // Y la de ordenar: el árbol de secciones y sus notas, para mover en bloque.
   const [organizeOpen, setOrganizeOpen] = useState(false);
@@ -332,20 +326,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     [patchRow, report],
   );
 
-  const toggleTask = (row: NoteRow) => updateNote(row.id, kindChange(row, row.kind === 'task' ? 'text' : 'task'));
-  const cycleStatus = (id: string) => {
-    const row = rowsRef.current.find((r) => r.id === id);
-    if (!row || (row.kind !== 'task' && row.kind !== 'quick')) return;
-    const status = NEXT[row.status ?? 'todo'];
-    updateNote(id, { status, doneAt: status === 'done' ? now() : null });
-  };
-
-  const toggleBlocked = (id: string) => {
-    const row = rowsRef.current.find((r) => r.id === id);
-    if (!row || (row.kind !== 'task' && row.kind !== 'quick')) return;
-    updateNote(id, { status: row.status === 'blocked' ? 'todo' : 'blocked', doneAt: null });
-  };
-
   const connect = (source: string, target: string) => {
     if (source === target || links.some((l) => (l.source === source && l.target === target) || (l.source === target && l.target === source))) return;
     const id = ulid();
@@ -413,30 +393,57 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     openNote(row.id);
   };
 
-  // Tarea rápida desde la vista de tareas: solo un título, sin sitio en el mapa.
-  const newQuick = (raw: string, extra: { dueAt?: string } = {}) => {
-    const { text, tags } = splitTags(raw);
-    if (!text && !tags.length) return;
-    createNote({ x: 0, y: 0 }, 'quick', { title: text || null, status: 'todo', ...extra, ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
-  };
-  // Tarea con nota, dentro de `zoneId`, sin abrirla (desde la vista de tareas).
-  const newTaskIn = (raw: string, zoneId: string, extra: { dueAt?: string } = {}) => {
-    const { text, tags } = splitTags(raw);
-    if (!text) return;
-    const row = createNote(spotFor(zoneId), 'task', { zoneId, status: 'todo', ...extra, ...(tags.length ? { props: JSON.stringify(withTags(null, tags)) } : {}) });
-    const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
-    saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
-  };
-  // Cambia las etiquetas de una nota (las de su propiedad de etiquetas).
-  const setTags = (row: NoteRow, tags: string[]) => {
-    const def = tagsDef();
-    const props = withTags(row.props, tags);
-    updateNote(row.id, { props: { ...props, [def.id]: tags } });
-  };
-  const editQuick = (id: string, raw: string) => {
-    const { text, tags } = splitTags(raw);
+  // ── Tareas: las casillas de las notas ───────────────────────────────
+  // La nota tal y como está ahora, con lo escrito que aún no ha salido al servidor.
+  const rowNow = (id: string): NoteRow | undefined => {
     const row = rowsRef.current.find((r) => r.id === id);
-    updateNote(id, { title: text || row?.title || null, ...(tags.length ? { props: withTags(row?.props, tags) } : {}) });
+    const draft = pending.current.get(id);
+    return row && draft ? { ...row, ...draft } : row;
+  };
+  const saveDoc = (id: string, doc: Parameters<typeof contentOf>[0]) => saveContent(id, contentOf(doc));
+  const changeTaskIn = (task: Task, change: TaskChange) => {
+    const row = rowNow(task.noteId);
+    const doc = row && changeTask(row, task, change);
+    if (doc) saveDoc(row.id, doc);
+  };
+  const deleteTask = (task: Task) => {
+    const row = rowNow(task.noteId);
+    const doc = row && removeTask(row, task);
+    if (doc) saveDoc(row.id, doc);
+  };
+  // Lo que se apunta sin decir en qué nota va a «Tareas», arriba del todo (se crea si no está).
+  const inbox = () => rowsRef.current.find((r) => !r.zoneId && r.kind !== 'canvas' && !r.archivedAt && r.title?.trim().toLocaleLowerCase('es') === INBOX.toLocaleLowerCase('es'));
+  const addTask = (source: string, noteId: string | null, extra: { dueAt?: string } = {}, under?: Task) => {
+    if (!source.trim()) return;
+    const item = newTaskItem(source, extra);
+    const row = noteId ? rowNow(noteId) : inbox() && rowNow(inbox()!.id);
+    if (row) return saveDoc(row.id, addTaskItem(row, item, under));
+    const made = createNote(spotFor(null), 'text', { zoneId: null });
+    const title = { type: 'paragraph', content: [{ type: 'text', marks: [{ type: 'bold' }], text: INBOX }] };
+    saveDoc(made.id, { type: 'doc', content: [title, { type: 'taskList', content: [item] }] });
+  };
+  // Llevar una tarea (con sus subtareas) al final de otra nota.
+  const moveTask = (task: Task, noteId: string) => {
+    if (noteId === task.noteId) return;
+    const from = rowNow(task.noteId);
+    const to = rowNow(noteId);
+    const taken = from && to && takeTask(from, task);
+    if (!taken) return;
+    saveDoc(from.id, taken.doc);
+    saveDoc(to!.id, addTaskItem(to!, taken.item));
+  };
+  // Abre la nota de la tarea encima de la vista y la señala en el texto.
+  const openTask = (task: Task) => {
+    setPeek(true);
+    openNote(task.noteId);
+    setTimeout(() => {
+      const li = document.querySelectorAll<HTMLElement>('.sheet-editor li[data-type="taskItem"]')[task.n];
+      if (!li) return;
+      li.scrollIntoView({ block: 'center' });
+      li.classList.remove('is-flash');
+      void li.offsetWidth;
+      li.classList.add('is-flash');
+    }, 280);
   };
 
   const newCanvas = (zoneId: string | null) => {
@@ -491,18 +498,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     updateNote(id, { zoneId, ...spotFor(zoneId) });
   };
 
-  // Cambiar la nota madre de una tarea desde la vista de tareas. Una tarea
-  // rápida que entra en una nota deja de ser rápida: pasa a ser tarea con nota.
-  const moveTask = (id: string, zoneId: string | null) => {
-    const row = rowsRef.current.find((r) => r.id === id);
-    if (!row) return;
-    if (row.kind !== 'quick') return moveTo(id, zoneId);
-    if (!zoneId) return;
-    const text = row.title ?? '';
-    updateNote(id, { kind: 'task', zoneId, ...spotFor(zoneId) });
-    if (text) saveContent(id, { bodyJson: JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }), bodyText: text, title: text.slice(0, 120) });
-  };
-
   // Mover varias de golpe (vista de ordenar): una sola petición al servidor.
   const moveMany = (moves: Move[]) => {
     const byId = new Map(rowsRef.current.map((r) => [r.id, r]));
@@ -546,10 +541,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     // Nota nueva dentro de la señalada (o de donde estás).
     else if (action === 'section') newNote(row ? row.id : zoneId);
     else if (!row) return;
-    // Un canvas solo cambia de tipo desde Propiedades: T aplanaría su lienzo.
-    else if (action === 'task' && row.kind !== 'canvas') toggleTask(row);
-    else if (action === 'status') cycleStatus(row.id);
-    else if (action === 'block') toggleBlocked(row.id);
     else if (action === 'props') setInspectId(row.id);
     else if (action === 'delete') removeNotes([row.id]);
     else if (action === 'rename') setRenaming({ id: row.id, title: row.title ?? '' });
@@ -746,12 +737,11 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
 
   const exportCanvas = () => {
     const out = {
-      nodes: rowsRef.current.filter((r) => r.kind !== 'quick').map((r) => {
+      nodes: rowsRef.current.map((r) => {
         const { x, y, w, h } = rectOf(r);
         const base = { id: r.id, x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) };
         const md = (r.kind === 'canvas' ? '' : docToMarkdown(parseBody(r.bodyJson))) || (r.bodyText ?? '');
-        const box = r.kind === 'task' ? `- [${r.status === 'done' ? 'x' : ' '}] ` : '';
-        return { ...base, type: 'text', text: box + md };
+        return { ...base, type: 'text', text: md };
       }),
       edges: links.map((l) => ({ id: l.id, fromNode: l.source, toNode: l.target })),
     };
@@ -893,7 +883,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     if (bibView === 'tasks') document.querySelector<HTMLInputElement>('.tasks-view .tv-add input')?.focus();
     else newNote(focused ? (family.parent.get(focused.id) ?? null) : center && center !== LOOSE ? center : null);
   };
-  const openTasksCount = [...rows, ...quick].filter((r) => (r.kind === 'task' || r.kind === 'quick') && r.status !== 'done').length;
+  const openTasksCount = useMemo(() => allTasks(rows).filter((t) => t.status !== 'done').length, [rows]);
 
   return (
     <div
@@ -1072,24 +1062,12 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         <TasksView
           rows={rows}
           paused={!!focusId || !!inspectId || !!paletteOpen}
-          onOpen={(id) => {
-            setPeek(true);
-            openNote(id);
-          }}
-          onCycle={cycleStatus}
-          onBlock={toggleBlocked}
-          quick={quick}
-          onAddQuick={newQuick}
-          onAddTask={newTaskIn}
+          onOpen={openTask}
+          onChange={changeTaskIn}
+          onAdd={addTask}
           sections={sectionOptions}
           onMoveTask={moveTask}
-          onPatch={updateNote}
-          onRename={rename}
-          onSetTags={setTags}
-          onEditQuick={editQuick}
-          tagsOf={(r) => tagsOf(r, defs)}
-          onDelete={(id) => removeNotes([id])}
-          onToNote={(id) => act('task', id, null)}
+          onDelete={deleteTask}
           onClose={() => setTasksOpen(false)}
         />
       )}
@@ -1106,16 +1084,13 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           onError={report}
           sections={sectionOptions}
           onMove={(zoneId) => moveTo(focused.id, zoneId)}
-          onCycle={cycleStatus}
           onProps={(id) => setInspectId(id)}
-          onTask={() => toggleTask(focused)}
           rows={rows}
           onRename={(title) => updateNote(focused.id, { title: title || null })}
           onPickNote={(then) => {
             pickCard.current = then;
             setPaletteOpen('card');
           }}
-          onBlock={() => toggleBlocked(focused.id)}
           onNodes={() => toNodes(focused.id)}
           onArchive={() => toggleArchive(focused)}
           onLink={() => setPaletteOpen('link')}

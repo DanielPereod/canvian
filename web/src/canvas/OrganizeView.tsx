@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NoteRow } from '../api';
-import { TaskGlyph } from './TaskGlyph';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { parentMap } from './sections';
 import { makeSuggester } from './suggest';
@@ -21,7 +20,7 @@ const SORTS: { id: SortBy; label: string }[] = [
   { id: 'nombre', label: 'A–Z' },
   { id: 'tipo', label: 'Tipo' },
 ];
-const KIND_ORDER: Record<string, number> = { task: 0, text: 1, canvas: 2 };
+const KIND_ORDER: Record<string, number> = { text: 1, canvas: 2 };
 // «Sin sección» en el árbol; las secciones van por su id.
 const LOOSE = '';
 
@@ -367,12 +366,8 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
                 onDoubleClick={() => onOpen(r.id)}
               >
                 <span className={`org-check${on ? ' is-on' : ''}`} aria-hidden="true" />
-                {r.kind === 'task' ? (
-                  <TaskGlyph status={r.status ?? 'todo'} onCycle={() => {}} />
-                ) : (
-                  <span className={`org-kind org-kind-${r.kind}`} aria-hidden="true" />
-                )}
-                <span className="org-row-title">{r.title || (r.kind === 'task' ? 'Tarea sin título' : 'Nota sin título')}</span>
+                <span className={`org-kind org-kind-${r.kind}`} aria-hidden="true" />
+                <span className="org-row-title">{r.title || 'Nota sin título'}</span>
                 {q && <span className="meta tasks-where">{pathOf(r)}</span>}
                 {hint && (
                   <button

@@ -54,3 +54,56 @@ describe('0004_notes_tree', () => {
     for (const end of ['', '-wal', '-shm']) rmSync(path + end, { force: true });
   });
 });
+
+describe('task notes → checkboxes', () => {
+  it('turns task notes into checkboxes in their parent note, and quick tasks into «Tareas»', () => {
+    const path = join(tmpdir(), `canvian-migration-tasks-${process.pid}.db`);
+    openDb(path);
+    const sqlite = new Database(path);
+    sqlite.exec(`INSERT INTO profiles (id, name, position) VALUES ('p', 'Personal', 0)`);
+    sqlite.exec(`INSERT INTO property_defs (id, profile_id, name, type) VALUES ('tags', 'p', 'Etiquetas', 'tags')`);
+    const doc = (text: string) => JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
+    const add = sqlite.prepare(
+      `INSERT INTO notes (id, profile_id, kind, title, body_json, body_text, zone_id, status, priority, due_at, done_at, props, created_at) VALUES (?, 'p', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    add.run('casa', 'text', 'Casa', doc('Casa'), 'Casa', null, null, null, null, null, '{}', '2026-01-01');
+    add.run('bombillas', 'task', 'Cambiar bombillas', doc('Cambiar bombillas'), 'Cambiar bombillas', 'casa', 'doing', 3, '2026-10-02', null, '{"tags":["luz"]}', '2026-01-02');
+    add.run('persiana', 'task', 'Arreglar la persiana', doc('Arreglar la persiana'), 'Arreglar la persiana\nLlamar al técnico', 'casa', 'done', null, null, '2026-09-01T10:00:00Z', '{}', '2026-01-03');
+    add.run('pan', 'quick', 'Comprar pan', null, null, null, 'todo', null, null, null, '{}', '2026-01-04');
+    add.run('borrada', 'task', 'Ya no', doc('Ya no'), 'Ya no', 'casa', 'todo', null, null, null, '{}', '2026-01-05');
+    sqlite.exec(`UPDATE notes SET deleted_at = '2026-02-01' WHERE id = 'borrada'`);
+    sqlite.close();
+
+    // Al volver a abrir se migra (y otra vez no cambia nada).
+    openDb(path);
+    openDb(path);
+    const db = new Database(path);
+    const rows = db.prepare('SELECT id, kind, title, body_json, body_text, deleted_at FROM notes ORDER BY created_at').all() as Record<string, string | null>[];
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+    // Una tarea que era solo una línea desaparece; la que tenía más texto se queda como nota.
+    expect(byId.bombillas.deleted_at).not.toBeNull();
+    expect(byId.persiana).toMatchObject({ kind: 'text', deleted_at: null });
+    expect(byId.pan.deleted_at).not.toBeNull();
+    expect(byId.borrada.kind).toBe('task');
+
+    const list = JSON.parse(byId.casa.body_json!).content.at(-1);
+    expect(list.type).toBe('taskList');
+    expect(list.content).toEqual([
+      { type: 'taskItem', attrs: { checked: false, status: 'doing' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Cambiar bombillas #luz 📅 2026-10-02 ⏫' }] }] },
+      {
+        type: 'taskItem',
+        attrs: { checked: true },
+        content: [{ type: 'paragraph', content: [{ type: 'wikilink', attrs: { id: 'persiana', target: 'Arreglar la persiana', alias: null } }, { type: 'text', text: ' ✅ 2026-09-01' }] }],
+      },
+    ]);
+    expect(byId.casa.body_text).toBe('Casa\nCambiar bombillas #luz 📅 2026-10-02 ⏫\nArreglar la persiana ✅ 2026-09-01');
+
+    const inbox = rows.find((r) => r.title === 'Tareas' && !r.deleted_at)!;
+    expect(inbox.kind).toBe('text');
+    expect(JSON.parse(inbox.body_json!).content[1].content[0].content[0].content[0].text).toBe('Comprar pan');
+    expect(db.prepare(`SELECT count(*) AS n FROM notes WHERE kind IN ('task', 'quick') AND deleted_at IS NULL`).get()).toEqual({ n: 0 });
+    expect(db.prepare(`SELECT count(*) AS n FROM notes WHERE title = 'Tareas'`).get()).toEqual({ n: 1 });
+    db.close();
+    for (const end of ['', '-wal', '-shm']) rmSync(path + end, { force: true });
+  });
+});

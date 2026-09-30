@@ -3,6 +3,7 @@ import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { fileURLToPath } from 'node:url';
 import * as schema from './schema.js';
+import { migrateTaskNotes } from './tasks.js';
 
 export type Db = BetterSQLite3Database<typeof schema>;
 
@@ -15,6 +16,7 @@ export function openDb(path: string): Db {
   sqlite.pragma('busy_timeout = 5000');
   const db = drizzle(sqlite, { schema });
   migrate(db, { migrationsFolder });
+  migrateTaskNotes(sqlite);
   return db;
 }
 
