@@ -934,7 +934,13 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
               setOrganizeOpen(true);
             }}
             onArchived={() => setShowArchived((v) => !v)}
-            onNewCollection={() => newSection(null)}
+            onNewNote={() => {
+              if (focused) closeFocused();
+              setTasksOpen(false);
+              setOrganizeOpen(false);
+              setCenter(null);
+              newNote(null);
+            }}
           />
           <BibBar
             crumbs={bibCrumbs}

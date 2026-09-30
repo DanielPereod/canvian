@@ -139,12 +139,15 @@ type SideProps = {
   onTasks: () => void;
   onOrganize: () => void;
   onArchived: () => void;
-  onNewCollection: () => void;
+  onNewNote: () => void;
   onMove: (id: string, parent: string | null) => void;
   onMenu: (id: string, x: number, y: number) => void;
 };
 
-const byDefault = (count: (id: string) => number) => (a: NoteRow, b: NoteRow) => count(b.id) - count(a.id) || titleOf(a).localeCompare(titleOf(b), 'es');
+// Como en Obsidian: primero las notas madre (las «carpetas»), después las
+// demás, cada grupo por orden alfabético.
+const byDefault = (count: (id: string) => number) => (a: NoteRow, b: NoteRow) =>
+  Number(!!count(b.id)) - Number(!!count(a.id)) || titleOf(a).localeCompare(titleOf(b), 'es', { numeric: true });
 
 export function BibSidebar(p: SideProps) {
   const { kids, count, pathTo, parent } = p.family;
@@ -179,11 +182,17 @@ export function BibSidebar(p: SideProps) {
     });
   };
 
+  // Plegar todo: también las ramas de lo que estás viendo.
+  const foldAll = () => {
+    setOpen(new Set());
+    write(OPEN_KEY, '[]');
+    setShutTrail(new Set(trail));
+  };
+
   const fallback = byDefault(count);
   const kidsOf = (id: string | null) => sortByOrder(id, kids.get(id) ?? [], fallback, prefs);
-  const roots = kids.get(null) ?? [];
-  const branches = sortByOrder(null, roots.filter((r) => count(r.id)), fallback, prefs);
-  const loose = roots.filter((r) => !count(r.id));
+  // Arriba del todo va todo lo que no tiene madre, madres y notas sueltas juntas.
+  const roots = kidsOf(null);
 
   // ── Arrastrar y soltar ──
   const [dragId, setDragId] = useState<string | null>(null);
@@ -226,12 +235,32 @@ export function BibSidebar(p: SideProps) {
     // Antes o después de otra: pasa a ser su hermana, en ese sitio.
     const into = target.id ? (parent.get(target.id) ?? null) : null;
     if ((parent.get(id) ?? null) !== into) p.onMove(id, into);
-    const siblings = (into === null ? branches : kidsOf(into)).map((r) => r.id).filter((x) => x !== id);
+    const siblings = kidsOf(into).map((r) => r.id).filter((x) => x !== id);
     const at = siblings.indexOf(target.id!);
     siblings.splice(target.pos === 'before' ? at : at + 1, 0, id);
     void setOrder(into, siblings).catch(() => {});
   };
   const dropClass = (id: string | null) => (drop && drop.id === id ? ` is-drop-${drop.pos}` : '');
+  // Soltar en el hueco del árbol (o en «Mi biblioteca») la saca arriba del todo.
+  const rootDrop = {
+    onDragOver: (e: React.DragEvent) => {
+      if (!draggedId(e) || (e.target as HTMLElement).closest('.bib-tree-row')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (drop?.id !== null || drop.pos !== 'inside') setDrop({ id: null, pos: 'inside' });
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setDrop((d) => (d?.id === null ? null : d));
+    },
+    onDrop: (e: React.DragEvent) => {
+      if ((e.target as HTMLElement).closest('.bib-tree-row')) return;
+      e.preventDefault();
+      const id = dragId ?? e.dataTransfer.getData(DRAG_TYPE);
+      setDrop(null);
+      setDragId(null);
+      if (id && parent.get(id)) p.onMove(id, null);
+    },
+  };
 
   const renderRow = (row: NoteRow, depth: number): ReactNode => {
     const n = count(row.id);
@@ -266,8 +295,17 @@ export function BibSidebar(p: SideProps) {
               <path d="M3.5 2 7 5 3.5 8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <button className="bib-tree-it" onClick={() => (n ? p.onLibrary(row.id) : p.onOpen(row.id))} title={titleOf(row)}>
-            <span className={`bib-dot${depth ? ' is-sub' : ''}`} style={dotStyle(prefs.colors, row.id, depth)} aria-hidden="true" />
+          <button
+            className="bib-tree-it"
+            onClick={() => {
+              // Una nota madre es a la vez nota y carpeta: se abre y se despliega;
+              // si ya estaba abierta, el clic la pliega o despliega.
+              if (n && (on || shut)) toggle(row.id);
+              if (!on) p.onOpen(row.id);
+            }}
+            title={titleOf(row)}
+          >
+            <span className={`bib-dot${n ? '' : ' is-sub'}`} style={dotStyle(prefs.colors, row.id, depth)} aria-hidden="true" />
             <span className="bib-ellipsis">{titleOf(row)}</span>
             {n > 0 && <span className="bib-count">{n}</span>}
           </button>
@@ -312,48 +350,27 @@ export function BibSidebar(p: SideProps) {
             {p.showArchived ? 'Ocultar archivadas' : 'Archivadas'}
           </button>
         </nav>
-        <div
-          className={`bib-side-label${drop && drop.id === null ? ' is-drop-inside' : ''}`}
-          onDragOver={(e) => {
-            if (!draggedId(e)) return;
-            e.preventDefault();
-            if (drop?.id !== null || drop.pos !== 'inside') setDrop({ id: null, pos: 'inside' });
-          }}
-          onDragLeave={() => setDrop((d) => (d?.id === null ? null : d))}
-          onDrop={(e) => {
-            e.preventDefault();
-            const id = dragId ?? e.dataTransfer.getData(DRAG_TYPE);
-            setDrop(null);
-            setDragId(null);
-            if (id && parent.get(id)) p.onMove(id, null);
-          }}
-          title="Suelta aquí para sacar una nota arriba del todo"
-        >
+        <div className={`bib-side-label${drop && drop.id === null ? ' is-drop-inside' : ''}`} {...rootDrop} title="Suelta aquí para sacar una nota arriba del todo">
           Mi biblioteca
-          <button className="bib-label-add" onClick={p.onNewCollection} title="Colección nueva" aria-label="Colección nueva">
-            <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
-              <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
-          </button>
+          <span className="bib-label-tools">
+            <button className="bib-label-add" onClick={p.onNewNote} title="Nota nueva arriba del todo" aria-label="Nota nueva arriba del todo">
+              <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+                <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button className="bib-label-add" onClick={foldAll} title="Plegar todo" aria-label="Plegar todo">
+              <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+                <path d="M3.5 1.5 6 4l2.5-2.5M3.5 10.5 6 8l2.5 2.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </span>
         </div>
-        <div className="bib-tree" role="tree" aria-label="Colecciones">
-          {branches.map((r) => renderRow(r, 0))}
-          {loose.length > 0 && (
-            <div className="bib-node">
-              <div className={`bib-tree-row${p.here === LOOSE ? ' is-on' : ''}`}>
-                <span className="bib-chev is-leaf" />
-                <button className="bib-tree-it" onClick={() => p.onLibrary(LOOSE)}>
-                  <span className="bib-dot is-loose" aria-hidden="true" />
-                  <span className="bib-ellipsis">Sueltas</span>
-                  <span className="bib-count">{loose.length}</span>
-                </button>
-              </div>
-            </div>
-          )}
+        <div className={`bib-tree${drop && drop.id === null ? ' is-drop-root' : ''}`} role="tree" aria-label="Notas" {...rootDrop}>
+          {roots.map((r) => renderRow(r, 0))}
         </div>
         <div className="bib-side-foot">
-          <button className="bib-it bib-side-new" onClick={p.onNewCollection}>
-            Colección nueva
+          <button className="bib-it bib-side-new" onClick={p.onNewNote}>
+            Nota nueva
             <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
               <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
             </svg>
@@ -590,8 +607,6 @@ export function Library(p: LibProps) {
     let list: NoteRow[];
     if (p.center === LOOSE) list = (kids.get(null) ?? []).filter((r) => !count(r.id));
     else list = kids.get(here?.id ?? null) ?? [];
-    // Arriba del todo, muchas sueltas taparían las colecciones: van en «Sueltas».
-    if (p.center === null && list.some((r) => count(r.id)) && list.filter((r) => !count(r.id)).length > 6) list = list.filter((r) => count(r.id));
     list = list.filter((r) => !p.hide || !p.lit || p.lit.has(r.id));
     const weight = (r: NoteRow) => importanceOf(r, degree.get(r.id) ?? 0) + Math.min(8, count(r.id)) * 0.6;
     // Arriba, las colecciones; después, por importancia (o como las ordenaste en la barra).

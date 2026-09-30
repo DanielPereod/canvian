@@ -63,6 +63,7 @@ Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que te
 
 | Atajo | Acción |
 |-------|--------|
+| Barra lateral | El árbol de notas, como el explorador de archivos de Obsidian: las notas madre hacen de carpetas (su contenido son sus hijas) y cualquier nota puede estar arriba del todo o dentro de otra. Primero las madres y luego las demás, por orden alfabético (o como las dejes arrastrando). Clic en una nota la abre; en una madre, además la despliega (otro clic la pliega). Arrastrar una nota sobre otra la mete dentro, entre dos la coloca ahí, y al hueco del árbol o a «Mi biblioteca» la saca arriba del todo. Junto a «Mi biblioteca», `＋` crea una nota arriba del todo y el otro botón pliega todo |
 | Vista de nodos | La nota del centro con sus hijas en anillo (línea), sus enlaces (discontinua), su madre arriba y sus hermanas alrededor. Clic en un nodo lo trae al centro; clic en el centro o `Enter` abre la nota; `←`/`→` recorren el anillo; `Esc` sube a la madre; arrastrar un nodo sobre otro lo mete dentro |
 | `⌘/Ctrl G` | Modo nodo: la nota abierta pasa al centro de la vista de nodos (también con el botón «Nodos»); sin nota abierta, abre la del centro |
 | `⌘/Ctrl .` | Plegar la barra lateral (sale flotando al acercar el ratón al borde) o fijarla |
