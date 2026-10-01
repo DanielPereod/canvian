@@ -520,6 +520,10 @@
 .sheet.is-zen .reader-meta,
 .sheet.is-zen .note-chips { display: none; }
 .sheet.is-zen .reader-body { padding-top: 14vh; }
+/* En un canvas, sin «Volver» ni título: solo el tablero. */
+.sheet.is-canvas.is-zen .sheet-top,
+.sheet.is-canvas.is-zen .sheet-canvas-head { display: none; }
+.sheet.is-canvas .reader-zen-exit { z-index: 20; }
 .reader-zen-exit {
   position: absolute; top: 14px; right: 18px; z-index: 1;
   display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px;

@@ -49,6 +49,7 @@ export const EN_NOTE: Record<string, string> = {
   'Texto ancho': 'Wide text',
   'Modo zen': 'Zen mode',
   'Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)': 'Hide the whole interface and keep only the text (Esc to exit)',
+  'Quitar toda la interfaz y quedarse solo con el canvas (Esc para salir)': 'Hide the whole interface and keep only the canvas (Esc to exit)',
   'Mover a…': 'Move to…',
   'Meterla dentro de otra nota': 'Put it inside another note',
   'Enlazar con…': 'Link to…',

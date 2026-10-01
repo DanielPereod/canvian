@@ -23,7 +23,7 @@ export const EN_APP: Record<string, string> = {
   'Nota nueva': 'New note',
   'En Tareas, apunta una tarea': 'In Tasks, jots down a task',
   'Nota dentro': 'Note inside',
-  'Dentro de la señalada': 'Inside the selected one',
+  'Dentro de la señalada o de la abierta': 'Inside the selected or open one',
   'Canvas nuevo': 'New canvas',
   'Tarjetas libres y flechas': 'Free cards and arrows',
   Renombrar: 'Rename',

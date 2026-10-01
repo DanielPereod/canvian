@@ -586,7 +586,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
-      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar', 'zen', 'wideNote']);
+      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar', 'zen', 'wideNote', 'newNote', 'newCanvas', 'newSection']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
       // Con una nota abierta los atiende ella; aquí solo llegan sin nota.
       if ((action === 'zen' || action === 'wideNote') && (chord || !isTyping(e.target))) {
@@ -627,6 +627,16 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       if (action === 'search' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         setPaletteOpen((o) => (o ? false : 'open'));
+        return;
+      }
+      // Con una nota o un canvas abierto, crear desde la paleta (o con una
+      // combinación): al lado del abierto, o dentro con «Nota dentro». Las
+      // teclas sueltas no, que en el texto o el tablero son para escribir.
+      if (focused && (action === 'newNote' || action === 'newCanvas' || action === 'newSection') && ('canvianAction' in e || chord)) {
+        e.preventDefault();
+        if (action === 'newSection') newNote(focused.id);
+        else if (action === 'newCanvas') newCanvas(focused.zoneId);
+        else newNote(focused.zoneId);
         return;
       }
       if (e.key === 'Escape' && inspectId) {
@@ -764,7 +774,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   };
 
   const focused = focusId ? (allRows.find((r) => r.id === focusId) ?? null) : null;
-  const zenOn = zen && !peek && !!focused && focused.kind !== 'canvas';
+  const zenOn = zen && !peek && !!focused;
   // Al cerrar la nota se sale del modo zen.
   useEffect(() => {
     if (!focusId) setZen(false);
