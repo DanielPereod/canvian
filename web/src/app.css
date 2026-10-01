@@ -170,6 +170,23 @@
   .set-row { flex-wrap: wrap; }
 }
 
+/* Configuración › Calendarios */
+.cal-set-intro { margin: 0 0 var(--space-3); }
+.cal-set-row { justify-content: flex-start; }
+.cal-set-row .set-control { margin-left: auto; }
+.cal-set-row.is-off .cal-set-name, .cal-set-row.is-off .cal-set-color { opacity: 0.5; }
+.cal-set-color { flex: none; width: 14px; height: 14px; padding: 0; border: 0; border-radius: 999px; background: var(--ev); cursor: pointer; box-shadow: 0 0 0 3px color-mix(in oklab, var(--ev) 22%, transparent); }
+.cal-set-info { flex: 1; }
+.cal-set-name { width: 100%; padding: 0; border: 0; background: none; font: inherit; font-size: var(--text-md); color: var(--text); outline: none; }
+.cal-set-name:focus-visible { box-shadow: 0 1px 0 var(--accent-line); }
+.cal-set-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 44ch; }
+.cal-set-error { margin-top: 4px; font-size: var(--text-sm); color: var(--danger); }
+.cal-set-empty { padding: var(--space-3) 0; }
+.cal-set-fields { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.cal-set-fields .field { flex: 1 1 160px; }
+.cal-set-fields .cal-set-urlfield { flex: 3 1 260px; }
+.cal-set-fields .set-button:disabled { opacity: 0.5; cursor: default; }
+
 /* Muestra de las letras elegidas en Configuración › Aspecto */
 .set-row-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .type-sample { margin-top: var(--space-3); padding: var(--space-4) var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-sunken); display: flex; flex-direction: column; gap: var(--space-3); }

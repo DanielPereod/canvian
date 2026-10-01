@@ -20,6 +20,8 @@ import { propertyRoutes } from './routes/properties.js';
 import { lensRoutes } from './routes/lenses.js';
 import { mediaRoutes } from './routes/media.js';
 import { prefRoutes } from './routes/prefs.js';
+import { calendarRoutes } from './routes/calendars.js';
+import type { Fetcher } from './calendars.js';
 import { createHub, scopeOf } from './live.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
@@ -40,7 +42,7 @@ const DEFAULT_PROFILES = [
   { name: 'Trabajo', color: PROFILE_COLORS[1], icon: 'briefcase' },
 ];
 
-export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: number } = {}) {
+export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher } = {}) {
   const api = new Hono();
   const hub = createHub();
 
@@ -190,6 +192,7 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
   api.route('/', propertyRoutes(db));
   api.route('/', lensRoutes(db));
   api.route('/', prefRoutes(db));
+  api.route('/', calendarRoutes(db, opts.fetchCalendar));
   if (opts.mediaDir) api.route('/', mediaRoutes(opts.mediaDir));
 
   const app = new Hono();

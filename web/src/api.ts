@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import type { CalEvent } from './calendars';
 
 export type Profile = {
   id: string;
@@ -185,6 +186,8 @@ export const api = {
     request<Lens>('POST', `/profiles/${profileId}/lenses`, lens),
   updateLens: (id: string, patch: Partial<Pick<Lens, 'name' | 'query' | 'mode' | 'slot'>>) => request<Lens>('PATCH', `/lenses/${id}`, patch),
   deleteLens: (id: string) => request('DELETE', `/lenses/${id}`),
+  calendarEvents: (from: string, to: string, fresh = false) =>
+    request<{ events: CalEvent[]; errors: Record<string, string> }>('GET', `/calendars/events?from=${from}&to=${to}${fresh ? '&fresh=1' : ''}`),
   search: (profileId: string, q: string) =>
     request<SearchHit[]>('GET', `/profiles/${profileId}/search?q=${encodeURIComponent(q)}`),
 };
