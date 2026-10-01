@@ -13,7 +13,7 @@ import { SectionName } from './SectionName';
 import { SectionPicker } from './SectionPicker';
 import { docText, docToMarkdown, markdownToDoc } from './markdown';
 import { parseBody } from './editor';
-import { hasMedia, isMedia, uploadMedia } from './media';
+import { hasMedia, uploadMedia } from './media';
 import { emptyBoard, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
 import { INBOX, TasksView } from './TasksView';
@@ -714,7 +714,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     });
   };
 
-  // Imágenes, vídeo o audio soltados en el mapa: una nota nueva que los lleva.
+  // Imágenes, vídeo, audio o cualquier otro archivo soltados en el mapa: una
+  // nota nueva que los lleva.
   const importMedia = async (files: File[]) => {
     const content = await uploadMedia(files);
     const zoneId = currentZone()?.id ?? null;
@@ -727,8 +728,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     setDropping(false);
     // Con una nota abierta, lo que se suelta es para su editor.
     if (focusId) return;
-    const md = [...e.dataTransfer.files].filter((f) => /\.(md|markdown|txt)$/i.test(f.name));
-    const media = [...e.dataTransfer.files].filter(isMedia);
+    const isMd = (f: File) => /\.(md|markdown|txt)$/i.test(f.name);
+    const md = [...e.dataTransfer.files].filter(isMd);
+    const media = [...e.dataTransfer.files].filter((f) => !isMd(f));
     if (!md.length && !media.length) return;
     e.preventDefault();
     if (md.length) void importMarkdown(md);
@@ -902,7 +904,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           <p className="display">
             Suelta tus <em>notas</em>
           </p>
-          <span className="meta">Archivos .md, imágenes, vídeo o audio · entran en la nota en la que estás</span>
+          <span className="meta">Archivos .md, o cualquier otro (imágenes, PDF, documentos…) en una nota nueva · entran en la nota en la que estás</span>
         </div>
       )}
       {loaded && (

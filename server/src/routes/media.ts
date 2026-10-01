@@ -5,13 +5,15 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { ulid } from 'ulidx';
 
-// Imágenes, vídeo y audio pegados en las notas. Se guardan como archivos junto
-// a la base de datos (el mismo volumen /data en Docker) y la nota solo guarda
-// su dirección, /api/media/<id>.<ext>.
+// Archivos adjuntos a las notas: imágenes, vídeo y audio que se ven dentro, y
+// cualquier otro (PDF, documentos, hojas de cálculo…) que se abre o se
+// descarga. Se guardan como archivos junto a la base de datos (el mismo volumen
+// /data en Docker) y la nota solo guarda su dirección, /api/media/<id>.<ext>.
 
 export const MAX_MEDIA_BYTES = 200 * 1024 * 1024;
 
-// Solo tipos que el navegador muestra sin ejecutar nada: sin SVG ni HTML.
+// Lo que la nota muestra dentro: tipos que el navegador pinta sin ejecutar nada
+// (sin SVG ni HTML).
 const TYPES: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
@@ -34,17 +36,30 @@ const TYPES: Record<string, string> = {
 const MIME: Record<string, string> = {};
 for (const [mime, ext] of Object.entries(TYPES)) MIME[ext] ??= mime;
 
-const NAME = /^[0-9A-HJKMNP-TV-Z]{26}\.([a-z0-9]{2,4})$/;
+// Se abren en el navegador, en su propio visor. Todo lo demás (también HTML,
+// SVG o un .js) se sirve solo como descarga, así que nunca corre en esta web.
+const VIEW: Record<string, string> = { pdf: 'application/pdf', txt: 'text/plain; charset=utf-8' };
+
+const NAME = /^[0-9A-HJKMNP-TV-Z]{26}\.([a-z0-9]{1,10})$/;
+
+// La extensión de un adjunto sale de su nombre original.
+const extOf = (fileName: string) => /\.([a-z0-9]{1,10})$/.exec(fileName.toLowerCase())?.[1] ?? 'bin';
 
 export function mediaRoutes(dir: string) {
   mkdirSync(dir, { recursive: true });
   const r = new Hono();
 
-  // El cuerpo es el archivo tal cual; su tipo va en Content-Type.
+  // El cuerpo es el archivo tal cual; su tipo va en Content-Type y su nombre
+  // (codificado como en una URL) en X-File-Name.
   r.post('/media', async (c) => {
     const mime = (c.req.header('content-type') ?? '').split(';')[0].trim().toLowerCase();
-    const ext = TYPES[mime];
-    if (!ext) return c.json({ error: 'Solo se pueden añadir imágenes, vídeo o audio' }, 415);
+    let fileName = '';
+    try {
+      fileName = decodeURIComponent(c.req.header('x-file-name') ?? '');
+    } catch {
+      // Un nombre mal codificado no impide guardar el archivo.
+    }
+    const ext = TYPES[mime] ?? extOf(fileName);
     if (Number(c.req.header('content-length') ?? 0) > MAX_MEDIA_BYTES) {
       return c.json({ error: 'El archivo pasa de 200 MB' }, 413);
     }
@@ -53,15 +68,16 @@ export function mediaRoutes(dir: string) {
     if (data.length > MAX_MEDIA_BYTES) return c.json({ error: 'El archivo pasa de 200 MB' }, 413);
     const name = `${ulid()}.${ext}`;
     await writeFile(join(dir, name), data, { flag: 'wx' });
-    return c.json({ url: `/api/media/${name}`, kind: mime.split('/')[0] }, 201);
+    const kind = TYPES[mime] ? mime.split('/')[0] : 'file';
+    return c.json({ url: `/api/media/${name}`, kind }, 201);
   });
 
   // Con soporte de Range para poder saltar dentro de un vídeo o un audio.
   r.get('/media/:name', (c) => {
     const name = c.req.param('name');
     const m = NAME.exec(name);
-    const type = m && MIME[m[1]];
-    if (!type) return c.json({ error: 'No encontrado' }, 404);
+    if (!m) return c.json({ error: 'No encontrado' }, 404);
+    const shown = MIME[m[1]] ?? VIEW[m[1]];
     const path = join(dir, name);
     let size: number;
     try {
@@ -70,7 +86,8 @@ export function mediaRoutes(dir: string) {
       return c.json({ error: 'No encontrado' }, 404);
     }
     const headers: Record<string, string> = {
-      'content-type': type,
+      'content-type': shown ?? 'application/octet-stream',
+      ...(shown ? {} : { 'content-disposition': 'attachment' }),
       'accept-ranges': 'bytes',
       'x-content-type-options': 'nosniff',
       // El nombre es único y el archivo nunca cambia.

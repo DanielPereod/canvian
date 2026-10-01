@@ -5,7 +5,7 @@ import { applyRemote, editingExtensions, extensions, parseBody, titleFrom } from
 import { repairTables } from './markdown';
 import { NoteChips } from './NoteChips';
 import { taskCount } from './tasks';
-import { MediaUpload } from './media';
+import { MediaUpload, attachFiles } from './media';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
 import { Resizer, useSideWidth } from './Resizer';
@@ -218,6 +218,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
   const editorRef = useRef<Editor | null>(null);
+  const filePick = useRef<HTMLInputElement>(null);
   const [moving, setMoving] = useState(false);
   // La ruta de notas madre, para poder ir a cada una por su clic.
   const chain = useMemo(() => {
@@ -415,6 +416,21 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
             </button>
           </div>
           <div className="reader-actions">
+            <button onClick={() => filePick.current?.click()} title="Adjuntar archivos (PDF, documentos, imágenes…) donde está el cursor; también se pueden pegar o soltar en el texto">
+              Adjuntar
+            </button>
+            <input
+              ref={filePick}
+              type="file"
+              multiple
+              hidden
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])];
+                e.target.value = '';
+                const ed = editorRef.current;
+                if (files.length && ed) attachFiles(ed.view, files, onError);
+              }}
+            />
             <button onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
               Nodos
             </button>

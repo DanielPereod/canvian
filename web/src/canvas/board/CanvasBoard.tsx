@@ -26,12 +26,12 @@ import {
 import '@xyflow/react/dist/base.css';
 import { ulid } from 'ulidx';
 import type { NoteRow } from '../../api';
-import { isMedia, uploadMedia } from '../media';
+import { fileExt, fileSize, openFile, uploadMedia } from '../media';
 import { boardText, parseBoard, type Board, type BoardNode } from './board';
 import './board.css';
 
 // El lienzo de una nota de tipo canvas: tarjetas de texto, notas enlazadas,
-// imágenes y grupos que se colocan libremente y se unen con flechas, como un
+// archivos (imágenes, PDF, documentos…) y grupos que se colocan libremente y se unen con flechas, como un
 // canvas de Obsidian. Guarda en formato JSON Canvas.
 
 type Data = {
@@ -39,6 +39,8 @@ type Data = {
   label?: string;
   noteId?: string;
   file?: string;
+  // Nombre original de un archivo que no es imagen, vídeo ni audio.
+  name?: string;
   editing?: boolean;
 };
 
@@ -49,6 +51,8 @@ type Ctx = {
 };
 
 const SIZE = { text: { w: 260, h: 120 }, note: { w: 280, h: 140 }, file: { w: 320, h: 220 }, group: { w: 560, h: 380 } };
+// Un PDF o un documento no se ve dentro: basta con su ficha.
+const DOC_SIZE = { w: 280, h: 72 };
 
 // ── Tarjetas ─────────────────────────────────────────────────────────
 
@@ -112,7 +116,24 @@ function NoteCard({ data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ctx })
 
 function FileCard({ data, selected }: NodeProps<Node<Data>>) {
   const src = data.file ?? '';
-  const kind = /\.(mp4|webm|mov)$/i.test(src) ? 'video' : /\.(mp3|ogg|wav|weba|m4a|aac|flac)$/i.test(src) ? 'audio' : 'image';
+  const kind = /\.(mp4|webm|mov)$/i.test(src)
+    ? 'video'
+    : /\.(mp3|ogg|wav|weba|m4a|aac|flac)$/i.test(src)
+      ? 'audio'
+      : /\.(png|jpe?g|gif|webp|avif)$/i.test(src)
+        ? 'image'
+        : 'doc';
+  if (kind === 'doc') {
+    const name = data.name || src.split('/').pop() || 'Archivo';
+    return (
+      <div className={`board-card board-doc${selected ? ' is-selected' : ''}`} onDoubleClick={() => openFile(src, name)} title="Doble clic para abrir">
+        <NodeResizer isVisible={selected} minWidth={160} minHeight={56} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
+        {handles}
+        <span className="note-file-ext">{fileExt(name)}</span>
+        <span className="board-doc-name">{name}</span>
+      </div>
+    );
+  }
   return (
     <div className={`board-card board-file${selected ? ' is-selected' : ''}`}>
       <NodeResizer isVisible={selected} minWidth={80} minHeight={48} keepAspectRatio={kind === 'image'} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
@@ -197,7 +218,7 @@ const toFlow = (b: Board) => {
     height: n.height,
     // Los grupos, detrás de todo.
     zIndex: n.type === 'group' ? -1 : 0,
-    data: n.type === 'text' ? { text: n.text } : n.type === 'note' ? { noteId: n.noteId } : n.type === 'file' ? { file: n.file } : { label: n.label },
+    data: n.type === 'text' ? { text: n.text } : n.type === 'note' ? { noteId: n.noteId } : n.type === 'file' ? { file: n.file, name: n.name } : { label: n.label },
   }));
   const edges: Edge[] = b.edges.map((e) => ({ id: e.id, source: e.fromNode, target: e.toNode, type: 'arrow', markerEnd: e.toEnd === 'none' ? undefined : ARROW }));
   return { nodes, edges };
@@ -208,7 +229,7 @@ const fromFlow = (nodes: Node<Data>[], edges: Edge[]): Board => ({
   nodes: nodes.map((n): BoardNode => {
     const base = { id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y), width: Math.round(n.width ?? n.measured?.width ?? 200), height: Math.round(n.height ?? n.measured?.height ?? 100) };
     if (n.type === 'note') return { ...base, type: 'note', noteId: n.data.noteId! };
-    if (n.type === 'file') return { ...base, type: 'file', file: n.data.file! };
+    if (n.type === 'file') return { ...base, type: 'file', file: n.data.file!, ...(n.data.name ? { name: n.data.name } : {}) };
     if (n.type === 'group') return { ...base, type: 'group', label: n.data.label ?? '' };
     return { ...base, type: 'text', text: n.data.text ?? '' };
   }),
@@ -284,8 +305,8 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     return flow.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
   };
 
-  const add = (type: keyof typeof SIZE, at: { x: number; y: number }, data: Data = {}) => {
-    const { w, h } = SIZE[type];
+  const add = (type: keyof typeof SIZE, at: { x: number; y: number }, data: Data = {}, size = SIZE[type]) => {
+    const { w, h } = size;
     // Lo que cae encima de otra tarjeta se corre un poco en diagonal.
     const busy = (x: number, y: number) => flow.getNodes().some((o) => o.type !== 'group' && Math.abs(o.position.x - (x - w / 2)) < 24 && Math.abs(o.position.y - (y - h / 2)) < 24);
     at = { ...at };
@@ -297,15 +318,21 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
 
   const addMedia = (files: File[], at: { x: number; y: number }) =>
     uploadMedia(files)
-      .then((made) => made.forEach((m, i) => add('file', { x: at.x + i * 40, y: at.y + i * 40 }, { file: String(m.attrs.src) })))
+      .then((made) =>
+        made.forEach((m, i) => {
+          // Las fichas, una debajo de otra; lo que se ve, en diagonal.
+          if (m.type === 'file') add('file', { x: at.x, y: at.y + i * (DOC_SIZE.h + 16) }, { file: String(m.attrs.src), name: files[i].name }, DOC_SIZE);
+          else add('file', { x: at.x + i * 40, y: at.y + i * 40 }, { file: String(m.attrs.src) });
+        }),
+      )
       .catch(onError);
 
-  // Pegar imágenes, vídeo o audio en el lienzo.
+  // Pegar archivos (imágenes, PDF, documentos…) en el lienzo.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName))) return;
-      const files = [...(e.clipboardData?.files ?? [])].filter(isMedia);
+      const files = [...(e.clipboardData?.files ?? [])];
       if (files.length) {
         e.preventDefault();
         void addMedia(files, center());
@@ -329,7 +356,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         if ([...e.dataTransfer.types].includes('Files')) e.preventDefault();
       }}
       onDrop={(e) => {
-        const files = [...e.dataTransfer.files].filter(isMedia);
+        const files = [...e.dataTransfer.files];
         if (!files.length) return;
         e.preventDefault();
         e.stopPropagation();
@@ -367,7 +394,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
       </ReactFlow>
       {!nodes.length && (
         <p className="board-empty">
-          Doble clic para una <em>tarjeta</em>, o pega una imagen
+          Doble clic para una <em>tarjeta</em>, o pega o suelta un archivo
         </p>
       )}
       <nav className="board-tools surface-2" aria-label="Añadir al lienzo">
@@ -375,13 +402,12 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         <button onClick={() => onPickNote((id) => add('note', center(), { noteId: id }))}>Nota</button>
         <button onClick={() => add('group', center(), { label: '' })}>Grupo</button>
         <label className="board-tools-file">
-          Imagen
+          Archivo
           <input
             type="file"
-            accept="image/*,video/*,audio/*"
             multiple
             onChange={(e) => {
-              const files = [...(e.target.files ?? [])].filter(isMedia);
+              const files = [...(e.target.files ?? [])];
               e.target.value = '';
               if (files.length) void addMedia(files, center());
             }}
