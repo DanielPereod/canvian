@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
 import { applyRemote, editingExtensions, extensions, parseBody, titleFrom } from './editor';
-import { repairTables } from './markdown';
+import { repairDoc } from './markdown';
 import { NoteChips } from './NoteChips';
 import { taskCount } from './tasks';
 import { MediaUpload, attachFiles } from './media';
@@ -32,10 +32,12 @@ type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) =
 const sameTitle = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
 
 function SheetEditor({ note, onSave, onError, editorRef, wiki }: EditorProps) {
-  // Tablas de Markdown que quedaron como texto con barras: se abren ya como tablas.
+  // Lo que se importó mal antes (tablas como texto con barras, direcciones con
+  // _ hechas cursiva o sin enlace) se abre ya arreglado.
   const [initial] = useState(() => {
     const doc = parseBody(note.bodyJson);
-    return { doc: repairTables(doc) ?? doc, repaired: !!repairTables(doc) };
+    const fixed = repairDoc(doc);
+    return { doc: fixed ?? doc, repaired: !!fixed };
   });
   // El editor se crea una vez: lo que cambia le llega por referencias.
   const wikiRef = useRef(wiki);

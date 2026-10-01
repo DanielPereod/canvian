@@ -27,6 +27,9 @@ const INLINE = new RegExp(
   'gu',
 );
 
+// La puntuación del final de la frase no es parte de la dirección.
+const urlTail = (url: string) => /[.,;:!?)\]]+$/.exec(url)?.[0] ?? '';
+
 function inline(text: string, links: string[]): JSONContent[] {
   const out: JSONContent[] = [];
   const push = (t: string, marks?: Mark[]) => t && out.push(marks?.length ? { type: 'text', text: t, marks } : { type: 'text', text: t });
@@ -50,8 +53,7 @@ function inline(text: string, links: string[]): JSONContent[] {
       const [, label, href] = /^\[([^\]]+)\]\((\S+?)(?:\s+"[^"]*")?\)$/.exec(tok)!;
       push(label, [{ type: 'link', attrs: { href } }]);
     } else if (/^https?:/.test(tok)) {
-      // La puntuación del final de la frase no es parte de la dirección.
-      const tail = /[.,;:!?)\]]+$/.exec(tok)?.[0] ?? '';
+      const tail = urlTail(tok);
       tok = tok.slice(0, tok.length - tail.length);
       push(tok, [{ type: 'link', attrs: { href: tok } }]);
       push(tail);
@@ -338,4 +340,86 @@ export function repairTables(doc: JSONContent | null): JSONContent | null {
     return table;
   });
   return changed ? { ...doc, content } : null;
+}
+
+// Enlaces importados antes de que se entendieran: los _ de una dirección se
+// tomaron por cursiva («…username=APP_MAPFRE_DIRECTO», «[vídeo](…/jose_santiago…
+// "título")») y las direcciones sueltas quedaron como texto. Se rehace la línea
+// rota desde su Markdown, y a las direcciones sueltas se les pone su enlace.
+const LINKISH = new RegExp(`${LINK}|${URL_RE}`, 'gu');
+const LINK_ONLY = new RegExp(LINK, 'u');
+const URL_G = new RegExp(URL_RE, 'gu');
+const hasMark = (n: JSONContent, ...types: string[]) => !!n.marks?.some((m) => types.includes(m.type));
+
+// El Markdown de una línea, con la cursiva como _…_ (así se escribió) y dónde
+// van esos _; null si no se sabe escribir.
+function lineMd(content: JSONContent[]): { md: string; cuts: number[] } | null {
+  let md = '';
+  const cuts: number[] = [];
+  for (const c of content) {
+    if (c.type === 'hardBreak') md += '\n';
+    else if (c.type === 'wikilink') md += wikiMd(c);
+    else if (c.type !== 'text') return null;
+    else if (!hasMark(c, 'italic')) md += marksToMd(c);
+    else {
+      cuts.push(md.length);
+      md += `_${marksToMd({ ...c, marks: c.marks!.filter((m) => m.type !== 'italic') })}_`;
+      cuts.push(md.length - 1);
+    }
+  }
+  return { md, cuts };
+}
+
+function reparseLine(content: JSONContent[]): JSONContent[] | null {
+  const line = lineMd(content);
+  if (!line) return null;
+  const { md, cuts } = line;
+  const split = [...md.matchAll(LINKISH)].some((m) => cuts.some((c) => c >= m.index && c < m.index + m[0].length));
+  const raw = content.some((c) => c.type === 'text' && !hasMark(c, 'link', 'code') && LINK_ONLY.test(c.text ?? ''));
+  if (!split && !raw) return null;
+  return md.split('\n').flatMap((l, i) => [...(i ? [{ type: 'hardBreak' }] : []), ...inline(l, [])]);
+}
+
+function linkify(n: JSONContent): JSONContent[] {
+  if (n.type !== 'text' || !n.text || hasMark(n, 'link', 'code')) return [n];
+  const out: JSONContent[] = [];
+  const push = (text: string, marks: Mark[]) => text && out.push(marks.length ? { ...n, text, marks } : { type: 'text', text });
+  const marks = (n.marks ?? []) as Mark[];
+  let last = 0;
+  for (const m of n.text.matchAll(URL_G)) {
+    const href = m[0].slice(0, m[0].length - urlTail(m[0]).length);
+    push(n.text.slice(last, m.index), marks);
+    push(href, [...marks, { type: 'link', attrs: { href } }]);
+    last = m.index + href.length;
+  }
+  if (!last) return [n];
+  push(n.text.slice(last), marks);
+  return out;
+}
+
+const INLINE_NODES = ['text', 'hardBreak', 'wikilink'];
+
+export function repairLinks(doc: JSONContent | null): JSONContent | null {
+  if (!doc) return null;
+  let changed = false;
+  const walk = (n: JSONContent): JSONContent => {
+    if (!n.content?.length || n.type === 'codeBlock') return n;
+    if (!n.content.some((c) => INLINE_NODES.includes(c.type ?? ''))) {
+      const content = n.content.map(walk);
+      return content.some((c, i) => c !== n.content![i]) ? { ...n, content } : n;
+    }
+    const before = n.content;
+    const content = (reparseLine(before) ?? before).flatMap(linkify);
+    if (content.length === before.length && content.every((c, i) => c === before[i])) return n;
+    changed = true;
+    return { ...n, content };
+  };
+  const out = walk(doc);
+  return changed ? out : null;
+}
+
+// Todo lo que se arregla al abrir una nota importada antes; null si nada.
+export function repairDoc(doc: JSONContent | null): JSONContent | null {
+  const tables = repairTables(doc);
+  return repairLinks(tables ?? doc) ?? tables;
 }
