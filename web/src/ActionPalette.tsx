@@ -60,6 +60,7 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
     ...THEMES.map((th) => ({ key: `theme-${th.id}`, label: t(th.tone === 'dark' ? 'Tema: {name} (oscuro)' : 'Tema: {name} (claro)', { name: t(th.name) }), hint: t(th.hint), group: 'Aspecto', run: () => void setTheme(th.id).catch(() => {}), on: dark === th.id || light === th.id })),
     ...LANGS.map((l) => ({ key: `lang-${l.id}`, label: t('Idioma: {name}', { name: l.name }), hint: 'Language', group: 'Aspecto', run: () => void setLang(l.id).catch(() => {}), on: lang === l.id })),
     { key: 'set-aspecto', label: t('Configuración: Aspecto'), group: 'Aplicación', run: () => openSettingsAt('aspecto') },
+    { key: 'set-calendarios', label: t('Configuración: Calendarios'), group: 'Aplicación', run: () => openSettingsAt('calendarios') },
     { key: 'set-atajos', label: t('Configuración: Atajos de teclado'), group: 'Aplicación', run: () => openSettingsAt('atajos') },
   ];
 

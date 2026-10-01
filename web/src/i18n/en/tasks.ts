@@ -151,4 +151,8 @@ export const EN_TASKS: Record<string, string> = {
   'Llevar a otra nota…': 'Move to another note…',
   'Borrar con sus subtareas': 'Delete with subtasks',
   Supr: 'Del',
+
+  // Eventos de calendarios de fuera
+  'Todo el día': 'All day',
+  '(sin título)': '(untitled)',
 };
