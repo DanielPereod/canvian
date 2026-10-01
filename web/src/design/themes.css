@@ -43,6 +43,7 @@
   --shadow-2: 0 30px 70px -30px rgba(40, 30, 20, 0.4);
   --stem: rgb(var(--ink) / 0.3);
   --stem-hover: rgb(var(--ink) / 0.55);
+  --code-hue: 58%; /* colores del código, más hondos sobre papel */
 }
 
 /* ── 1 · Papel: cuaderno editorial, tinta sobre papel ───────────── */

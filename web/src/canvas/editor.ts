@@ -4,6 +4,8 @@ import { AllSelection, Plugin, Selection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import { Placeholder } from '@tiptap/extensions';
 import { TableKit } from '@tiptap/extension-table';
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
+import { common, createLowlight } from 'lowlight';
 import { mediaNodes } from './media';
 import { markdownToDoc } from './markdown';
 import { Highlight, MarkdownLinkInput, WikiLink, tasks } from './obsidian';
@@ -13,7 +15,11 @@ export const extensions = [
     heading: { levels: [1, 2, 3, 4, 5, 6] },
     // Un clic en un enlace es para escribir o seleccionar; Ctrl/⌘ clic lo abre.
     link: { openOnClick: false, autolink: true },
+    codeBlock: false,
   }),
+  // Bloques de código con colores según su lenguaje (```js, ```python…); sin
+  // lenguaje, se adivina.
+  CodeBlockLowlight.configure({ lowlight: createLowlight(common) }),
   Placeholder.configure({ placeholder: 'Escribe algo…' }),
   // Tablas: sobre todo las que llegan importadas de Markdown.
   TableKit.configure({ table: { resizable: false } }),
