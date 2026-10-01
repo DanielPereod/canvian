@@ -16,6 +16,8 @@ import { decodeTime } from 'ulidx';
 import { editedLabel, kindOf, useContextMenu } from './Biblioteca';
 import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian';
 import { WikiMenu, type WikiItem } from './WikiMenu';
+import { SlashSuggest, type SlashQuery } from './slash';
+import { BlockHandle, FormatBar, MobileBar, SlashMenu } from './EditorMenus';
 import { actionFor, keyParts, keysBlocked, matches, useKeymap } from '../keys';
 import { toggleWide, useWide } from './widePrefs';
 import { t, tn } from '../i18n';
@@ -133,6 +135,10 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
   const [query, setQuery] = useState<WikiQuery | null>(null);
   const menuKeys = useRef<(e: KeyboardEvent) => boolean>(() => false);
   const [suggest] = useState(() => WikiSuggest.configure({ onChange: setQuery, onKey: (e) => menuKeys.current(e) }));
+  // El menú «/» de bloques, como en Notion.
+  const [slash, setSlash] = useState<SlashQuery | null>(null);
+  const slashKeys = useRef<(e: KeyboardEvent) => boolean>(() => false);
+  const [slashExt] = useState(() => SlashSuggest.configure({ onChange: setSlash, onKey: (e) => slashKeys.current(e) }));
   // Las notas enlazadas con [[ ]] en el texto. Una que aparece nueva se une a
   // esta en el mapa; las que ya estaban al abrir no (quizá se quitó a mano).
   const linked = useRef<Set<string> | null>(null);
@@ -157,7 +163,7 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
     return true;
   };
   const editor = useEditor({
-    extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError }), suggest],
+    extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError }), suggest, slashExt],
     content: initial.body.content?.length ? initial.body : '',
     // Abrir una nota es para escribir: el cursor ya está al final, pero la
     // nota se ve desde el principio (sin saltar hasta el cursor). Una nota
@@ -424,6 +430,14 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
         />
       )}
       {!source && query && <WikiMenu query={query} rows={wiki.rows} exclude={note.id} onPick={pick} keys={menuKeys} />}
+      {!source && slash && editor && <SlashMenu query={slash} editor={editor} onError={onError} keys={slashKeys} />}
+      {!source && editor && (
+        <>
+          <BlockHandle editor={editor} />
+          <FormatBar editor={editor} />
+          <MobileBar editor={editor} />
+        </>
+      )}
     </>
   );
 }
