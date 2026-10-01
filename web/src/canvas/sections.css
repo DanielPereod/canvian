@@ -73,8 +73,6 @@
   animation-delay: calc(320ms + var(--i, 0) * 35ms);
 }
 .sheet-link:hover { color: var(--text); background: oklch(0.66 0.07 var(--hue) / 0.2); }
-.sheet-actions { display: flex; gap: var(--space-2); }
-.sheet-back.danger:hover { color: var(--danger, oklch(0.72 0.14 25)); background: oklch(0.6 0.12 25 / 0.14); }
 .sheet-link-add { padding-right: var(--space-3); color: var(--text-faint); background: transparent; box-shadow: none; outline: 1px dashed oklch(0.85 0.05 var(--hue) / 0.3); outline-offset: -1px; }
 
 /* Arrastrar un nodo dentro de otra nota */

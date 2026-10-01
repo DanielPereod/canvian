@@ -383,6 +383,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     });
   };
   const keymap = useKeymap();
+  const keysOf = (combo: string) => keyParts(combo).join(' ');
   // La ruta de notas madre, para poder ir a cada una por su clic.
   const chain = useMemo(() => {
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -506,7 +507,6 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     }
     const words = (note.bodyText ?? '').split(/\s+/).filter(Boolean).length;
     const tasks = taskCount(note);
-    const keysOf = (combo: string) => keyParts(combo).join(' ');
     const items: SheetItem[] = [
       { label: 'Adjuntar archivos…', title: 'PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto', run: () => filePick.current?.click() },
       { label: 'Ver en nodos', title: 'Esta nota en el centro, con sus relaciones', keys: keysOf(keymap.nodes), run: onNodes },
@@ -656,20 +656,9 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         <button className="sheet-back" onClick={() => close()}>
           <BackArrow /> Volver
         </button>
-        <span className="sheet-actions">
-          <button className="sheet-back" onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
-            Nodos
-          </button>
-          <button className="sheet-back" onClick={onArchive} title="Archivar: se oculta con lo que cuelga de ella (Ctrl Mayús X)">
-            {note.archivedAt ? 'Desarchivar' : 'Archivar'}
-          </button>
-          <button className="sheet-back" onClick={() => onProps(note.id)}>
-            Propiedades
-          </button>
-          <button className="sheet-back danger" onClick={() => close(() => onDelete(note.id))}>
-            Borrar
-          </button>
-        </span>
+        <button className="reader-icon" onClick={openMenu} aria-haspopup="menu" aria-expanded={!!menu} aria-label="Más acciones" title="Más acciones">
+          <DotsIcon />
+        </button>
       </header>
       <div className="sheet-canvas" key={note.id + note.kind}>
         <div className="sheet-canvas-head">
@@ -694,6 +683,20 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
           onError={onError}
         />
       </div>
+      {menu && (
+        <SheetMenu
+          x={menu.x}
+          y={menu.y}
+          items={[
+            { label: 'Ver en nodos', title: 'Este canvas en el centro, con sus relaciones', keys: keysOf(keymap.nodes), run: onNodes },
+            null,
+            { label: 'Propiedades', run: () => onProps(note.id) },
+            { label: note.archivedAt ? 'Desarchivar' : 'Archivar', title: 'Se oculta con lo que cuelga de él', keys: keysOf(keymap.archive), run: onArchive },
+            { label: 'Borrar', danger: true, run: () => close(() => onDelete(note.id)) },
+          ]}
+          onClose={closeMenu}
+        />
+      )}
       {picker}
     </div>
   );
