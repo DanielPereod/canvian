@@ -335,6 +335,31 @@
 .bib-seg { display: flex; padding: 2px; border-radius: 7px; background: var(--surface-hover); font-size: calc(12px * var(--type-scale, 1)); }
 .bib-seg button { padding: 4px 10px; border-radius: 5px; color: var(--text-faint) !important; transition: background var(--dur-fast), color var(--dur-fast); }
 .bib-seg button.is-on { background: var(--bg); color: var(--text) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+.bib-seg button { display: grid; place-items: center; }
+.bib-seg-i { display: none; }
+
+/* ── Solo en el móvil: el menú, la lupa y el botón de nota nueva ── */
+.bib-drawer-btn,
+.bib-search-btn,
+.bib-touch,
+.bib-fab { display: none !important; }
+.bib-fab {
+  position: fixed;
+  right: 18px;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--line);
+  cursor: pointer;
+  animation: bib-in 360ms var(--ease-out) both;
+}
+.bib-fab:active { transform: scale(0.96); }
 
 /* ── La colección ───────────────────────────────────────────────────── */
 
@@ -531,9 +556,51 @@
 
 @media (max-width: 760px) {
   .canvas.is-bib { --bib-w: 0px; }
-  .bib-side, .bib-resizer { display: none; }
-  .bib-bar { grid-template-columns: minmax(0, 1fr) auto; }
+  .bib-side, .bib-resizer, .bib-hot, .bib-unfold { display: none; }
+  .bib-bar { grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding: 0 10px 0 6px; }
   .bib-search { display: none !important; }
+  .bib-bar .bib-icon { width: 38px; height: 38px; }
+  .bib-drawer-btn, .bib-search-btn, .bib-touch { display: grid !important; }
+  .bib-side .bib-touch { display: flex !important; }
+  .bib-fab { display: grid !important; }
+  .bib-bar-end { gap: 4px; }
+  .bib-seg button { padding: 6px 9px; }
+  .bib-seg-t { display: none; }
+  .bib-seg-i { display: block; }
+  .bib-crumb { max-width: 46vw; }
+  /* Solo la última miga (y la anterior, si cabe): la ruta entera está en el cajón. */
+  .bib-crumb-wrap:not(:nth-last-child(-n + 2)) { display: none; }
+  .bib-crumb-wrap:nth-last-child(2):not(:last-child) .bib-crumb { max-width: 22vw; }
+  .bib-crumb-wrap:nth-last-child(2) .bib-sep { display: none; }
+
+  /* La barra lateral como cajón por encima de todo. */
+  .bib-dock.is-drawer .bib-side,
+  .bib-dock.is-drawer.is-folded .bib-side {
+    --row: calc(40px * var(--type-scale, 1));
+    --bib-w: min(86vw, 330px);
+    display: flex;
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: var(--bib-w);
+    z-index: 41;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-radius: 0 14px 14px 0;
+    font-size: calc(15px * var(--type-scale, 1));
+    box-shadow: 0 0 0 1px var(--line), 24px 0 60px -20px rgba(0, 0, 0, 0.5);
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    transition: none;
+    animation: bib-drawer-in 240ms var(--ease-out) both;
+  }
+  .bib-dock.is-drawer .bib-side-top .bib-icon { display: none; }
+  .bib-dock.is-drawer .bib-profile { height: 40px; }
+  .bib-dock.is-drawer .bib-side-label { height: 36px; }
+  .bib-dock.is-drawer .bib-label-add { width: 34px; height: 34px; opacity: 1; }
+  .bib-dock.is-drawer .bib-chev { width: 30px; }
+  .bib-dock.is-drawer .bib-branch { --indent: 20px; }
+  .bib-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.38); animation: bib-fade 200ms var(--ease-out) both; }
+  .canvas.is-bib .lantern { left: 0; top: calc(var(--bib-h) + 10px); }
   .bib-thead, .bib-row { grid-template-columns: 28px minmax(0, 1fr) 90px; }
   .bib-thead > :nth-child(4), .bib-thead > :nth-child(5), .bib-row > :nth-child(4), .bib-row > :nth-child(5) { display: none; }
   .reader-side, .reader-resizer { display: none; }
@@ -542,4 +609,27 @@
   .reader-float .reader-fold,
   .reader-bar-tools .reader-fold { display: none; }
   .bib-lib { padding: 20px 16px 80px; }
+}
+
+@keyframes bib-drawer-in { from { transform: translateX(-100%); } }
+@keyframes bib-fade { from { opacity: 0; } }
+
+/* ── Pantallas táctiles: sin teclas que enseñar y con dedos en vez de ratón ── */
+@media (hover: none) and (pointer: coarse) {
+  .bib-search-k,
+  .bib-menu-k,
+  .bib-keys,
+  .tv-add-key,
+  .lens-slot,
+  .list-item .trail .keys { display: none; }
+  .bib-touch { display: flex !important; }
+  .bib-menu { min-width: 230px; font-size: calc(15px * var(--type-scale, 1)); }
+  .bib-menu-it { height: calc(42px * var(--type-scale, 1)); }
+  .bib-swatch { width: 26px; height: 26px; }
+  .bib-menu-colors { gap: 10px; }
+  .bib-tree-row,
+  .bib-row,
+  .bib-cover-it,
+  .tv-row,
+  .tv-card { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 }

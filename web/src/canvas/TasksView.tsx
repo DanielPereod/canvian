@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { parentMap } from './sections';
+import { longPress, TOUCH } from './touch';
 import type { NoteRow, TaskStatus } from '../api';
 import { daysUntil, dueLabel, localToday } from './dates';
 import { actionFor, keysBlocked } from '../keys';
@@ -685,7 +686,7 @@ export function TasksView(p: Props) {
                     return (
                       <div
                         key={r.id}
-                        draggable
+                        draggable={!TOUCH}
                         onDragStart={(e) => {
                           e.dataTransfer.setData('text/plain', r.id);
                           e.dataTransfer.effectAllowed = 'move';
@@ -695,6 +696,7 @@ export function TasksView(p: Props) {
                         onClick={() => window.innerWidth <= 1100 && p.onOpen(r)}
                         onDoubleClick={() => p.onOpen(r)}
                         onContextMenu={(e) => openMenu(e, r)}
+                        {...longPress((x, y) => setMenu({ id: r.id, x, y }))}
                       >
                         <div className="tv-card-top">
                           <Check row={r} onToggle={() => toggleDone(r)} />
@@ -763,6 +765,7 @@ export function TasksView(p: Props) {
                         onClick={() => window.innerWidth <= 1100 && p.onOpen(r)}
                         onDoubleClick={() => p.onOpen(r)}
                         onContextMenu={(e) => openMenu(e, r)}
+                        {...longPress((x, y) => setMenu({ id: r.id, x, y }))}
                       >
                         <Check row={r} onToggle={() => toggleDone(r)} />
                         <span className="tv-row-title">{titleOf(r)}</span>
@@ -1139,7 +1142,7 @@ function CalTask({ r, iso, p, where }: { r: Task; iso: string; p: CalProps; wher
   return (
     <div
       className={`tv-cal-task${r.status === 'done' ? ' is-done' : ''}${r.id === p.selected ? ' is-sel' : ''}${r.status !== 'done' && iso < today ? ' is-late' : ''}`}
-      draggable
+      draggable={!TOUCH}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/canvian-task', r.id);
         e.dataTransfer.effectAllowed = 'move';

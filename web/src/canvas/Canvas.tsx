@@ -53,7 +53,7 @@ function readPlace(profileId: string): Partial<Place> {
 }
 
 // Lo que la barra lateral abre y vive fuera del canvas.
-export type Shell = { onProfiles: () => void; onSettings: () => void };
+export type Shell = { onProfiles: () => void; onSettings: () => void; onCommands: () => void };
 
 export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [allRows, setRows] = useState<NoteRow[]>([]);
@@ -84,6 +84,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const bibWidth = useSideWidth('canvian.bibWidth', 240, 180, 440);
   // Menú con clic derecho sobre una nota, y «Mover a…» desde él.
   const [bibMenu, setBibMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  // En el móvil, la barra lateral abierta como cajón.
+  const [drawer, setDrawer] = useState(false);
   const [movingId, setMovingId] = useState<string | null>(null);
   // Nota abierta en grande sobre la vista de tareas, sin salir de ella.
   const [peek, setPeek] = useState(false);
@@ -927,8 +929,18 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             showArchived={showArchived}
             folded={bibFolded}
             width={bibWidth}
+            drawer={drawer}
+            onDrawer={setDrawer}
             onFold={toggleBibFolded}
             onProfiles={shell.onProfiles}
+            onCommands={shell.onCommands}
+            onLantern={() => {
+              if (focused) closeFocused();
+              setTasksOpen(false);
+              setOrganizeOpen(false);
+              setLamp((q) => q ?? '');
+              setLampOpen(true);
+            }}
             onSettings={shell.onSettings}
             onLibrary={goLibrary}
             onOpen={bibOpen}
@@ -963,7 +975,16 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             onLayout={setBibLayout}
             folded={bibFolded}
             onFold={toggleBibFolded}
+            onDrawer={() => setDrawer(true)}
           />
+          {/* Sin teclado no hay N: un botón para la nota nueva (solo en el móvil). */}
+          {bibView === 'library' && (
+            <button className="bib-fab" onClick={() => act('create', null, center && center !== LOOSE ? center : null)} aria-label="Nota nueva" title="Nota nueva">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          )}
         </>
       )}
       <div className="home-layer">

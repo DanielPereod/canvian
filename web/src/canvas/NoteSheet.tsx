@@ -520,6 +520,8 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       { label: 'Modo zen', title: 'Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)', keys: keysOf(keymap.zen), run: () => setZen(true) },
       null,
       { label: 'Propiedades', run: () => onProps(note.id) },
+      { label: 'Mover a…', title: 'Meterla dentro de otra nota', run: () => setMoving(true) },
+      { label: 'Enlazar con…', run: onLink },
       { label: note.archivedAt ? 'Desarchivar' : 'Archivar', title: 'Se oculta con lo que cuelga de ella', keys: keysOf(keymap.archive), run: onArchive },
       { label: 'Borrar', danger: true, run: () => close(() => onDelete(note.id)) },
     ];
