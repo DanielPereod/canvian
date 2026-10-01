@@ -149,9 +149,12 @@ function parseList(lines: string[], start: number, ctx: Ctx): [JSONContent, numb
 
 type Ctx = { links: string[]; heading: string | null };
 
-export function markdownToDoc(md: string): { doc: JSONContent; links: string[]; heading: string | null } {
+// Con `frontmatter`, se salta la cabecera «---» de Obsidian (al importar); al
+// editar el Markdown de una nota, un «---» al principio es una raya.
+export function markdownToDoc(md: string, frontmatter = true): { doc: JSONContent; links: string[]; heading: string | null } {
   const ctx: Ctx = { links: [], heading: null };
-  const lines = md.replace(/\r\n?/g, '\n').replace(/^---\n[\s\S]*?\n---\n/, '').split('\n');
+  md = md.replace(/\r\n?/g, '\n');
+  const lines = (frontmatter ? md.replace(/^---\n[\s\S]*?\n---\n/, '') : md).split('\n');
   const content = parseBlocks(lines, ctx);
   return { doc: { type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] }, links: ctx.links, heading: ctx.heading };
 }
@@ -299,6 +302,22 @@ export function docToMarkdown(doc: JSONContent | null): string {
     }
   };
   return (doc.content ?? []).map((b) => block(b)).join('\n\n').trim();
+}
+
+// El Markdown de una nota para verlo y editarlo, sin los párrafos vacíos (que
+// en Markdown solo serían más líneas en blanco).
+export const sourceOf = (doc: JSONContent | null): string =>
+  docToMarkdown(doc && { ...doc, content: (doc.content ?? []).filter((b) => b.type !== 'paragraph' || b.content?.length) });
+
+// El Markdown de una nota editado a mano, de vuelta a documento. Los bloques
+// que no cambiaron se quedan como estaban (imágenes, adjuntos, ids de los
+// [[enlaces]]…), porque su Markdown no lo guarda todo.
+export function sourceToDoc(md: string, prev: JSONContent | null): JSONContent {
+  const { doc } = markdownToDoc(md, false);
+  const blockMd = (b: JSONContent) => docToMarkdown({ type: 'doc', content: [b] });
+  const kept = new Map<string, JSONContent[]>();
+  for (const b of prev?.content ?? []) kept.set(blockMd(b), [...(kept.get(blockMd(b)) ?? []), b]);
+  return { ...doc, content: (doc.content ?? []).map((b) => kept.get(blockMd(b))?.shift() ?? b) };
 }
 
 // Tablas importadas antes de que se entendieran: cada tabla quedó como un solo
