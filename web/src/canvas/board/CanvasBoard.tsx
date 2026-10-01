@@ -544,6 +544,19 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     setDrawings((ds) => [...ds, tidy(d)]);
   };
 
+  // En pantallas táctiles React Flow mueve el lienzo con un dedo aunque se esté
+  // dibujando (panOnDrag solo filtra el ratón). Dibujando, el arrastre de un
+  // dedo no le llega; con dos dedos sí, para mover y acercar.
+  useEffect(() => {
+    const el = host.current;
+    if (!drawing || !el) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length < 2) e.stopPropagation();
+    };
+    el.addEventListener('touchmove', onTouchMove, { capture: true, passive: true });
+    return () => el.removeEventListener('touchmove', onTouchMove, { capture: true });
+  }, [drawing]);
+
   // Teclas del lienzo: deshacer, rehacer, Esc y borrar lo dibujado.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -666,7 +679,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         }}
         onNodeClick={() => setSel(null)}
         // Dibujando, las tarjetas se quedan quietas; el lienzo se mueve con la
-        // rueda, con dos dedos o arrastrando con el botón central.
+        // rueda, con dos dedos (nunca con uno) o arrastrando con el botón central.
         nodesDraggable={!drawing}
         nodesConnectable={!drawing}
         elementsSelectable={!drawing}
