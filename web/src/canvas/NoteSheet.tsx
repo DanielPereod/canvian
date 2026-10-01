@@ -16,6 +16,7 @@ import { editedLabel, kindOf } from './Biblioteca';
 import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian';
 import { WikiMenu, type WikiItem } from './WikiMenu';
 import { keyParts, keysBlocked, matches, useKeymap } from '../keys';
+import { toggleWide, useWide } from './widePrefs';
 
 // Una nota se abre como lector: el texto a la izquierda y un panel de detalles
 // a la derecha. Un canvas se abre en su hoja, con el lienzo a pantalla completa.
@@ -272,9 +273,12 @@ type Props = {
   onPickNote: (then: (id: string) => void) => void;
   // Crear una nota para un [[enlace]] que aún no existe; devuelve su id.
   onCreateLinked: (title: string) => string;
+  // Modo zen: sin nada alrededor, solo el texto.
+  zen: boolean;
+  onZen: (on: boolean) => void;
 };
 
-export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked }: Props) {
+export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen }: Props) {
   const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -283,6 +287,19 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   const [moving, setMoving] = useState(false);
   // Ver la nota como Markdown (Ctrl E): sigue así al pasar de una nota a otra.
   const [source, setSource] = useState(false);
+  // Modo ancho: cada nota recuerda el suyo.
+  const wide = useWide(note.id);
+  const flipWide = () => void toggleWide(note.id).catch(onError);
+  // Al entrar o salir desde un botón que desaparece, se sigue escribiendo.
+  const setZen = (on: boolean) => {
+    onZen(on);
+    requestAnimationFrame(() => {
+      if (document.activeElement?.closest('.sheet-editor, .sheet-source')) return;
+      const area = ref.current?.querySelector<HTMLTextAreaElement>('.sheet-source');
+      if (area) area.focus({ preventScroll: true });
+      else editorRef.current?.commands.focus(null, { scrollIntoView: false });
+    });
+  };
   const keymap = useKeymap();
   // La ruta de notas madre, para poder ir a cada una por su clic.
   const chain = useMemo(() => {
@@ -352,6 +369,13 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         setSource((s) => !s);
         return;
       }
+      if (!isCanvas && !keysBlocked() && !document.querySelector('.inspector, .overlay') && (matches(e, 'zen') || matches(e, 'wideNote'))) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (matches(e, 'zen')) setZen(!zen);
+        else flipWide();
+        return;
+      }
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyA' && !typing && editorRef.current && !document.querySelector('.inspector, .overlay')) {
         e.preventDefault();
@@ -361,7 +385,9 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       if (e.key === 'Escape' && !document.querySelector('.inspector, .overlay, .wiki-suggest')) {
         e.preventDefault();
         e.stopPropagation();
-        close();
+        // En modo zen, Esc sale del modo y deja la nota abierta.
+        if (zen) setZen(false);
+        else close();
       }
     };
     window.addEventListener('keydown', onKey, true);
@@ -398,7 +424,12 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     const words = (note.bodyText ?? '').split(/\s+/).filter(Boolean).length;
     const tasks = taskCount(note);
     return (
-      <div ref={ref} className="sheet is-reader" style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
+      <div ref={ref} className={`sheet is-reader${zen ? ' is-zen' : ''}${wide ? ' is-wide' : ''}`} style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
+        {zen && (
+          <button className="reader-zen-exit" onClick={() => setZen(false)} title="Salir del modo zen (Esc)">
+            Salir del modo zen <span className="reader-zen-k">Esc</span>
+          </button>
+        )}
         <div className="reader-main">
           <article className="reader-body" key={note.id + note.kind}>
             <span className="reader-meta">
@@ -508,6 +539,12 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
             </button>
             <button onClick={() => setSource((s) => !s)} aria-pressed={source} title={`Ver y editar el Markdown de la nota, o volver al texto normal (${keyParts(keymap.markdownSource).join(' ')})`}>
               {source ? 'Texto' : 'Markdown'}
+            </button>
+            <button onClick={flipWide} aria-pressed={wide} title={`Mostrar el texto de esta nota más ancho, o volver al ancho de lectura (${keyParts(keymap.wideNote).join(' ')})`}>
+              {wide ? 'Estrecho' : 'Ancho'}
+            </button>
+            <button onClick={() => setZen(true)} title={`Modo zen: quitar toda la interfaz y quedarse solo con el texto (${keyParts(keymap.zen).join(' ')}; Esc para salir)`}>
+              Zen
             </button>
             <button onClick={onArchive} title="Archivar: se oculta con lo que cuelga de ella (Ctrl Mayús X)">
               {note.archivedAt ? 'Desarchivar' : 'Archivar'}

@@ -37,6 +37,12 @@ describe('prefs', () => {
     expect((await call('DELETE', '/api/prefs/appearance')).status).toBe(204);
   });
 
+  it('saves the notes shown in wide mode', async () => {
+    expect((await call('PUT', '/api/prefs/wide', ['01HZX', '01HZY'])).status).toBe(204);
+    expect(await (await call('GET', '/api/prefs')).json()).toEqual({ wide: ['01HZX', '01HZY'] });
+    expect((await call('PUT', '/api/prefs/wide', { '01HZX': true })).status).toBe(400);
+    expect((await call('PUT', '/api/prefs/wide', [''])).status).toBe(400);
+  });
 
   it('rejects unknown prefs and bad values', async () => {
     expect((await call('PUT', '/api/prefs/password_hash', {})).status).toBe(404);

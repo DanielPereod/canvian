@@ -87,6 +87,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [movingId, setMovingId] = useState<string | null>(null);
   // Nota abierta en grande sobre la vista de tareas, sin salir de ella.
   const [peek, setPeek] = useState(false);
+  // Modo zen: con una nota abierta, sin barra lateral ni nada más; solo el texto.
+  const [zen, setZen] = useState(false);
   // Nota del centro en la vista de nodos (null: la raíz).
   const [center, setCenter] = useState<string | null>(null);
 
@@ -574,8 +576,14 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
-      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar']);
+      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar', 'zen', 'wideNote']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
+      // Con una nota abierta los atiende ella; aquí solo llegan sin nota.
+      if ((action === 'zen' || action === 'wideNote') && (chord || !isTyping(e.target))) {
+        e.preventDefault();
+        setNotice(action === 'zen' ? 'Abre una nota para escribir en modo zen' : 'Abre una nota para verla en modo ancho');
+        return;
+      }
       if (action === 'sidebar' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         toggleBibFolded();
@@ -756,6 +764,11 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   };
 
   const focused = focusId ? (allRows.find((r) => r.id === focusId) ?? null) : null;
+  const zenOn = zen && !peek && !!focused && focused.kind !== 'canvas';
+  // Al cerrar la nota se sale del modo zen.
+  useEffect(() => {
+    if (!focusId) setZen(false);
+  }, [focusId]);
   const focusNeighbors = useMemo(() => {
     if (!focusId) return [];
     const ids = new Set(links.flatMap((l) => (l.source === focusId ? [l.target] : l.target === focusId ? [l.source] : [])));
@@ -889,7 +902,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
 
   return (
     <div
-      className={`canvas is-bib${bibFolded ? ' is-bib-folded' : ''}`}
+      className={`canvas is-bib${bibFolded ? ' is-bib-folded' : ''}${zenOn ? ' is-zen' : ''}`}
       style={{ '--bib-side-w': `${bibWidth.width}px` } as CSSProperties}
       onDragOver={(e) => {
         if (focusId || ![...e.dataTransfer.types].includes('Files')) return;
@@ -1109,6 +1122,16 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             return createNote(spotFor(focused.zoneId), 'text', { zoneId: focused.zoneId, title: title.slice(0, 120), bodyJson, bodyText: title }).id;
           }}
           onUnlink={(id) => unlink(focused.id, id)}
+          zen={zenOn}
+          onZen={(on) => {
+            // Desde la vista previa, primero se va a la nota de verdad.
+            if (on && peek) {
+              flush(focused.id);
+              setPeek(false);
+              setTasksOpen(false);
+            }
+            setZen(on);
+          }}
           onDelete={(id) => {
             flush(id);
             setFocusId(null);

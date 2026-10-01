@@ -7,6 +7,7 @@ import { actionFor, keysBlocked, loadKeymap } from './keys';
 import { loadTheme, toggleMode } from './theme';
 import { loadTypography } from './typography';
 import { loadSidebarPrefs } from './canvas/sidebarPrefs';
+import { loadWide } from './canvas/widePrefs';
 import { Settings } from './Settings';
 import { Help } from './Help';
 import { ActionPalette } from './ActionPalette';
@@ -34,6 +35,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     void loadTheme();
     void loadTypography();
     void loadSidebarPrefs();
+    void loadWide();
   }, []);
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           void loadTheme();
           void loadTypography();
           void loadSidebarPrefs();
+          void loadWide();
         } else if (scope === 'profiles') api.profiles().then(setProfiles, () => {});
       }),
     [],

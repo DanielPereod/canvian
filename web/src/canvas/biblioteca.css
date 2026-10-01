@@ -476,6 +476,34 @@
 .reader-actions button { height: 26px; padding: 0 10px; border-radius: var(--radius-sm); background: var(--surface-hover); font-size: calc(12px * var(--type-scale, 1)); transition: background var(--dur-fast), color var(--dur-fast); }
 .reader-actions button:hover { background: var(--bib-sel, var(--surface-hover)); }
 .reader-actions button.danger:hover { color: #c2432c; }
+.reader-actions button[aria-pressed='true'] { background: var(--bib-sel, var(--surface-hover)); }
+
+/* Modo ancho: el texto de la nota ocupa más de la hoja. */
+.sheet.is-reader.is-wide .reader-body { width: min(1120px, calc(100% - 48px)); }
+
+/* Modo zen: sin barra lateral, ni ruta, ni detalles; la hoja llena la ventana y
+   solo queda el texto. Un botón discreto (y Esc) para salir. */
+.canvas.is-zen .bib-dock,
+.canvas.is-zen .bib-bar,
+.canvas.is-zen .lantern { display: none; }
+.canvas.is-bib.is-zen > .sheet { inset: 0; z-index: 7; }
+.sheet.is-zen .reader-side,
+.sheet.is-zen .reader-resizer,
+.sheet.is-zen .reader-meta,
+.sheet.is-zen .note-chips { display: none; }
+.sheet.is-zen .reader-body { padding-top: 14vh; }
+.reader-zen-exit {
+  position: absolute; top: 14px; right: 18px; z-index: 1;
+  display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px;
+  font: inherit; font-size: calc(12px * var(--type-scale, 1)); color: var(--text-faint);
+  background: none; border: 0; border-radius: var(--radius-sm); cursor: pointer;
+  opacity: 0; transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
+  animation: zen-hint 2600ms var(--ease-out);
+}
+.reader-zen-exit:hover,
+.reader-zen-exit:focus-visible { opacity: 1; color: var(--text); background: var(--surface-hover); }
+.reader-zen-k { padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; font-size: 0.9em; }
+@keyframes zen-hint { 0%, 55% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ── Tareas, ordenar y el buscador con este estilo ──────────────────── */
 
