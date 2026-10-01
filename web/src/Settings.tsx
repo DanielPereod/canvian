@@ -8,6 +8,7 @@ import { FontPicker } from './FontPicker';
 import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
 import { CalendarSettings } from './CalendarSettings';
+import { setZenFullscreen, useZenPrefs } from './canvas/zenPrefs';
 
 // Configuración con la forma de Obsidian: a la izquierda las secciones, a la
 // derecha los ajustes de la elegida, cada uno con su nombre y explicación a la
@@ -48,6 +49,7 @@ export function Settings({ onClose, onProfiles }: Props) {
   const look = useAppearance();
   const type = useTypography();
   const lang = useLang();
+  const zen = useZenPrefs();
   const [section, setSection] = useState<SectionId>(() => {
     try {
       const saved = localStorage.getItem(LAST);
@@ -170,6 +172,18 @@ export function Settings({ onClose, onProfiles }: Props) {
                   {LANGS.map((l) => (
                     <button key={l.id} role="radio" lang={l.id} aria-checked={lang === l.id} className={lang === l.id ? 'is-on' : ''} onClick={() => report(setLang(l.id))}>
                       {l.name}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <Row name={t('Modo zen')} hint={t('Al entrar en el modo zen, poner también el navegador a pantalla completa. Al salir de la pantalla completa se sale del modo zen.')}>
+                <div className="set-segmented" role="radiogroup" aria-label={t('Modo zen')}>
+                  {[
+                    { on: false, label: t('En la ventana') },
+                    { on: true, label: t('Pantalla completa') },
+                  ].map((o) => (
+                    <button key={String(o.on)} role="radio" aria-checked={zen.fullscreen === o.on} className={zen.fullscreen === o.on ? 'is-on' : ''} onClick={() => report(setZenFullscreen(o.on))}>
+                      {o.label}
                     </button>
                   ))}
                 </div>

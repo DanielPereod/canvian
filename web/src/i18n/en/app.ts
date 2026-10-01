@@ -153,6 +153,10 @@ export const EN_APP: Record<string, string> = {
   Más: 'More',
   'Perfiles y sesión': 'Profiles and session',
   Idioma: 'Language',
+  'Al entrar en el modo zen, poner también el navegador a pantalla completa. Al salir de la pantalla completa se sale del modo zen.':
+    'When entering zen mode, also put the browser in full screen. Leaving full screen leaves zen mode.',
+  'En la ventana': 'In the window',
+  'Pantalla completa': 'Full screen',
   'El de la interfaz. Sin elegir, el del navegador.': 'The interface language. If you don’t pick one, the browser’s.',
   'Revisa las notas sueltas y mételas dentro de otras.': 'Go through loose notes and put them inside others.',
   Abrir: 'Open',
