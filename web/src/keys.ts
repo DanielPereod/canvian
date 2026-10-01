@@ -63,9 +63,9 @@ const RAW: KeyAction[] = [
   { id: 'tasks', label: 'Tareas', hint: 'Abre o cierra la vista de tareas', group: 'Ir a', ctx: ['list', 'tasks'], key: 'a' },
   { id: 'organize', label: 'Ordenar notas', hint: 'Meter las notas sueltas dentro de otras', group: 'Ir a', ctx: ['list', 'organize'], key: 'o' },
 
-  { id: 'newNote', label: 'Nota nueva', hint: 'En Tareas, apunta una tarea', group: 'Crear', ctx: ['list', 'tasks'], key: 'n' },
-  { id: 'newSection', label: 'Nota dentro', hint: 'Dentro de la señalada', group: 'Crear', ctx: ['list', 'organize'], key: 'shift+n' },
-  { id: 'newCanvas', label: 'Canvas nuevo', hint: 'Tarjetas libres y flechas', group: 'Crear', ctx: ['list'], key: '' },
+  { id: 'newNote', label: 'Nota nueva', hint: 'En Tareas, apunta una tarea', group: 'Crear', ctx: ['list', 'tasks', 'note'], key: 'n' },
+  { id: 'newSection', label: 'Nota dentro', hint: 'Dentro de la señalada o de la abierta', group: 'Crear', ctx: ['list', 'organize', 'note'], key: 'shift+n' },
+  { id: 'newCanvas', label: 'Canvas nuevo', hint: 'Tarjetas libres y flechas', group: 'Crear', ctx: ['list', 'note'], key: '' },
 
   { id: 'rename', label: 'Renombrar', group: 'Lo señalado', ctx: ['list'], key: 'r' },
   { id: 'move', label: 'Mover a…', hint: 'Meterla dentro de otra nota', group: 'Lo señalado', ctx: ['list', 'note', 'tasks', 'organize'], key: 'm' },
