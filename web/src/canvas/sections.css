@@ -159,6 +159,8 @@
 
 /* Sección de la nota abierta: sus migas (cada una lleva a su nota) y, al fondo, mover a otra. */
 .sheet-where { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); margin: 0 0 var(--space-4); padding: 3px 0; color: var(--text-faint); text-align: left; }
+/* Las migas, igual de pequeñas en todos los temas (ganan a su .meta). */
+:root .sheet-where.meta { font-size: var(--text-2xs); }
 .sheet-where-wrap { display: inline-flex; align-items: baseline; min-width: 0; }
 .sheet-where-crumb { background: none; border: 0; padding: 2px 4px; margin: -2px -4px; font: inherit; color: inherit; cursor: pointer; border-radius: var(--radius-sm); text-align: left; transition: color var(--dur-fast), background var(--dur-fast); }
 .sheet-where-crumb:hover, .sheet-where-crumb:focus-visible { color: var(--text); background: var(--accent-soft); }
