@@ -104,12 +104,14 @@
   --draw-green: oklch(0.68 0.12 150);
   --draw-blue: oklch(0.64 0.13 255);
 }
-.draw-c-ink { color: var(--draw-ink); }
-.draw-c-accent { color: var(--draw-accent); }
-.draw-c-red { color: var(--draw-red); }
-.draw-c-orange { color: var(--draw-orange); }
-.draw-c-green { color: var(--draw-green); }
-.draw-c-blue { color: var(--draw-blue); }
+/* Cada color es una variable: la barra la usa de fondo y el dibujo, de tinta. */
+.draw-c-ink { --draw-c: var(--draw-ink); }
+.draw-c-accent { --draw-c: var(--draw-accent); }
+.draw-c-red { --draw-c: var(--draw-red); }
+.draw-c-orange { --draw-c: var(--draw-orange); }
+.draw-c-green { --draw-c: var(--draw-green); }
+.draw-c-blue { --draw-c: var(--draw-blue); }
+.draw-shape, .draw-textarea { color: var(--draw-c); }
 
 /* Encima de las tarjetas, pero solo se toca el trazo de cada dibujo. */
 .board .react-flow__viewport-portal { pointer-events: none; z-index: 4000; }
@@ -156,9 +158,9 @@
 .draw-rail-sep, .draw-style-sep { width: 18px; height: 1px; background: var(--line); margin: 4px 0; }
 .draw-style { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px; border-radius: 999px; animation: fade var(--dur-base) var(--ease-out) both; }
 .draw-style button { width: 30px; height: 30px; }
-.draw-swatch span { width: 14px; height: 14px; border-radius: 50%; background: currentColor; transition: box-shadow var(--dur-fast), scale var(--dur-fast); }
+.draw-swatch span { width: 14px; height: 14px; border-radius: 50%; background: var(--draw-c); transition: box-shadow var(--dur-fast), scale var(--dur-fast); }
 .draw-swatch:hover span { scale: 1.15; }
-.draw-swatch.is-on span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px currentColor; }
+.draw-swatch.is-on span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--draw-c); }
 .draw-width span { border-radius: 50%; background: var(--text-faint); transition: background var(--dur-fast); }
 .draw-width:hover span { background: var(--text-muted); }
 .draw-width.is-on span { background: var(--text); }
