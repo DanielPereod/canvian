@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ACTIONS, bind, comboOf, isDefault, keyParts, reserved, resetAll, resetKey, useKeymap, type ActionId } from './keys';
 import { Keys } from './Kbd';
 import { MODES, setMode, setTheme, THEMES, useAppearance, type Tone } from './theme';
-import { FONTS, KINDS, SAME_AS_UI, SIZES, SLOTS, THEME, setTypography, useTypography } from './typography';
+import { SIZES, SLOTS, THEME, setTypography, useTypography } from './typography';
+import { FontPicker } from './FontPicker';
 import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
 
@@ -192,19 +193,7 @@ export function Settings({ onClose, onProfiles }: Props) {
               </Row>
               {SLOTS.map((s) => (
                 <Row key={s.id} name={s.name} hint={s.hint}>
-                  <select className="set-select" value={type[s.id]} onChange={(e) => report(setTypography({ [s.id]: e.target.value }))} aria-label={s.name}>
-                    <option value={THEME}>Del tema</option>
-                    {s.sameAsUi && <option value={SAME_AS_UI}>La de la interfaz</option>}
-                    {KINDS.map((k) => (
-                      <optgroup key={k.id} label={k.name}>
-                        {FONTS.filter((f) => f.kind === k.id).map((f) => (
-                          <option key={f.id} value={f.id} style={{ fontFamily: f.stack }}>
-                            {f.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                  <FontPicker value={type[s.id]} sameAsUi={s.sameAsUi} label={s.name} onPick={(id) => report(setTypography({ [s.id]: id }))} />
                 </Row>
               ))}
               <div className="set-block">

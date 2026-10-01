@@ -8,6 +8,7 @@ import { mergeTags } from './tags';
 import { allTasks, type Task, type TaskChange } from './tasks';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { Resizer, useSideWidth } from './Resizer';
+import { DatePicker } from './DatePicker';
 import { useContextMenu } from './Biblioteca';
 
 // Vista de tareas, fuera del mapa, en tres columnas: a la izquierda las
@@ -881,12 +882,11 @@ function Detail({
     <aside className="tv-detail" aria-label="Detalle de la tarea">
       <div className="tv-detail-bar">
         <Check row={row} onToggle={() => onToggle(row)} />
-        <input
-          type="date"
+        <DatePicker
           className={`tv-date${row.dueAt && daysUntil(row.dueAt) < 0 && row.status !== 'done' ? ' is-late' : ''}`}
-          aria-label="Fecha"
-          value={row.dueAt?.slice(0, 10) ?? ''}
-          onChange={(e) => p.onChange(row, { dueAt: e.target.value || null })}
+          label="Fecha"
+          value={row.dueAt?.slice(0, 10) ?? null}
+          onChange={(v) => p.onChange(row, { dueAt: v })}
         />
         <div className="tv-prio" role="radiogroup" aria-label="Prioridad">
           {[1, 2, 3].map((n) => (

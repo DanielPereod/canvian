@@ -95,6 +95,7 @@
 .insp-input:focus { outline: none; border-color: var(--accent-line); background: rgb(var(--ink) / 0.05); box-shadow: var(--focus-ring); }
 .insp-input::placeholder { color: var(--text-ghost); }
 .insp-date { display: flex; align-items: center; gap: var(--space-1); }
+.insp-date-btn { text-align: left; cursor: pointer; }
 .insp-switch { display: inline-flex; padding: 4px 0; }
 
 .insp-options { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; }

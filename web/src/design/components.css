@@ -189,6 +189,7 @@ button.pill:active { transform: scale(0.97); }
   background: var(--accent);
   box-shadow: 0 0 10px var(--accent-glow);
 }
+.list-group { padding: var(--space-3) var(--space-3) var(--space-1); font-size: var(--text-2xs); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-ghost); }
 .list-item .trail { margin-left: auto; font-size: var(--text-sm); color: var(--text-faint); }
 .list-item.static { cursor: default; color: var(--text-faint); }
 .list-icon { width: 18px; display: inline-flex; justify-content: center; color: var(--accent-ink); flex: none; }
