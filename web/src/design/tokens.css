@@ -51,15 +51,16 @@
   --font-serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
   --font-pixel: 'Silkscreen', var(--font-mono);
   --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --text-2xs: 10px;  /* marca pixelada */
-  --text-xs: 12px;   /* etiquetas */
-  --text-sm: 13px;   /* secundario, atajos */
-  --text-md: 14px;   /* cuerpo de las notas */
-  --text-ui: 15px;   /* controles, listas */
-  --text-lg: 18px;   /* campos grandes */
-  --text-xl: 24px;   /* títulos en notas y zonas (serif) */
-  --text-2xl: 34px;  /* titulares de pantalla */
-  --text-3xl: 52px;  /* portada */
+  /* Tamaños de letra: escalan con Configuración › Aspecto › Tamaño del texto */
+  --text-2xs: calc(10px * var(--type-scale, 1)); /* marca pixelada */
+  --text-xs: calc(12px * var(--type-scale, 1)); /* etiquetas */
+  --text-sm: calc(13px * var(--type-scale, 1)); /* secundario, atajos */
+  --text-md: calc(14px * var(--type-scale, 1)); /* cuerpo de las notas */
+  --text-ui: calc(15px * var(--type-scale, 1)); /* controles, listas */
+  --text-lg: calc(18px * var(--type-scale, 1)); /* campos grandes */
+  --text-xl: calc(24px * var(--type-scale, 1)); /* títulos en notas y zonas (serif) */
+  --text-2xl: calc(34px * var(--type-scale, 1)); /* titulares de pantalla */
+  --text-3xl: calc(52px * var(--type-scale, 1)); /* portada */
   --leading-tight: 1.1;
   --leading-snug: 1.3;
   --leading-body: 1.5;

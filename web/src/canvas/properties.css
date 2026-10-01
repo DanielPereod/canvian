@@ -32,7 +32,7 @@
   place-items: center;
   border-radius: 50%;
   color: var(--text-faint);
-  font-size: 17px;
+  font-size: calc(17px * var(--type-scale, 1));
   line-height: 1;
   text-decoration: none;
   transition: background var(--dur-fast), color var(--dur-fast);
@@ -44,7 +44,7 @@
 .insp-title {
   margin: 0 0 var(--space-1);
   font-family: var(--font-serif);
-  font-size: 22px;
+  font-size: calc(22px * var(--type-scale, 1));
   line-height: var(--leading-snug);
   color: var(--text);
   overflow-wrap: anywhere;
@@ -199,7 +199,7 @@
   max-width: 100%;
   padding: 0 7px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--type-scale, 1));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -16,7 +16,7 @@
 .lantern-lenses { margin: 0 0 var(--space-1); border-top: 1px solid var(--line); padding-top: var(--space-1); max-height: 40vh; }
 .lantern-lenses .list-item { gap: var(--space-2); }
 .lens-slot { width: 30px; flex: none; }
-.lens-name { font-family: var(--font-serif); font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lens-name { font-family: var(--font-serif); font-size: calc(17px * var(--type-scale, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lantern-lenses .trail { font-family: var(--font-mono); font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
 .lantern-lenses .lantern-x { opacity: 0; }
 .lantern-lenses .list-item:hover .lantern-x { opacity: 1; }
@@ -35,7 +35,7 @@
   animation: chip-pop var(--dur-base) var(--ease-spring) both;
   animation-delay: calc(var(--i, 0) * 25ms);
 }
-.lens-chip.is-text { color: var(--text); background: rgb(var(--ink) / 0.05); border-color: var(--line); font-family: var(--font-serif); font-style: italic; font-size: 15px; }
+.lens-chip.is-text { color: var(--text); background: rgb(var(--ink) / 0.05); border-color: var(--line); font-family: var(--font-serif); font-style: italic; font-size: calc(15px * var(--type-scale, 1)); }
 .lens-chip.negated { text-decoration: line-through; text-decoration-color: color-mix(in oklab, currentColor 50%, transparent); }
 .lens-chip.negated:not(.is-text) { color: var(--text-muted); background: transparent; border-style: dashed; text-decoration: none; }
 .lens-chip.is-unknown { color: var(--danger); background: color-mix(in oklab, var(--danger) 10%, transparent); border-color: color-mix(in oklab, var(--danger) 40%, transparent); }

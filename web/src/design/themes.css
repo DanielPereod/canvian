@@ -278,7 +278,7 @@
 [data-theme='plano'] .bib-spine.is-branch { background: rgba(40, 90, 150, 0.6); }
 [data-theme='plano'] .bib-cover-k,
 [data-theme='plano'] .reader-meta,
-[data-theme='plano'] .bib-thead { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+[data-theme='plano'] .bib-thead { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(10px * var(--type-scale, 1)); }
 [data-theme='plano'] .backdrop.dotted::before {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),

@@ -35,7 +35,7 @@
 
 .board-note { padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; cursor: default; overflow: hidden; border-left: 2px solid var(--accent-line); }
 .board-note-kind { color: var(--text-ghost); }
-.board-note-title { font-family: var(--font-serif); font-weight: 400; font-size: 20px; line-height: 1.15; }
+.board-note-title { font-family: var(--font-serif); font-weight: 400; font-size: calc(20px * var(--type-scale, 1)); line-height: 1.15; }
 .board-note-body { margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
 .board-note-open { margin-top: auto; color: var(--text-ghost); opacity: 0; transition: opacity var(--dur-fast); }
 .board-note:hover .board-note-open { opacity: 1; }
@@ -56,7 +56,7 @@
 .board-group-label {
   position: absolute; top: -30px; left: 4px;
   background: none; border: 0; outline: 0; color: var(--text-muted);
-  font-family: var(--font-serif); font-style: italic; font-size: 18px; width: 70%;
+  font-family: var(--font-serif); font-style: italic; font-size: calc(18px * var(--type-scale, 1)); width: 70%;
 }
 .board-group-label::placeholder { color: var(--text-ghost); }
 
@@ -87,7 +87,7 @@
 .sheet-canvas-head { position: absolute; top: 56px; left: var(--space-5); z-index: 6; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
 .sheet-canvas-head > * { pointer-events: auto; }
 .sheet-canvas-head .sheet-where { margin: 0; }
-.sheet-canvas-title { background: none; border: 0; outline: 0; color: var(--text); font-family: var(--font-serif); font-size: clamp(26px, 3.4vw, 38px); line-height: 1.1; padding: 0; width: min(60vw, 640px); }
+.sheet-canvas-title { background: none; border: 0; outline: 0; color: var(--text); font-family: var(--font-serif); font-size: calc(clamp(26px, 3.4vw, 38px) * var(--type-scale, 1)); line-height: 1.1; padding: 0; width: min(60vw, 640px); }
 .sheet-canvas-title::placeholder { color: var(--text-ghost); font-style: italic; }
 @media (max-width: 640px) { .board-tools { bottom: var(--space-3); max-width: calc(100% - 24px); overflow-x: auto; } }
 

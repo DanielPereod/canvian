@@ -18,8 +18,8 @@
 .lantern-open .field-bare { flex: 1; min-height: 48px; }
 .lantern-count { font-size: var(--text-sm); white-space: nowrap; }
 .lantern-pill { width: max-content; max-width: calc(100% - 2 * var(--space-4)); padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3); border-radius: 999px; font-size: var(--text-sm); }
-.lantern-query { font-family: var(--font-serif); font-style: italic; font-size: 16px; color: var(--text); max-width: 40ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lantern-x { width: 26px; height: 26px; border-radius: 50%; color: var(--text-faint); font-size: 18px; line-height: 1; transition: background var(--dur-fast), color var(--dur-fast); }
+.lantern-query { font-family: var(--font-serif); font-style: italic; font-size: calc(16px * var(--type-scale, 1)); color: var(--text); max-width: 40ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lantern-x { width: 26px; height: 26px; border-radius: 50%; color: var(--text-faint); font-size: calc(18px * var(--type-scale, 1)); line-height: 1; transition: background var(--dur-fast), color var(--dur-fast); }
 .lantern-x:hover { background: var(--accent-soft); color: var(--text); }
 .lantern-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px 2px var(--accent-glow); animation: breathe 2.4s ease-in-out infinite; }
 @keyframes breathe { 50% { box-shadow: 0 0 22px 5px var(--accent-glow); } }
