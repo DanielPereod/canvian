@@ -81,14 +81,10 @@
 .board-tools-file input { display: none; }
 .board-tools-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
 
-/* La hoja de una nota canvas: el lienzo ocupa todo, el título flota arriba. */
+/* La hoja de una nota canvas: el lienzo ocupa todo; solo el ⋯ flota arriba a la derecha.
+   El nombre se cambia en la ruta de la barra de arriba. */
 .sheet.is-canvas { overflow: hidden; }
-.sheet.is-canvas .sheet-top { position: relative; z-index: 6; }
-.sheet-canvas-head { position: absolute; top: 56px; left: var(--space-5); z-index: 6; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
-.sheet-canvas-head > * { pointer-events: auto; }
-.sheet-canvas-head .sheet-where { margin: 0; }
-.sheet-canvas-title { background: none; border: 0; outline: 0; color: var(--text); font-family: var(--font-serif); font-size: calc(clamp(26px, 3.4vw, 38px) * var(--type-scale, 1)); line-height: 1.1; padding: 0; width: min(60vw, 640px); }
-.sheet-canvas-title::placeholder { color: var(--text-ghost); font-style: italic; }
+.sheet.is-canvas .sheet-top { position: absolute; top: 0; right: 0; z-index: 6; justify-content: flex-end; padding: var(--space-3) var(--space-4); }
 @media (max-width: 640px) { .board-tools { bottom: var(--space-3); max-width: calc(100% - 24px); overflow-x: auto; } }
 
 /* Un archivo que no se ve dentro (PDF, documento…): su ficha. */

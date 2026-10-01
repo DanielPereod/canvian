@@ -984,6 +984,11 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             folded={bibFolded}
             onFold={toggleBibFolded}
             onDrawer={() => setDrawer(true)}
+            rename={
+              bibView === 'note' && focused?.kind === 'canvas'
+                ? { id: focused.id, value: focused.title ?? '', placeholder: t('Canvas sin título'), onRename: (title) => updateNote(focused.id, { title: title || null }) }
+                : null
+            }
           />
           {/* Sin teclado no hay N: un botón para la nota nueva (solo en el móvil). */}
           {bibView === 'library' && (
