@@ -1,8 +1,8 @@
 /*
  * Diseño Biblioteca: una interfaz de biblioteca de investigación. Barra lateral
  * con el árbol, cabecera con la ruta y el buscador, colecciones en lista o en
- * portadas y un lector con su panel de detalles. La letra y el tamaño se eligen
- * en Configuración › Aspecto (--type-ui, --type-title, --type-scale).
+ * portadas y un lector con su panel de detalles. El tamaño se elige en
+ * Configuración › Aspecto (--type-scale); las letras, allí también, en todos los temas.
  */
 
 /* ── Lo que cada tema ajusta en la biblioteca ───────────────────────── */
@@ -29,10 +29,9 @@
 
 :root[data-theme='biblioteca'],
 :root[data-theme='biblioteca-noche'] {
-  --font-ui: var(--type-ui, 'Inter Variable', ui-sans-serif, system-ui, sans-serif);
+  --font-ui: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Newsreader Variable', 'Newsreader', Georgia, serif;
-  --font-title: var(--type-title, var(--font-serif));
-  --title-font: var(--font-title);
+  --title-font: var(--font-serif);
   --title-weight: 500;
   --font-pixel: var(--font-ui);
   --text-2xs: calc(10px * var(--type-scale, 1));

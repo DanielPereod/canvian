@@ -17,6 +17,7 @@ import '@fontsource/young-serif/400.css';
 import '@fontsource-variable/inter';
 import '@fontsource-variable/jost';
 import '@fontsource-variable/newsreader';
+import './fonts';
 import './design/tokens.css';
 import './design/base.css';
 import './design/components.css';

@@ -37,6 +37,14 @@ describe('prefs', () => {
     expect((await call('DELETE', '/api/prefs/appearance')).status).toBe(204);
   });
 
+  it('saves the type: a font per role and the size', async () => {
+    const type = { ui: 'geist', titles: 'tema', text: 'literata', code: 'fira-code', size: 15 };
+    expect((await call('PUT', '/api/prefs/type', type)).status).toBe(204);
+    expect(await (await call('GET', '/api/prefs')).json()).toEqual({ type });
+    expect((await call('PUT', '/api/prefs/type', { ...type, code: undefined })).status).toBe(400);
+    expect((await call('PUT', '/api/prefs/type', { ...type, ui: "'Comic Sans'" })).status).toBe(400);
+  });
+
   it('saves the notes shown in wide mode', async () => {
     expect((await call('PUT', '/api/prefs/wide', ['01HZX', '01HZY'])).status).toBe(204);
     expect(await (await call('GET', '/api/prefs')).json()).toEqual({ wide: ['01HZX', '01HZY'] });

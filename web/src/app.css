@@ -168,3 +168,13 @@
   .set-nav-title { display: none; }
   .set-row { flex-wrap: wrap; }
 }
+
+/* Muestra de las letras elegidas en Configuración › Aspecto */
+.set-row-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.type-sample { margin-top: var(--space-3); padding: var(--space-4) var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-sunken); display: flex; flex-direction: column; gap: var(--space-3); }
+.type-sample-title { font-family: var(--title-font); font-weight: var(--title-weight, 500); font-style: var(--title-style, normal); text-transform: var(--title-case, none); letter-spacing: var(--title-tracking, 0); font-size: 26px; line-height: 1.15; }
+.type-sample-text { font-family: var(--read-font); font-size: 17px; line-height: 1.6; color: var(--text-muted); }
+.type-sample-text em { font-family: var(--font-serif); font-style: italic; }
+.type-sample-code { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-faint); overflow-wrap: anywhere; }
+.type-sample-ui { display: flex; flex-wrap: wrap; gap: var(--space-4); font-family: var(--font-ui); font-size: var(--text-sm); color: var(--text-faint); }
+.type-sample-ui span:first-child { color: var(--text); font-weight: 600; }
