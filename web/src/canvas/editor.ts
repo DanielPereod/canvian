@@ -38,8 +38,8 @@ export const extensions = [
       return t('Escribe «/» para ver los bloques…');
     },
   }),
-  // Tablas: sobre todo las que llegan importadas de Markdown.
-  TableKit.configure({ table: { resizable: false } }),
+  // Tablas, como en Notion: el ancho de cada columna se cambia arrastrando su borde.
+  TableKit.configure({ table: { resizable: true, cellMinWidth: 60, lastColumnResizable: true } }),
   ...mediaNodes,
   // Lo propio de Obsidian: [[enlaces]], ==resaltado== y casillas.
   WikiLink,
