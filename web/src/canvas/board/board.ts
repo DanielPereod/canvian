@@ -7,7 +7,7 @@ import type { NoteInput, NoteRow } from '../../api';
 export type BoardNode =
   | { id: string; type: 'text'; x: number; y: number; width: number; height: number; text: string; color?: string }
   | { id: string; type: 'note'; x: number; y: number; width: number; height: number; noteId: string; color?: string }
-  | { id: string; type: 'file'; x: number; y: number; width: number; height: number; file: string; color?: string }
+  | { id: string; type: 'file'; x: number; y: number; width: number; height: number; file: string; name?: string; color?: string }
   | { id: string; type: 'group'; x: number; y: number; width: number; height: number; label?: string; color?: string };
 
 export type BoardEdge = { id: string; fromNode: string; toNode: string; label?: string; toEnd?: 'arrow' | 'none' };
@@ -27,11 +27,11 @@ export function parseBoard(bodyJson: string | null): Board {
   return emptyBoard();
 }
 
-// Texto buscable del lienzo: lo escrito en sus tarjetas y los nombres de grupos
-// y notas enlazadas.
+// Texto buscable del lienzo: lo escrito en sus tarjetas y los nombres de grupos,
+// notas enlazadas y archivos.
 export function boardText(board: Board, rows: Map<string, NoteRow>): string {
   return board.nodes
-    .map((n) => (n.type === 'text' ? n.text : n.type === 'group' ? (n.label ?? '') : n.type === 'note' ? (rows.get(n.noteId)?.title ?? '') : ''))
+    .map((n) => (n.type === 'text' ? n.text : n.type === 'group' ? (n.label ?? '') : n.type === 'note' ? (rows.get(n.noteId)?.title ?? '') : (n.name ?? '')))
     .filter((t) => t.trim())
     .join('\n');
 }

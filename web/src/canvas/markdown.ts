@@ -290,6 +290,8 @@ export function docToMarkdown(doc: JSONContent | null): string {
       case 'video':
       case 'audio':
         return `[${n.type === 'video' ? 'Vídeo' : 'Audio'}](${String(n.attrs?.src ?? '')})`;
+      case 'file':
+        return `[${String(n.attrs?.name || 'Archivo').replace(/[[\]]/g, '\\$&')}](${String(n.attrs?.src ?? '')})`;
       default:
         return (n.content ?? []).map((c) => block(c, indent)).join('\n\n');
     }

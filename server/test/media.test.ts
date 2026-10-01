@@ -22,8 +22,12 @@ beforeEach(async () => {
   cookie = res.headers.get('set-cookie')!.split(';')[0];
 });
 
-const upload = (body: Buffer, type: string, withCookie = true) =>
-  app.request('/api/media', { method: 'POST', headers: { 'content-type': type, ...(withCookie ? { cookie } : {}) }, body: new Uint8Array(body) });
+const upload = (body: Buffer, type: string, withCookie = true, name = '') =>
+  app.request('/api/media', {
+    method: 'POST',
+    headers: { 'content-type': type, ...(name ? { 'x-file-name': encodeURIComponent(name) } : {}), ...(withCookie ? { cookie } : {}) },
+    body: new Uint8Array(body),
+  });
 
 describe('media', () => {
   it('stores a pasted image on disk and serves it back', async () => {
@@ -52,9 +56,34 @@ describe('media', () => {
     expect((await app.request(url, { headers: { cookie, range: 'bytes=999-' } })).status).toBe(416);
   });
 
-  it('refuses scripts, empty files, strangers and made-up names', async () => {
-    expect((await upload(Buffer.from('<svg/>'), 'image/svg+xml')).status).toBe(415);
-    expect((await upload(Buffer.from('<p>'), 'text/html')).status).toBe(415);
+  it('keeps any other file as an attachment, named by its extension', async () => {
+    const pdf = await upload(Buffer.from('%PDF-1.7'), 'application/pdf', true, 'Factura de marzo.PDF');
+    expect(pdf.status).toBe(201);
+    const { url, kind } = await pdf.json();
+    expect(kind).toBe('file');
+    expect(url).toMatch(/^\/api\/media\/[0-9A-Z]{26}\.pdf$/);
+    const got = await app.request(url, { headers: { cookie } });
+    expect(got.headers.get('content-type')).toBe('application/pdf');
+    expect(got.headers.get('content-disposition')).toBeNull();
+
+    const doc = await (await upload(Buffer.from('PK'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', true, 'Contrato.docx')).json();
+    expect(doc.url).toMatch(/\.docx$/);
+    const docGot = await app.request(doc.url, { headers: { cookie } });
+    expect(docGot.headers.get('content-type')).toBe('application/octet-stream');
+    expect(docGot.headers.get('content-disposition')).toBe('attachment');
+
+    // Sin tipo ni extensión conocida, sigue entrando.
+    expect((await (await upload(Buffer.from('x'), '', true, 'LEEME')).json()).url).toMatch(/\.bin$/);
+  });
+
+  it('serves scripts only as downloads, and refuses empty files, strangers and made-up names', async () => {
+    for (const [body, type, name] of [['<svg/>', 'image/svg+xml', 'a.svg'], ['<p>', 'text/html', 'a.html']]) {
+      const res = await upload(Buffer.from(body), type, true, name);
+      expect(res.status).toBe(201);
+      const got = await app.request((await res.json()).url, { headers: { cookie } });
+      expect(got.headers.get('content-type')).toBe('application/octet-stream');
+      expect(got.headers.get('content-disposition')).toBe('attachment');
+    }
     expect((await upload(Buffer.alloc(0), 'image/png')).status).toBe(400);
     expect((await upload(png, 'image/png', false)).status).toBe(401);
     const { url } = await (await upload(png, 'image/png')).json();

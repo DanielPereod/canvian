@@ -90,3 +90,7 @@
 .sheet-canvas-title { background: none; border: 0; outline: 0; color: var(--text); font-family: var(--font-serif); font-size: clamp(26px, 3.4vw, 38px); line-height: 1.1; padding: 0; width: min(60vw, 640px); }
 .sheet-canvas-title::placeholder { color: var(--text-ghost); font-style: italic; }
 @media (max-width: 640px) { .board-tools { bottom: var(--space-3); max-width: calc(100% - 24px); overflow-x: auto; } }
+
+/* Un archivo que no se ve dentro (PDF, documento…): su ficha. */
+.board-doc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: default; }
+.board-doc-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-md); }

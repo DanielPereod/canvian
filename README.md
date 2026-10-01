@@ -31,7 +31,7 @@ npm start        # sirve todo desde :3210
 | `server/` | Hono + better-sqlite3 + Drizzle. Esquema en `src/db/schema.ts`, migraciones en `drizzle/` (se generan con `npm run db:generate -w server`) y se aplican al arrancar. |
 | `web/`    | React 19 + Vite. La interfaz es una biblioteca (`web/src/canvas/Biblioteca.tsx`): barra lateral con el árbol de notas, la colección en lista, portadas o nodos, y un lector con su panel de detalles. |
 
-Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (imágenes, vídeo y audio de las notas; por defecto `media/` junto a la base, así que en Docker también quedan en el volumen `/data`), `CANVIAN_WEB_DIR` (por defecto `web/dist`).
+Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (los archivos adjuntos a las notas: imágenes, vídeo, audio, PDF, documentos…; por defecto `media/` junto a la base, así que en Docker también quedan en el volumen `/data`), `CANVIAN_WEB_DIR` (por defecto `web/dist`).
 
 ## Datos de ejemplo
 
@@ -57,6 +57,10 @@ Las tareas no son notas aparte: son las casillas que escribes dentro de cualquie
 
 Al actualizar desde una versión en la que las tareas eran notas, el servidor las pasa solo, una vez, a casillas dentro de su nota madre (con su estado, fecha, prioridad y etiquetas). Una tarea que tenía más texto, notas dentro o enlaces se queda como nota y su casilla la enlaza (`- [ ] [[Título]]`); las tareas rápidas y las que no estaban dentro de ninguna nota van a una nota «Tareas».
 
+## Archivos adjuntos
+
+Cualquier archivo puede ir dentro de una nota: se pega, se suelta en el texto o se elige con **Adjuntar** en el panel de detalles, y entra donde está el cursor. Imágenes, vídeo y audio se ven en la propia nota; lo demás (PDF, Word, Excel, ZIP…) queda como una ficha con su nombre y tamaño: un clic abre el PDF en otra pestaña o descarga el resto con su nombre. Hasta 200 MB por archivo. Por seguridad, lo que podría ejecutar código en el navegador (HTML, SVG…) solo se descarga, nunca se abre.
+
 ## Atajos
 
 Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que tengas, y en **Configuración** (`Ctrl ,` o el botón junto al perfil en la barra lateral) se pueden cambiar; se guardan en el servidor.
@@ -73,7 +77,7 @@ Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que te
 | Clic en una miga de pan | Volver a ese nivel |
 | `1` | Volver a todas las notas |
 | `N` | Nota nueva en la nota con hijas señalada o en la que estás |
-| `C` | Canvas nuevo: una nota que es un lienzo libre, como los de Obsidian. Doble clic en el vacío crea una tarjeta; desde los bordes de una tarjeta se tiran flechas a otra; abajo se añaden tarjetas, notas existentes (doble clic las abre), grupos e imágenes (también pegando o soltando). `Supr` borra lo seleccionado. Se guarda en formato JSON Canvas |
+| `C` | Canvas nuevo: una nota que es un lienzo libre, como los de Obsidian. Doble clic en el vacío crea una tarjeta; desde los bordes de una tarjeta se tiran flechas a otra; abajo se añaden tarjetas, notas existentes (doble clic las abre), grupos y archivos de cualquier tipo (también pegando o soltando; un PDF o un documento se abre con doble clic). `Supr` borra lo seleccionado. Se guarda en formato JSON Canvas |
 | `G` | Nota nueva dentro de la señalada (así se anidan) |
 | `R` | Renombrar la nota señalada (cambia su primera línea) |
 | `⌘/Ctrl Mayús X` | Archivar o desarchivar la nota abierta o señalada: se oculta con todo lo que cuelga de ella (también con el botón «Archivar») |
