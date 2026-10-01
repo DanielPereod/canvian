@@ -1,7 +1,8 @@
 import { Extension, Node, mergeAttributes } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import { Fragment, Slice } from '@tiptap/pm/model';
-import { Plugin } from '@tiptap/pm/state';
+import { closeHistory } from '@tiptap/pm/history';
+import { Plugin, TextSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { api } from '../api';
 import { locale, t } from '../i18n';
@@ -95,15 +96,146 @@ const FileNode = Node.create({
   },
 });
 
+// Vídeos de YouTube. Al pegar el enlace solo en una línea se ve el vídeo; la
+// nota guarda el enlace tal cual, y al exportar a Markdown sale el enlace.
+// Fuera del editor (vistas previas) se enseña su miniatura, que pesa mucho
+// menos que un reproductor.
+export function youtubeId(url: string): { id: string; start: number } | null {
+  let u: URL;
+  try {
+    u = new URL(url.trim());
+  } catch {
+    return null;
+  }
+  if (!/^https?:$/.test(u.protocol)) return null;
+  const host = u.hostname.replace(/^(www|m|music)\./, '');
+  let id: string | null = null;
+  if (host === 'youtu.be') id = u.pathname.slice(1).split('/')[0];
+  else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+    if (u.pathname === '/watch') id = u.searchParams.get('v');
+    else id = /^\/(?:shorts|embed|live|v)\/([^/]+)/.exec(u.pathname)?.[1] ?? null;
+  }
+  if (!id || !/^[\w-]{11}$/.test(id)) return null;
+  // ?t=90, ?t=1m30s o ?start=90: empieza ahí.
+  const t = u.searchParams.get('t') ?? u.searchParams.get('start') ?? '';
+  const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/.exec(t);
+  const start = m ? Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0) : 0;
+  return { id, start };
+}
+
+const embedUrl = ({ id, start }: { id: string; start: number }) => `https://www.youtube-nocookie.com/embed/${id}?rel=0${start ? `&start=${start}` : ''}`;
+
+const YouTube = Node.create({
+  name: 'youtube',
+  group: 'block',
+  atom: true,
+  draggable: true,
+  addAttributes: () => ({ src: { default: null } }),
+  parseHTML: () => [{ tag: 'div[data-youtube]', getAttrs: (el) => ({ src: el.dataset.src ?? null }) }],
+  renderHTML: ({ node }) => {
+    const src = String(node.attrs.src ?? '');
+    const yt = youtubeId(src);
+    return [
+      'div',
+      { 'data-youtube': '', 'data-src': src, class: 'note-youtube' },
+      ['a', { href: src, target: '_blank', rel: 'noopener noreferrer' }, yt ? ['img', { src: `https://i.ytimg.com/vi/${yt.id}/hqdefault.jpg`, alt: '', loading: 'lazy' }] : src],
+    ];
+  },
+  renderText: ({ node }) => String(node.attrs.src ?? ''),
+  addNodeView() {
+    return ({ node, getPos, editor }) => {
+      const dom = document.createElement('div');
+      dom.className = 'note-youtube';
+      dom.dataset.youtube = '';
+      const yt = youtubeId(String(node.attrs.src ?? ''));
+      const frame = document.createElement('iframe');
+      if (yt) frame.src = embedUrl(yt);
+      frame.title = 'YouTube';
+      frame.loading = 'lazy';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.allowFullscreen = true;
+      frame.referrerPolicy = 'strict-origin-when-cross-origin';
+      dom.append(frame);
+      if (editor.isEditable) {
+        // Una barrita encima: dejarlo como enlace, o quitarlo.
+        const bar = document.createElement('div');
+        bar.className = 'note-youtube-bar';
+        bar.contentEditable = 'false';
+        const button = (label: string, run: (pos: number) => void) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = label;
+          b.addEventListener('mousedown', (e) => e.preventDefault());
+          b.addEventListener('click', () => {
+            const pos = getPos();
+            if (typeof pos === 'number') run(pos);
+          });
+          bar.append(b);
+        };
+        button(t('Ver como enlace'), (pos) => {
+          const src = String(node.attrs.src ?? '');
+          const { schema } = editor.state;
+          const para = schema.nodes.paragraph.create(null, schema.text(src, [schema.marks.link.create({ href: src })]));
+          editor.view.dispatch(editor.state.tr.replaceWith(pos, pos + node.nodeSize, para));
+          editor.commands.focus();
+        });
+        button(t('Quitar'), (pos) => {
+          editor.view.dispatch(editor.state.tr.delete(pos, pos + node.nodeSize));
+          editor.commands.focus();
+        });
+        dom.append(bar);
+      }
+      return { dom, ignoreMutation: () => true, stopEvent: inBar };
+    };
+    function inBar(e: Event) {
+      return e.target instanceof HTMLElement && !!e.target.closest('.note-youtube-bar');
+    }
+  },
+});
+
+// Pegar un enlace de YouTube solo en una línea vacía lo convierte en el vídeo.
+// Primero entra como enlace y luego se cambia: Ctrl Z lo devuelve a enlace.
+export const YouTubePaste = Extension.create({
+  name: 'youtubePaste',
+  priority: 1000,
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        props: {
+          handlePaste: (view, event) => {
+            const text = event.clipboardData?.getData('text/plain').trim() ?? '';
+            if (!text || /\s/.test(text) || !youtubeId(text)) return false;
+            const { $from, empty } = view.state.selection;
+            const parent = $from.parent;
+            if (!empty || parent.type.name !== 'paragraph' || parent.content.size || $from.depth !== 1) return false;
+            const { schema } = view.state;
+            view.dispatch(view.state.tr.replaceSelectionWith(schema.text(text, [schema.marks.link.create({ href: text })]), false));
+            const after = view.state;
+            const at = after.selection.$from.before(1);
+            const video = schema.nodes.youtube.create({ src: text });
+            const tr = closeHistory(after.tr).replaceWith(at, at + after.selection.$from.parent.nodeSize, video);
+            // Se sigue escribiendo debajo, en la línea siguiente (o en una nueva).
+            const next = at + video.nodeSize;
+            if (tr.doc.nodeAt(next)?.type.name !== 'paragraph') tr.insert(next, schema.nodes.paragraph.create());
+            view.dispatch(tr.setSelection(TextSelection.create(tr.doc, next + 1)).scrollIntoView());
+            return true;
+          },
+        },
+      }),
+    ];
+  },
+});
+
 export const mediaNodes = [
   Image.configure({ allowBase64: false, HTMLAttributes: { class: 'note-media', loading: 'lazy' } }),
   player('video'),
   player('audio'),
   FileNode,
+  YouTube,
 ];
 
 // Una nota con solo una imagen o un adjunto no está vacía.
-export const hasMedia = (bodyJson: string | null) => !!bodyJson && /"type":"(image|video|audio|file)"/.test(bodyJson);
+export const hasMedia = (bodyJson: string | null) => !!bodyJson && /"type":"(image|video|audio|file|youtube)"/.test(bodyJson);
 
 // Lo que se ve dentro de la nota (sin SVG, que puede llevar código).
 export const isMedia = (f: File) => /^(image|video|audio)\//.test(f.type) && f.type !== 'image/svg+xml';
