@@ -26,10 +26,24 @@
 .prose code { font: 0.86em var(--font-mono); background: var(--surface-sunken); border: 1px solid var(--line); padding: 0 var(--space-1); border-radius: var(--radius-xs); }
 .prose pre { background: var(--surface-sunken); border: 1px solid var(--line); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); overflow-x: auto; }
 .prose pre code { background: none; border: 0; padding: 0; }
+/* Colores del código según su lenguaje: los tonos de perfil mezclados con el
+   texto, así se leen igual en los temas oscuros que en los claros. */
+.prose pre .hljs-comment, .prose pre .hljs-quote { color: var(--text-faint); font-style: italic; }
+.prose pre .hljs-keyword, .prose pre .hljs-selector-tag, .prose pre .hljs-doctag, .prose pre .hljs-meta .hljs-keyword { color: color-mix(in oklab, var(--hue-lilac) var(--code-hue, 75%), var(--text)); }
+.prose pre .hljs-string, .prose pre .hljs-regexp, .prose pre .hljs-addition, .prose pre .hljs-meta .hljs-string { color: color-mix(in oklab, var(--hue-sage) var(--code-hue, 75%), var(--text)); }
+.prose pre .hljs-number, .prose pre .hljs-literal, .prose pre .hljs-symbol, .prose pre .hljs-bullet, .prose pre .hljs-link { color: color-mix(in oklab, var(--hue-amber) var(--code-hue, 75%), var(--text)); }
+.prose pre .hljs-title, .prose pre .hljs-section, .prose pre .hljs-selector-id, .prose pre .hljs-selector-class { color: color-mix(in oklab, var(--hue-sky) var(--code-hue, 75%), var(--text)); }
+.prose pre .hljs-built_in, .prose pre .hljs-type, .prose pre .hljs-class .hljs-title, .prose pre .hljs-title.class_ { color: color-mix(in oklab, var(--hue-teal) var(--code-hue, 75%), var(--text)); }
+.prose pre .hljs-attr, .prose pre .hljs-attribute, .prose pre .hljs-property, .prose pre .hljs-variable, .prose pre .hljs-template-variable, .prose pre .hljs-params { color: color-mix(in oklab, var(--hue-coral) var(--code-hue, 75%), var(--text)); }
+.prose pre .hljs-tag, .prose pre .hljs-name, .prose pre .hljs-meta, .prose pre .hljs-selector-attr, .prose pre .hljs-selector-pseudo { color: color-mix(in oklab, var(--hue-sky) var(--code-hue, 75%), var(--text)); }
+.prose pre .hljs-deletion { color: color-mix(in oklab, var(--hue-coral) var(--code-hue, 75%), var(--text)); }
+.prose pre .hljs-punctuation, .prose pre .hljs-operator { color: var(--text-muted); }
+.prose pre .hljs-emphasis { font-style: italic; }
+.prose pre .hljs-strong { font-weight: var(--weight-semibold); }
 .prose blockquote { margin: 0 0 0.45em; padding-left: var(--space-3); border-left: 1px solid var(--accent-line); font-family: var(--font-serif); font-style: italic; font-size: 1.12em; color: var(--text-muted); }
 .prose hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-2) 0; }
 /* Lo de Obsidian: ==resaltado==, [[enlaces]] entre notas y casillas */
-.prose mark { background: color-mix(in oklab, var(--hue-amber) 32%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
+.prose mark { background: color-mix(in oklab, var(--hue-amber) var(--code-hue, 75%), transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
 .prose .wikilink { color: var(--accent-ink); text-decoration: underline; text-decoration-color: var(--accent-line); text-underline-offset: 3px; cursor: pointer; border-radius: 2px; }
 .prose .wikilink:hover { background: var(--accent-soft); }
 .prose .wikilink.is-unresolved { opacity: 0.7; text-decoration-style: dashed; }
