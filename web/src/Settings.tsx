@@ -8,6 +8,7 @@ import { FontPicker } from './FontPicker';
 import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
 import { CalendarSettings } from './CalendarSettings';
+import { setZenFullscreen, useZenFullscreen } from './canvas/zenPrefs';
 
 // Configuración con la forma de Obsidian: a la izquierda las secciones, a la
 // derecha los ajustes de la elegida, cada uno con su nombre y explicación a la
@@ -48,6 +49,7 @@ export function Settings({ onClose, onProfiles }: Props) {
   const look = useAppearance();
   const type = useTypography();
   const lang = useLang();
+  const zenFull = useZenFullscreen();
   const [section, setSection] = useState<SectionId>(() => {
     try {
       const saved = localStorage.getItem(LAST);
@@ -173,6 +175,11 @@ export function Settings({ onClose, onProfiles }: Props) {
                     </button>
                   ))}
                 </div>
+              </Row>
+              <Row name={t('Modo zen a pantalla completa')} hint={t('Al entrar en el modo zen, la ventana ocupa toda la pantalla; al salir, vuelve a como estaba.')}>
+                <button className="set-switch" role="switch" aria-checked={zenFull} aria-label={t('Modo zen a pantalla completa')} onClick={() => report(setZenFullscreen(!zenFull))}>
+                  <span className="switch" aria-hidden="true" />
+                </button>
               </Row>
               <Row name={t('Ordenar notas')} hint={t('Revisa las notas sueltas y mételas dentro de otras.')}>
                 <button

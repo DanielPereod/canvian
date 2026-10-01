@@ -156,6 +156,8 @@ export const EN_APP: Record<string, string> = {
   'El de la interfaz. Sin elegir, el del navegador.': 'The interface language. If you don’t pick one, the browser’s.',
   'Revisa las notas sueltas y mételas dentro de otras.': 'Go through loose notes and put them inside others.',
   Abrir: 'Open',
+  'Modo zen a pantalla completa': 'Full-screen zen mode',
+  'Al entrar en el modo zen, la ventana ocupa toda la pantalla; al salir, vuelve a como estaba.': 'Entering zen mode makes the window fill the whole screen; leaving it puts it back as it was.',
   'Cambia de perfil, crea otros o cierra la sesión.': 'Switch profile, create others or sign out.',
   'Dónde se guarda': 'Where it’s stored',
   'La configuración vive en tu servidor y es la misma en todos tus dispositivos.': 'Settings live on your server and are the same on all your devices.',
