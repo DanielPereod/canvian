@@ -90,4 +90,5 @@ export const EN_NOTE: Record<string, string> = {
   'Abrir': 'Open',
   'Descargar': 'Download',
   'Archivo': 'File',
+  'Ver como enlace': 'Show as link',
 };
