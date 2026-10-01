@@ -518,7 +518,6 @@ type BarProps = {
   onUp: (() => void) | null;
   onSearch: () => void;
   onLayout: (l: BibLayout) => void;
-  onNew: () => void;
   folded: boolean;
   onFold: () => void;
 };
@@ -562,9 +561,6 @@ export function BibBar(p: BarProps) {
             ))}
           </div>
         )}
-        <button className="bib-new" onClick={p.onNew} title={p.view === 'tasks' ? 'Tarea nueva (N)' : 'Nota nueva (N)'}>
-          {p.view === 'tasks' ? '＋ Tarea' : '＋ Nota'}
-        </button>
       </div>
     </header>
   );

@@ -16,6 +16,7 @@ export type ActionId =
   | 'markdownSource'
   | 'zen'
   | 'wideNote'
+  | 'details'
   | 'rename'
   | 'archive'
   | 'showArchived'
@@ -46,6 +47,7 @@ export const ACTIONS: KeyAction[] = [
   { id: 'markdownSource', label: 'En una nota, ver y editar su Markdown (o volver al texto normal)', group: 'Notas', key: 'mod+e' },
   { id: 'zen', label: 'Modo zen: en una nota, quitar toda la interfaz y quedarse solo con el texto (o volver)', group: 'Notas', key: 'mod+shift+f' },
   { id: 'wideNote', label: 'Modo ancho: mostrar el texto de la nota abierta más ancho (o volver)', group: 'Notas', key: 'mod+alt+a' },
+  { id: 'details', label: 'En una nota, plegar o mostrar el panel de detalles de la derecha', group: 'Vistas y paneles', key: 'mod+alt+d' },
   { id: 'rename', label: 'Renombrar la nota señalada', group: 'Notas', key: 'r' },
   { id: 'archive', label: 'Archivar o desarchivar la nota abierta o señalada (se oculta con lo que cuelga de ella)', group: 'Notas', key: 'mod+shift+x' },
   { id: 'showArchived', label: 'Mostrar u ocultar las notas archivadas', group: 'Vistas y paneles', key: 'mod+shift+h' },

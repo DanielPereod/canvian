@@ -342,8 +342,6 @@
 .bib-seg { display: flex; padding: 2px; border-radius: 7px; background: var(--surface-hover); font-size: calc(12px * var(--type-scale, 1)); }
 .bib-seg button { padding: 4px 10px; border-radius: 5px; color: var(--text-faint) !important; transition: background var(--dur-fast), color var(--dur-fast); }
 .bib-seg button.is-on { background: var(--bg); color: var(--text) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
-.bib-new { height: 30px; padding: 0 12px !important; border-radius: var(--radius-md); background: var(--text) !important; color: var(--bg) !important; font-weight: 500 !important; white-space: nowrap; transition: opacity var(--dur-fast); }
-.bib-new:hover { opacity: 0.85; }
 
 /* ── La colección ───────────────────────────────────────────────────── */
 
@@ -472,11 +470,15 @@
 .reader-link-x:hover { color: var(--text) !important; }
 .reader-add { min-height: 30px; padding: 0 8px !important; color: var(--text-faint) !important; }
 .reader-add:hover { color: var(--text) !important; }
-.reader-actions { margin-top: auto; padding-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
-.reader-actions button { height: 26px; padding: 0 10px; border-radius: var(--radius-sm); background: var(--surface-hover); font-size: calc(12px * var(--type-scale, 1)); transition: background var(--dur-fast), color var(--dur-fast); }
-.reader-actions button:hover { background: var(--bib-sel, var(--surface-hover)); }
-.reader-actions button.danger:hover { color: #c2432c; }
-.reader-actions button[aria-pressed='true'] { background: var(--bib-sel, var(--surface-hover)); }
+.reader-side-top { display: flex; align-items: center; justify-content: space-between; margin: -5px -6px -2px 0; }
+.reader-tools { display: flex; gap: 2px; }
+.sheet .reader-icon { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
+.sheet .reader-icon:hover,
+.sheet .reader-icon[aria-expanded='true'] { background: var(--surface-hover); color: var(--text); }
+/* Plegado: los mismos botones flotan arriba a la derecha, sobre el texto. */
+.reader-float { display: none; position: absolute; top: 12px; right: 14px; z-index: 1; gap: 2px; }
+.sheet.is-side-folded .reader-float { display: flex; }
+.reader-menu { min-width: 240px; transform-origin: top right; }
 
 /* Modo ancho: el texto de la nota ocupa más de la hoja. */
 .sheet.is-reader.is-wide .reader-body { width: min(1120px, calc(100% - 48px)); }
@@ -489,6 +491,7 @@
 .canvas.is-bib.is-zen > .sheet { inset: 0; z-index: 7; }
 .sheet.is-zen .reader-side,
 .sheet.is-zen .reader-resizer,
+.sheet.is-zen .reader-float,
 .sheet.is-zen .reader-meta,
 .sheet.is-zen .note-chips { display: none; }
 .sheet.is-zen .reader-body { padding-top: 14vh; }
@@ -538,5 +541,8 @@
   .bib-thead, .bib-row { grid-template-columns: 28px minmax(0, 1fr) 90px; }
   .bib-thead > :nth-child(4), .bib-thead > :nth-child(5), .bib-row > :nth-child(4), .bib-row > :nth-child(5) { display: none; }
   .reader-side, .reader-resizer { display: none; }
+  /* Sin sitio para el panel: queda el menú de la nota arriba a la derecha. */
+  .sheet.is-reader:not(.is-zen) .reader-float { display: flex; }
+  .reader-float .reader-fold { display: none; }
   .bib-lib { padding: 20px 16px 80px; }
 }
