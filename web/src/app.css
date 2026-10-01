@@ -1,7 +1,7 @@
 /* Cromo de la pantalla principal: lo mínimo alrededor del canvas */
 .workspace { position: relative; height: 100%; }
 
-.pill-name { font-family: var(--font-serif); font-size: 17px; font-style: italic; }
+.pill-name { font-family: var(--font-serif); font-size: calc(17px * var(--type-scale, 1)); font-style: italic; }
 
 .keys { display: inline-flex; gap: 3px; align-items: center; }
 
@@ -18,7 +18,7 @@
 .settings-section { margin-bottom: 48px; }
 .settings-note { color: var(--accent-ink); margin: 0 0 var(--space-4); font-size: var(--text-sm); }
 .settings-group { margin-bottom: var(--space-6); }
-.settings-subheading { font-family: var(--font-mono, inherit); font-weight: 400; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-ghost); margin: 0 0 var(--space-2); }
+.settings-subheading { font-family: var(--font-mono, inherit); font-weight: 400; font-size: calc(11px * var(--type-scale, 1)); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-ghost); margin: 0 0 var(--space-2); }
 .settings-key { min-width: 120px; display: inline-flex; justify-content: flex-end; background: none; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; color: inherit; transition: border-color var(--dur-fast), background var(--dur-fast); }
 .settings-key:hover { border-color: var(--line-strong); }
 .settings-reset { background: none; border: 0; cursor: pointer; color: var(--text-ghost); }
@@ -32,7 +32,7 @@
 .help-row { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-3); align-items: baseline; padding: 4px 0; font-size: var(--text-sm); color: var(--text-muted); }
 .help-row .keys { justify-content: flex-start; }
 
-.auth-brand { font-size: 20px; }
+.auth-brand { font-size: calc(20px * var(--type-scale, 1)); }
 .auth-copy { display: grid; gap: var(--space-2); }
 
 /* Luciérnagas: unas pocas luces que flotan detrás del canvas */
@@ -76,7 +76,7 @@
 .sg-swatch { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); font-size: var(--text-md); }
 .sg-chip { width: 36px; height: 36px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); flex: none; }
 .sg-surface { display: grid; gap: var(--space-1); padding: var(--space-5); border-radius: var(--radius-lg); min-height: 120px; align-content: end; font-size: var(--text-md); }
-.sg-surface strong { font-family: var(--font-serif); font-weight: 400; font-size: 20px; }
+.sg-surface strong { font-family: var(--font-serif); font-weight: 400; font-size: calc(20px * var(--type-scale, 1)); }
 .sg-type { display: grid; gap: var(--space-3); }
 .sg-type-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); border-bottom: 1px solid var(--line); padding-bottom: var(--space-2); flex-wrap: wrap; }
 .sg-type-row:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -142,7 +142,7 @@
 .set-nav-item:hover { background: var(--surface-hover); color: var(--text); }
 .set-nav-item.is-on { background: var(--accent-soft); color: var(--text); }
 .set-main { overflow-y: auto; padding: var(--space-6) clamp(var(--space-4), 5vw, 64px) 96px; max-width: 880px; width: 100%; animation: tasks-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-.set-title { font-size: 22px; font-weight: 500; letter-spacing: -0.01em; margin: 0 0 var(--space-5); padding-bottom: var(--space-3); border-bottom: 1px solid var(--line); }
+.set-title { font-size: calc(22px * var(--type-scale, 1)); font-weight: 500; letter-spacing: -0.01em; margin: 0 0 var(--space-5); padding-bottom: var(--space-3); border-bottom: 1px solid var(--line); }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
 .set-info { min-width: 0; }
 .set-name { font-size: var(--text-md); color: var(--text); }
@@ -168,3 +168,13 @@
   .set-nav-title { display: none; }
   .set-row { flex-wrap: wrap; }
 }
+
+/* Muestra de las letras elegidas en Configuración › Aspecto */
+.set-row-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.type-sample { margin-top: var(--space-3); padding: var(--space-4) var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-sunken); display: flex; flex-direction: column; gap: var(--space-3); }
+.type-sample-title { font-family: var(--title-font); font-weight: var(--title-weight, 500); font-style: var(--title-style, normal); text-transform: var(--title-case, none); letter-spacing: var(--title-tracking, 0); font-size: calc(26px * var(--type-scale, 1)); line-height: 1.15; }
+.type-sample-text { font-family: var(--read-font); font-size: calc(17px * var(--type-scale, 1)); line-height: 1.6; color: var(--text-muted); }
+.type-sample-text em { font-family: var(--font-serif); font-style: italic; }
+.type-sample-code { font-family: var(--font-mono); font-size: calc(12.5px * var(--type-scale, 1)); color: var(--text-faint); overflow-wrap: anywhere; }
+.type-sample-ui { display: flex; flex-wrap: wrap; gap: var(--space-4); font-family: var(--font-ui); font-size: var(--text-sm); color: var(--text-faint); }
+.type-sample-ui span:first-child { color: var(--text); font-weight: 600; }

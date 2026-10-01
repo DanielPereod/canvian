@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ACTIONS, bind, comboOf, isDefault, keyParts, reserved, resetAll, resetKey, useKeymap, type ActionId } from './keys';
 import { Keys } from './Kbd';
 import { MODES, setMode, setTheme, THEMES, useAppearance, type Tone } from './theme';
-import { SIZES, TITLE_FONTS, UI_FONTS, setTypography, useTypography } from './typography';
+import { FONTS, KINDS, SAME_AS_UI, SIZES, SLOTS, THEME, setTypography, useTypography } from './typography';
 import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
 
@@ -190,24 +190,45 @@ export function Settings({ onClose, onProfiles }: Props) {
                   ))}
                 </div>
               </Row>
-              <Row name="Letra" hint="La de menús, listas y botones con el tema Biblioteca; los demás temas llevan la suya.">
-                <select className="set-select" value={type.ui} onChange={(e) => report(setTypography({ ui: e.target.value as typeof type.ui }))} aria-label="Letra">
-                  {UI_FONTS.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </Row>
-              <Row name="Letra de los títulos" hint="Títulos de colecciones, portadas y notas, con el tema Biblioteca.">
-                <select className="set-select" value={type.titles} onChange={(e) => report(setTypography({ titles: e.target.value as typeof type.titles }))} aria-label="Letra de los títulos">
-                  {TITLE_FONTS.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </Row>
+              {SLOTS.map((s) => (
+                <Row key={s.id} name={s.name} hint={s.hint}>
+                  <select className="set-select" value={type[s.id]} onChange={(e) => report(setTypography({ [s.id]: e.target.value }))} aria-label={s.name}>
+                    <option value={THEME}>Del tema</option>
+                    {s.sameAsUi && <option value={SAME_AS_UI}>La de la interfaz</option>}
+                    {KINDS.map((k) => (
+                      <optgroup key={k.id} label={k.name}>
+                        {FONTS.filter((f) => f.kind === k.id).map((f) => (
+                          <option key={f.id} value={f.id} style={{ fontFamily: f.stack }}>
+                            {f.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </Row>
+              ))}
+              <div className="set-block">
+                <div className="set-row-head">
+                  <div className="set-name">Muestra</div>
+                  {SLOTS.some((s) => type[s.id] !== THEME) && (
+                    <button className="set-button" onClick={() => report(setTypography({ ui: THEME, titles: THEME, text: THEME, code: THEME }))}>
+                      Volver a las del tema
+                    </button>
+                  )}
+                </div>
+                <div className="type-sample" aria-hidden>
+                  <div className="type-sample-title">Cuaderno de campo</div>
+                  <p className="type-sample-text">
+                    El río bajaba crecido después de la tormenta. Apunté la hora, el color del agua y las <em>tres garzas</em> que esperaban en la orilla.
+                  </p>
+                  <code className="type-sample-code">const garzas = avistamientos.filter((a) =&gt; a.especie === 'garza');</code>
+                  <div className="type-sample-ui">
+                    <span>Biblioteca</span>
+                    <span>12 notas</span>
+                    <span>Editado hace 3 min</span>
+                  </div>
+                </div>
+              </div>
               <Row name="Tamaño del texto" hint="Escala toda la interfaz; Estándar es 14 px.">
                 <div className="set-segmented" role="radiogroup" aria-label="Tamaño del texto">
                   {SIZES.map((z) => (

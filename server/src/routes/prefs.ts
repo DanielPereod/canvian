@@ -14,8 +14,10 @@ const keymap = z.record(z.string().regex(/^[a-z][a-zA-Z]{1,30}$/), z.string().ma
 const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano', 'minimo', 'minimo-claro', 'biblioteca', 'biblioteca-noche']);
 // Modo claro, oscuro o automático, y el tema de cada tono.
 const appearance = z.object({ mode: z.enum(['light', 'dark', 'auto']), dark: theme, light: theme });
-// Letra de la interfaz, letra de los títulos y tamaño base.
-const type = z.object({ ui: z.enum(['inter', 'jost', 'instrument', 'archivo', 'sistema']), titles: z.enum(['serif', 'fraunces', 'sans']), size: z.number().int().min(12).max(18) });
+// Letras de la interfaz, los títulos, el texto y el código (un id del catálogo
+// de la web, «tema» o «ui») y tamaño base.
+const font = z.string().regex(/^[a-z0-9-]{1,40}$/);
+const type = z.object({ ui: font, titles: font, text: font, code: font, size: z.number().int().min(12).max(18) });
 // Barra lateral: el orden de las hijas de cada nota y el color de cada una.
 const id = z.string().min(1).max(40);
 const sidebar = z.object({

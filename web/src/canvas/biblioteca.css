@@ -1,8 +1,8 @@
 /*
  * Diseño Biblioteca: una interfaz de biblioteca de investigación. Barra lateral
  * con el árbol, cabecera con la ruta y el buscador, colecciones en lista o en
- * portadas y un lector con su panel de detalles. La letra y el tamaño se eligen
- * en Configuración › Aspecto (--type-ui, --type-title, --type-scale).
+ * portadas y un lector con su panel de detalles. El tamaño (--type-scale) y
+ * las letras se eligen en Configuración › Aspecto, igual en todos los temas.
  */
 
 /* ── Lo que cada tema ajusta en la biblioteca ───────────────────────── */
@@ -29,20 +29,11 @@
 
 :root[data-theme='biblioteca'],
 :root[data-theme='biblioteca-noche'] {
-  --font-ui: var(--type-ui, 'Inter Variable', ui-sans-serif, system-ui, sans-serif);
+  --font-ui: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Newsreader Variable', 'Newsreader', Georgia, serif;
-  --font-title: var(--type-title, var(--font-serif));
-  --title-font: var(--font-title);
+  --title-font: var(--font-serif);
   --title-weight: 500;
   --font-pixel: var(--font-ui);
-  --text-2xs: calc(10px * var(--type-scale, 1));
-  --text-xs: calc(12px * var(--type-scale, 1));
-  --text-sm: calc(13px * var(--type-scale, 1));
-  --text-md: calc(14px * var(--type-scale, 1));
-  --text-ui: calc(15px * var(--type-scale, 1));
-  --text-lg: calc(18px * var(--type-scale, 1));
-  --text-xl: calc(24px * var(--type-scale, 1));
-  --text-2xl: calc(34px * var(--type-scale, 1));
   --radius-xs: 5px;
   --radius-sm: 6px;
   --radius-md: 8px;

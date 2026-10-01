@@ -11,7 +11,7 @@
 .prose p { margin: 0 0 0.45em; }
 .prose h1, .prose h2, .prose h3 { font-family: var(--font-serif); font-weight: 400; letter-spacing: 0; line-height: var(--leading-snug); margin: 0.1em 0 0.3em; }
 .prose h1 { font-size: var(--text-xl); }
-.prose h2 { font-size: 20px; }
+.prose h2 { font-size: calc(20px * var(--type-scale, 1)); }
 .prose h3 { font-size: var(--text-lg); font-style: italic; }
 .prose h4, .prose h5, .prose h6 { font-family: var(--font-ui); font-weight: var(--weight-semibold); line-height: var(--leading-snug); margin: 0.1em 0 0.25em; }
 .prose h4 { font-size: var(--text-md); }
