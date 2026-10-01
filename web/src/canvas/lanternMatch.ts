@@ -132,7 +132,7 @@ export function parseLens(query: string, ctx: LensContext): { test: Test | null;
       label = STATUS_LABEL[s];
     } else if (name === 'prio' || name === 'prioridad') {
       const p = value ? pick(PRIORITY, value) : undefined;
-      test = p === undefined ? (r) => !!r.priority || withTask((t) => t.status !== 'done' && !!t.priority)(r) : (r) => (r.priority ?? 0) === p || (!!p && withTask((t) => t.status !== 'done' && t.priority === p)(r));
+      test = p === undefined ? withTask((t) => t.status !== 'done' && !!t.priority) : p ? withTask((t) => t.status !== 'done' && t.priority === p) : (r) => !withTask((t) => t.status !== 'done' && !!t.priority)(r);
       label = p === undefined ? 'con prioridad' : `prioridad ${Object.keys(PRIORITY)[p]}`;
     } else if (name === 'vence' || name === 'fecha') {
       const range = /^([<>])(\d+)d?$/.exec(value);

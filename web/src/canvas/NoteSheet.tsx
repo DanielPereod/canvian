@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
-import { applyRemote, editingExtensions, extensions, parseBody, titleFrom } from './editor';
+import { applyRemote, editingExtensions, extensions, joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from './editor';
 import { repairDoc, sourceOf, sourceToDoc } from './markdown';
 import { NoteChips } from './NoteChips';
 import { taskCount } from './tasks';
@@ -110,8 +110,22 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
   const [initial] = useState(() => {
     const doc = parseBody(note.bodyJson);
     const fixed = repairDoc(doc);
-    return { doc: fixed ?? doc, repaired: !!fixed };
+    return { ...splitTitle(fixed ?? doc), repaired: !!fixed };
   });
+  // El título, aparte del texto (como en Notion). `head` es su bloque tal como
+  // estaba guardado, para no perderle el formato si no se toca.
+  const [title, setTitle] = useState(initial.title);
+  const titleRef = useRef(initial.title);
+  const head = useRef(initial.head);
+  const titleBox = useRef<HTMLTextAreaElement>(null);
+  // Lo que se guarda: el título como primer bloque y después el texto.
+  const contentOf = (ed: Editor) => {
+    head.current = titleBlock(titleRef.current, head.current);
+    const doc = joinTitle(head.current, ed.getJSON());
+    const text = ed.getText({ blockSeparator: '\n' });
+    const bodyText = head.current ? `${titleRef.current}\n${text}` : text;
+    return { bodyJson: JSON.stringify(doc), bodyText, title: titleFrom(bodyText) };
+  };
   // El editor se crea una vez: lo que cambia le llega por referencias.
   const wikiRef = useRef(wiki);
   wikiRef.current = wiki;
@@ -143,18 +157,50 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
   };
   const editor = useEditor({
     extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError }), suggest],
-    content: initial.doc ?? '',
+    content: initial.body.content?.length ? initial.body : '',
     // Abrir una nota es para escribir: el cursor ya está al final, pero la
-    // nota se ve desde el principio (sin saltar hasta el cursor).
+    // nota se ve desde el principio (sin saltar hasta el cursor). Una nota
+    // nueva, sin nada, empieza por el título.
     onCreate: ({ editor }) => {
       syncWiki(editor);
-      editor.commands.focus('end', { scrollIntoView: false });
+      if (!initial.title && editor.isEmpty) titleBox.current?.focus({ preventScroll: true });
+      else editor.commands.focus('end', { scrollIntoView: false });
     },
     editorProps: {
       attributes: { class: 'note-body prose sheet-prose' },
       // Clic en un [[enlace]] abre esa nota; Ctrl/⌘ clic (o clic central) abre
       // un enlace web en otra pestaña.
       handleClick: (view, _pos, e) => openWiki(view.dom, e) || openLink(e),
+      // Del principio del texto se sube al título: con la flecha arriba en la
+      // primera línea, o con borrar al principio (y entonces se le une esa línea).
+      handleKeyDown: (view, e) => {
+        if (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return false;
+        const { selection, doc } = view.state;
+        const { $from, empty } = selection;
+        const atFirst = empty && $from.depth === 1 && $from.index(0) === 0;
+        if (e.key === 'ArrowUp' && atFirst && view.endOfTextblock('up')) {
+          e.preventDefault();
+          focusTitle(titleRef.current.length);
+          return true;
+        }
+        if (e.key === 'Backspace' && atFirst && $from.parentOffset === 0) {
+          const first = doc.firstChild!;
+          let plain = first.isTextblock;
+          first.forEach((c) => {
+            if (!c.isText) plain = false;
+          });
+          if (!plain) return false;
+          e.preventDefault();
+          const at = titleRef.current.length;
+          if (first.textContent) caret.current = at;
+          typeTitle(titleRef.current + first.textContent, false);
+          if (doc.childCount > 1) view.dispatch(view.state.tr.delete(0, first.nodeSize));
+          else view.dispatch(view.state.tr.delete(1, first.nodeSize - 1));
+          focusTitle(at);
+          return true;
+        }
+        return false;
+      },
       handleDOMEvents: {
         auxclick: (_view, e) => e.button === 1 && openLink(e, true),
         // Pulsar dentro de un texto ya seleccionado empieza una selección nueva,
@@ -169,11 +215,10 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
     onUpdate: ({ editor }) => {
       // Si ha puesto el id a algún [[enlace]], ese cambio ya se guardó.
       if (syncWiki(editor)) return;
-      const bodyText = editor.getText({ blockSeparator: '\n' });
-      const bodyJson = JSON.stringify(editor.getJSON());
-      shown.current = bodyJson;
+      const content = contentOf(editor);
+      shown.current = content.bodyJson;
       typed.current = Date.now();
-      onSave(note.id, { bodyJson, bodyText, title: titleFrom(bodyText) });
+      onSave(note.id, content);
     },
   });
   // Si la nota cambia en otro dispositivo, el texto se pone al día aquí, salvo
@@ -184,12 +229,17 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
   useEffect(() => {
     if (!editor || note.bodyJson === shown.current) return;
     const quiet = Date.now() - typed.current;
-    if ((editor.isFocused || source) && quiet < 1500) {
+    const typing = editor.isFocused || source || document.activeElement === titleBox.current;
+    if (typing && quiet < 1500) {
       const t = setTimeout(() => setRetry((n) => n + 1), 1500 - quiet);
       return () => clearTimeout(t);
     }
     shown.current = note.bodyJson;
-    applyRemote(editor, parseBody(note.bodyJson));
+    const remote = splitTitle(parseBody(note.bodyJson));
+    head.current = remote.head;
+    titleRef.current = remote.title;
+    setTitle(remote.title);
+    applyRemote(editor, remote.body);
     if (source) setMd(sourceOf(editor.getJSON()));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, note.bodyJson, retry]);
@@ -246,9 +296,9 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
   // Y se guardan así, para que la vista previa y la búsqueda también las vean bien.
   useEffect(() => {
     if (!editor || !initial.repaired) return;
-    const bodyText = editor.getText({ blockSeparator: '\n' });
-    shown.current = JSON.stringify(editor.getJSON());
-    onSave(note.id, { bodyJson: shown.current, bodyText, title: titleFrom(bodyText) });
+    const content = contentOf(editor);
+    shown.current = content.bodyJson;
+    onSave(note.id, content);
     // Solo una vez, al abrir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
@@ -289,8 +339,77 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
       .run();
   };
 
+  // El título: una sola línea lógica que parte en varias si no cabe.
+  const fitTitle = () => {
+    const el = titleBox.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  // Si el título acaba de cambiar desde el texto (al unirle una línea), el
+  // cursor vuelve a donde se unieron.
+  const caret = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    fitTitle();
+    if (caret.current !== null && document.activeElement === titleBox.current) titleBox.current?.setSelectionRange(caret.current, caret.current);
+    caret.current = null;
+  }, [title]);
+  useEffect(() => {
+    const el = titleBox.current;
+    if (!el) return;
+    const ro = new ResizeObserver(fitTitle);
+    ro.observe(el);
+    void document.fonts?.ready.then(fitTitle);
+    return () => ro.disconnect();
+  }, []);
+  const typeTitle = (value: string, save = true) => {
+    const clean = value.replace(/[\r\n]+/g, ' ');
+    titleRef.current = clean;
+    setTitle(clean);
+    if (!save || !editor) return;
+    const content = contentOf(editor);
+    shown.current = content.bodyJson;
+    typed.current = Date.now();
+    onSave(note.id, content);
+  };
+  const focusTitle = (at: number) => {
+    const el = titleBox.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.setSelectionRange(at, at);
+  };
+  // Intro en el título baja al texto; si el cursor estaba en medio, lo que
+  // queda a la derecha pasa a ser la primera línea del texto.
+  const titleKeys = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget;
+    if (!editor || e.nativeEvent.isComposing) return;
+    const end = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
+    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      const rest = el.value.slice(el.selectionEnd);
+      if (rest) {
+        editor.chain().insertContentAt(0, { type: 'paragraph', content: [{ type: 'text', text: rest }] }).focus(1).run();
+        typeTitle(el.value.slice(0, el.selectionStart));
+      } else editor.commands.focus('start');
+    } else if (e.key === 'ArrowDown' && end && !e.shiftKey) {
+      e.preventDefault();
+      editor.commands.focus('start');
+    }
+  };
+
   return (
     <>
+      <textarea
+        ref={titleBox}
+        className="sheet-title"
+        rows={1}
+        value={title}
+        onChange={(e) => typeTitle(e.target.value)}
+        onKeyDown={titleKeys}
+        placeholder="Sin título"
+        aria-label="Título de la nota"
+        spellCheck={false}
+      />
       <EditorContent editor={editor} className="sheet-editor" hidden={source} />
       {source && (
         <textarea

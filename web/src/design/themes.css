@@ -171,8 +171,7 @@
 [data-theme='bloques'] .bib-bar { border-bottom: 2px solid #111111; }
 [data-theme='bloques'] .bib-lib-title h1,
 [data-theme='bloques'] .bib-cover-t,
-[data-theme='bloques'] .sheet.is-reader .sheet-prose > :first-child,
-[data-theme='bloques'] .sheet.is-reader .sheet-prose > p:first-child strong { font-stretch: 78%; }
+[data-theme='bloques'] .sheet.is-reader .sheet-title { font-stretch: 78%; }
 [data-theme='bloques'] .bib-row.is-sel,
 [data-theme='bloques'] .bib-row:hover { background: #ffd400; }
 [data-theme='bloques'] .bib-cover,
