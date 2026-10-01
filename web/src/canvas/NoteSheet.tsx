@@ -594,7 +594,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         setSource((s) => !s);
         return;
       }
-      if (!isCanvas && !keysBlocked() && !document.querySelector('.inspector, .overlay') && (matches(e, 'zen') || matches(e, 'wideNote') || matches(e, 'details'))) {
+      if (!keysBlocked() && !document.querySelector('.inspector, .overlay') && (matches(e, 'zen') || (!isCanvas && (matches(e, 'wideNote') || matches(e, 'details'))))) {
         e.preventDefault();
         e.stopPropagation();
         if (matches(e, 'zen')) setZen(!zen);
@@ -643,6 +643,12 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     />
   );
 
+  const zenExit = zen && (
+    <button className="reader-zen-exit" onClick={() => setZen(false)} title={t('Salir del modo zen (Esc)')}>
+      {t('Salir del modo zen')} <span className="reader-zen-k">Esc</span>
+    </button>
+  );
+
   if (!isCanvas) {
     // Lo que tiene dentro, como el contenido de una carpeta: madres primero y por nombre.
     const inside = rows
@@ -685,11 +691,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     );
     return (
       <div ref={ref} className={`sheet is-reader${zen ? ' is-zen' : ''}${wide ? ' is-wide' : ''}${folded ? ' is-side-folded' : ''}`} style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
-        {zen && (
-          <button className="reader-zen-exit" onClick={() => setZen(false)} title={t('Salir del modo zen (Esc)')}>
-            {t('Salir del modo zen')} <span className="reader-zen-k">Esc</span>
-          </button>
-        )}
+        {zenExit}
         <div className="reader-main">
           <article className="reader-body" key={note.id + note.kind}>
             <span className="reader-meta">
@@ -805,7 +807,8 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   }
 
   return (
-    <div ref={ref} className="sheet is-canvas">
+    <div ref={ref} className={`sheet is-canvas${zen ? ' is-zen' : ''}`}>
+      {zenExit}
       <header className="sheet-top meta">
         <button className="sheet-back" onClick={() => close()}>
           <BackArrow /> {t('Volver')}
@@ -843,6 +846,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
           y={menu.y}
           items={[
             { label: t('Ver en nodos'), title: t('Este canvas en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
+            { label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el canvas (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
             null,
             { label: t('Propiedades'), run: () => onProps(note.id) },
             { label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de él'), keys: keysOf(keymap.archive), run: onArchive },

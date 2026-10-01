@@ -764,7 +764,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   };
 
   const focused = focusId ? (allRows.find((r) => r.id === focusId) ?? null) : null;
-  const zenOn = zen && !peek && !!focused && focused.kind !== 'canvas';
+  const zenOn = zen && !peek && !!focused;
   // Al cerrar la nota se sale del modo zen.
   useEffect(() => {
     if (!focusId) setZen(false);
