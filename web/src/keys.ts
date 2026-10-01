@@ -13,6 +13,7 @@ export type ActionId =
   | 'blockTask'
   | 'properties'
   | 'deleteCell'
+  | 'markdownSource'
   | 'rename'
   | 'archive'
   | 'showArchived'
@@ -40,6 +41,7 @@ export const ACTIONS: KeyAction[] = [
   { id: 'blockTask', label: 'Bloquear o desbloquear la tarea señalada (vista de tareas)', group: 'Notas', key: 'shift+x' },
   { id: 'properties', label: 'Propiedades', group: 'Notas', key: 'p' },
   { id: 'deleteCell', label: 'Borrar lo señalado', group: 'Notas', key: 'delete' },
+  { id: 'markdownSource', label: 'En una nota, ver y editar su Markdown (o volver al texto normal)', group: 'Notas', key: 'mod+e' },
   { id: 'rename', label: 'Renombrar la nota señalada', group: 'Notas', key: 'r' },
   { id: 'archive', label: 'Archivar o desarchivar la nota abierta o señalada (se oculta con lo que cuelga de ella)', group: 'Notas', key: 'mod+shift+x' },
   { id: 'showArchived', label: 'Mostrar u ocultar las notas archivadas', group: 'Vistas y paneles', key: 'mod+shift+h' },

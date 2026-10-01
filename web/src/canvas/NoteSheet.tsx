@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
 import { applyRemote, editingExtensions, extensions, parseBody, titleFrom } from './editor';
-import { repairDoc } from './markdown';
+import { repairDoc, sourceOf, sourceToDoc } from './markdown';
 import { NoteChips } from './NoteChips';
 import { taskCount } from './tasks';
 import { MediaUpload, attachFiles } from './media';
@@ -15,6 +15,7 @@ import { decodeTime } from 'ulidx';
 import { editedLabel, kindOf } from './Biblioteca';
 import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian';
 import { WikiMenu, type WikiItem } from './WikiMenu';
+import { keyParts, keysBlocked, matches, useKeymap } from '../keys';
 
 // Una nota se abre como lector: el texto a la izquierda y un panel de detalles
 // a la derecha. Un canvas se abre en su hoja, con el lienzo a pantalla completa.
@@ -27,11 +28,12 @@ export type NoteContent = { bodyJson: string; bodyText: string; title: string | 
 // y crear la nota si aún no existe (devuelve su id).
 export type WikiHandlers = { rows: NoteRow[]; onOpen: (id: string) => void; onLink: (id: string) => void; onCreate: (title: string) => string };
 
-type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void; editorRef: { current: Editor | null }; wiki: WikiHandlers };
+// `source`: en vez del texto con formato, su Markdown para verlo y editarlo.
+type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void; editorRef: { current: Editor | null }; wiki: WikiHandlers; source: boolean };
 
 const sameTitle = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
 
-function SheetEditor({ note, onSave, onError, editorRef, wiki }: EditorProps) {
+function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorProps) {
   // Lo que se importó mal antes (tablas como texto con barras, direcciones con
   // _ hechas cursiva o sin enlace) se abre ya arreglado.
   const [initial] = useState(() => {
@@ -111,13 +113,40 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki }: EditorProps) {
   useEffect(() => {
     if (!editor || note.bodyJson === shown.current) return;
     const quiet = Date.now() - typed.current;
-    if (editor.isFocused && quiet < 1500) {
+    if ((editor.isFocused || source) && quiet < 1500) {
       const t = setTimeout(() => setRetry((n) => n + 1), 1500 - quiet);
       return () => clearTimeout(t);
     }
     shown.current = note.bodyJson;
     applyRemote(editor, parseBody(note.bodyJson));
+    if (source) setMd(sourceOf(editor.getJSON()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, note.bodyJson, retry]);
+
+  // El modo Markdown: se escribe del texto al entrar, y lo que se teclea se lee
+  // de vuelta al editor (que sigue ahí, oculto, y es quien guarda).
+  const [md, setMd] = useState('');
+  const area = useRef<HTMLTextAreaElement>(null);
+  const wasSource = useRef(false);
+  useLayoutEffect(() => {
+    if (!editor) return;
+    if (source) {
+      setMd(sourceOf(editor.getJSON()));
+      requestAnimationFrame(() => area.current?.focus({ preventScroll: true }));
+    } else if (wasSource.current) editor.commands.focus(null, { scrollIntoView: false });
+    wasSource.current = source;
+  }, [editor, source]);
+  // El cuadro crece con lo escrito, como el texto normal.
+  useLayoutEffect(() => {
+    const el = area.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [md, source]);
+  const typeSource = (value: string) => {
+    setMd(value);
+    if (editor) editor.commands.setContent(sourceToDoc(value, editor.getJSON()), { emitUpdate: true });
+  };
   useEffect(() => {
     editorRef.current = editor;
     return () => {
@@ -172,8 +201,19 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki }: EditorProps) {
 
   return (
     <>
-      <EditorContent editor={editor} className="sheet-editor" />
-      {query && <WikiMenu query={query} rows={wiki.rows} exclude={note.id} onPick={pick} keys={menuKeys} />}
+      <EditorContent editor={editor} className="sheet-editor" hidden={source} />
+      {source && (
+        <textarea
+          ref={area}
+          className="note-body sheet-prose sheet-source"
+          value={md}
+          onChange={(e) => typeSource(e.target.value)}
+          spellCheck={false}
+          aria-label="Markdown de la nota"
+          placeholder="Escribe algo…"
+        />
+      )}
+      {!source && query && <WikiMenu query={query} rows={wiki.rows} exclude={note.id} onPick={pick} keys={menuKeys} />}
     </>
   );
 }
@@ -222,6 +262,9 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   const editorRef = useRef<Editor | null>(null);
   const filePick = useRef<HTMLInputElement>(null);
   const [moving, setMoving] = useState(false);
+  // Ver la nota como Markdown (Ctrl E): sigue así al pasar de una nota a otra.
+  const [source, setSource] = useState(false);
+  const keymap = useKeymap();
   // La ruta de notas madre, para poder ir a cada una por su clic.
   const chain = useMemo(() => {
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -283,6 +326,13 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       if (e.key === 'Escape' && t?.closest('.board') && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
       // Ctrl/⌘ A fuera del texto (tras pulsar un botón, al abrir…) selecciona
       // la nota, no la página entera.
+      // Antes que el editor, que con Ctrl E pondría el texto como código.
+      if (!isCanvas && matches(e, 'markdownSource') && !keysBlocked() && !document.querySelector('.inspector, .overlay')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setSource((s) => !s);
+        return;
+      }
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyA' && !typing && editorRef.current && !document.querySelector('.inspector, .overlay')) {
         e.preventDefault();
@@ -334,8 +384,9 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
           <article className="reader-body" key={note.id + note.kind}>
             <span className="reader-meta">
               {madre ? madre.title || 'Nota sin título' : 'Arriba del todo'} · {kindOf(note, kids)} · editada {editedLabel(note.updatedAt)}
+              {source && ' · Markdown'}
             </span>
-            <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} wiki={wiki} />
+            <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} wiki={wiki} source={source} />
             <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
           </article>
         </div>
@@ -435,6 +486,9 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
             />
             <button onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
               Nodos
+            </button>
+            <button onClick={() => setSource((s) => !s)} aria-pressed={source} title={`Ver y editar el Markdown de la nota, o volver al texto normal (${keyParts(keymap.markdownSource).join(' ')})`}>
+              {source ? 'Texto' : 'Markdown'}
             </button>
             <button onClick={onArchive} title="Archivar: se oculta con lo que cuelga de ella (Ctrl Mayús X)">
               {note.archivedAt ? 'Desarchivar' : 'Archivar'}
