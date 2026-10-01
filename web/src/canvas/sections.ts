@@ -1,4 +1,5 @@
 import type { NoteRow } from '../api';
+import { t } from '../i18n';
 import { daysUntil } from './dates';
 import { tasksOf } from './tasks';
 
@@ -83,13 +84,14 @@ export function pathText(r: NoteRow, byId: Map<string, NoteRow>, parent: Map<str
   return names.map((n) => `${n}>`).join('') + (r.title ?? '') + (hasKids ? '>' : '');
 }
 
-// «Enter crea «Templos» en Viaje a Japón › Qué ver (nueva)».
-export function routeText(route: Route, title: string) {
-  const parts = [...route.found.map((z) => z.title || 'Nota sin título'), ...route.missing.map((n) => `${n} (nueva)`)];
-  const where = parts.length ? parts.join(' › ') : 'la raíz';
-  if (title) return `Enter crea «${title}» en ${where}`;
-  if (route.missing.length) return `Enter crea ${where}`;
-  return `Enter entra en ${where}`;
+// «Enter crea «Templos» en Viaje a Japón › Qué ver (nueva)»; con `create`,
+// «Crear «Templos» en …» (para una opción de lista).
+export function routeText(route: Route, title: string, create = false) {
+  const parts = [...route.found.map((z) => z.title || t('Nota sin título')), ...route.missing.map((name) => t('{name} (nueva)', { name }))];
+  const where = parts.length ? parts.join(' › ') : t('la raíz');
+  if (title) return create ? t('Crear «{title}» en {where}', { title, where }) : t('Enter crea «{title}» en {where}', { title, where });
+  if (route.missing.length) return create ? t('Crear {where}', { where }) : t('Enter crea {where}', { where });
+  return t('Enter entra en {where}', { where });
 }
 
 // Sin las archivadas ni lo que cuelga de ellas.

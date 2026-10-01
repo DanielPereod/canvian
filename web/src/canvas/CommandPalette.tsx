@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { api, type NoteRow, type SearchHit } from '../api';
 import { parentMap, pathText, resolvePath, routeText } from './sections';
+import { t } from '../i18n';
 
 type Props = {
   profileId: string;
@@ -25,7 +26,7 @@ function snippet(hit: SearchHit): string {
   return rest.slice(0, 90);
 }
 
-export function CommandPalette({ profileId, onPick, onCreate, onClose, placeholder = 'Buscar notas o crear una · > para rutas', exclude, rows, onCreatePath }: Props) {
+export function CommandPalette({ profileId, onPick, onCreate, onClose, placeholder = t('Buscar notas o crear una · > para rutas'), exclude, rows, onCreatePath }: Props) {
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [cursor, setCursor] = useState(0);
@@ -35,7 +36,7 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
 
   useEffect(() => {
     let cancelled = false;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       api.search(profileId, query).then(
         (rows) => {
           if (cancelled) return;
@@ -47,7 +48,7 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
     }, 120);
     return () => {
       cancelled = true;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [profileId, query]);
 
@@ -61,12 +62,12 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
   let items: Item[];
   if (route && rows && parent) {
     const words = norm(title).split(/\s+/).filter(Boolean);
-    const t = (r: NoteRow) => (r.updatedAt ? Date.parse(r.updatedAt) : 0);
+    const time = (r: NoteRow) => (r.updatedAt ? Date.parse(r.updatedAt) : 0);
     const inside = route.missing.length ? [] : rows.filter((r) => (parent.get(r.id) ?? null) === route.zoneId && r.id !== exclude && words.every((w) => norm(`${r.title ?? ''} ${r.bodyText ?? ''}`).includes(w)));
-    inside.sort((a, b) => t(b) - t(a));
+    inside.sort((a, b) => time(b) - time(a));
     items = inside.slice(0, 30).map((r) => ({ kind: 'note', hit: { id: r.id, title: r.title, bodyText: r.bodyText, kind: r.kind } }));
     const exact = inside.some((r) => norm(r.title ?? '') === norm(title));
-    if ((title && !exact) || route.missing.length) items.push({ kind: 'path', text: routeText(route, title).replace(/^Enter crea /, 'Crear ') });
+    if ((title && !exact) || route.missing.length) items.push({ kind: 'path', text: routeText(route, title, true) });
   } else {
     items = hits.filter((hit) => hit.id !== exclude).map((hit) => ({ kind: 'note', hit }));
     if (query.trim()) items.push({ kind: 'create', text: query.trim() });
@@ -118,8 +119,8 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
           onKeyDown={onKeyDown}
         />
         <div className="popover-divider" />
-        {!query.trim() && hits.length > 0 && <div className="label">Recientes</div>}
-        {route && route.found.length > 0 && !route.missing.length && <div className="label">Dentro de {route.found.map((z) => z.title || 'Nota sin título').join(' › ')}</div>}
+        {!query.trim() && hits.length > 0 && <div className="label">{t('Recientes')}</div>}
+        {route && route.found.length > 0 && !route.missing.length && <div className="label">{t('Dentro de {where}', { where: route.found.map((z) => z.title || t('Nota sin título')).join(' › ') })}</div>}
         <ul className="list" role="listbox">
           {items.map((item, i) => (
             <li
@@ -133,7 +134,7 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
             >
               {item.kind === 'note' ? (
                 <div className="hit">
-                  <span className="hit-title">{item.hit.title ?? 'Nota sin título'}</span>
+                  <span className="hit-title">{item.hit.title ?? t('Nota sin título')}</span>
                   {snippet(item.hit) && <span className="hit-snippet">{snippet(item.hit)}</span>}
                 </div>
               ) : item.kind === 'path' ? (
@@ -144,12 +145,12 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
               ) : (
                 <>
                   <span className="list-icon">+</span>
-                  Crear nota «{item.text}»
+                  {t('Crear nota «{name}»', { name: item.text })}
                 </>
               )}
             </li>
           ))}
-          {!query.trim() && !route && hits.length === 0 && <li className="list-item static">Aún no hay notas en este perfil.</li>}
+          {!query.trim() && !route && hits.length === 0 && <li className="list-item static">{t('Aún no hay notas en este perfil.')}</li>}
         </ul>
       </div>
     </div>

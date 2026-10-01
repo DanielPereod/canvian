@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { t } from '../i18n';
 
 // Barras laterales que se ensanchan arrastrando su borde. El ancho se guarda
 // en el navegador; doble clic en el borde vuelve al de siempre.
@@ -39,7 +40,7 @@ export function Resizer({ size, edge, className = '' }: { size: SideWidth; edge:
       aria-valuenow={size.width}
       aria-valuemin={size.min}
       aria-valuemax={size.max}
-      title="Arrastra para cambiar el ancho · doble clic para volver al de siempre"
+      title={t('Arrastra para cambiar el ancho · doble clic para volver al de siempre')}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         e.preventDefault();

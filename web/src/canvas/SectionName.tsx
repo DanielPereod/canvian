@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { t } from '../i18n';
 
 // Nombre de una sección: aparece bajo las migas al crearla o renombrarla.
 // Enter guarda, Esc deja el nombre como estaba.
@@ -16,7 +17,7 @@ export function SectionName({ initial, onDone }: { initial: string; onDone: (tit
         className="field field-bare"
         autoFocus
         value={title}
-        placeholder="Nombre de la nota"
+        placeholder={t('Nombre de la nota')}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') finish(title);
@@ -27,7 +28,7 @@ export function SectionName({ initial, onDone }: { initial: string; onDone: (tit
         }}
         onBlur={() => finish(title)}
       />
-      <span className="meta">Enter para guardar · Esc para dejarlo</span>
+      <span className="meta">{t('Enter para guardar · Esc para dejarlo')}</span>
     </div>
   );
 }

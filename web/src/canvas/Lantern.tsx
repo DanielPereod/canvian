@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { Lens } from '../api';
 import type { LensToken } from './lanternMatch';
+import { t } from '../i18n';
 
 export type LensMode = 'dim' | 'hide';
 
@@ -31,9 +32,9 @@ export const nextMode = (m: LensMode): LensMode => MODES[(MODES.findIndex((x) =>
 function Chips({ tokens }: { tokens: LensToken[] }) {
   return (
     <>
-      {tokens.map((t, i) => (
-        <span key={`${t.raw}-${i}`} className={`lens-chip is-${t.kind}${t.negated ? ' negated' : ''}`} style={{ '--i': i } as CSSProperties} title={t.raw}>
-          {t.label}
+      {tokens.map((tok, i) => (
+        <span key={`${tok.raw}-${i}`} className={`lens-chip is-${tok.kind}${tok.negated ? ' negated' : ''}`} style={{ '--i': i } as CSSProperties} title={tok.raw}>
+          {tok.label}
         </span>
       ))}
     </>
@@ -46,30 +47,30 @@ export function Lantern(p: Props) {
   const [saved, setSaved] = useState<string | null>(null);
   useEffect(() => {
     if (!saved) return;
-    const t = setTimeout(() => setSaved(null), 2200);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSaved(null), 2200);
+    return () => clearTimeout(timer);
   }, [saved]);
 
   const save = async () => {
     if (!p.query.trim()) return;
     const lens = await p.onSave();
-    if (lens) setSaved('Guardada');
+    if (lens) setSaved(t('Guardada'));
   };
 
-  const modeName = MODES.find((m) => m.id === p.mode)!.name;
+  const modeName = t(MODES.find((m) => m.id === p.mode)!.name);
 
   if (!p.open)
     return (
       <div className="lantern surface-2 lantern-pill">
         <span className="lantern-dot" aria-hidden="true" />
-        <button className="lantern-query" onClick={p.onOpen} title="Cambiar filtro (F)">
+        <button className="lantern-query" onClick={p.onOpen} title={t('Cambiar filtro (F)')}>
           <Chips tokens={p.tokens} />
         </button>
-        <button className="lantern-mode" onClick={() => p.onMode(nextMode(p.mode))} title="Cambiar modo (Tab)">
+        <button className="lantern-mode" onClick={() => p.onMode(nextMode(p.mode))} title={t('Cambiar modo (Tab)')}>
           {modeName}
         </button>
         <span className="faint">{p.count}</span>
-        <button className="lantern-x" onClick={p.onClear} aria-label="Apagar lente">
+        <button className="lantern-x" onClick={p.onClear} aria-label={t('Apagar lente')}>
           ×
         </button>
       </div>
@@ -85,7 +86,7 @@ export function Lantern(p: Props) {
           className="field-bare"
           autoFocus
           value={p.query}
-          placeholder="Alumbrar… (tipo:tarea, estado:curso, prio:alta, vence:<7d)"
+          placeholder={t('Alumbrar… (tipo:tarea, estado:curso, prio:alta, vence:<7d)')}
           onChange={(e) => p.onChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
@@ -104,7 +105,7 @@ export function Lantern(p: Props) {
             }
           }}
         />
-        <span className="faint lantern-count">{saved ?? (empty ? '' : `${p.count} con luz`)}</span>
+        <span className="faint lantern-count">{saved ?? (empty ? '' : t('{n} con luz', { n: p.count }))}</span>
       </div>
 
       {!empty && (
@@ -115,15 +116,15 @@ export function Lantern(p: Props) {
 
       {!empty && (
         <div className="lantern-tools">
-          <div className="lantern-modes" role="radiogroup" aria-label="Modo">
+          <div className="lantern-modes" role="radiogroup" aria-label={t('Modo')}>
             {MODES.map((m) => (
               <button key={m.id} role="radio" aria-checked={p.mode === m.id} className={`chip${p.mode === m.id ? ' on' : ''}`} onClick={() => p.onMode(m.id)}>
-                {m.name}
+                {t(m.name)}
               </button>
             ))}
           </div>
-          <button className="chip" onClick={() => void save()} title="Guardar lente (⌘/Ctrl S)">
-            Guardar
+          <button className="chip" onClick={() => void save()} title={t('Guardar lente (⌘/Ctrl S)')}>
+            {t('Guardar')}
           </button>
         </div>
       )}
@@ -137,7 +138,7 @@ export function Lantern(p: Props) {
                 <span className="trail">{l.query}</span>
                 <button
                   className="lantern-x"
-                  aria-label={`Borrar ${l.name}`}
+                  aria-label={t('Borrar {name}', { name: l.name })}
                   onClick={(e) => {
                     e.stopPropagation();
                     p.onDelete(l);
@@ -148,7 +149,7 @@ export function Lantern(p: Props) {
               </li>
             ))
           ) : (
-            <li className="list-item static">Escribe una consulta y guárdala con ⌘/Ctrl S para tenerla aquí</li>
+            <li className="list-item static">{t('Escribe una consulta y guárdala con ⌘/Ctrl S para tenerla aquí')}</li>
           )}
         </ul>
       )}

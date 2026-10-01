@@ -3,6 +3,7 @@ import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY
 import type { NoteRow } from '../api';
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { parentMap } from './sections';
+import { t, tn } from '../i18n';
 
 // Vista de nodos, como el grafo de Obsidian: todas las notas como puntos que
 // se ordenan solos (fuerzas), unidos por sus enlaces y por la jerarquía
@@ -52,7 +53,7 @@ function loadOpts(): Opts {
 const remembered = new Map<string, { x: number; y: number }>();
 let rememberedView: { x: number; y: number; k: number } | null = null;
 
-const titleOf = (r: NoteRow) => r.title || 'Nota sin título';
+const titleOf = (r: NoteRow) => r.title || t('Nota sin título');
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const MIN_K = 0.08;
 const MAX_K = 6;
@@ -424,7 +425,9 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
       const sx = n.x! * k + tx;
       const sy = n.y! * k + ty;
       if (sx < -200 || sx > size.w + 200 || sy < -40 || sy > size.h + 40) continue;
-      const label = n.title.length > 32 ? n.title.slice(0, 31) + '…' : n.title;
+      // El título al pintar, para que «Nota sin título» siga el idioma.
+      const name = titleOf(n.row);
+      const label = name.length > 32 ? name.slice(0, 31) + '…' : name;
       ctx.globalAlpha = a;
       ctx.fillStyle = (h && n.id === h.id) || n.id === focusId ? pal.text : pal.textFaint;
       ctx.fillText(label, sx, sy + n.r * k + 5);
@@ -617,19 +620,19 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
         onPointerCancel={onPointerUp}
         onPointerLeave={(e) => e.pointerType === 'mouse' && !gesture.current && setHover(null)}
         onContextMenu={(e) => e.preventDefault()}
-        aria-label="Grafo de notas"
+        aria-label={t('Grafo de notas')}
       />
       <div className="graph-tools">
-        <button className="graph-tool" onClick={() => zoomBy(1.4)} aria-label="Acercar" title="Acercar (+)">
+        <button className="graph-tool" onClick={() => zoomBy(1.4)} aria-label={t('Acercar')} title={t('Acercar (+)')}>
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2v10M2 7h10" /></svg>
         </button>
-        <button className="graph-tool" onClick={() => zoomBy(1 / 1.4)} aria-label="Alejar" title="Alejar (−)">
+        <button className="graph-tool" onClick={() => zoomBy(1 / 1.4)} aria-label={t('Alejar')} title={t('Alejar (−)')}>
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7h10" /></svg>
         </button>
-        <button className="graph-tool" onClick={() => fit(true)} aria-label="Encuadrar todo" title="Encuadrar todo (0)">
+        <button className="graph-tool" onClick={() => fit(true)} aria-label={t('Encuadrar todo')} title={t('Encuadrar todo (0)')}>
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 5V2h3M9 2h3v3M12 9v3H9M5 12H2V9" /></svg>
         </button>
-        <button className={`graph-tool${panel ? ' on' : ''}`} onClick={() => setPanel((v) => !v)} aria-label="Ajustes del grafo" title="Ajustes del grafo">
+        <button className={`graph-tool${panel ? ' on' : ''}`} onClick={() => setPanel((v) => !v)} aria-label={t('Ajustes del grafo')} title={t('Ajustes del grafo')}>
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 4h6M11 4h1M2 10h1M6 10h6" /><circle cx="9.5" cy="4" r="1.5" /><circle cx="4.5" cy="10" r="1.5" /></svg>
         </button>
       </div>
@@ -637,39 +640,39 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
         <div className="graph-panel" onPointerDown={(e) => e.stopPropagation()}>
           <label className="graph-opt">
             <input type="checkbox" checked={opts.local} disabled={!focusId} onChange={(e) => setOpts({ local: e.target.checked })} />
-            <span>Solo alrededor de la nota</span>
+            <span>{t('Solo alrededor de la nota')}</span>
           </label>
           {opts.local && focusId && (
             <label className="graph-opt graph-depth">
-              <span>Profundidad</span>
+              <span>{t('Profundidad')}</span>
               <input type="range" min={1} max={4} value={opts.depth} onChange={(e) => setOpts({ depth: +e.target.value })} />
               <span className="graph-depth-n">{opts.depth}</span>
             </label>
           )}
           <label className="graph-opt">
             <input type="checkbox" checked={opts.tree} onChange={(e) => setOpts({ tree: e.target.checked })} />
-            <span>Líneas madre → hija</span>
+            <span>{t('Líneas madre → hija')}</span>
           </label>
           <label className="graph-opt">
             <input type="checkbox" checked={opts.orphans} onChange={(e) => setOpts({ orphans: e.target.checked })} />
-            <span>Notas sin relaciones</span>
+            <span>{t('Notas sin relaciones')}</span>
           </label>
           <label className="graph-opt">
             <input type="checkbox" checked={opts.arrows} onChange={(e) => setOpts({ arrows: e.target.checked })} />
-            <span>Flechas en los enlaces</span>
+            <span>{t('Flechas en los enlaces')}</span>
           </label>
           <p className="graph-count">
-            {graph.nodes.length} notas · {graph.edges.length} relaciones
+            {tn(graph.nodes.length, '{n} nota', '{n} notas')} · {tn(graph.edges.length, '{n} relación', '{n} relaciones')}
           </p>
         </div>
       )}
       {hovered && (
         <div className="graph-hint" aria-live="polite">
           {titleOf(hovered)}
-          <span className="graph-hint-meta"> · {(graph.adj.get(hovered.id)?.size ?? 0) || 'sin'} relaci{(graph.adj.get(hovered.id)?.size ?? 0) === 1 ? 'ón' : 'ones'}</span>
+          <span className="graph-hint-meta"> · {(graph.adj.get(hovered.id)?.size ?? 0) ? tn(graph.adj.get(hovered.id)!.size, '{n} relación', '{n} relaciones') : t('sin relaciones')}</span>
         </div>
       )}
-      {!rows.length && <p className="meta nodes-empty">N para la primera nota</p>}
+      {!rows.length && <p className="meta nodes-empty">{t('N para la primera nota')}</p>}
     </div>
   );
 }

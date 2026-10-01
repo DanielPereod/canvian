@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { api, ApiError } from './api';
 import { Wordmark } from './Wordmark';
 import { Fireflies } from './Fireflies';
+import { t } from './i18n';
 
 export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: () => void }) {
   const [password, setPassword] = useState('');
@@ -16,7 +17,7 @@ export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: ()
       await (mode === 'setup' ? api.setup(password) : api.login(password));
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo conectar con el servidor');
+      setError(err instanceof ApiError ? err.message : t('No se pudo conectar con el servidor'));
       setBusy(false);
     }
   };
@@ -30,18 +31,18 @@ export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: ()
           <h1 className="display">
             {mode === 'setup' ? (
               <>
-                Planta tu <em>jardín</em>
+                {t('Planta tu')} <em>{t('jardín')}</em>
               </>
             ) : (
               <>
-                Hola de <em>nuevo</em>
+                {t('Hola de')} <em>{t('nuevo')}</em>
               </>
             )}
           </h1>
           <p className="muted">
             {mode === 'setup'
-              ? 'Elige una contraseña. Es la única cuenta de esta instalación y empezarás con los perfiles Personal y Trabajo.'
-              : 'Escribe tu contraseña para volver a tus notas.'}
+              ? t('Elige una contraseña. Es la única cuenta de esta instalación y empezarás con los perfiles Personal y Trabajo.')
+              : t('Escribe tu contraseña para volver a tus notas.')}
           </p>
         </div>
         <input
@@ -50,13 +51,13 @@ export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: ()
           type="password"
           autoFocus
           autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
-          placeholder={mode === 'setup' ? 'Al menos 8 caracteres' : 'Contraseña'}
+          placeholder={mode === 'setup' ? t('Al menos 8 caracteres') : t('Contraseña')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
         {error && <p className="error-text">{error}</p>}
         <button className="btn btn-primary" type="submit" disabled={busy || password.length === 0}>
-          {mode === 'setup' ? 'Crear y entrar' : 'Entrar'}
+          {mode === 'setup' ? t('Crear y entrar') : t('Entrar')}
         </button>
       </form>
     </div>

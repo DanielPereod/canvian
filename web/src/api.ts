@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 export type Profile = {
   id: string;
   name: string;
@@ -123,7 +125,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     });
     if (res.status === 204) return undefined as T;
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error ?? 'Algo ha fallado', res.status);
+    if (!res.ok) throw new ApiError(t(data.error ?? 'Algo ha fallado'), res.status);
     return data as T;
   } finally {
     if (write && --busy === 0) {
@@ -142,7 +144,7 @@ async function upload(file: File): Promise<{ url: string; kind: 'image' | 'video
     credentials: 'same-origin',
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(data.error ?? 'No se pudo subir el archivo', res.status);
+  if (!res.ok) throw new ApiError(t(data.error ?? 'No se pudo subir el archivo'), res.status);
   return data;
 }
 

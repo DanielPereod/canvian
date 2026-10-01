@@ -31,13 +31,21 @@ import './design/themes.css';
 import './canvas/biblioteca.css';
 import { startTheme } from './theme';
 import { startTypography } from './typography';
+import { startLang, useLang } from './i18n';
 import { App } from './App';
 
+startLang();
 startTheme();
 startTypography();
 
+// Al cambiar de idioma se vuelve a pintar todo con los textos nuevos.
+function Root() {
+  useLang();
+  return <App />;
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <Root />
   </StrictMode>,
 );

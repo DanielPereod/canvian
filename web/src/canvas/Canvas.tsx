@@ -23,6 +23,7 @@ import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keyParts, keysBlocked, setView, useKeymap } from '../keys';
 import { useSideWidth } from './Resizer';
 import { BibBar, BibMenu, BibSidebar, Library, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
+import { getLang, t } from '../i18n';
 
 // La vista de Canvian: la biblioteca. Aquí viven las notas, los enlaces y todo
 // lo que se guarda; la barra lateral, la colección, los nodos y el lector solo
@@ -106,13 +107,15 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
 
   // La linterna: qué notas quedan con luz.
   const notes = rows;
-  const lens = useMemo(() => (lamp ? parseLens(lamp, { defs, notes: rows, links }) : null), [lamp, rows, links, defs]);
+  // Las etiquetas de los chips van en el idioma de la interfaz.
+  const lang = getLang();
+  const lens = useMemo(() => (lamp ? parseLens(lamp, { defs, notes: rows, links }) : null), [lamp, rows, links, defs, lang]);
   const litKey = useMemo(() => (lens?.test ? notes.filter((r) => lens.test!(r)).map((r) => r.id).join(' ') : null), [lens, notes]);
   const lit = useMemo(() => (litKey === null ? null : new Set(litKey.split(' ').filter(Boolean))), [litKey]);
 
   const report = useCallback((err: unknown) => {
     console.error(err);
-    setProblem('No se pudo guardar el último cambio. Revisa que el servidor sigue en marcha.');
+    setProblem(t('No se pudo guardar el último cambio. Revisa que el servidor sigue en marcha.'));
   }, []);
 
   // Avisos breves (archivar, mostrar archivadas).
@@ -562,7 +565,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     }
     if (archiving && center === row.id) setCenter(row.zoneId);
     updateNote(row.id, { archivedAt: archiving ? now() : null });
-    setNotice(archiving ? `Archivada · ${keymap.showArchived ? keyParts(keymap.showArchived).join(' ') : '«Archivadas» en la barra'} las muestra` : 'Desarchivada');
+    setNotice(archiving ? t('Archivada · {how} las muestra', { how: keymap.showArchived ? keyParts(keymap.showArchived).join(' ') : t('«Archivadas» en la barra') }) : t('Desarchivada'));
   };
 
   // Desde Configuración también se llega a la vista de ordenar.
@@ -588,7 +591,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       // Con una nota abierta los atiende ella; aquí solo llegan sin nota.
       if ((action === 'zen' || action === 'wideNote') && (chord || !isTyping(e.target))) {
         e.preventDefault();
-        setNotice(action === 'zen' ? 'Abre una nota para escribir en modo zen' : 'Abre una nota para verla en modo ancho');
+        setNotice(action === 'zen' ? t('Abre una nota para escribir en modo zen') : t('Abre una nota para verla en modo ancho'));
         return;
       }
       if (action === 'sidebar' && (chord || !isTyping(e.target))) {
@@ -604,7 +607,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       if (action === 'showArchived' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         setShowArchived((v) => !v);
-        setNotice(showArchived ? 'Archivadas ocultas' : 'Mostrando las archivadas');
+        setNotice(showArchived ? t('Archivadas ocultas') : t('Mostrando las archivadas'));
         return;
       }
       if (action === 'archive' && (chord || !isTyping(e.target))) {
@@ -777,13 +780,13 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     const parent = parentMap(rows);
     const pathOf = (r: NoteRow) => {
       const names: string[] = [];
-      for (let z: NoteRow | undefined = r; z; z = byId.get(parent.get(z.id) ?? '')) names.unshift(z.title || 'Nota sin título');
+      for (let z: NoteRow | undefined = r; z; z = byId.get(parent.get(z.id) ?? '')) names.unshift(z.title || t('Nota sin título'));
       return names.join(' › ');
     };
     const all = rows.map((z) => ({ id: z.id as string | null, path: pathOf(z) }));
     all.sort((a, b) => a.path.localeCompare(b.path, 'es'));
-    return [{ id: null, path: 'Arriba del todo' }, ...all];
-  }, [rows]);
+    return [{ id: null, path: t('Arriba del todo') }, ...all];
+  }, [rows, lang]);
   const inspected = inspectId ? (allRows.find((r) => r.id === inspectId) ?? null) : null;
 
   // Abrir desde la barra lateral: la nota, con su colección detrás.
@@ -818,7 +821,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     peek && focused ? (
       <div className="note-popup-layer">
         <div className="note-popup-back" onClick={closeFocused} />
-        <div className="note-popup" role="dialog" aria-label={focused.title || 'Nota'}>
+        <div className="note-popup" role="dialog" aria-label={focused.title || t('Nota')}>
           <div className="note-popup-bar">
             <button
               className="note-popup-btn"
@@ -827,15 +830,15 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
                 setPeek(false);
                 setTasksOpen(false);
               }}
-              title="Ir a la nota"
-              aria-label="Ir a la nota"
+              title={t('Ir a la nota')}
+              aria-label={t('Ir a la nota')}
             >
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M14 4h6v6M20 4l-8 8M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
               </svg>
-              Ir a la nota
+              {t('Ir a la nota')}
             </button>
-            <button className="note-popup-btn" onClick={closeFocused} title="Cerrar (Esc)" aria-label="Cerrar">
+            <button className="note-popup-btn" onClick={closeFocused} title={t('Cerrar (Esc)')} aria-label={t('Cerrar')}>
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
                 <path d="M6 6l12 12M18 6 6 18" />
               </svg>
@@ -869,12 +872,12 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   };
   const bibCrumbs: { id: string | null; title: string }[] =
     bibView === 'tasks'
-      ? [{ id: null, title: 'Tareas' }]
+      ? [{ id: null, title: t('Tareas') }]
       : bibView === 'organize'
-        ? [{ id: null, title: 'Ordenar' }]
+        ? [{ id: null, title: t('Ordenar') }]
         : [
-            { id: null, title: 'Todas las notas' },
-            ...(center === LOOSE && !focused ? [{ id: LOOSE as string | null, title: 'Sueltas' }] : []),
+            { id: null, title: t('Todas las notas') },
+            ...(center === LOOSE && !focused ? [{ id: LOOSE as string | null, title: t('Sueltas') }] : []),
             ...family.pathTo(focused ? focused.id : center === LOOSE ? null : center).map((r) => ({ id: r.id as string | null, title: bibTitle(r) })),
           ];
   const bibUp =
@@ -908,9 +911,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       {dropping && (
         <div className="drop-hint" aria-hidden="true">
           <p className="display">
-            Suelta tus <em>notas</em>
+            {t('Suelta tus')} <em>{t('notas')}</em>
           </p>
-          <span className="meta">Archivos .md, o cualquier otro (imágenes, PDF, documentos…) en una nota nueva · entran en la nota en la que estás</span>
+          <span className="meta">{t('Archivos .md, o cualquier otro (imágenes, PDF, documentos…) en una nota nueva · entran en la nota en la que estás')}</span>
         </div>
       )}
       {loaded && (
@@ -974,7 +977,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           />
           {/* Sin teclado no hay N: un botón para la nota nueva (solo en el móvil). */}
           {bibView === 'library' && (
-            <button className="bib-fab" onClick={() => act('create', null, center && center !== LOOSE ? center : null)} aria-label="Nota nueva" title="Nota nueva">
+            <button className="bib-fab" onClick={() => act('create', null, center && center !== LOOSE ? center : null)} aria-label={t('Nota nueva')} title={t('Nota nueva')}>
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
                 <path d="M12 5v14M5 12h14" />
               </svg>
@@ -1044,7 +1047,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       {paletteOpen && (
         <CommandPalette
           profileId={profile.id}
-          placeholder={paletteOpen === 'link' ? 'Enlazar con…' : paletteOpen === 'card' ? 'Añadir al canvas…' : undefined}
+          placeholder={paletteOpen === 'link' ? t('Enlazar con…') : paletteOpen === 'card' ? t('Añadir al canvas…') : undefined}
           exclude={paletteOpen === 'open' ? undefined : focused?.id}
           rows={rows}
           onCreatePath={

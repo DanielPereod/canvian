@@ -11,6 +11,7 @@ import {
 } from '../api';
 import { kindChange } from './board/board';
 import { DatePicker } from './DatePicker';
+import { t } from '../i18n';
 
 const TYPES: { id: PropertyType; name: string }[] = [
   { id: 'text', name: 'Texto' },
@@ -68,28 +69,28 @@ export function Inspector({ note, defs, profileId, onChange, onDefsChange, onErr
       onKeyDown={(e) => {
         if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) close();
       }}
-      aria-label="Propiedades"
+      aria-label={t('Propiedades')}
     >
       <header className="insp-head">
-        <span className="label">Propiedades</span>
-        <button className="insp-close" onClick={close} aria-label="Cerrar">
+        <span className="label">{t('Propiedades')}</span>
+        <button className="insp-close" onClick={close} aria-label={t('Cerrar')}>
           ×
         </button>
       </header>
 
       {!note ? (
         <p className="insp-empty">
-          Selecciona una <em>nota</em>
+          {t('Selecciona una')} <em>{t('nota')}</em>
         </p>
       ) : (
         <div className="insp-body" key={note.id}>
-          <p className="insp-title">{note.title || 'Nota sin título'}</p>
+          <p className="insp-title">{note.title || t('Nota sin título')}</p>
 
-          <Row label="Tipo" i={0}>
+          <Row label={t('Tipo')} i={0}>
             <Segmented
               value={note.kind === 'canvas' ? 'canvas' : 'text'}
               options={[
-                { id: 'text', name: 'Nota' },
+                { id: 'text', name: t('Nota') },
                 { id: 'canvas', name: 'Canvas' },
               ]}
               onChange={(v) => onChange(note.id, kindChange(note, v as 'text' | 'canvas'))}
@@ -97,7 +98,7 @@ export function Inspector({ note, defs, profileId, onChange, onDefsChange, onErr
           </Row>
 
           {/* Las notas no tienen prioridad: solo sus tareas (⏫ 🔼 🔽). */}
-          <Row label="Fecha" i={3}>
+          <Row label={t('Fecha')} i={3}>
             <DateInput value={note.dueAt} onChange={(dueAt) => onChange(note.id, { dueAt })} />
           </Row>
 
@@ -128,8 +129,8 @@ function Row({ label, i, children, onRemove, wide }: { label: string; i: number;
   const [confirm, setConfirm] = useState(false);
   useEffect(() => {
     if (!confirm) return;
-    const t = setTimeout(() => setConfirm(false), 2500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setConfirm(false), 2500);
+    return () => clearTimeout(timer);
   }, [confirm]);
   return (
     <div className={`insp-row${wide ? ' insp-row-wide' : ''}`} style={{ '--i': i } as CSSProperties}>
@@ -139,9 +140,9 @@ function Row({ label, i, children, onRemove, wide }: { label: string; i: number;
           <button
             className={`insp-remove${confirm ? ' confirm' : ''}`}
             onClick={() => (confirm ? onRemove() : setConfirm(true))}
-            title="Borrar esta propiedad de todas las notas"
+            title={t('Borrar esta propiedad de todas las notas')}
           >
-            {confirm ? '¿Borrar?' : '×'}
+            {confirm ? t('¿Borrar?') : '×'}
           </button>
         )}
       </span>
@@ -182,7 +183,7 @@ function DateInput({ value, onChange }: { value: string | null; onChange: (v: st
     <span className="insp-date">
       <DatePicker className="insp-input insp-date-btn" value={value?.slice(0, 10) ?? null} onChange={onChange} />
       {value && (
-        <button className="insp-clear" onClick={() => onChange(null)} aria-label="Quitar fecha">
+        <button className="insp-clear" onClick={() => onChange(null)} aria-label={t('Quitar fecha')}>
           ×
         </button>
       )}
@@ -199,7 +200,7 @@ function TextInput({ value, type, onChange }: { value: string; type: 'text' | 'n
       className="insp-input"
       type={type === 'number' ? 'number' : type === 'url' ? 'url' : 'text'}
       value={draft}
-      placeholder={type === 'url' ? 'https://…' : 'Vacío'}
+      placeholder={type === 'url' ? 'https://…' : t('Vacío')}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => draft !== value && onChange(draft)}
       onKeyDown={(e) => {
@@ -250,7 +251,7 @@ function PropControl({
           <input
             className="insp-input insp-add-option"
             value={adding}
-            placeholder={def.options.length ? '+ opción' : 'Escribe una opción…'}
+            placeholder={def.options.length ? t('+ opción') : t('Escribe una opción…')}
             onChange={(e) => setAdding(e.target.value)}
             onKeyDown={(e) => {
               const o = adding.trim();
@@ -266,18 +267,18 @@ function PropControl({
     case 'tags': {
       // Varias a la vez: las puestas con ×, las conocidas para añadir con un clic.
       const on = Array.isArray(value) ? value : [];
-      const has = (t: string) => on.some((o) => o.toLowerCase() === t.toLowerCase());
-      const add = (t: string) => {
-        const tag = t.replace(/^#/, '').trim();
+      const has = (x: string) => on.some((o) => o.toLowerCase() === x.toLowerCase());
+      const add = (x: string) => {
+        const tag = x.replace(/^#/, '').trim();
         if (!tag || has(tag)) return;
         if (!def.options.some((o) => o.toLowerCase() === tag.toLowerCase())) onAddOption(tag);
         onChange([...on, tag]);
       };
       return (
         <div className="insp-options">
-          {on.map((t) => (
-            <button key={t} className="chip on" style={{ '--chip': hueOf(t) } as CSSProperties} onClick={() => onChange(on.filter((o) => o !== t))} title="Quitar">
-              #{t} ×
+          {on.map((tag) => (
+            <button key={tag} className="chip on" style={{ '--chip': hueOf(tag) } as CSSProperties} onClick={() => onChange(on.filter((o) => o !== tag))} title={t('Quitar')}>
+              #{tag} ×
             </button>
           ))}
           {def.options.filter((o) => !has(o)).map((o) => (
@@ -288,7 +289,7 @@ function PropControl({
           <input
             className="insp-input insp-add-option"
             value={adding}
-            placeholder={on.length || def.options.length ? '+ etiqueta' : 'Escribe una etiqueta…'}
+            placeholder={on.length || def.options.length ? t('+ etiqueta') : t('Escribe una etiqueta…')}
             onChange={(e) => setAdding(e.target.value)}
             onKeyDown={(e) => {
               if ((e.key === 'Enter' || e.key === ',') && adding.trim()) {
@@ -314,7 +315,7 @@ function PropControl({
         <span className="insp-date">
           <TextInput type={def.type === 'url' ? 'url' : 'text'} value={value === null ? '' : String(value)} onChange={(v) => onChange(v.trim() || null)} />
           {def.type === 'url' && typeof value === 'string' && value && (
-            <a className="insp-clear" href={value} target="_blank" rel="noreferrer" aria-label="Abrir enlace">
+            <a className="insp-clear" href={value} target="_blank" rel="noreferrer" aria-label={t('Abrir enlace')}>
               ↗
             </a>
           )}
@@ -340,7 +341,7 @@ function NewProperty({ existing, onCreate }: { existing: PropertyDef[]; onCreate
   if (!open)
     return (
       <button className="insp-new" onClick={() => setOpen(true)}>
-        + Nueva propiedad
+        {t('+ Nueva propiedad')}
       </button>
     );
 
@@ -350,7 +351,7 @@ function NewProperty({ existing, onCreate }: { existing: PropertyDef[]; onCreate
         className="insp-input"
         autoFocus
         value={name}
-        placeholder="Nombre (p. ej. Contexto)"
+        placeholder={t('Nombre (p. ej. Contexto)')}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') submit();
@@ -358,19 +359,19 @@ function NewProperty({ existing, onCreate }: { existing: PropertyDef[]; onCreate
         }}
       />
       <div className="insp-types">
-        {TYPES.map((t) => (
-          <button key={t.id} className={`chip${type === t.id ? ' on' : ''}`} onClick={() => setType(t.id)}>
-            {t.name}
+        {TYPES.map((ty) => (
+          <button key={ty.id} className={`chip${type === ty.id ? ' on' : ''}`} onClick={() => setType(ty.id)}>
+            {t(ty.name)}
           </button>
         ))}
       </div>
       <div className="insp-new-actions">
-        {clash && <span className="insp-warn">Ya existe</span>}
+        {clash && <span className="insp-warn">{t('Ya existe')}</span>}
         <button className="btn" onClick={() => setOpen(false)}>
-          Cancelar
+          {t('Cancelar')}
         </button>
         <button className="btn btn-primary" onClick={submit} disabled={!name.trim() || clash}>
-          Crear
+          {t('Crear')}
         </button>
       </div>
     </div>

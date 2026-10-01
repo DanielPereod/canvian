@@ -5,6 +5,7 @@ import { ProfileSwitcher } from './ProfileSwitcher';
 import { Canvas } from './canvas/Canvas';
 import { actionFor, comboOf, isBound, keysBlocked, loadKeymap } from './keys';
 import { loadTheme, toggleMode } from './theme';
+import { loadLang } from './i18n';
 import { loadTypography } from './typography';
 import { loadSidebarPrefs } from './canvas/sidebarPrefs';
 import { loadWide } from './canvas/widePrefs';
@@ -33,6 +34,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   useEffect(() => {
     void loadKeymap();
     void loadTheme();
+    void loadLang();
     void loadTypography();
     void loadSidebarPrefs();
     void loadWide();
@@ -49,6 +51,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         if (scope === 'prefs') {
           void loadKeymap();
           void loadTheme();
+          void loadLang();
           void loadTypography();
           void loadSidebarPrefs();
           void loadWide();

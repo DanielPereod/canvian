@@ -52,6 +52,12 @@ describe('prefs', () => {
     expect((await call('PUT', '/api/prefs/wide', [''])).status).toBe(400);
   });
 
+  it('saves the language', async () => {
+    expect((await call('PUT', '/api/prefs/lang', 'en')).status).toBe(204);
+    expect(await (await call('GET', '/api/prefs')).json()).toEqual({ lang: 'en' });
+    expect((await call('PUT', '/api/prefs/lang', 'fr')).status).toBe(400);
+  });
+
   it('rejects unknown prefs and bad values', async () => {
     expect((await call('PUT', '/api/prefs/password_hash', {})).status).toBe(404);
     // El laboratorio ya no existe: sus experimentos no se guardan.
