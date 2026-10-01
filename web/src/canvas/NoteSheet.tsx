@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
 import { applyRemote, editingExtensions, extensions, parseBody, titleFrom } from './editor';
@@ -362,6 +363,9 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     menuClosedAt.current = performance.now();
     setMenu(null);
   };
+  // El sitio de la barra de arriba donde van los botones de la nota (si la hay).
+  const [barSlot, setBarSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => setBarSlot(document.getElementById('bib-bar-tools')), []);
   const openMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (performance.now() - menuClosedAt.current < 250) return;
     const box = e.currentTarget.getBoundingClientRect();
@@ -546,8 +550,9 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
             <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
           </article>
         </div>
-        {/* Con el panel plegado (o sin sitio para él), sus botones quedan arriba a la derecha. */}
-        <div className="reader-float">{tools}</div>
+        {/* Los botones de la nota van en la barra de arriba, a la altura de los de la barra lateral;
+            sin barra, flotan arriba a la derecha. */}
+        {barSlot ? createPortal(<div className="reader-tools reader-bar-tools">{tools}</div>, barSlot) : <div className="reader-float">{tools}</div>}
         <input
           ref={filePick}
           type="file"
@@ -565,7 +570,6 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
           <aside className="reader-side" aria-label="Detalles de la nota">
             <div className="reader-side-top">
               <span className="reader-side-h">Detalles</span>
-              <span className="reader-tools">{tools}</span>
             </div>
             <dl className="reader-facts">
               <dt>Tipo</dt>

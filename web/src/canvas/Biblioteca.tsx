@@ -561,6 +561,8 @@ export function BibBar(p: BarProps) {
             ))}
           </div>
         )}
+        {/* Aquí pone la nota abierta sus botones (··· y el panel), a la altura de los de la barra lateral. */}
+        <div className="bib-bar-tools" id="bib-bar-tools" />
       </div>
     </header>
   );

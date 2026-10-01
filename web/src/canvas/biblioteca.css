@@ -339,6 +339,9 @@
 .bib-search:hover { background: var(--bib-sel, var(--surface-hover)) !important; }
 .bib-search-k { margin-left: auto; font-size: calc(11px * var(--type-scale, 1)); }
 .bib-bar-end { display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; }
+/* 3 px más abajo: así su centro cae a la altura del botón de la barra lateral. */
+.bib-bar-tools { display: flex; margin: 3px -6px 0 0; }
+.bib-bar-tools:empty { display: none; }
 .bib-seg { display: flex; padding: 2px; border-radius: 7px; background: var(--surface-hover); font-size: calc(12px * var(--type-scale, 1)); }
 .bib-seg button { padding: 4px 10px; border-radius: 5px; color: var(--text-faint) !important; transition: background var(--dur-fast), color var(--dur-fast); }
 .bib-seg button.is-on { background: var(--bg); color: var(--text) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
@@ -470,11 +473,14 @@
 .reader-link-x:hover { color: var(--text) !important; }
 .reader-add { min-height: 30px; padding: 0 8px !important; color: var(--text-faint) !important; }
 .reader-add:hover { color: var(--text) !important; }
-.reader-side-top { display: flex; align-items: center; justify-content: space-between; margin: -5px -6px -2px 0; }
+.reader-side-top { display: flex; align-items: center; justify-content: space-between; }
 .reader-tools { display: flex; gap: 2px; }
-.sheet .reader-icon { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
+.sheet .reader-icon,
+.reader-bar-tools .reader-icon { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
 .sheet .reader-icon:hover,
-.sheet .reader-icon[aria-expanded='true'] { background: var(--surface-hover); color: var(--text); }
+.sheet .reader-icon[aria-expanded='true'],
+.reader-bar-tools .reader-icon:hover,
+.reader-bar-tools .reader-icon[aria-expanded='true'] { background: var(--surface-hover); color: var(--text); }
 /* Plegado: los mismos botones flotan arriba a la derecha, sobre el texto. */
 .reader-float { display: none; position: absolute; top: 12px; right: 14px; z-index: 1; gap: 2px; }
 .sheet.is-side-folded .reader-float { display: flex; }
@@ -543,6 +549,7 @@
   .reader-side, .reader-resizer { display: none; }
   /* Sin sitio para el panel: queda el menú de la nota arriba a la derecha. */
   .sheet.is-reader:not(.is-zen) .reader-float { display: flex; }
-  .reader-float .reader-fold { display: none; }
+  .reader-float .reader-fold,
+  .reader-bar-tools .reader-fold { display: none; }
   .bib-lib { padding: 20px 16px 80px; }
 }
