@@ -16,7 +16,7 @@ import { decodeTime } from 'ulidx';
 import { editedLabel, kindOf, useContextMenu } from './Biblioteca';
 import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian';
 import { WikiMenu, type WikiItem } from './WikiMenu';
-import { keyParts, keysBlocked, matches, useKeymap } from '../keys';
+import { actionFor, keyParts, keysBlocked, matches, useKeymap } from '../keys';
 import { toggleWide, useWide } from './widePrefs';
 
 // Una nota se abre como lector: el texto a la izquierda y un panel de detalles
@@ -584,6 +584,16 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         return;
       }
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+      // Mover, enlazar y adjuntar (desde la paleta, o M fuera del texto).
+      const act = !typing && !keysBlocked() && !document.querySelector('.inspector, .overlay') ? actionFor(e, isCanvas ? ['move'] : ['move', 'linkNote', 'attach']) : null;
+      if (act) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (act === 'move') setMoving(true);
+        else if (act === 'linkNote') onLink();
+        else filePick.current?.click();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyA' && !typing && editorRef.current && !document.querySelector('.inspector, .overlay')) {
         e.preventDefault();
         editorRef.current.chain().focus().selectAll().run();
@@ -639,7 +649,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       { label: 'Modo zen', title: 'Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)', keys: keysOf(keymap.zen), run: () => setZen(true) },
       null,
       { label: 'Propiedades', run: () => onProps(note.id) },
-      { label: 'Mover a…', title: 'Meterla dentro de otra nota', run: () => setMoving(true) },
+      { label: 'Mover a…', title: 'Meterla dentro de otra nota', keys: keysOf(keymap.move), run: () => setMoving(true) },
       { label: 'Enlazar con…', run: onLink },
       { label: note.archivedAt ? 'Desarchivar' : 'Archivar', title: 'Se oculta con lo que cuelga de ella', keys: keysOf(keymap.archive), run: onArchive },
       { label: 'Borrar', danger: true, run: () => close(() => onDelete(note.id)) },

@@ -53,7 +53,7 @@ export function Lantern(p: Props) {
   const save = async () => {
     if (!p.query.trim()) return;
     const lens = await p.onSave();
-    if (lens) setSaved(lens.slot ? `Guardada en ⇧${lens.slot}` : 'Guardada');
+    if (lens) setSaved('Guardada');
   };
 
   const modeName = MODES.find((m) => m.id === p.mode)!.name;
@@ -133,7 +133,6 @@ export function Lantern(p: Props) {
           {p.lenses.length ? (
             p.lenses.map((l, i) => (
               <li key={l.id} className="list-item" style={{ '--i': i } as CSSProperties} onMouseDown={(e) => e.preventDefault()} onClick={() => p.onApply(l)}>
-                <span className="lens-slot">{l.slot ? <kbd>⇧{l.slot}</kbd> : null}</span>
                 <span className="lens-name">{l.name}</span>
                 <span className="trail">{l.query}</span>
                 <button
@@ -149,7 +148,7 @@ export function Lantern(p: Props) {
               </li>
             ))
           ) : (
-            <li className="list-item static">Escribe una consulta y guárdala con ⌘/Ctrl S para abrirla luego con ⇧1…⇧9</li>
+            <li className="list-item static">Escribe una consulta y guárdala con ⌘/Ctrl S para tenerla aquí</li>
           )}
         </ul>
       )}

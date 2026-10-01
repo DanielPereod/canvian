@@ -20,7 +20,7 @@ import { INBOX, TasksView } from './TasksView';
 import { addTaskItem, allTasks, changeTask, contentOf, newTaskItem, removeTask, takeTask, type Task, type TaskChange } from './tasks';
 import { mergeTags, splitTags } from './tags';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
-import { actionFor, keysBlocked } from '../keys';
+import { actionFor, keyParts, keysBlocked, setView, useKeymap } from '../keys';
 import { useSideWidth } from './Resizer';
 import { BibBar, BibMenu, BibSidebar, Library, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 
@@ -59,6 +59,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [allRows, setRows] = useState<NoteRow[]>([]);
   // Las archivadas (y lo que cuelga de ellas) no se ven salvo que se pidan.
   const [showArchived, setShowArchived] = useState(false);
+  const keymap = useKeymap();
   const rows = useMemo(() => (showArchived ? allRows : visibleRows(allRows)), [allRows, showArchived]);
   const [links, setLinks] = useState<Link[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -549,6 +550,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     else if (action === 'delete') removeNotes([row.id]);
     else if (action === 'rename') setRenaming({ id: row.id, title: row.title ?? '' });
     else if (action === 'archive') toggleArchive(row);
+    else if (action === 'move') setMovingId(row.id);
   };
 
   // Archivar oculta la nota con todo lo que cuelga de ella; desarchivar la devuelve.
@@ -560,7 +562,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     }
     if (archiving && center === row.id) setCenter(row.zoneId);
     updateNote(row.id, { archivedAt: archiving ? now() : null });
-    setNotice(archiving ? 'Archivada · Ctrl Mayús H muestra las archivadas' : 'Desarchivada');
+    setNotice(archiving ? `Archivada · ${keymap.showArchived ? keyParts(keymap.showArchived).join(' ') : '«Archivadas» en la barra'} las muestra` : 'Desarchivada');
   };
 
   // Desde Configuración también se llega a la vista de ordenar.
@@ -572,6 +574,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     window.addEventListener(OPEN_ORGANIZE, open);
     return () => window.removeEventListener(OPEN_ORGANIZE, open);
   }, []);
+
+  // La paleta y la ayuda enseñan primero lo que sirve en esta vista.
+  useEffect(() => setView(focusId ? 'note' : tasksOpen ? 'tasks' : organizeOpen ? 'organize' : 'list'), [focusId, tasksOpen, organizeOpen]);
 
   // ── Teclado de la vista (el mapa tiene el suyo) ─────────────────────
   useEffect(() => {
@@ -634,16 +639,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       if (action === 'tasks') {
         e.preventDefault();
         setTasksOpen(true);
-        return;
-      }
-      // ⇧1…⇧9 abren las lentes guardadas.
-      const digit = /^Digit([1-9])$/.exec(e.code);
-      if (e.shiftKey && !chord && digit) {
-        const saved = lenses.find((l) => l.slot === Number(digit[1]));
-        if (saved) {
-          e.preventDefault();
-          applyLens(saved);
-        }
         return;
       }
       if (e.key === 'Tab' && lamp !== null) {

@@ -63,7 +63,7 @@ Cualquier archivo puede ir dentro de una nota: se pega, se suelta en el texto o 
 
 ## Atajos
 
-Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que tengas, y en **Configuración** (`Ctrl ,` o el botón junto al perfil en la barra lateral) se pueden cambiar; se guardan en el servidor.
+Todos los comandos viven en un solo registro (`web/src/keys.ts`), agrupados en Ir a, Crear, Lo señalado, Nota, Tareas, Ordenar, Ver y Aplicación. Hay tres capas: `⌘/Ctrl P` para ir a una nota, `⌘/Ctrl ⇧ P` para hacer cualquier cosa (la paleta enseña solo lo que sirve donde estás, con los recientes arriba, e incluye lo que no tiene tecla) y unas pocas letras que significan lo mismo en todas las listas. `?` abre la lista de atajos, con lo de la vista actual primero (`Ctrl H` también, si no la usas para otra cosa). En **Configuración › Atajos de teclado** (`Ctrl ,`) se cambian o se quitan; se guardan en el servidor. Estos son los de fábrica:
 
 | Atajo | Acción |
 |-------|--------|
@@ -77,26 +77,27 @@ Estos son los de fábrica. `Ctrl H` (`⌘H` en Mac) abre la lista con los que te
 | Clic en una miga de pan | Volver a ese nivel |
 | `1` | Volver a todas las notas |
 | `N` | Nota nueva en la nota con hijas señalada o en la que estás |
-| `C` | Canvas nuevo: una nota que es un lienzo libre, como los de Obsidian. Doble clic en el vacío crea una tarjeta; desde los bordes de una tarjeta se tiran flechas a otra; abajo se añaden tarjetas, notas existentes (doble clic las abre), grupos y archivos de cualquier tipo (también pegando o soltando; un PDF o un documento se abre con doble clic). `Supr` borra lo seleccionado. Se guarda en formato JSON Canvas |
-| `G` | Nota nueva dentro de la señalada (así se anidan) |
+| «Canvas nuevo» (paleta) | Canvas nuevo: una nota que es un lienzo libre, como los de Obsidian. Doble clic en el vacío crea una tarjeta; desde los bordes de una tarjeta se tiran flechas a otra; abajo se añaden tarjetas, notas existentes (doble clic las abre), grupos y archivos de cualquier tipo (también pegando o soltando; un PDF o un documento se abre con doble clic). `Supr` borra lo seleccionado. Se guarda en formato JSON Canvas |
+| `⇧N` | Nota nueva dentro de la señalada (así se anidan) |
 | `R` | Renombrar la nota señalada (cambia su primera línea) |
+| `M` | Mover a…: meter la nota señalada o abierta (o la tarea, o las marcadas en Ordenar) dentro de otra |
 | `⌘/Ctrl Mayús X` | Archivar o desarchivar la nota abierta o señalada: se oculta con todo lo que cuelga de ella (también con el botón «Archivar») |
-| `⌘/Ctrl Mayús H` | Mostrar u ocultar las notas archivadas |
+| «Archivadas» (barra o paleta) | Mostrar u ocultar las notas archivadas |
 | `P` | Propiedades de la nota señalada: tipo (nota o canvas), prioridad, fecha y propiedades propias del perfil (texto, opciones, número, fecha, casilla, enlace) |
 | `Supr` | Borrar la nota señalada (sus hijas pasan a su madre) |
 | En el lector | Escribir; en el panel de la derecha, sus datos (también cuántas de sus tareas están hechas), sus enlaces (`＋ Enlazar` busca otra nota, `×` quita el enlace) y archivar, propiedades o borrar |
 | `⌘/Ctrl ⇧ F` (en una nota) | Modo zen: se quita toda la interfaz (barra lateral, ruta y detalles) y solo queda el texto para escribir; sigue al pasar de una nota a otra. `Esc` o el mismo atajo vuelven (también con el botón «Zen») |
-| `⌘/Ctrl ⌥/Alt A` (en una nota) | Modo ancho: el texto de la nota se muestra más ancho; cada nota recuerda el suyo (también con el botón «Ancho») |
+| «Texto ancho» (menú ⋯ o paleta) | Modo ancho: el texto de la nota se muestra más ancho; cada nota recuerda el suyo (también con el botón «Ancho») |
 | `[[` (escribiendo en una nota) | Abre el buscador de notas para enlazar, como en Obsidian: `↑`/`↓` eligen, `Enter` o `Tab` ponen el `[[enlace]]` (y unen las dos notas), `Esc` lo cierra. Si no existe, «Crear nota» la crea al lado. Vale `[[Nota#Sección\|alias]]`, y escribir `[[Nota]]` entero también enlaza. Clic en el enlace abre la nota |
 | Markdown al escribir | El de Obsidian: `#`…`######`, `**negrita**`, `*cursiva*`, `~~tachado~~`, `==resaltado==` (también `⌘/Ctrl ⇧ H`), `` `código` ``, `[texto](url)`, `- `, `1. `, `- [ ] ` (casillas: tareas; `[/]` en curso, `[!]` bloqueada, y con `Tab` subtareas), `> `, ` ``` ` y `---` |
-| `A` | Vista de tareas: todas las casillas de todas las notas del perfil, agrupadas por fecha, estado o nota (`Tab` cambia), con sus subtareas debajo. `↑`/`↓` para moverse, `Enter` abre su nota con la tarea señalada, `Espacio` la marca hecha (y sus subtareas), `X` avanza el estado, `⇧X` la bloquea, `E` edita el texto, `M` la lleva a otra nota, `Supr` la borra (con sus subtareas), `N` apunta una tarea (va a la nota «Tareas», o a otra con `> nota`), `Esc` vuelve. En el detalle se ponen fecha, prioridad, etiquetas y subtareas |
-| `O` | Ordenar: el árbol de notas con hijas a un lado y lo que hay dentro de la elegida al otro (también desde Configuración). Clic o `Espacio` marca, `⇧` marca seguidas; se mueven arrastrándolas a otra nota, con `M` o aceptando el sitio sugerido (`S`). `←`/`→` cambia de rama, `/` busca en todas, `Z` deshace, `Esc` vuelve |
+| `A` | Vista de tareas: todas las casillas de todas las notas del perfil, agrupadas por fecha, estado o nota (`Tab` cambia), con sus subtareas debajo. `↑`/`↓` para moverse, `Enter` abre su nota con la tarea señalada, `Espacio` la marca hecha (y sus subtareas), `X` avanza el estado, `⇧X` la bloquea, `E` edita el texto, `M` la lleva a otra nota, `V` cambia entre lista y tablero, `Supr` la borra (con sus subtareas), `N` apunta una tarea (va a la nota «Tareas», o a otra con `> nota`), `Esc` vuelve. Al pie se ven las teclas de la vista. En el detalle se ponen fecha, prioridad, etiquetas y subtareas |
+| `O` | Ordenar: el árbol de notas con hijas a un lado y lo que hay dentro de la elegida al otro (también desde Configuración). Clic o `Espacio` marca, `⇧` marca seguidas; se mueven arrastrándolas a otra nota, con `M` o aceptando el sitio sugerido (`S`). `←`/`→` cambia de rama, `/` busca en todas, `⌘/Ctrl Z` deshace, `⇧N` crea una nota, `Esc` vuelve |
 | `F` | Linterna: filtra la colección o los nodos en vivo. Palabras sueltas (`-palabra` para excluir, `"frase exacta"`), `tipo:tarea` (notas con tareas pendientes; o `nota`, `canvas`), `estado:pendiente\|curso\|bloqueada\|hecha` (notas con alguna tarea así), `prio:alta`, `vence:hoy\|semana\|vencida\|<7d` (la fecha de la nota o de sus tareas), `en:viaje` (dentro de una nota), `#etiqueta`, `enlazado:"Plan de viaje" prof:2` y `<propiedad>:<valor>`. `Enter` la pliega, `Esc` la apaga |
 | `Tab` (con la linterna) | Cambia el modo: atenuar (lo demás se apaga) u ocultar |
-| `⌘/Ctrl S` (en la linterna) | Guarda la lente; se abre luego con `⇧1`…`⇧9` o desde la lista al abrir `F` vacía |
+| `⌘/Ctrl S` (en la linterna) | Guarda la lente; se abre luego desde la lista al abrir `F` vacía |
 | Arrastrar archivos `.md` | Importarlos como notas dentro de la nota en la que estás; los `[[enlaces]]` entre ellas se convierten en enlaces, y las tablas en tablas de verdad |
 | Pegar o arrastrar imágenes, vídeo o audio | Dentro de una nota abierta, se añaden donde está el cursor o donde los sueltas. Sobre la biblioteca, crean una nota nueva con ellos. Hasta 200 MB por archivo |
-| `⌘/Ctrl ⇧ E` | Exportar el perfil a JSON Canvas (`.canvas`, se abre en Obsidian) |
+| «Exportar a JSON Canvas» (paleta) | Exportar el perfil a JSON Canvas (`.canvas`, se abre en Obsidian) |
 | `⌘/Ctrl P` | El buscador: buscar notas y abrirlas, o crear una. `Padre>Hija>Nota` busca dentro de esa ruta y crea ahí lo que falte; `Tab` completa con la señalada. `#etiqueta` en el texto pone esa etiqueta a la nota nueva (también en las tareas rápidas) |
-| `⌘/Ctrl ⇧ P` | Paleta de comandos: todas las acciones, se ejecutan al elegirlas |
-| `⌘/Ctrl ⌥/Alt P` | Cambiar de perfil, crear uno o cerrar sesión |
+| `⌘/Ctrl ⇧ P` | Paleta de comandos: lo que sirve donde estás (también temas, modo y secciones de Configuración), se ejecuta al elegirlo. En el móvil, «Comandos» en el cajón |
+| «Cambiar de perfil» (barra o paleta) | Cambiar de perfil, crear uno o cerrar sesión |

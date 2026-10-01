@@ -4,7 +4,7 @@ import { parentMap } from './sections';
 import { longPress, TOUCH } from './touch';
 import type { NoteRow, TaskStatus } from '../api';
 import { daysUntil, dueLabel, localToday } from './dates';
-import { actionFor, keysBlocked } from '../keys';
+import { actionFor, keyParts, keysBlocked, useKeymap, type ActionId } from '../keys';
 import { mergeTags } from './tags';
 import { allTasks, type Task, type TaskChange } from './tasks';
 import { SectionPicker, type SectionOption } from './SectionPicker';
@@ -433,27 +433,32 @@ export function TasksView(p: Props) {
     ? `Añadir tarea para ${calDay === isoDay(0) ? 'hoy' : dueLabel(calDay)}…`
     : view.startsWith('sec:') ? `Añadir tarea en ${current.name}…` : view === 'today' ? 'Añadir tarea para hoy…' : `Añadir tarea en «${INBOX}»… (#etiqueta, > otra nota)`;
 
+  // «Espacio hecha» para el pie, con la tecla que tenga cada uno (o nada).
+  const keymap = useKeymap();
+  const foot = (id: ActionId, what: string) => (keymap[id] ? `${keyParts(keymap[id]).join(' ')} ${what}` : '');
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (paused || moving || menu || keysBlocked()) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-      const action = actionFor(e, ['tasks', 'cycleStatus', 'blockTask', 'newNote', 'deleteCell']);
+      const action = actionFor(e, ['tasks', 'cycleStatus', 'blockTask', 'newNote', 'deleteCell', 'taskDone', 'taskEdit', 'taskLayout', 'move', 'calendar']);
       const k = e.metaKey || e.ctrlKey || e.altKey ? '' : e.key.toLowerCase();
       if (k === 'escape' || action === 'tasks') p.onClose();
       else if (action === 'cycleStatus') cur && cycle(cur);
       else if (action === 'blockTask') cur && block(cur);
       else if (action === 'newNote') addRef.current?.focus();
       else if (action === 'deleteCell') cur && p.onDelete(cur);
+      else if (action === 'taskDone') cur && toggleDone(cur);
+      else if (action === 'move') cur && setMoving(cur.id);
+      else if (action === 'taskEdit') cur && titleRef.current?.focus();
+      else if (action === 'taskLayout') view !== 'done' && !cal && pickLayout(board ? 'lista' : 'tablero');
+      else if (action === 'calendar') go('cal');
       // La tecla de menú (o Mayús F10) abre el menú de la señalada, junto a ella.
       else if ((k === 'contextmenu' || (k === 'f10' && e.shiftKey)) && cur) {
         const box = document.querySelector('.tv-row.is-cursor, .tv-card.is-cursor, .tv-cal-task.is-sel')?.getBoundingClientRect();
         setMenu({ id: cur.id, x: box ? box.left + 24 : innerWidth / 2, y: box ? box.bottom : innerHeight / 3 });
-      } else if (k === ' ' && cur) toggleDone(cur);
-      else if (k === 'm' && cur) setMoving(cur.id);
-      else if (k === 'e' && cur) titleRef.current?.focus();
-      else if (k === 'v' && view !== 'done' && !cal) pickLayout(board ? 'lista' : 'tablero');
-      else if (board && e.shiftKey && (k === 'arrowleft' || k === 'arrowright' || k === 'h' || k === 'l') && cur) {
+      } else if (board && e.shiftKey && (k === 'arrowleft' || k === 'arrowright' || k === 'h' || k === 'l') && cur) {
         const n = STATUSES.findIndex((s) => s.id === cur.status) + (k === 'arrowleft' || k === 'h' ? -1 : 1);
         if (STATUSES[n]) moveTo(cur, STATUSES[n].id);
       } else if (board && (k === 'arrowleft' || k === 'h')) boardStep(-1, 0);
@@ -785,11 +790,17 @@ export function TasksView(p: Props) {
           })}
         </div>
         <p className="tv-foot meta">
-          {cal
-            ? `1–5 vista · ←→${calMode === 'mes' || calMode === 'semana' ? '↑↓' : ''} día · [ ] ${calMode === 'mes' ? 'mes' : calMode === 'dia' ? 'día' : calMode === 'tres' ? '3 días' : 'semana'} · T hoy · arrastra una tarea para cambiar su fecha · N añadir en el día · Esc salir`
-            : board
-              ? '←→↑↓ moverse · Mayús ←→ cambiar de columna · arrastra una tarjeta · Espacio hecha · M otra nota · V lista · Esc salir'
-              : '↑↓ moverse · Espacio hecha · X estado · Enter abrir la nota · E editar · M otra nota · N añadir (> en una nota) · Tab agrupar · V tablero · Esc salir'}
+          {[
+            ...(cal
+              ? [`1–5 vista · ←→${calMode === 'mes' || calMode === 'semana' ? '↑↓' : ''} día · [ ] ${calMode === 'mes' ? 'mes' : calMode === 'dia' ? 'día' : calMode === 'tres' ? '3 días' : 'semana'} · T hoy · arrastra una tarea para cambiar su fecha`, foot('newNote', 'añadir en el día')]
+              : board
+                ? ['←→↑↓ moverse · Mayús ←→ cambiar de columna · arrastra una tarjeta', foot('taskDone', 'hecha'), foot('move', 'otra nota'), foot('taskLayout', 'lista')]
+                : ['↑↓ moverse', foot('taskDone', 'hecha'), foot('cycleStatus', 'estado'), 'Enter abrir la nota', foot('taskEdit', 'editar'), foot('move', 'otra nota'), foot('newNote', 'añadir (> en una nota)'), 'Tab agrupar', foot('taskLayout', 'tablero')]),
+            foot('help', 'atajos'),
+            'Esc salir',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
       </main>
 

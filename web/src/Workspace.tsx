@@ -3,7 +3,7 @@ import { onLive } from './live';
 import { api, type Profile } from './api';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { Canvas } from './canvas/Canvas';
-import { actionFor, keysBlocked, loadKeymap } from './keys';
+import { actionFor, comboOf, isBound, keysBlocked, loadKeymap } from './keys';
 import { loadTheme, toggleMode } from './theme';
 import { loadTypography } from './typography';
 import { loadSidebarPrefs } from './canvas/sidebarPrefs';
@@ -72,7 +72,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
-      const action = actionFor(e, ['commands', 'profiles', 'toggleMode', 'help', 'settings']);
+      // Ctrl H era la tecla de la ayuda antes de «?»: sigue valiendo si está libre.
+      const action = actionFor(e, ['commands', 'profiles', 'toggleMode', 'help', 'settings']) ?? (comboOf(e) === 'mod+h' && !isBound('mod+h') ? 'help' : null);
       if (!action) return;
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));

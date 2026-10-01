@@ -1,12 +1,21 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { COLORS, ROOT_KEY, setColor, setOrder, sortByOrder, useSidebarPrefs } from './sidebarPrefs';
 import type { NoteRow } from '../api';
-import { actionFor, keysBlocked, type ActionId } from '../keys';
+import { actionFor, keyParts, keysBlocked, useKeymap, type ActionId } from '../keys';
+
 import { importanceOf, parentMap } from './sections';
 import { taskCount } from './tasks';
 import { LOOSE, type MapAction } from './NodeView';
 import { Resizer, type SideWidth } from './Resizer';
 import { longPress, TOUCH } from './touch';
+
+// La tecla de un comando como texto («Ctrl G»), o vacío si no tiene.
+function useKeyText() {
+  const keymap = useKeymap();
+  return (id: ActionId) => keyParts(keymap[id]).join(' ');
+}
+// «Fijar la barra (Ctrl .)», o solo el texto si no hay tecla.
+const withKey = (text: string, keys: string) => (keys ? `${text} (${keys})` : text);
 
 // Diseño «Biblioteca»: la app como una biblioteca de investigación. A la
 // izquierda, la barra con el perfil, las vistas y el árbol de colecciones;
@@ -156,6 +165,7 @@ const byDefault = (count: (id: string) => number) => (a: NoteRow, b: NoteRow) =>
   Number(!!count(b.id)) - Number(!!count(a.id)) || titleOf(a).localeCompare(titleOf(b), 'es', { numeric: true });
 
 export function BibSidebar(p: SideProps) {
+  const key = useKeyText();
   const { kids, count, pathTo, parent } = p.family;
   const prefs = useSidebarPrefs();
   const [open, setOpen] = useState<Set<string>>(() => {
@@ -343,28 +353,28 @@ export function BibSidebar(p: SideProps) {
         }}
       >
         <div className="bib-side-top">
-          <button className="bib-profile" onClick={p.onProfiles} title="Cambiar de perfil (Ctrl Alt P)">
+          <button className="bib-profile" onClick={p.onProfiles} title={withKey('Cambiar de perfil', key('profiles'))}>
             <span className="bib-profile-dot" aria-hidden="true" />
             <span className="bib-ellipsis">{p.profileName}</span>
             <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" className="bib-profile-chev">
               <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <button className="bib-icon" onClick={p.onFold} title={p.folded ? 'Fijar la barra (Ctrl .)' : 'Plegar la barra (Ctrl .)'} aria-label={p.folded ? 'Fijar la barra' : 'Plegar la barra'}>
+          <button className="bib-icon" onClick={p.onFold} title={withKey(p.folded ? 'Fijar la barra' : 'Plegar la barra', key('sidebar'))} aria-label={p.folded ? 'Fijar la barra' : 'Plegar la barra'}>
             <PanelIcon />
           </button>
         </div>
         <nav className="bib-nav">
-          <button className={`bib-it${libraryOn && p.here === null ? ' is-on' : ''}`} onClick={() => p.onLibrary(null)} title="Ctrl G">
+          <button className={`bib-it${libraryOn && p.here === null ? ' is-on' : ''}`} onClick={() => p.onLibrary(null)} title={key('toRoot') || undefined}>
             Todas las notas
           </button>
-          <button className={`bib-it${p.view === 'tasks' ? ' is-on' : ''}`} onClick={p.onTasks} title="A">
+          <button className={`bib-it${p.view === 'tasks' ? ' is-on' : ''}`} onClick={p.onTasks} title={key('tasks') || undefined}>
             Tareas<span className="bib-count">{p.tasks || ''}</span>
           </button>
-          <button className={`bib-it${p.view === 'organize' ? ' is-on' : ''}`} onClick={p.onOrganize} title="O">
+          <button className={`bib-it${p.view === 'organize' ? ' is-on' : ''}`} onClick={p.onOrganize} title={key('organize') || undefined}>
             Ordenar
           </button>
-          <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title="Ctrl Mayús H">
+          <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title={key('showArchived') || undefined}>
             {p.showArchived ? 'Ocultar archivadas' : 'Archivadas'}
           </button>
           {/* Sin teclado, lo que solo tenía atajo. */}
@@ -397,7 +407,7 @@ export function BibSidebar(p: SideProps) {
             </svg>
             Comandos
           </button>
-          <button className="bib-it" onClick={p.onSettings} title="Ctrl ,">
+          <button className="bib-it" onClick={p.onSettings} title={key('settings') || undefined}>
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
@@ -468,20 +478,21 @@ export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: n
 }
 
 export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
+  const key = useKeyText();
   const prefs = useSidebarPrefs();
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
   const items: ({ a: MenuAction; label: string; key?: string; danger?: boolean } | null)[] = [
     { a: 'open', label: 'Abrir' },
     ...(kids ? [{ a: 'library' as const, label: 'Ver como colección' }] : []),
-    { a: 'nodes', label: 'Ver en nodos', key: 'Ctrl G' },
+    { a: 'nodes', label: 'Ver en nodos', key: key('nodes') },
     null,
-    { a: 'child', label: 'Nota nueva dentro', key: 'G' },
-    { a: 'rename', label: 'Renombrar', key: 'R' },
-    { a: 'move', label: 'Mover a…' },
+    { a: 'child', label: 'Nota dentro', key: key('newSection') },
+    { a: 'rename', label: 'Renombrar', key: key('rename') },
+    { a: 'move', label: 'Mover a…', key: key('move') },
     null,
-    { a: 'archive', label: row.archivedAt ? 'Desarchivar' : 'Archivar', key: 'Ctrl ⇧ X' },
-    { a: 'delete', label: 'Borrar', key: 'Supr', danger: true },
+    { a: 'archive', label: row.archivedAt ? 'Desarchivar' : 'Archivar', key: key('archive') },
+    { a: 'delete', label: 'Borrar', key: key('deleteCell'), danger: true },
   ];
 
   const color = prefs.colors[row.id] ?? null;
@@ -569,6 +580,7 @@ const LAYOUT_ICONS: Record<BibLayout, ReactNode> = {
 };
 
 export function BibBar(p: BarProps) {
+  const key = useKeyText();
   return (
     <header className="bib-bar">
       <nav className="bib-crumbs" aria-label="Ruta">
@@ -578,7 +590,7 @@ export function BibBar(p: BarProps) {
           </svg>
         </button>
         {p.folded && (
-          <button className="bib-icon bib-unfold" onClick={p.onFold} title="Fijar la barra (Ctrl .)" aria-label="Fijar la barra">
+          <button className="bib-icon bib-unfold" onClick={p.onFold} title={withKey('Fijar la barra', key('sidebar'))} aria-label="Fijar la barra">
             <PanelIcon />
           </button>
         )}
@@ -600,7 +612,7 @@ export function BibBar(p: BarProps) {
           <path d="m20 20-3.5-3.5" />
         </svg>
         Buscar en tu biblioteca
-        <span className="bib-search-k">Ctrl P</span>
+        {key('search') && <span className="bib-search-k">{key('search')}</span>}
       </button>
       <div className="bib-bar-end">
         <button className="bib-icon bib-search-btn" onClick={p.onSearch} aria-label="Buscar" title="Buscar">
@@ -645,8 +657,8 @@ type LibProps = {
   onMenu: (id: string, x: number, y: number) => void;
 };
 
-const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
-const LIB_ACTIONS: ActionId[] = ['properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
+const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive', move: 'move' };
+const LIB_ACTIONS: ActionId[] = ['properties', 'deleteCell', 'rename', 'move', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
 
 export function Library(p: LibProps) {
   const { kids, count, byId, parent } = p.family;

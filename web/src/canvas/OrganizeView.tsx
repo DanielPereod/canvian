@@ -3,7 +3,7 @@ import type { NoteRow } from '../api';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { parentMap } from './sections';
 import { makeSuggester } from './suggest';
-import { actionFor, keysBlocked } from '../keys';
+import { actionFor, keyParts, keysBlocked, useKeymap, type ActionId } from '../keys';
 
 // Otra vista, fuera del mapa: ordenar. A la izquierda el árbol de secciones;
 // a la derecha las notas de la elegida. Se marcan varias y se llevan a otra
@@ -214,6 +214,9 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
     } else move(ids, target || null);
   };
 
+  const keymap = useKeymap();
+  const kt = (id: ActionId) => keyParts(keymap[id]).join(' ');
+
   // ── Teclado ─────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -229,7 +232,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
       }
       const mod = e.metaKey || e.ctrlKey;
       const k = e.altKey || (mod && e.key.toLowerCase() !== 'a') ? '' : e.key.toLowerCase();
-      const action = actionFor(e, ['organize']);
+      const action = actionFor(e, ['organize', 'move', 'acceptHints', 'newSection', 'undo']);
       const step = (d: number) => {
         const next = items[Math.max(0, Math.min(items.length - 1, at + d))];
         if (!next) return;
@@ -249,17 +252,18 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
       else if (k === 'arrowup' || k === 'k') step(-1);
       else if (k === 'arrowleft' || k === 'h') idx > 0 && goTo(tree[idx - 1].id);
       else if (k === 'arrowright' || k === 'l') idx < tree.length - 1 && goTo(tree[idx + 1].id);
-      else if (k === ' ' || k === 'x') cur && toggle(cur.id);
-      else if (k === 'a' && mod) setMarked(chosen.length === items.length ? new Set() : new Set(items.map((r) => r.id)));
-      else if (k === 'm') targets().length && setPicking(true);
-      else if (k === 's') acceptHints(targets());
-      else if (k === 'enter') cur && onOpen(cur.id);
-      else if (k === '/') searchRef.current?.focus();
-      else if (k === 'g') onNewSection(here || null);
-      else if (k === 'z' && undo) {
+      else if (action === 'move') targets().length && setPicking(true);
+      else if (action === 'acceptHints') acceptHints(targets());
+      else if (action === 'newSection') onNewSection(here || null);
+      else if (action === 'undo') {
+        if (!undo) return;
         onMove(undo.moves);
         setUndo(null);
-      } else return;
+      } else if (k === ' ') cur && toggle(cur.id);
+      else if (k === 'a' && mod) setMarked(chosen.length === items.length ? new Set() : new Set(items.map((r) => r.id)));
+      else if (k === 'enter') cur && onOpen(cur.id);
+      else if (k === '/') searchRef.current?.focus();
+      else return;
       e.preventDefault();
       e.stopPropagation();
     };
@@ -372,7 +376,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
                 {hint && (
                   <button
                     className="meta org-hint"
-                    title="Llevarla a donde se sugiere (S)"
+                    title={kt('acceptHints') ? `Llevarla a donde se sugiere (${kt('acceptHints')})` : 'Llevarla a donde se sugiere'}
                     onClick={(e) => {
                       e.stopPropagation();
                       move([r.id], hint);
@@ -408,7 +412,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
                 setUndo(null);
               }}
             >
-              Deshacer <span className="meta">Z</span>
+              Deshacer {kt('undo') && <span className="meta">{kt('undo')}</span>}
             </button>
           </>
         ) : (
@@ -417,7 +421,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
               <>
                 <span>{chosen.length === 1 ? '1 marcada' : `${chosen.length} marcadas`}</span>
                 <button className="sheet-link" onClick={() => setPicking(true)}>
-                  Mover a… <span className="meta">M</span>
+                  Mover a… {kt('move') && <span className="meta">{kt('move')}</span>}
                 </button>
               </>
             ) : (
@@ -425,7 +429,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
             )}
             {hinted.length > 0 && (
               <button className="sheet-link" onClick={() => acceptHints(hinted)}>
-                Colocar {hinted.length === 1 ? 'la sugerida' : `las ${hinted.length} sugeridas`} <span className="meta">S</span>
+                Colocar {hinted.length === 1 ? 'la sugerida' : `las ${hinted.length} sugeridas`} {kt('acceptHints') && <span className="meta">{kt('acceptHints')}</span>}
               </button>
             )}
             {chosen.length > 0 && (

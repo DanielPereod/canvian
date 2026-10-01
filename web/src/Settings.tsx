@@ -100,7 +100,7 @@ export function Settings({ onClose, onProfiles }: Props) {
 
   const custom = ACTIONS.some((a) => !isDefault(a.id));
   const words = norm(filter).split(/\s+/).filter(Boolean);
-  const shown = ACTIONS.filter((a) => words.every((w) => norm(`${a.label} ${keyParts(keymap[a.id]).join(' ')}`).includes(w)));
+  const shown = ACTIONS.filter((a) => words.every((w) => norm(`${a.label} ${a.hint ?? ''} ${keyParts(keymap[a.id]).join(' ')}`).includes(w)));
 
   const themes = (tone: Tone) => (
     <div className="theme-grid" role="radiogroup" aria-label={tone === 'dark' ? 'Tema oscuro' : 'Tema claro'}>
@@ -261,8 +261,14 @@ export function Settings({ onClose, onProfiles }: Props) {
                       <div key={a.id} className={`set-row${capturing === a.id ? ' is-capturing' : ''}`}>
                         <div className="set-info">
                           <div className="set-name">{a.label}</div>
+                          {a.hint && <div className="set-hint">{a.hint}</div>}
                         </div>
                         <div className="set-control">
+                          {keymap[a.id] && capturing !== a.id && (
+                            <button className="settings-reset meta" onClick={() => report(bind(a.id, '').done)} title="Dejarlo sin tecla; sigue en la paleta de comandos">
+                              Quitar
+                            </button>
+                          )}
                           {!isDefault(a.id) && (
                             <button className="settings-reset meta" onClick={() => report(resetKey(a.id))} title={`Volver a ${keyParts(a.key).join(' ')}`}>
                               Restablecer

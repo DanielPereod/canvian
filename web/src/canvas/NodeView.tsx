@@ -29,9 +29,9 @@ export const LOOSE = 'loose';
 
 // Lo que se pide desde los nodos o la biblioteca sobre la nota señalada (o,
 // para crear, dentro de la nota en la que estás).
-export type MapAction = 'create' | 'createCanvas' | 'section' | 'props' | 'delete' | 'rename' | 'archive';
-const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
-const NODE_ACTIONS: ActionId[] = ['properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
+export type MapAction = 'create' | 'createCanvas' | 'section' | 'props' | 'delete' | 'rename' | 'archive' | 'move';
+const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive', move: 'move' };
+const NODE_ACTIONS: ActionId[] = ['properties', 'deleteCell', 'rename', 'move', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
 
 type GNode = SimulationNodeDatum & { id: string; row: NoteRow; title: string; deg: number; r: number };
 type GEdge = { source: GNode; target: GNode; kind: 'tree' | 'link' };
