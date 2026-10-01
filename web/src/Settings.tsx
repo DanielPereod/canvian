@@ -150,6 +150,7 @@ export function Settings({ onClose, onProfiles }: Props) {
         </nav>
 
         <main className="set-main" key={section}>
+          <div className="set-main-inner">
           <h1 className="set-title">{SECTIONS.find((s) => s.id === section)!.name}</h1>
           {note && (
             <p className="settings-note" role="status">
@@ -297,7 +298,7 @@ export function Settings({ onClose, onProfiles }: Props) {
               {!shown.length && <p className="set-hint">Ningún atajo se llama así.</p>}
             </>
           )}
-
+          </div>
         </main>
       </div>
     </div>
