@@ -149,6 +149,37 @@ function parseList(lines: string[], start: number, ctx: Ctx): [JSONContent, numb
 
 type Ctx = { links: string[]; heading: string | null };
 
+const CALLOUT = /^>\s?\[!([\w-]+)\]([+-]?)\s*(.*)$/;
+const COLS_OPEN = /^\s*<!--\s*columns\s*-->\s*$/i;
+const COL_SPLIT = /^\s*<!--\s*column\s*-->\s*$/i;
+const COLS_CLOSE = /^\s*<!--\s*\/columns\s*-->\s*$/i;
+
+// El icono de cada tipo de aviso de Obsidian (y al revés, para escribirlo).
+const CALLOUT_TYPES: [string[], string][] = [
+  [['note', 'info'], '💡'],
+  [['example'], '📌'],
+  [['warning', 'caution', 'attention'], '⚠️'],
+  [['success', 'check', 'done'], '✅'],
+  [['danger', 'error', 'bug', 'failure', 'fail', 'missing'], '❗'],
+  [['question', 'help', 'faq'], '❓'],
+  [['abstract', 'summary', 'tldr', 'todo'], '📝'],
+  [['tip', 'hint', 'important'], '🔥'],
+  [['quote', 'cite'], '💬'],
+];
+const typeOfIcon = (icon: string) => CALLOUT_TYPES.find(([, i]) => i === icon)?.[0][0] ?? 'note';
+const EMOJI = /^\p{Extended_Pictographic}(\uFE0F|\u200D\p{Extended_Pictographic})*$/u;
+
+function calloutBlock(type: string, fold: string, title: string, inner: JSONContent[], ctx: Ctx): JSONContent {
+  if (type === 'toggle') {
+    const summary = para(title, ctx.links);
+    return { type: 'toggle', attrs: { open: fold !== '-' }, content: [summary, ...inner] };
+  }
+  const icon = EMOJI.test(title) ? title : (CALLOUT_TYPES.find(([names]) => names.includes(type))?.[1] ?? '💡');
+  const head = title && !EMOJI.test(title) ? [{ type: 'paragraph', content: [{ type: 'text', text: title, marks: [{ type: 'bold' }] }] }] : [];
+  const content = [...head, ...inner];
+  return { type: 'callout', attrs: { icon }, content: content.length ? content : [{ type: 'paragraph' }] };
+}
+
 // Con `frontmatter`, se salta la cabecera «---» de Obsidian (al importar); al
 // editar el Markdown de una nota, un «---» al principio es una raya.
 export function markdownToDoc(md: string, frontmatter = true): { doc: JSONContent; links: string[]; heading: string | null } {
@@ -192,6 +223,34 @@ function parseBlocks(lines: string[], ctx: Ctx): JSONContent[] {
       i++;
       continue;
     }
+    // Avisos de Obsidian («> [!note] 💡») y los plegables («> [!toggle]- Título»).
+    const call = CALLOUT.exec(line);
+    if (call) {
+      const inner: string[] = [];
+      i++;
+      while (i < lines.length && /^>/.test(lines[i])) inner.push(lines[i++].replace(/^>\s?/, ''));
+      content.push(calloutBlock(call[1].toLowerCase(), call[2], call[3].trim(), parseBlocks(inner, ctx), ctx));
+      continue;
+    }
+    // Columnas: entre comentarios de HTML, que Obsidian no enseña.
+    if (COLS_OPEN.test(line)) {
+      const cols: string[][] = [[]];
+      i++;
+      while (i < lines.length && !COLS_CLOSE.test(lines[i])) {
+        if (COL_SPLIT.test(lines[i])) cols.push([]);
+        else cols[cols.length - 1].push(lines[i]);
+        i++;
+      }
+      i++;
+      content.push({
+        type: 'columns',
+        content: cols.map((c) => {
+          const blocks = parseBlocks(c, ctx);
+          return { type: 'column', content: blocks.length ? blocks : [{ type: 'paragraph' }] };
+        }),
+      });
+      continue;
+    }
     if (/^>\s?/.test(line)) {
       const quote: string[] = [];
       while (i < lines.length && /^>\s?/.test(lines[i])) quote.push(lines[i++].replace(/^>\s?/, ''));
@@ -218,7 +277,7 @@ function parseBlocks(lines: string[], ctx: Ctx): JSONContent[] {
       continue;
     }
     const text: string[] = [];
-    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|>|\s*([-*+]|\d+[.)])\s)/.test(lines[i]) && !FENCE.test(lines[i]) && !(text.length && TABLE_ROW.test(lines[i]))) text.push(lines[i++].trim());
+    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|>|\s*([-*+]|\d+[.)])\s|<!--)/.test(lines[i]) && !FENCE.test(lines[i]) && !(text.length && TABLE_ROW.test(lines[i]))) text.push(lines[i++].trim());
     content.push(para(text.join(' '), links));
   }
   return content;
@@ -230,7 +289,7 @@ export function docText(doc: JSONContent): string {
       ? (n.text ?? '')
       : n.type === 'wikilink'
         ? String(n.attrs?.alias || n.attrs?.target || '')
-        : (n.content ?? []).map(block).join(n.type === 'tableRow' ? ' · ' : ['doc', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'listItem', 'taskItem', 'table'].includes(n.type ?? '') ? '\n' : '');
+        : (n.content ?? []).map(block).join(n.type === 'tableRow' ? ' · ' : ['doc', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'listItem', 'taskItem', 'table', 'callout', 'toggle', 'columns', 'column'].includes(n.type ?? '') ? '\n' : '');
   return block(doc).trim();
 }
 
@@ -250,6 +309,14 @@ function marksToMd(n: JSONContent): string {
 export function docToMarkdown(doc: JSONContent | null): string {
   if (!doc) return '';
   const inl = (n: JSONContent) => inlineToMd(n.content);
+  // Bloques dentro de un aviso: cada línea con su «> ».
+  const quoted = (blocks: JSONContent[]) =>
+    blocks
+      .map((b) => block(b))
+      .join('\n\n')
+      .split('\n')
+      .filter((l, i, all) => all.length > 1 || l)
+      .map((l) => (l ? `> ${l}` : '>'));
   const block = (n: JSONContent, indent = ''): string => {
     switch (n.type) {
       case 'heading':
@@ -277,6 +344,16 @@ export function docToMarkdown(doc: JSONContent | null): string {
           .join('\n');
       case 'blockquote':
         return (n.content ?? []).map((c) => `> ${block(c)}`).join('\n');
+      case 'callout': {
+        const icon = String(n.attrs?.icon ?? '💡');
+        return [`> [!${typeOfIcon(icon)}] ${icon}`, ...quoted(n.content ?? [])].join('\n');
+      }
+      case 'toggle': {
+        const [summary, ...rest] = n.content ?? [];
+        return [`> [!toggle]${n.attrs?.open === false ? '-' : '+'} ${summary ? inl(summary) : ''}`.trimEnd(), ...quoted(rest)].join('\n');
+      }
+      case 'columns':
+        return ['<!-- columns -->', ...(n.content ?? []).map((c) => (c.content ?? []).map((b) => block(b)).join('\n\n')).flatMap((md, i) => (i ? ['<!-- column -->', md] : [md])), '<!-- /columns -->'].join('\n\n');
       case 'codeBlock': {
         const code = inl(n);
         const fence = '`'.repeat(Math.max(3, ...(code.match(/`{3,}/g) ?? []).map((f) => f.length + 1)));

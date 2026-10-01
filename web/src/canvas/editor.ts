@@ -10,6 +10,7 @@ import { mediaNodes } from './media';
 import { getLang, t } from '../i18n';
 import { markdownToDoc } from './markdown';
 import { Highlight, MarkdownLinkInput, WikiLink, tasks } from './obsidian';
+import { BlockKit, blockNodes } from './blocks';
 
 export const extensions = [
   StarterKit.configure({
@@ -17,11 +18,26 @@ export const extensions = [
     // Un clic en un enlace es para escribir o seleccionar; Ctrl/⌘ clic lo abre.
     link: { openOnClick: false, autolink: true },
     codeBlock: false,
+    dropcursor: { class: 'note-dropcursor', width: 2 },
   }),
   // Bloques de código con colores según su lenguaje (```js, ```python…); sin
   // lenguaje, se adivina.
   CodeBlockLowlight.configure({ lowlight: createLowlight(common) }),
-  Placeholder.configure({ placeholder: () => t('Escribe algo…') }),
+  // Como en Notion: la línea vacía en la que está el cursor dice qué escribir.
+  Placeholder.configure({
+    includeChildren: true,
+    placeholder: ({ editor, node, pos }) => {
+      if (editor.isEmpty) return t('Escribe algo, o «/» para ver los bloques…');
+      if (node.type.name === 'heading') return t('Encabezado {n}', { n: node.attrs.level });
+      if (node.type.name !== 'paragraph') return '';
+      const $p = editor.state.doc.resolve(pos);
+      const parent = $p.parent.type.name;
+      if (parent === 'listItem') return t('Lista');
+      if (parent === 'taskItem') return t('Tarea');
+      if (parent === 'toggle' && $p.index() === 0) return t('Desplegable');
+      return t('Escribe «/» para ver los bloques…');
+    },
+  }),
   // Tablas: sobre todo las que llegan importadas de Markdown.
   TableKit.configure({ table: { resizable: false } }),
   ...mediaNodes,
@@ -29,23 +45,23 @@ export const extensions = [
   WikiLink,
   Highlight,
   ...tasks,
+  // Lo de Notion: columnas, avisos, desplegables y colores.
+  ...blockNodes,
 ];
 
 // Ctrl/⌘ K pone un enlace a lo seleccionado, o lo quita si ya lo es.
+export function promptLink(ed: Editor) {
+  if (ed.isActive('link')) return ed.chain().focus().extendMarkRange('link').unsetLink().run();
+  const url = window.prompt(t('Enlace'), 'https://')?.trim();
+  if (!url || url === 'https://') return true;
+  const href = /^[a-z][\w+.-]*:/i.test(url) ? url : `https://${url}`;
+  if (ed.state.selection.empty) return ed.chain().focus().insertContent({ type: 'text', text: url, marks: [{ type: 'link', attrs: { href } }] }).run();
+  return ed.chain().focus().setLink({ href }).run();
+}
 const LinkKey = Extension.create({
   name: 'linkKey',
   addKeyboardShortcuts() {
-    return {
-      'Mod-k': () => {
-        const ed = this.editor;
-        if (ed.isActive('link')) return ed.chain().focus().extendMarkRange('link').unsetLink().run();
-        const url = window.prompt('Enlace', 'https://')?.trim();
-        if (!url || url === 'https://') return true;
-        const href = /^[a-z][\w+.-]*:/i.test(url) ? url : `https://${url}`;
-        if (ed.state.selection.empty) return ed.chain().focus().insertContent({ type: 'text', text: url, marks: [{ type: 'link', attrs: { href } }] }).run();
-        return ed.chain().focus().setLink({ href }).run();
-      },
-    };
+    return { 'Mod-k': () => promptLink(this.editor) };
   },
 });
 
@@ -98,7 +114,7 @@ const MarkdownPaste = Extension.create({
 });
 
 // Solo en el editor de la hoja; las vistas previas usan `extensions` a secas.
-export const editingExtensions = [LinkKey, SelectAllKeys, MarkdownPaste, MarkdownLinkInput];
+export const editingExtensions = [LinkKey, SelectAllKeys, MarkdownPaste, MarkdownLinkInput, BlockKit];
 
 // Pone al día el texto con la versión que llega de otro dispositivo cambiando
 // solo lo que difiere: la selección y el cursor se quedan donde estaban, y

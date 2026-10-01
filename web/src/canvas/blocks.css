@@ -1,0 +1,172 @@
+/* Los bloques de Notion (columnas, avisos, desplegables, colores) y lo que
+   rodea al texto al escribir: menú «/», asa, barra de formato y barra del móvil. */
+
+/* ── Colores: cada nombre, su tono; el tema decide cuánto se mezcla ── */
+[data-color^='gray'], [data-text-color^='gray'], [data-swatch^='gray'] { --tone: #8b9099; }
+[data-color^='brown'], [data-text-color^='brown'], [data-swatch^='brown'] { --tone: #a47862; }
+[data-color^='orange'], [data-text-color^='orange'], [data-swatch^='orange'] { --tone: #db7f30; }
+[data-color^='yellow'], [data-text-color^='yellow'], [data-swatch^='yellow'] { --tone: #c9a227; }
+[data-color^='green'], [data-text-color^='green'], [data-swatch^='green'] { --tone: #4c9a6a; }
+[data-color^='blue'], [data-text-color^='blue'], [data-swatch^='blue'] { --tone: #3f86c9; }
+[data-color^='purple'], [data-text-color^='purple'], [data-swatch^='purple'] { --tone: #9467b5; }
+[data-color^='pink'], [data-text-color^='pink'], [data-swatch^='pink'] { --tone: #c9508f; }
+[data-color^='red'], [data-text-color^='red'], [data-swatch^='red'] { --tone: #d5504a; }
+
+.prose [data-color]:not([data-color$='-bg']),
+.prose [data-text-color]:not([data-text-color$='-bg']),
+.fmt-a[data-text-color]:not([data-text-color$='-bg']) { color: color-mix(in oklab, var(--tone) 82%, var(--text)); }
+.prose [data-color$='-bg'] { background: color-mix(in oklab, var(--tone) 17%, transparent); border-radius: 4px; padding: 0.15em 0.45em; }
+.prose ul[data-color$='-bg'], .prose ol[data-color$='-bg'] { padding-left: 1.6em; }
+.prose [data-text-color$='-bg'] { background: color-mix(in oklab, var(--tone) 22%, transparent); border-radius: 3px; padding: 0 2px; }
+
+/* ── Columnas ── */
+.prose .note-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1.6em; margin: 0.15em 0 0.45em; }
+.prose .note-column { min-width: 0; }
+.prose .note-column > :first-child { margin-top: 0; }
+.prose .note-column > :last-child { margin-bottom: 0; }
+/* En el móvil no caben: una debajo de otra. */
+@media (max-width: 560px) {
+  .prose .note-columns { grid-auto-flow: row; gap: 0.3em; }
+}
+
+/* ── Aviso ── */
+.prose .note-callout { display: flex; gap: 0.6em; margin: 0.2em 0 0.6em; padding: 0.8em 1em; border-radius: var(--radius-sm); background: var(--surface-sunken); border: 1px solid var(--line); }
+.prose .note-callout[data-color$='-bg'] { padding: 0.8em 1em; border-color: transparent; border-radius: var(--radius-sm); }
+.prose .note-callout-icon { flex: none; width: 1.5em; padding: 0; border: 0; background: none; font: inherit; font-size: 1.1em; line-height: 1.55; text-align: center; color: inherit; cursor: pointer; border-radius: 4px; user-select: none; }
+button.note-callout-icon:hover { background: var(--surface-hover); }
+.prose .note-callout-body { flex: 1; min-width: 0; }
+.prose .note-callout-body > :last-child { margin-bottom: 0; }
+
+/* ── Desplegable ── */
+.prose .note-toggle { position: relative; padding-left: 1.6em; margin: 0 0 0.45em; }
+.prose .note-toggle[data-color$='-bg'] { padding-left: 1.9em; }
+.prose .note-toggle-arrow { position: absolute; left: 0; top: 0; width: 1.4em; height: 1.7em; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-faint); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.prose .note-toggle[data-color$='-bg'] > .note-toggle-arrow { left: 0.3em; top: 0.15em; }
+.prose .note-toggle-arrow:hover { background: var(--surface-hover); color: var(--text); }
+.prose .note-toggle-arrow::before { content: ''; border-style: solid; border-width: 0.3em 0 0.3em 0.48em; border-color: transparent transparent transparent currentColor; transition: transform var(--dur-fast) var(--ease-out); }
+.prose .note-toggle[data-open='true'] > .note-toggle-arrow::before { transform: rotate(90deg); }
+.prose .note-toggle-body > :first-child { margin-bottom: 0.15em; }
+.prose .note-toggle-body > :last-child { margin-bottom: 0; }
+.prose .note-toggle[data-open='false'] > .note-toggle-body > :not(:first-child) { display: none; }
+/* En las vistas previas no hay botón: la flecha va pintada. */
+.prose .note-toggle:not(:has(> .note-toggle-arrow)) > .note-toggle-body > :first-child::before { content: '▸'; position: absolute; left: 0.25em; color: var(--text-faint); }
+.prose .note-toggle[data-open='true']:not(:has(> .note-toggle-arrow)) > .note-toggle-body > :first-child::before { content: '▾'; }
+
+/* Un bloque entero señalado (con el asa). */
+.sheet-prose :is(p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, ul, ol, hr, table, .note-columns, .note-callout, .note-toggle).ProseMirror-selectednode { background: var(--accent-soft); border-radius: 4px; outline: none; }
+.sheet-prose hr.ProseMirror-selectednode { border-top-color: var(--accent); }
+
+/* La línea vacía con el cursor dice qué escribir. */
+.sheet-prose.ProseMirror-focused .is-empty:not(.is-editor-empty)::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--text-ghost); }
+
+/* Al arrastrar: la raya de dónde cae, y la de las columnas. */
+.note-dropcursor { background-color: var(--accent) !important; border-radius: 1px; }
+.is-col-drop .note-dropcursor { display: none !important; }
+.note-col-indicator { position: fixed; z-index: 80; width: 3px; border-radius: 2px; background: var(--accent); pointer-events: none; box-shadow: 0 0 10px var(--accent-glow); }
+
+/* ── El asa ── */
+.blk-handle { position: fixed; z-index: 40; display: flex; gap: 1px; animation: blk-in 140ms var(--ease-out) both; }
+@keyframes blk-in { from { opacity: 0; } }
+.blk-btn { width: 22px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--text-ghost); cursor: pointer; transition: background var(--dur-instant), color var(--dur-instant); }
+.blk-btn:hover { background: var(--surface-hover); color: var(--text-muted); }
+.blk-grip { cursor: grab; }
+.blk-grip:active { cursor: grabbing; }
+
+/* ── Menú «/» ── */
+.slash-menu {
+  position: fixed;
+  z-index: 70;
+  width: min(300px, calc(100vw - 16px));
+  max-height: min(340px, 46vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 5px;
+  border-radius: 10px;
+  background: var(--surface-1, var(--bg));
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--line), 0 12px 32px -8px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.06);
+  font-family: var(--font-ui);
+  font-size: calc(13px * var(--type-scale, 1));
+  animation: bib-menu-in 120ms var(--ease-out) both;
+}
+.slash-group { padding: 8px 8px 4px; font-size: calc(11.5px * var(--type-scale, 1)); color: var(--text-faint); }
+.slash-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 8px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.slash-item[aria-selected='true'] { background: var(--surface-hover); }
+.slash-icon { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text-muted); font-size: calc(13px * var(--type-scale, 1)); font-weight: 600; }
+.slash-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slash-hint { flex: none; color: var(--text-faint); font: calc(11.5px * var(--type-scale, 1)) var(--font-mono); }
+
+/* ── Menú del bloque ── */
+.blk-menu { min-width: 270px; max-width: min(320px, calc(100vw - 16px)); max-height: min(70vh, 560px); overflow-y: auto; overscroll-behavior: contain; }
+.blk-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; padding: 0 2px; }
+.blk-kind { display: flex; align-items: center; gap: 6px; min-width: 0; height: calc(30px * var(--type-scale, 1)); padding: 0 6px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blk-kind:hover, .blk-kind:focus-visible { background: var(--surface-hover); outline: none; }
+.blk-kind.is-on, .bib-menu-it.is-on { color: var(--accent-ink); }
+.blk-kind-i { flex: none; width: 20px; text-align: center; color: var(--text-faint); font-size: calc(12px * var(--type-scale, 1)); font-weight: 600; }
+.blk-colors { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 9px 6px; }
+.blk-color { width: 24px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: none; color: color-mix(in oklab, var(--tone, var(--text)) 85%, var(--text)); font: 600 13px var(--font-ui); cursor: pointer; }
+.blk-color.is-default { color: var(--text); }
+.blk-color.is-bg { background: color-mix(in oklab, var(--tone) 28%, transparent); border-color: transparent; }
+.blk-color:hover { border-color: var(--line-strong); }
+.blk-color.is-on { box-shadow: 0 0 0 2px var(--accent); }
+
+/* ── Barra de formato ── */
+.fmt-bar {
+  position: fixed;
+  z-index: 65;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--surface-1, var(--bg));
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--line), 0 12px 32px -8px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.06);
+  font-family: var(--font-ui);
+  font-size: calc(13px * var(--type-scale, 1));
+  animation: bib-menu-in 120ms var(--ease-out) both;
+}
+.fmt-btn { display: inline-flex; align-items: center; justify-content: center; gap: 3px; height: 28px; min-width: 28px; padding: 0 7px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.fmt-btn:hover { background: var(--surface-hover); }
+.fmt-btn.is-on { background: var(--accent-soft); color: var(--accent-ink); }
+.fmt-btn code { font: calc(11.5px * var(--type-scale, 1)) var(--font-mono); }
+.fmt-btn > span[aria-hidden] { font-size: 0.7em; color: var(--text-faint); }
+.fmt-turn { padding-right: 6px; }
+.fmt-a { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.fmt-sep { width: 1px; height: 18px; margin: 0 2px; background: var(--line); }
+.fmt-drop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 210px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 5px;
+  border-radius: 10px;
+  background: var(--surface-1, var(--bg));
+  box-shadow: 0 0 0 1px var(--line), 0 12px 32px -8px rgba(0, 0, 0, 0.3);
+  animation: bib-menu-in 120ms var(--ease-out) both;
+}
+.fmt-drop .bib-menu-it { gap: 8px; }
+.fmt-colors { left: auto; right: 0; }
+
+/* ── Barra del móvil, encima del teclado ── */
+.mbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 65;
+  display: flex;
+  gap: 2px;
+  padding: 5px 8px calc(5px + env(safe-area-inset-bottom));
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--surface-1, var(--bg));
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 20px -14px rgba(0, 0, 0, 0.45);
+  font-family: var(--font-ui);
+}
+.mbar::-webkit-scrollbar { display: none; }
+.mbar-btn { flex: none; min-width: 40px; height: 38px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--text); font: calc(16px * var(--type-scale, 1)) var(--font-ui); cursor: pointer; }
+.mbar-btn.is-on { background: var(--accent-soft); color: var(--accent-ink); }
+.mbar-btn:disabled { opacity: 0.35; }
