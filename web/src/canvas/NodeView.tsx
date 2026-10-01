@@ -122,7 +122,9 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
   const placed = useMemo<Placed[]>(() => {
     const out: Placed[] = [];
     const cy = Math.round(size.h / 2);
-    const step = Math.max(90, Math.min(150, size.w * 0.12));
+    // En el móvil todo más junto, para que quepan los nombres de las hijas.
+    const narrow = size.w < 600;
+    const step = narrow ? 64 : Math.max(90, Math.min(150, size.w * 0.12));
 
     // Ruta: «Todo» (y «Sueltas» si toca), las madres y la nota.
     const chain: { id: string; row: NoteRow | null; title: string }[] = [{ id: 'root', row: null, title: 'Todo' }];
@@ -135,7 +137,7 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
     }
     // Arriba del todo solo se ven las dos madres más cercanas; el resto está en las migas.
     const shown = chain.slice(Math.max(0, chain.length - 3));
-    const cx = Math.round(Math.max(90 + (shown.length - 1) * step, size.w * 0.34));
+    const cx = Math.round(narrow ? 44 + (shown.length - 1) * step : Math.max(90 + (shown.length - 1) * step, size.w * 0.34));
     shown.forEach((c, i) => {
       const last = i === shown.length - 1;
       const x = cx - (shown.length - 1 - i) * step;
@@ -185,7 +187,7 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
     const ringItems: { row: NoteRow | null; id: string; title: string }[] = children.map((r) => ({ row: r, id: r.id, title: titleOf(r) }));
     if (!here && centerId !== LOOSE && grouped) ringItems.push({ row: null, id: LOOSE, title: 'Sueltas' });
     const perCol = Math.max(4, Math.floor((size.h - 170) / 40));
-    const kx = cx + Math.max(150, Math.min(220, size.w * 0.16));
+    const kx = cx + (narrow ? 96 : Math.max(150, Math.min(220, size.w * 0.16)));
     const colW = Math.max(240, Math.min(320, size.w - kx - 60));
     const cols = ringItems.length > perCol && kx + colW * 2 < size.w ? 2 : 1;
     const fit = perCol * cols;

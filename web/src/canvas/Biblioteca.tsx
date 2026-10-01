@@ -6,6 +6,7 @@ import { importanceOf, parentMap } from './sections';
 import { taskCount } from './tasks';
 import { LOOSE, type MapAction } from './NodeView';
 import { Resizer, type SideWidth } from './Resizer';
+import { longPress, TOUCH } from './touch';
 
 // Diseño «Biblioteca»: la app como una biblioteca de investigación. A la
 // izquierda, la barra con el perfil, las vistas y el árbol de colecciones;
@@ -131,8 +132,13 @@ type SideProps = {
   showArchived: boolean;
   folded: boolean;
   width: SideWidth;
+  // En el móvil la barra sale por encima, como un cajón, y se va al elegir algo.
+  drawer: boolean;
+  onDrawer: (open: boolean) => void;
   onFold: () => void;
   onProfiles: () => void;
+  onCommands: () => void;
+  onLantern: () => void;
   onSettings: () => void;
   onLibrary: (id: string | null) => void;
   onOpen: (id: string) => void;
@@ -270,7 +276,8 @@ export function BibSidebar(p: SideProps) {
       <div key={row.id} className="bib-node" role="treeitem" aria-expanded={n ? !shut : undefined} aria-selected={on}>
         <div
           className={`bib-tree-row${on ? ' is-on' : ''}${dragId === row.id ? ' is-dragging' : ''}${dropClass(row.id)}`}
-          draggable
+          draggable={!TOUCH}
+          {...longPress((x, y) => p.onMenu(row.id, x, y))}
           onDragStart={(e) => {
             e.dataTransfer.setData(DRAG_TYPE, row.id);
             e.dataTransfer.effectAllowed = 'move';
@@ -297,6 +304,8 @@ export function BibSidebar(p: SideProps) {
           </button>
           <button
             className="bib-tree-it"
+            // Si solo pliega o despliega, el cajón del móvil se queda abierto.
+            data-keep={n && on ? '' : undefined}
             onClick={() => {
               // Una nota madre es a la vez nota y carpeta: se abre y se despliega;
               // si ya estaba abierta, el clic la pliega o despliega.
@@ -321,9 +330,18 @@ export function BibSidebar(p: SideProps) {
 
   const libraryOn = p.view === 'library' || p.view === 'note';
   return (
-    <div className={`bib-dock${p.folded ? ' is-folded' : ''}`}>
+    <div className={`bib-dock${p.folded ? ' is-folded' : ''}${p.drawer ? ' is-drawer' : ''}`}>
       {p.folded && <div className="bib-hot" aria-hidden="true" />}
-      <aside className="bib-side" aria-label="Biblioteca">
+      {p.drawer && <div className="bib-scrim" aria-hidden="true" onClick={() => p.onDrawer(false)} />}
+      <aside
+        className="bib-side"
+        aria-label="Biblioteca"
+        onClickCapture={(e) => {
+          // Elegir algo cierra el cajón; las flechas de plegar no.
+          const b = (e.target as HTMLElement).closest('button');
+          if (p.drawer && b && !b.matches('.bib-chev, [data-keep]')) p.onDrawer(false);
+        }}
+      >
         <div className="bib-side-top">
           <button className="bib-profile" onClick={p.onProfiles} title="Cambiar de perfil (Ctrl Alt P)">
             <span className="bib-profile-dot" aria-hidden="true" />
@@ -349,6 +367,10 @@ export function BibSidebar(p: SideProps) {
           <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title="Ctrl Mayús H">
             {p.showArchived ? 'Ocultar archivadas' : 'Archivadas'}
           </button>
+          {/* Sin teclado, lo que solo tenía atajo. */}
+          <button className="bib-it bib-touch" onClick={p.onLantern}>
+            Filtrar
+          </button>
         </nav>
         <div className={`bib-side-label${drop && drop.id === null ? ' is-drop-inside' : ''}`} {...rootDrop} title="Suelta aquí para sacar una nota arriba del todo">
           Mi biblioteca
@@ -358,7 +380,7 @@ export function BibSidebar(p: SideProps) {
                 <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
               </svg>
             </button>
-            <button className="bib-label-add" onClick={foldAll} title="Plegar todo" aria-label="Plegar todo">
+            <button className="bib-label-add" data-keep="" onClick={foldAll} title="Plegar todo" aria-label="Plegar todo">
               <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
                 <path d="M3.5 1.5 6 4l2.5-2.5M3.5 10.5 6 8l2.5 2.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -369,6 +391,12 @@ export function BibSidebar(p: SideProps) {
           {roots.map((r) => renderRow(r, 0))}
         </div>
         <div className="bib-side-foot">
+          <button className="bib-it bib-touch" onClick={p.onCommands}>
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 7l5 5-5 5M12 17h7" />
+            </svg>
+            Comandos
+          </button>
           <button className="bib-it" onClick={p.onSettings} title="Ctrl ,">
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
@@ -422,15 +450,18 @@ export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: n
       e.preventDefault();
       e.stopPropagation();
     };
+    // En el móvil la barra del navegador cambia el alto al desplazarse: solo cuenta el ancho.
+    const width = innerWidth;
+    const onResize = () => innerWidth !== width && onClose();
     window.addEventListener('pointerdown', away, true);
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('blur', onClose);
-    window.addEventListener('resize', onClose);
+    window.addEventListener('resize', onResize);
     return () => {
       window.removeEventListener('pointerdown', away, true);
       window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('blur', onClose);
-      window.removeEventListener('resize', onClose);
+      window.removeEventListener('resize', onResize);
     };
   });
   return spot;
@@ -514,12 +545,38 @@ type BarProps = {
   onLayout: (l: BibLayout) => void;
   folded: boolean;
   onFold: () => void;
+  onDrawer: () => void;
+};
+
+const LAYOUT_ICONS: Record<BibLayout, ReactNode> = {
+  lista: <path d="M5 7h14M5 12h14M5 17h14" />,
+  portadas: (
+    <>
+      <rect x="4.5" y="4.5" width="6.5" height="6.5" rx="1.2" />
+      <rect x="13" y="4.5" width="6.5" height="6.5" rx="1.2" />
+      <rect x="4.5" y="13" width="6.5" height="6.5" rx="1.2" />
+      <rect x="13" y="13" width="6.5" height="6.5" rx="1.2" />
+    </>
+  ),
+  nodos: (
+    <>
+      <circle cx="7" cy="12" r="2.6" />
+      <circle cx="17.5" cy="6.5" r="2" />
+      <circle cx="17.5" cy="17.5" r="2" />
+      <path d="M9.4 11 15.7 7.4M9.4 13l6.3 3.6" />
+    </>
+  ),
 };
 
 export function BibBar(p: BarProps) {
   return (
     <header className="bib-bar">
       <nav className="bib-crumbs" aria-label="Ruta">
+        <button className="bib-icon bib-drawer-btn" onClick={p.onDrawer} aria-label="Abrir el menú" title="Menú">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+            <path d="M4 7h16M4 12h16M4 17h10" />
+          </svg>
+        </button>
         {p.folded && (
           <button className="bib-icon bib-unfold" onClick={p.onFold} title="Fijar la barra (Ctrl .)" aria-label="Fijar la barra">
             <PanelIcon />
@@ -546,11 +603,20 @@ export function BibBar(p: BarProps) {
         <span className="bib-search-k">Ctrl P</span>
       </button>
       <div className="bib-bar-end">
+        <button className="bib-icon bib-search-btn" onClick={p.onSearch} aria-label="Buscar" title="Buscar">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+        </button>
         {p.view === 'library' && (
           <div className="bib-seg" role="group" aria-label="Cómo ver la colección">
             {(['lista', 'portadas', 'nodos'] as const).map((l) => (
-              <button key={l} className={p.layout === l ? 'is-on' : ''} onClick={() => p.onLayout(l)} aria-pressed={p.layout === l}>
-                {l === 'lista' ? 'Lista' : l === 'portadas' ? 'Portadas' : 'Nodos'}
+              <button key={l} className={p.layout === l ? 'is-on' : ''} onClick={() => p.onLayout(l)} aria-pressed={p.layout === l} aria-label={l === 'lista' ? 'Lista' : l === 'portadas' ? 'Portadas' : 'Nodos'}>
+                <span className="bib-seg-t">{l === 'lista' ? 'Lista' : l === 'portadas' ? 'Portadas' : 'Nodos'}</span>
+                <svg className="bib-seg-i" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+                  {LAYOUT_ICONS[l]}
+                </svg>
               </button>
             ))}
           </div>
@@ -608,11 +674,15 @@ export function Library(p: LibProps) {
   // Lo común a filas y portadas: color, arrastrar a la barra y menú con clic derecho.
   const itemProps = (r: NoteRow, i: number) => ({
     style: { '--i': Math.min(i, 20), '--h': hueOf(r.id), ...(prefs.colors[r.id] ? { '--tint': prefs.colors[r.id] } : {}) } as CSSProperties,
-    draggable: true,
+    draggable: !TOUCH,
     onDragStart: (e: React.DragEvent) => {
       e.dataTransfer.setData(DRAG_TYPE, r.id);
       e.dataTransfer.effectAllowed = 'move';
     },
+    ...longPress((x, y) => {
+      setSel(i);
+      p.onMenu(r.id, x, y);
+    }),
     onContextMenu: (e: React.MouseEvent) => {
       e.preventDefault();
       setSel(i);
@@ -682,7 +752,7 @@ export function Library(p: LibProps) {
       </div>
       {items.length === 0 && (
         <p className="bib-empty">
-          Aquí no hay nada todavía. <kbd>N</kbd> para la primera nota.
+          Aquí no hay nada todavía.<span className="bib-keys"> <kbd>N</kbd> para la primera nota.</span>
         </p>
       )}
       {p.layout === 'lista' ? (
