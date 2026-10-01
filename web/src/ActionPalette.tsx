@@ -1,57 +1,91 @@
 import { useState, type KeyboardEvent } from 'react';
-import { ACTIONS, useKeymap } from './keys';
+import { ACTIONS, GROUPS, appliesIn, runAction, useKeymap, useView } from './keys';
 import { Keys } from './Kbd';
-import { MODES, setMode, useAppearance } from './theme';
+import { MODES, THEMES, setMode, setTheme, useAppearance } from './theme';
 
-// Paleta de comandos: todas las acciones con su atajo. Elegir una la ejecuta
-// como si se hubiera pulsado su tecla, así cada vista la atiende como siempre.
+// Paleta de comandos: los que sirven donde estás, agrupados, y además órdenes
+// sin tecla (temas, modo, secciones de Configuración). Elegir uno lo ejecuta
+// como si se hubiera pulsado su tecla, así cada vista lo atiende como siempre.
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-export function pressAction(combo: string) {
-  const parts = combo.split(/\+(?!$)/);
-  const k = parts[parts.length - 1];
-  const mod = parts.includes('mod');
-  const MAC = /Mac|iPhone|iPad/.test(navigator.platform);
-  const key = k.length === 1 ? k : k === 'space' ? ' ' : k[0].toUpperCase() + k.slice(1);
-  const code = /^[a-z]$/.test(k) ? `Key${k.toUpperCase()}` : /^\d$/.test(k) ? `Digit${k}` : '';
-  const ev = new KeyboardEvent('keydown', {
-    key,
-    code,
-    ctrlKey: mod && !MAC,
-    metaKey: mod && MAC,
-    altKey: parts.includes('alt'),
-    shiftKey: parts.includes('shift'),
-    bubbles: true,
-    cancelable: true,
-  });
-  document.body.dispatchEvent(ev);
-}
+const RECENT = 'canvian:recent-commands';
+const readRecent = (): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT) ?? '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+const remember = (key: string) => {
+  try {
+    localStorage.setItem(RECENT, JSON.stringify([key, ...readRecent().filter((k) => k !== key)].slice(0, 4)));
+  } catch {
+    // Sin almacenamiento local no hay recientes; nada más.
+  }
+};
+
+// Abre Configuración en una sección (la recuerda Settings al abrirse).
+const openSettingsAt = (section: string) => {
+  try {
+    localStorage.setItem('canvian:settings-section', section);
+  } catch {
+    // Se abre en la última que se usó.
+  }
+  runAction('settings');
+};
+
+type Entry = { key: string; label: string; hint?: string; group: string; combo?: string; run: () => void; on?: boolean };
 
 export function ActionPalette({ onClose }: { onClose: () => void }) {
   const keymap = useKeymap();
+  const view = useView();
+  const { mode, dark, light } = useAppearance();
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
-  const words = norm(query).split(/\s+/).filter(Boolean);
-  // Primero las que coinciden en el nombre corto, sin lo que va entre paréntesis.
-  const short = (label: string) => norm(label.split(' (')[0]);
-  const { mode } = useAppearance();
-  // Las acciones con atajo y, además, órdenes sin tecla (como elegir el modo).
-  type Entry = { key: string; label: string; group: string; combo?: string; run: () => void; on?: boolean };
+
   const entries: Entry[] = [
-    ...ACTIONS.filter((a) => a.id !== 'commands').map((a) => ({ key: a.id, label: a.label, group: a.group, combo: keymap[a.id], run: () => setTimeout(() => pressAction(keymap[a.id]), 0) })),
-    ...MODES.map((m) => ({ key: `mode-${m.id}`, label: `Modo ${m.name.toLowerCase()}${m.id === 'auto' ? ' (según el sistema)' : ''}`, group: 'Aspecto tema claro oscuro', run: () => void setMode(m.id).catch(() => {}), on: mode === m.id })),
+    ...ACTIONS.filter((a) => a.id !== 'commands' && appliesIn(a.ctx, view)).map((a) => ({
+      key: a.id,
+      label: a.label,
+      hint: a.hint,
+      group: a.group,
+      combo: keymap[a.id],
+      run: () => setTimeout(() => runAction(a.id), 0),
+    })),
+    ...MODES.map((m) => ({ key: `mode-${m.id}`, label: `Modo ${m.name.toLowerCase()}`, hint: m.id === 'auto' ? 'Según el sistema' : undefined, group: 'Aspecto', run: () => void setMode(m.id).catch(() => {}), on: mode === m.id })),
+    ...THEMES.map((t) => ({ key: `theme-${t.id}`, label: `Tema: ${t.name}${t.tone === 'dark' ? ' (oscuro)' : ' (claro)'}`, hint: t.hint, group: 'Aspecto', run: () => void setTheme(t.id).catch(() => {}), on: dark === t.id || light === t.id })),
+    { key: 'set-aspecto', label: 'Configuración: Aspecto', group: 'Aplicación', run: () => openSettingsAt('aspecto') },
+    { key: 'set-atajos', label: 'Configuración: Atajos de teclado', group: 'Aplicación', run: () => openSettingsAt('atajos') },
   ];
-  const items = entries
-    .filter((a) => words.every((w) => norm(`${a.label} ${a.group}`).includes(w)))
-    .map((a, i) => ({ a, rank: (short(a.label).startsWith(norm(query.trim())) ? 0 : words.every((w) => short(a.label).includes(w)) ? 1 : 2) * 100 + i }))
-    .sort((x, y) => x.rank - y.rank)
-    .map((x) => x.a);
-  const at = Math.min(cursor, Math.max(0, items.length - 1));
+
+  // Sin escribir: recientes y luego por grupos. Escribiendo: por parecido.
+  const q = norm(query.trim());
+  const words = q.split(/\s+/).filter(Boolean);
+  const byKey = new Map(entries.map((e) => [e.key, e]));
+  type Row = { entry: Entry; head?: string; id: string };
+  let rows: Row[];
+  if (!words.length) {
+    const recent = readRecent()
+      .map((k) => byKey.get(k))
+      .filter((e): e is Entry => !!e);
+    const order = [...GROUPS, 'Aspecto'] as string[];
+    const grouped = order.flatMap((g) => entries.filter((e) => e.group === g).map((entry, i) => ({ entry, id: entry.key, head: i === 0 ? g : undefined })));
+    rows = [...recent.map((entry, i) => ({ entry, id: `r-${entry.key}`, head: i === 0 ? 'Recientes' : undefined })), ...grouped];
+  } else {
+    rows = entries
+      .filter((e) => words.every((w) => norm(`${e.label} ${e.hint ?? ''} ${e.group}`).includes(w)))
+      .map((entry, i) => ({ entry, rank: (norm(entry.label).startsWith(q) ? 0 : words.every((w) => norm(entry.label).includes(w)) ? 1 : 2) * 100 + i }))
+      .sort((x, y) => x.rank - y.rank)
+      .map(({ entry }) => ({ entry, id: entry.key }));
+  }
+  const at = Math.min(cursor, Math.max(0, rows.length - 1));
 
   // Tras cerrar, para que la pulsación llegue a la vista y no a este campo.
   const run = (entry: Entry | undefined) => {
     if (!entry) return;
+    remember(entry.key);
     onClose();
     entry.run();
   };
@@ -60,11 +94,11 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
     if (e.key === 'Escape') onClose();
     else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setCursor(Math.min(at + 1, items.length - 1));
+      setCursor(Math.min(at + 1, rows.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setCursor(Math.max(at - 1, 0));
-    } else if (e.key === 'Enter') run(items[at]);
+    } else if (e.key === 'Enter') run(rows[at]?.entry);
   };
 
   return (
@@ -83,22 +117,30 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
         />
         <div className="popover-divider" />
         <ul className="list" role="listbox">
-          {items.map((a, i) => (
+          {rows.map(({ entry: a, head, id }, i) => [
+            head && (
+              <li key={`h-${id}`} className="list-group" role="presentation">
+                {head}
+              </li>
+            ),
             <li
-              key={a.key}
+              key={id}
               role="option"
               aria-selected={i === at}
               ref={i === at ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
               className="list-item"
-              style={{ '--i': i } as React.CSSProperties}
+              style={{ '--i': Math.min(i, 12) } as React.CSSProperties}
               onMouseEnter={() => setCursor(i)}
               onClick={() => run(a)}
             >
-              {a.label}
+              <span className="palette-label">
+                {a.label}
+                {a.hint && <span className="palette-hint">{a.hint}</span>}
+              </span>
               <span className="trail">{a.combo ? <Keys combo={a.combo} /> : a.on ? <span className="meta">Activo</span> : null}</span>
-            </li>
-          ))}
-          {!items.length && <li className="list-item static">Ningún comando se llama así</li>}
+            </li>,
+          ])}
+          {!rows.length && <li className="list-item static">Ningún comando se llama así</li>}
         </ul>
       </div>
     </div>

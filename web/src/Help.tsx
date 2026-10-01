@@ -1,14 +1,18 @@
 import { useEffect } from 'react';
-import { ACTIONS, FIXED, matches, useKeymap } from './keys';
+import { ACTIONS, FIXED, comboOf, matches, useKeymap, useView, type Ctx, type View } from './keys';
 import { Keys } from './Kbd';
 
-// La lista de atajos, en un panel que se abre con Ctrl+H (o lo que elijas).
+const PLACE: Record<Ctx, string> = { list: 'Notas y nodos', note: 'Nota abierta', tasks: 'Tareas', organize: 'Ordenar', global: 'En todas partes' };
+
+// La lista de atajos, en un panel que se abre con «?» (o lo que elijas).
+// Primero lo que sirve donde estás, luego lo de siempre y luego el resto.
 export function Help({ onClose, onSettings }: { onClose: () => void; onSettings: () => void }) {
   const keymap = useKeymap();
+  const view = useView();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || matches(e, 'help')) {
+      if (e.key === 'Escape' || matches(e, 'help') || comboOf(e) === 'mod+h') {
         e.preventDefault();
         e.stopPropagation();
         onClose();
@@ -18,7 +22,12 @@ export function Help({ onClose, onSettings }: { onClose: () => void; onSettings:
     return () => window.removeEventListener('keydown', onKey, true);
   });
 
-  const groups = [...new Set(ACTIONS.map((a) => a.group))];
+  const others = (['list', 'note', 'tasks', 'organize'] as View[]).filter((v) => v !== view);
+  const order: Ctx[] = [view, 'global', ...others];
+  // Cada comando sale una vez: en la primera sección donde sirve.
+  const home = (ctx: Ctx[]) => order.find((c) => ctx.includes(c))!;
+  const shown = ACTIONS.filter((a) => keymap[a.id]);
+
   return (
     <div className="overlay" onMouseDown={onClose} data-keys-modal>
       <div className="surface-3 popover help" role="dialog" aria-label="Atajos de teclado" onMouseDown={(e) => e.stopPropagation()}>
@@ -29,30 +38,32 @@ export function Help({ onClose, onSettings }: { onClose: () => void; onSettings:
           </button>
         </div>
         <div className="help-cols">
-          {groups.map((g) => (
-            <section key={g}>
-              <h3 className="settings-subheading">{g}</h3>
-              {ACTIONS.filter((a) => a.group === g).map((a) => (
-                <div key={a.id} className="help-row">
-                  <Keys combo={keymap[a.id]} />
-                  <span>{a.label}</span>
-                </div>
-              ))}
-            </section>
-          ))}
-          <section>
-            <h3 className="settings-subheading">Siempre</h3>
-            {FIXED.map((f) => (
-              <div key={f.label} className="help-row">
-                <span className="keys">
-                  {f.keys.map((k) => (
-                    <Keys key={k} combo={k} />
-                  ))}
-                </span>
-                <span>{f.label}</span>
-              </div>
-            ))}
-          </section>
+          {order.map((c, i) => {
+            const acts = shown.filter((a) => home(a.ctx) === c);
+            const fixed = FIXED.filter((f) => f.ctx === c);
+            if (!acts.length && !fixed.length) return null;
+            return (
+              <section key={c}>
+                <h3 className="settings-subheading">{i === 0 ? `Aquí · ${PLACE[c]}` : PLACE[c]}</h3>
+                {acts.map((a) => (
+                  <div key={a.id} className="help-row">
+                    <Keys combo={keymap[a.id]} />
+                    <span>{a.label}</span>
+                  </div>
+                ))}
+                {fixed.map((f) => (
+                  <div key={f.label} className="help-row">
+                    <span className="keys">
+                      {f.keys.map((k) => (
+                        <Keys key={k} combo={k} />
+                      ))}
+                    </span>
+                    <span>{f.label}</span>
+                  </div>
+                ))}
+              </section>
+            );
+          })}
         </div>
       </div>
     </div>

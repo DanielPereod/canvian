@@ -32,10 +32,10 @@ export const LOOSE = 'loose';
 
 // Lo que se pide desde los nodos o la biblioteca sobre la nota señalada (o,
 // para crear, dentro de la nota en la que estás).
-export type MapAction = 'create' | 'createCanvas' | 'section' | 'props' | 'delete' | 'rename' | 'archive';
+export type MapAction = 'create' | 'createCanvas' | 'section' | 'props' | 'delete' | 'rename' | 'archive' | 'move';
 const SIBLINGS = 6;
-const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive' };
-const NODE_ACTIONS: ActionId[] = ['properties', 'deleteCell', 'rename', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
+const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive', move: 'move' };
+const NODE_ACTIONS: ActionId[] = ['properties', 'deleteCell', 'rename', 'move', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
 
 const ROLE_WORD: Record<Role, string> = { center: 'aquí', child: 'dentro de esta', link: 'enlazada', more: '', parent: 'nota madre', ancestor: 'más arriba', sibling: 'hermana' };
 
