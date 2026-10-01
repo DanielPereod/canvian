@@ -18,6 +18,7 @@ import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian'
 import { WikiMenu, type WikiItem } from './WikiMenu';
 import { SlashSuggest, type SlashQuery } from './slash';
 import { BlockHandle, FormatBar, MobileBar, SlashMenu } from './EditorMenus';
+import { TableControls } from './TableMenus';
 import { actionFor, keyParts, keysBlocked, matches, useKeymap } from '../keys';
 import { toggleWide, useWide } from './widePrefs';
 import { t, tn } from '../i18n';
@@ -435,6 +436,7 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
         <>
           <BlockHandle editor={editor} />
           <FormatBar editor={editor} />
+          <TableControls editor={editor} />
           <MobileBar editor={editor} />
         </>
       )}

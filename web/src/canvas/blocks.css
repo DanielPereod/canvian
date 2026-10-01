@@ -170,3 +170,32 @@ button.note-callout-icon:hover { background: var(--surface-hover); }
 .mbar-btn { flex: none; min-width: 40px; height: 38px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--text); font: calc(16px * var(--type-scale, 1)) var(--font-ui); cursor: pointer; }
 .mbar-btn.is-on { background: var(--accent-soft); color: var(--accent-ink); }
 .mbar-btn:disabled { opacity: 0.35; }
+
+/* ── Tablas ── */
+/* Al escribir, la tabla va dentro de un envoltorio que hace scroll de lado. */
+.prose .tableWrapper { overflow-x: auto; margin: 0 0 0.6em; max-width: 100%; }
+.prose .tableWrapper > table { display: table; margin: 0; overflow: visible; }
+.prose th, .prose td { position: relative; }
+/* El borde de una columna, para cambiarle el ancho. */
+.prose .column-resize-handle { position: absolute; top: 0; bottom: -1px; right: -2px; width: 3px; background: var(--accent); pointer-events: none; z-index: 2; }
+.prose.resize-cursor, .resize-cursor { cursor: col-resize; }
+.tbl-grip { position: fixed; z-index: 45; display: grid; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-1, var(--bg)); color: var(--text-faint); cursor: grab; touch-action: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); }
+.tbl-grip.is-col { width: 28px; height: 18px; }
+.tbl-grip.is-row { width: 18px; height: 28px; }
+.tbl-grip:hover, .tbl-grip.is-dragging { color: var(--text); background: var(--accent-soft); border-color: var(--accent-line); }
+.tbl-grip.is-dragging { cursor: grabbing; }
+.tbl-add { position: fixed; z-index: 44; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; background: var(--surface-sunken); color: var(--text-ghost); font: 14px var(--font-ui); cursor: pointer; opacity: 0.55; transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast); }
+.tbl-add.is-col { width: 16px; }
+.tbl-add.is-row { height: 16px; }
+.tbl-add:hover { opacity: 1; background: var(--surface-hover); color: var(--text-muted); }
+.tbl-line { position: fixed; z-index: 46; border-radius: 2px; background: var(--accent); pointer-events: none; box-shadow: 0 0 10px var(--accent-glow); }
+.tbl-menu .bib-menu-it:disabled { opacity: 0.4; cursor: default; background: none; }
+/* En el móvil, asas y «+» más grandes para el dedo. */
+@media (hover: none) and (pointer: coarse) {
+  .tbl-grip.is-col { width: 36px; height: 22px; }
+  .tbl-grip.is-row { width: 22px; height: 36px; }
+  .tbl-add { opacity: 0.8; }
+  .tbl-add.is-col { width: 22px; }
+  .tbl-add.is-row { height: 22px; }
+}
+.tbl-check { margin-left: auto; padding-left: 16px; color: var(--accent-ink); }
