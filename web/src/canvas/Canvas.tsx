@@ -894,10 +894,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           : center !== null
             ? () => setCenter(center === LOOSE ? null : (family.parent.get(center) ?? null))
             : null;
-  const bibNew = () => {
-    if (bibView === 'tasks') document.querySelector<HTMLInputElement>('.tasks-view .tv-add input')?.focus();
-    else newNote(focused ? (family.parent.get(focused.id) ?? null) : center && center !== LOOSE ? center : null);
-  };
   const openTasksCount = useMemo(() => allTasks(rows).filter((t) => t.status !== 'done').length, [rows]);
 
   return (
@@ -965,7 +961,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             onUp={bibUp}
             onSearch={() => setPaletteOpen('open')}
             onLayout={setBibLayout}
-            onNew={bibNew}
             folded={bibFolded}
             onFold={toggleBibFolded}
           />

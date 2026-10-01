@@ -12,7 +12,7 @@ import { Resizer, useSideWidth } from './Resizer';
 import { BackArrow } from '../BackArrow';
 import { parentMap } from './sections';
 import { decodeTime } from 'ulidx';
-import { editedLabel, kindOf } from './Biblioteca';
+import { editedLabel, kindOf, useContextMenu } from './Biblioteca';
 import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian';
 import { WikiMenu, type WikiItem } from './WikiMenu';
 import { keyParts, keysBlocked, matches, useKeymap } from '../keys';
@@ -22,6 +22,75 @@ import { toggleWide, useWide } from './widePrefs';
 // a la derecha. Un canvas se abre en su hoja, con el lienzo a pantalla completa.
 
 const MAX_LINKS = 24;
+
+// El panel de detalles plegado: el texto se queda solo y el panel vuelve con un
+// botón arriba a la derecha (o Ctrl Alt D). Vale para todas las notas.
+const FOLD_KEY = 'canvian.readerFolded';
+function useReaderFolded() {
+  const [folded, setFolded] = useState(() => {
+    try {
+      return localStorage.getItem(FOLD_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggle = () =>
+    setFolded((v) => {
+      try {
+        localStorage.setItem(FOLD_KEY, v ? '0' : '1');
+      } catch {
+        // Sin almacenamiento local se olvida al recargar; nada más.
+      }
+      return !v;
+    });
+  return [folded, toggle] as const;
+}
+
+const PanelIcon = () => (
+  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+    <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+    <path d="M14.5 5v14" />
+  </svg>
+);
+
+const DotsIcon = () => (
+  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="currentColor">
+    <circle cx="5.5" cy="12" r="1.6" />
+    <circle cx="12" cy="12" r="1.6" />
+    <circle cx="18.5" cy="12" r="1.6" />
+  </svg>
+);
+
+type SheetItem = { label: string; title?: string; keys?: string; danger?: boolean; run: () => void } | null;
+
+// Las acciones de la nota, en un menú desde el botón de los tres puntos.
+function SheetMenu({ x, y, items, onClose }: { x: number; y: number; items: SheetItem[]; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const spot = useContextMenu(ref, x, y, onClose);
+  return (
+    <div className="bib-menu reader-menu" ref={ref} role="menu" aria-label="Acciones de la nota" style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
+      {items.map((it, i) =>
+        it ? (
+          <button
+            key={it.label}
+            role="menuitem"
+            className={`bib-menu-it${it.danger ? ' is-danger' : ''}`}
+            title={it.title}
+            onClick={() => {
+              onClose();
+              it.run();
+            }}
+          >
+            {it.label}
+            {it.keys && <span className="bib-menu-k">{it.keys}</span>}
+          </button>
+        ) : (
+          <div key={`s${i}`} className="bib-menu-sep" role="separator" />
+        ),
+      )}
+    </div>
+  );
+}
 
 export type NoteContent = { bodyJson: string; bodyText: string; title: string | null };
 
@@ -285,6 +354,19 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   const editorRef = useRef<Editor | null>(null);
   const filePick = useRef<HTMLInputElement>(null);
   const [moving, setMoving] = useState(false);
+  const [folded, toggleFolded] = useReaderFolded();
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  // El clic que cierra el menú al pulsar fuera no debe volver a abrirlo si cae en su botón.
+  const menuClosedAt = useRef(0);
+  const closeMenu = () => {
+    menuClosedAt.current = performance.now();
+    setMenu(null);
+  };
+  const openMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (performance.now() - menuClosedAt.current < 250) return;
+    const box = e.currentTarget.getBoundingClientRect();
+    setMenu({ x: box.right - 240, y: box.bottom + 6 });
+  };
   // Ver la nota como Markdown (Ctrl E): sigue así al pasar de una nota a otra.
   const [source, setSource] = useState(false);
   // Modo ancho: cada nota recuerda el suyo.
@@ -301,6 +383,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     });
   };
   const keymap = useKeymap();
+  const keysOf = (combo: string) => keyParts(combo).join(' ');
   // La ruta de notas madre, para poder ir a cada una por su clic.
   const chain = useMemo(() => {
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -369,11 +452,12 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         setSource((s) => !s);
         return;
       }
-      if (!isCanvas && !keysBlocked() && !document.querySelector('.inspector, .overlay') && (matches(e, 'zen') || matches(e, 'wideNote'))) {
+      if (!isCanvas && !keysBlocked() && !document.querySelector('.inspector, .overlay') && (matches(e, 'zen') || matches(e, 'wideNote') || matches(e, 'details'))) {
         e.preventDefault();
         e.stopPropagation();
         if (matches(e, 'zen')) setZen(!zen);
-        else flipWide();
+        else if (matches(e, 'wideNote')) flipWide();
+        else if (!zen) toggleFolded();
         return;
       }
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
@@ -382,7 +466,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         editorRef.current.chain().focus().selectAll().run();
         return;
       }
-      if (e.key === 'Escape' && !document.querySelector('.inspector, .overlay, .wiki-suggest')) {
+      if (e.key === 'Escape' && !document.querySelector('.inspector, .overlay, .wiki-suggest, .bib-menu')) {
         e.preventDefault();
         e.stopPropagation();
         // En modo zen, Esc sale del modo y deja la nota abierta.
@@ -423,8 +507,30 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     }
     const words = (note.bodyText ?? '').split(/\s+/).filter(Boolean).length;
     const tasks = taskCount(note);
+    const items: SheetItem[] = [
+      { label: 'Adjuntar archivos…', title: 'PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto', run: () => filePick.current?.click() },
+      { label: 'Ver en nodos', title: 'Esta nota en el centro, con sus relaciones', keys: keysOf(keymap.nodes), run: onNodes },
+      null,
+      { label: source ? 'Ver el texto' : 'Ver el Markdown', keys: keysOf(keymap.markdownSource), run: () => setSource((s) => !s) },
+      { label: wide ? 'Texto estrecho' : 'Texto ancho', keys: keysOf(keymap.wideNote), run: flipWide },
+      { label: 'Modo zen', title: 'Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)', keys: keysOf(keymap.zen), run: () => setZen(true) },
+      null,
+      { label: 'Propiedades', run: () => onProps(note.id) },
+      { label: note.archivedAt ? 'Desarchivar' : 'Archivar', title: 'Se oculta con lo que cuelga de ella', keys: keysOf(keymap.archive), run: onArchive },
+      { label: 'Borrar', danger: true, run: () => close(() => onDelete(note.id)) },
+    ];
+    const tools = (
+      <>
+        <button className="reader-icon" onClick={openMenu} aria-haspopup="menu" aria-expanded={!!menu} aria-label="Más acciones" title="Más acciones">
+          <DotsIcon />
+        </button>
+        <button className="reader-icon reader-fold" onClick={toggleFolded} aria-label={folded ? 'Mostrar los detalles' : 'Plegar los detalles'} title={`${folded ? 'Mostrar los detalles' : 'Plegar los detalles'} (${keysOf(keymap.details)})`}>
+          <PanelIcon />
+        </button>
+      </>
+    );
     return (
-      <div ref={ref} className={`sheet is-reader${zen ? ' is-zen' : ''}${wide ? ' is-wide' : ''}`} style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
+      <div ref={ref} className={`sheet is-reader${zen ? ' is-zen' : ''}${wide ? ' is-wide' : ''}${folded ? ' is-side-folded' : ''}`} style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
         {zen && (
           <button className="reader-zen-exit" onClick={() => setZen(false)} title="Salir del modo zen (Esc)">
             Salir del modo zen <span className="reader-zen-k">Esc</span>
@@ -440,121 +546,105 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
             <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
           </article>
         </div>
-        <Resizer size={sideWidth} edge="left" className="reader-resizer" />
-        <aside className="reader-side" aria-label="Detalles de la nota">
-          <span className="reader-side-h">Detalles</span>
-          <dl className="reader-facts">
-            <dt>Tipo</dt>
-            <dd>{kindOf(note, kids)}</dd>
-            <dt>Madre</dt>
-            <dd>
-              <button className="reader-madre" onClick={() => setMoving(true)} title="Mover dentro de otra nota">
-                {madre ? madre.title || 'Nota sin título' : 'Arriba del todo'}
-              </button>
-            </dd>
+        {/* Con el panel plegado (o sin sitio para él), sus botones quedan arriba a la derecha. */}
+        <div className="reader-float">{tools}</div>
+        <input
+          ref={filePick}
+          type="file"
+          multiple
+          hidden
+          onChange={(e) => {
+            const files = [...(e.target.files ?? [])];
+            e.target.value = '';
+            const ed = editorRef.current;
+            if (files.length && ed) attachFiles(ed.view, files, onError);
+          }}
+        />
+        {!folded && <Resizer size={sideWidth} edge="left" className="reader-resizer" />}
+        {!folded && (
+          <aside className="reader-side" aria-label="Detalles de la nota">
+            <div className="reader-side-top">
+              <span className="reader-side-h">Detalles</span>
+              <span className="reader-tools">{tools}</span>
+            </div>
+            <dl className="reader-facts">
+              <dt>Tipo</dt>
+              <dd>{kindOf(note, kids)}</dd>
+              <dt>Madre</dt>
+              <dd>
+                <button className="reader-madre" onClick={() => setMoving(true)} title="Mover dentro de otra nota">
+                  {madre ? madre.title || 'Nota sin título' : 'Arriba del todo'}
+                </button>
+              </dd>
+              {kids > 0 && (
+                <>
+                  <dt>Dentro</dt>
+                  <dd>{kids === 1 ? '1 nota' : `${kids} notas`}</dd>
+                </>
+              )}
+              <dt>Creada</dt>
+              <dd>{created}</dd>
+              <dt>Editada</dt>
+              <dd>{editedLabel(note.updatedAt)}</dd>
+              <dt>Palabras</dt>
+              <dd>{words}</dd>
+              {tasks.total > 0 && (
+                <>
+                  <dt>Tareas</dt>
+                  <dd>{tasks.done === tasks.total ? `${tasks.total} hechas` : `${tasks.done} de ${tasks.total} hechas`}</dd>
+                </>
+              )}
+            </dl>
             {kids > 0 && (
               <>
-                <dt>Dentro</dt>
-                <dd>{kids === 1 ? '1 nota' : `${kids} notas`}</dd>
+                <div className="reader-rule" />
+                <div className="reader-side-row">
+                  <span className="reader-side-h">Dentro</span>
+                  <span className="reader-muted">{kids}</span>
+                </div>
+                <div className="reader-links">
+                  {inside.slice(0, MAX_LINKS).map(({ r, n }) => (
+                    <span key={r.id} className="reader-link">
+                      <button className="reader-link-go" onClick={() => onNavigate(r.id)}>
+                        <span className="reader-link-g" aria-hidden="true">
+                          {n ? '▸' : '·'}
+                        </span>
+                        <span className="reader-ellipsis">{r.kind === 'canvas' ? r.title || 'Canvas sin título' : r.title || 'Nota sin título'}</span>
+                        {n > 0 && <span className="reader-muted reader-link-n">{n}</span>}
+                      </button>
+                    </span>
+                  ))}
+                  {kids > MAX_LINKS && <span className="reader-muted">+{kids - MAX_LINKS} más</span>}
+                </div>
               </>
             )}
-            <dt>Creada</dt>
-            <dd>{created}</dd>
-            <dt>Editada</dt>
-            <dd>{editedLabel(note.updatedAt)}</dd>
-            <dt>Palabras</dt>
-            <dd>{words}</dd>
-            {tasks.total > 0 && (
-              <>
-                <dt>Tareas</dt>
-                <dd>{tasks.done === tasks.total ? `${tasks.total} hechas` : `${tasks.done} de ${tasks.total} hechas`}</dd>
-              </>
-            )}
-          </dl>
-          {kids > 0 && (
-            <>
-              <div className="reader-rule" />
-              <div className="reader-side-row">
-                <span className="reader-side-h">Dentro</span>
-                <span className="reader-muted">{kids}</span>
-              </div>
-              <div className="reader-links">
-                {inside.slice(0, MAX_LINKS).map(({ r, n }) => (
-                  <span key={r.id} className="reader-link">
-                    <button className="reader-link-go" onClick={() => onNavigate(r.id)}>
-                      <span className="reader-link-g" aria-hidden="true">
-                        {n ? '▸' : '·'}
-                      </span>
-                      <span className="reader-ellipsis">{r.kind === 'canvas' ? r.title || 'Canvas sin título' : r.title || 'Nota sin título'}</span>
-                      {n > 0 && <span className="reader-muted reader-link-n">{n}</span>}
-                    </button>
-                  </span>
-                ))}
-                {kids > MAX_LINKS && <span className="reader-muted">+{kids - MAX_LINKS} más</span>}
-              </div>
-            </>
-          )}
-          <div className="reader-rule" />
-          <div className="reader-side-row">
-            <span className="reader-side-h">Enlaces</span>
-            <span className="reader-muted">{neighbors.length}</span>
-          </div>
-          <div className="reader-links">
-            {shown.map((n) => (
-              <span key={n.id} className="reader-link">
-                <button className="reader-link-go" onClick={() => onNavigate(n.id)}>
-                  <span className="reader-link-g" aria-hidden="true">
-                    ·
-                  </span>
-                  <span className="reader-ellipsis">{n.title || 'Nota sin título'}</span>
-                </button>
-                <button className="reader-link-x" onClick={() => onUnlink(n.id)} aria-label={`Quitar el enlace con ${n.title || 'esta nota'}`} title="Quitar enlace">
-                  ×
-                </button>
-              </span>
-            ))}
-            {neighbors.length > MAX_LINKS && <span className="reader-muted">+{neighbors.length - MAX_LINKS} más</span>}
-            <button className="reader-add" onClick={onLink}>
-              ＋ Enlazar
-            </button>
-          </div>
-          <div className="reader-actions">
-            <button onClick={() => filePick.current?.click()} title="Adjuntar archivos (PDF, documentos, imágenes…) donde está el cursor; también se pueden pegar o soltar en el texto">
-              Adjuntar
-            </button>
-            <input
-              ref={filePick}
-              type="file"
-              multiple
-              hidden
-              onChange={(e) => {
-                const files = [...(e.target.files ?? [])];
-                e.target.value = '';
-                const ed = editorRef.current;
-                if (files.length && ed) attachFiles(ed.view, files, onError);
-              }}
-            />
-            <button onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
-              Nodos
-            </button>
-            <button onClick={() => setSource((s) => !s)} aria-pressed={source} title={`Ver y editar el Markdown de la nota, o volver al texto normal (${keyParts(keymap.markdownSource).join(' ')})`}>
-              {source ? 'Texto' : 'Markdown'}
-            </button>
-            <button onClick={flipWide} aria-pressed={wide} title={`Mostrar el texto de esta nota más ancho, o volver al ancho de lectura (${keyParts(keymap.wideNote).join(' ')})`}>
-              {wide ? 'Estrecho' : 'Ancho'}
-            </button>
-            <button onClick={() => setZen(true)} title={`Modo zen: quitar toda la interfaz y quedarse solo con el texto (${keyParts(keymap.zen).join(' ')}; Esc para salir)`}>
-              Zen
-            </button>
-            <button onClick={onArchive} title="Archivar: se oculta con lo que cuelga de ella (Ctrl Mayús X)">
-              {note.archivedAt ? 'Desarchivar' : 'Archivar'}
-            </button>
-            <button onClick={() => onProps(note.id)}>Propiedades</button>
-            <button className="danger" onClick={() => close(() => onDelete(note.id))}>
-              Borrar
-            </button>
-          </div>
-        </aside>
+            <div className="reader-rule" />
+            <div className="reader-side-row">
+              <span className="reader-side-h">Enlaces</span>
+              <span className="reader-muted">{neighbors.length}</span>
+            </div>
+            <div className="reader-links">
+              {shown.map((n) => (
+                <span key={n.id} className="reader-link">
+                  <button className="reader-link-go" onClick={() => onNavigate(n.id)}>
+                    <span className="reader-link-g" aria-hidden="true">
+                      ·
+                    </span>
+                    <span className="reader-ellipsis">{n.title || 'Nota sin título'}</span>
+                  </button>
+                  <button className="reader-link-x" onClick={() => onUnlink(n.id)} aria-label={`Quitar el enlace con ${n.title || 'esta nota'}`} title="Quitar enlace">
+                    ×
+                  </button>
+                </span>
+              ))}
+              {neighbors.length > MAX_LINKS && <span className="reader-muted">+{neighbors.length - MAX_LINKS} más</span>}
+              <button className="reader-add" onClick={onLink}>
+                ＋ Enlazar
+              </button>
+            </div>
+          </aside>
+        )}
+        {menu && <SheetMenu x={menu.x} y={menu.y} items={items} onClose={closeMenu} />}
         {picker}
       </div>
     );
@@ -566,20 +656,9 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         <button className="sheet-back" onClick={() => close()}>
           <BackArrow /> Volver
         </button>
-        <span className="sheet-actions">
-          <button className="sheet-back" onClick={onNodes} title="Ver esta nota en el centro, con sus relaciones (Ctrl G)">
-            Nodos
-          </button>
-          <button className="sheet-back" onClick={onArchive} title="Archivar: se oculta con lo que cuelga de ella (Ctrl Mayús X)">
-            {note.archivedAt ? 'Desarchivar' : 'Archivar'}
-          </button>
-          <button className="sheet-back" onClick={() => onProps(note.id)}>
-            Propiedades
-          </button>
-          <button className="sheet-back danger" onClick={() => close(() => onDelete(note.id))}>
-            Borrar
-          </button>
-        </span>
+        <button className="reader-icon" onClick={openMenu} aria-haspopup="menu" aria-expanded={!!menu} aria-label="Más acciones" title="Más acciones">
+          <DotsIcon />
+        </button>
       </header>
       <div className="sheet-canvas" key={note.id + note.kind}>
         <div className="sheet-canvas-head">
@@ -604,6 +683,20 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
           onError={onError}
         />
       </div>
+      {menu && (
+        <SheetMenu
+          x={menu.x}
+          y={menu.y}
+          items={[
+            { label: 'Ver en nodos', title: 'Este canvas en el centro, con sus relaciones', keys: keysOf(keymap.nodes), run: onNodes },
+            null,
+            { label: 'Propiedades', run: () => onProps(note.id) },
+            { label: note.archivedAt ? 'Desarchivar' : 'Archivar', title: 'Se oculta con lo que cuelga de él', keys: keysOf(keymap.archive), run: onArchive },
+            { label: 'Borrar', danger: true, run: () => close(() => onDelete(note.id)) },
+          ]}
+          onClose={closeMenu}
+        />
+      )}
       {picker}
     </div>
   );
