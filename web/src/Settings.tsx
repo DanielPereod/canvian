@@ -7,6 +7,7 @@ import { SIZES, SLOTS, THEME, setTypography, useTypography } from './typography'
 import { FontPicker } from './FontPicker';
 import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
+import { CalendarSettings } from './CalendarSettings';
 
 // Configuración con la forma de Obsidian: a la izquierda las secciones, a la
 // derecha los ajustes de la elegida, cada uno con su nombre y explicación a la
@@ -17,11 +18,12 @@ type Props = {
   onProfiles: () => void;
 };
 
-type SectionId = 'general' | 'aspecto' | 'atajos';
+type SectionId = 'general' | 'aspecto' | 'calendarios' | 'atajos';
 
 const SECTIONS: { id: SectionId; name: string }[] = [
   { id: 'general', name: 'General' },
   { id: 'aspecto', name: 'Aspecto' },
+  { id: 'calendarios', name: 'Calendarios' },
   { id: 'atajos', name: 'Atajos de teclado' },
 ];
 
@@ -251,6 +253,8 @@ export function Settings({ onClose, onProfiles }: Props) {
               </div>
             </>
           )}
+
+          {section === 'calendarios' && <CalendarSettings report={report} />}
 
           {section === 'atajos' && (
             <>

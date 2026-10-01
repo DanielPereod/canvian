@@ -6,7 +6,7 @@ import { applyRemote, editingExtensions, extensions, joinTitle, parseBody, split
 import { repairDoc, sourceOf, sourceToDoc } from './markdown';
 import { NoteChips } from './NoteChips';
 import { taskCount } from './tasks';
-import { MediaUpload, attachFiles } from './media';
+import { MediaUpload, YouTubePaste, attachFiles } from './media';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
 import { Resizer, useSideWidth } from './Resizer';
@@ -163,7 +163,7 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
     return true;
   };
   const editor = useEditor({
-    extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError }), suggest, slashExt],
+    extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError }), YouTubePaste, suggest, slashExt],
     content: initial.body.content?.length ? initial.body : '',
     // Abrir una nota es para escribir: el cursor ya está al final, pero la
     // nota se ve desde el principio (sin saltar hasta el cursor). Una nota

@@ -4,12 +4,12 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { settings } from '../db/schema.js';
 
-// Preferencias de la interfaz: los atajos de teclado, el aspecto (modo, temas y letra), la barra lateral y las notas en modo ancho y el idioma. Viven en la
+// Preferencias de la interfaz: los atajos de teclado, el aspecto (modo, temas y letra), la barra lateral las notas en modo ancho, el idioma y los calendarios de fuera. Viven en la
 // tabla de ajustes con el prefijo `pref:`, que nunca deja ver lo demás (la
 // contraseña está en la misma tabla).
 
 const PREFIX = 'pref:';
-const KEYS = ['keymap', 'theme', 'appearance', 'type', 'sidebar', 'wide', 'lang'] as const;
+const KEYS = ['keymap', 'theme', 'appearance', 'type', 'sidebar', 'wide', 'lang', 'calendars'] as const;
 const keymap = z.record(z.string().regex(/^[a-z][a-zA-Z]{1,30}$/), z.string().max(40)).refine((m) => Object.keys(m).length <= 100);
 const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano', 'minimo', 'minimo-claro', 'biblioteca', 'biblioteca-noche']);
 // Modo claro, oscuro o automático, y el tema de cada tono.
@@ -28,7 +28,19 @@ const sidebar = z.object({
 const wide = z.array(id).max(5000);
 // Idioma de la interfaz.
 const lang = z.enum(['es', 'en']);
-const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme, appearance, type, sidebar, wide, lang };
+// Calendarios de fuera por su enlace iCal, cada uno con su color y encendido o no.
+const calendars = z
+  .array(
+    z.object({
+      id,
+      name: z.string().trim().min(1).max(80),
+      url: z.string().trim().regex(/^(https?|webcals?):\/\//i).max(2000),
+      color: z.string().regex(/^#[0-9a-f]{6}$/i),
+      on: z.boolean(),
+    }),
+  )
+  .max(30);
+const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme, appearance, type, sidebar, wide, lang, calendars };
 
 export function prefRoutes(db: Db) {
   const r = new Hono();

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import { t } from '../i18n';
-import { attachFiles } from './media';
+import { attachFiles, youtubeId } from './media';
 import { TOUCH } from './touch';
 import type { SlashQuery } from './slash';
 import { promptLink } from './editor';
@@ -132,8 +132,7 @@ function slashItems(editor: Editor): SlashItem[] {
       run: (ed, onError) => pickFiles('', (files) => files.length && attachFiles(ed.view, files, onError)),
     },
   );
-  if (editor.schema.nodes.youtube)
-    items.push({
+  items.push({
       id: 'youtube',
       label: 'Vídeo de YouTube',
       icon: '▶',
@@ -142,6 +141,10 @@ function slashItems(editor: Editor): SlashItem[] {
       run: (ed) => {
         const src = window.prompt(t('Enlace del vídeo de YouTube'), 'https://')?.trim();
         if (!src || src === 'https://') return void ed.commands.focus();
+        if (!youtubeId(src)) {
+          window.alert(t('Ese enlace no es de un vídeo de YouTube'));
+          return void ed.commands.focus();
+        }
         ed.chain().focus().insertContent({ type: 'youtube', attrs: { src } }).run();
       },
     });

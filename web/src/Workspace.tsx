@@ -9,6 +9,7 @@ import { loadLang } from './i18n';
 import { loadTypography } from './typography';
 import { loadSidebarPrefs } from './canvas/sidebarPrefs';
 import { loadWide } from './canvas/widePrefs';
+import { loadCalendars } from './calendars';
 import { Settings } from './Settings';
 import { Help } from './Help';
 import { ActionPalette } from './ActionPalette';
@@ -38,6 +39,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     void loadTypography();
     void loadSidebarPrefs();
     void loadWide();
+    void loadCalendars();
   }, []);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           void loadTypography();
           void loadSidebarPrefs();
           void loadWide();
+          void loadCalendars();
         } else if (scope === 'profiles') api.profiles().then(setProfiles, () => {});
       }),
     [],

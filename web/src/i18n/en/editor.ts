@@ -22,6 +22,7 @@ export const EN_EDITOR: Record<string, string> = {
   'Archivo': 'File',
   'Vídeo de YouTube': 'YouTube video',
   'Enlace del vídeo de YouTube': 'YouTube video link',
+  'Ese enlace no es de un vídeo de YouTube': "That link isn't a YouTube video",
   'Enlace a una nota': 'Link to a note',
   'Enlace web': 'Web link',
   'Fecha de hoy': "Today's date",

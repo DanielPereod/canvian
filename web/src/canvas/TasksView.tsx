@@ -12,6 +12,7 @@ import { SectionPicker, type SectionOption } from './SectionPicker';
 import { Resizer, useSideWidth } from './Resizer';
 import { DatePicker } from './DatePicker';
 import { useContextMenu } from './Biblioteca';
+import { useCalendarEvents, useCalendars, type CalEvent, type ExternalCalendar } from '../calendars';
 
 // Vista de tareas, fuera del mapa, en tres columnas: a la izquierda las
 // listas (Hoy, 7 días, por nota y por etiqueta), en el centro las tareas de la
@@ -336,6 +337,21 @@ export function TasksView(p: Props) {
     mes: [t('Mes anterior'), t('Mes siguiente')],
   };
 
+  // Eventos de los calendarios de fuera en lo que se ve (en la agenda, dos meses).
+  const calRange = useMemo((): [string, string] => {
+    if (calMode === 'mes') {
+      const first = `${month}-01`;
+      const start = addDays(first, -((dateOf(first).getDay() + 6) % 7));
+      return [start, addDays(start, 42)];
+    }
+    if (calMode === 'agenda') return [calDay, addDays(calDay, 60)];
+    return [calDays[0], addDays(calDays[calDays.length - 1], 1)];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calMode, month, calDay, calDays[0], calDays.length]);
+  const calendars = useCalendars();
+  const { events } = useCalendarEvents(calRange[0], calRange[1], cal);
+  const eventsByDay = useMemo(() => byDayOf(events, calRange[0], calRange[1]), [events, calRange]);
+
   // Tablero: una columna por estado. Las hechas, solo las últimas.
   const board = layout === 'tablero' && view !== 'done' && !cal;
   const columns = useMemo(() => {
@@ -651,6 +667,8 @@ export function TasksView(p: Props) {
             days={calDays}
             day={calDay}
             tasks={all}
+            events={eventsByDay}
+            calendars={calendars}
             selected={calSel}
             whereOf={(r) => whereOf(r)}
             onDay={pickDay}
@@ -1144,6 +1162,9 @@ type CalProps = {
   days: string[];
   day: string;
   tasks: Task[];
+  /** Eventos de los calendarios de fuera, por día. */
+  events: Map<string, DayEvent[]>;
+  calendars: ExternalCalendar[];
   selected: string | null;
   whereOf: (r: Task) => string;
   onDay: (iso: string) => void;
@@ -1199,6 +1220,48 @@ function CalTask({ r, iso, p, where }: { r: Task; iso: string; p: CalProps; wher
   );
 }
 
+// Un evento de un calendario de fuera en un día: los de varios días salen en cada uno.
+type DayEvent = CalEvent & { time: string | null };
+
+const TIME = () => dateFmt({ hour: '2-digit', minute: '2-digit' });
+
+/** Los eventos por día local entre `from` y `to`; en cada día, primero los de día completo y luego por hora. */
+function byDayOf(events: CalEvent[], from: string, to: string) {
+  const out = new Map<string, DayEvent[]>();
+  const add = (iso: string, e: DayEvent) => {
+    if (iso >= from && iso < to) out.set(iso, [...(out.get(iso) ?? []), e]);
+  };
+  for (const e of events) {
+    if (e.allDay) {
+      for (let d = e.start, n = 0; d < e.end && n < 400; d = addDays(d, 1), n++) add(d, { ...e, time: null });
+      continue;
+    }
+    const start = new Date(e.start);
+    const end = new Date(e.end);
+    const first = isoOf(start);
+    // Lo que acaba justo a medianoche no ocupa el día siguiente.
+    const last = end > start ? isoOf(new Date(end.getTime() - 1)) : first;
+    for (let d = first, n = 0; d <= last && n < 400; d = addDays(d, 1), n++) add(d, { ...e, time: d === first ? TIME().format(start) : null });
+  }
+  for (const list of out.values()) list.sort((a, b) => Number(!!a.time) - Number(!!b.time) || a.start.localeCompare(b.start));
+  return out;
+}
+
+// Un evento de un calendario de fuera: solo se mira, con el color de su calendario.
+function CalEventItem({ e, p, where }: { e: DayEvent; p: CalProps; where?: boolean }) {
+  const c = p.calendars.find((k) => k.id === e.cal);
+  const span = e.allDay ? t('Todo el día') : `${TIME().format(new Date(e.start))}–${TIME().format(new Date(e.end))}`;
+  const tip = [e.title, span, e.location, c?.name].filter(Boolean).join(' · ');
+  return (
+    <div className={`tv-cal-ev${e.allDay ? ' is-allday' : ''}`} style={{ '--ev': c?.color ?? 'var(--text-ghost)' } as CSSProperties} title={tip}>
+      <i aria-hidden="true" />
+      {e.time && <time>{e.time}</time>}
+      <span>{e.title === '(sin título)' ? t('(sin título)') : e.title}</span>
+      {where && c && <em className="tv-cal-where">{c.name}</em>}
+    </div>
+  );
+}
+
 function TaskCalendar(p: CalProps) {
   if (p.mode === 'agenda') return <CalAgenda {...p} />;
   if (p.mode === 'mes') return <CalMonth {...p} />;
@@ -1227,7 +1290,11 @@ function CalMonth(p: CalProps) {
       ))}
       {days.slice(0, weeks * 7).map((iso) => {
         const list = byDay.get(iso) ?? [];
-        const shown = list.slice(0, 4);
+        const evs = p.events.get(iso) ?? [];
+        const room = Math.max(0, 4 - list.length);
+        const evShown = evs.slice(0, Math.max(room, Math.min(evs.length, 1)));
+        const shown = list.slice(0, 4 - evShown.length);
+        const hidden = list.length - shown.length + evs.length - evShown.length;
         return (
           <div
             key={iso}
@@ -1236,10 +1303,13 @@ function CalMonth(p: CalProps) {
             {...dropOn(iso, setOver, p.onMove)}
           >
             <span className="tv-cal-num">{Number(iso.slice(8))}</span>
+            {evShown.map((e) => (
+              <CalEventItem key={e.cal + e.id} e={e} p={p} />
+            ))}
             {shown.map((r) => (
               <CalTask key={r.id} r={r} iso={iso} p={p} />
             ))}
-            {list.length > shown.length && <span className="tv-cal-more">{t('+{n} más', { n: list.length - shown.length })}</span>}
+            {hidden > 0 && <span className="tv-cal-more">{t('+{n} más', { n: hidden })}</span>}
           </div>
         );
       })}
@@ -1264,12 +1334,16 @@ function CalColumns(p: CalProps) {
       ))}
       {p.days.map((iso) => {
         const list = byDay.get(iso) ?? [];
+        const evs = p.events.get(iso) ?? [];
         return (
           <div key={iso} className={`tv-cal-col${iso === p.day ? ' is-on' : ''}${over === iso ? ' is-over' : ''}${iso < today ? ' is-past' : ''}`} onClick={() => p.onDay(iso)} {...dropOn(iso, setOver, p.onMove)}>
+            {evs.map((e) => (
+              <CalEventItem key={e.cal + e.id} e={e} p={p} where={roomy} />
+            ))}
             {list.map((r) => (
               <CalTask key={r.id} r={r} iso={iso} p={p} where={roomy ? p.whereOf(r) : undefined} />
             ))}
-            {!list.length && p.mode === 'dia' && <p className="tv-cal-empty">{t('Nada para este día. N para apuntar algo.')}</p>}
+            {!list.length && !evs.length && p.mode === 'dia' && <p className="tv-cal-empty">{t('Nada para este día. N para apuntar algo.')}</p>}
           </div>
         );
       })}
@@ -1284,7 +1358,7 @@ function CalAgenda(p: CalProps) {
   const today = isoDay(0);
   const byDay = useByDay(p.tasks);
   const late = p.day <= today ? [...byDay.entries()].filter(([iso]) => iso < p.day).flatMap(([iso, list]) => list.filter((r) => r.status !== 'done').map((r) => [iso, r] as const)) : [];
-  const days = [...byDay.keys()].filter((iso) => iso >= p.day).sort();
+  const days = [...new Set([...byDay.keys(), ...p.events.keys()])].filter((iso) => iso >= p.day).sort();
   if (!days.includes(p.day)) days.unshift(p.day);
   const label = (iso: string) => {
     const n = daysUntil(iso);
@@ -1316,15 +1390,18 @@ function CalAgenda(p: CalProps) {
               </span>
             </button>
             <div className="tv-agenda-list">
+              {(p.events.get(iso) ?? []).map((e) => (
+                <CalEventItem key={e.cal + e.id} e={e} p={p} where />
+              ))}
               {list.map((r) => (
                 <CalTask key={r.id} r={r} iso={iso} p={p} where={p.whereOf(r)} />
               ))}
-              {!list.length && <p className="tv-cal-empty">{t('Nada este día.')}</p>}
+              {!list.length && !p.events.get(iso)?.length && <p className="tv-cal-empty">{t('Nada este día.')}</p>}
             </div>
           </section>
         );
       })}
-      {days.length === 1 && !(byDay.get(p.day)?.length) && <p className="tv-cal-empty tv-agenda-end">{t('No hay nada con fecha a partir de aquí.')}</p>}
+      {days.length === 1 && !byDay.get(p.day)?.length && !p.events.get(p.day)?.length && <p className="tv-cal-empty tv-agenda-end">{t('No hay nada con fecha a partir de aquí.')}</p>}
     </div>
   );
 }

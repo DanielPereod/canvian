@@ -110,10 +110,37 @@ export const EN_APP: Record<string, string> = {
   'Idioma: {name}': 'Language: {name}',
   'Configuración: Aspecto': 'Settings: Appearance',
   'Configuración: Atajos de teclado': 'Settings: Keyboard shortcuts',
+  'Configuración: Calendarios': 'Settings: Calendars',
   Recientes: 'Recent',
   'Escribe un comando': 'Type a command',
   Activo: 'Active',
   'Ningún comando se llama así': 'No command by that name',
+
+  // Configuración › Calendarios
+  Calendarios: 'Calendars',
+  'Los eventos de tus otros calendarios salen en el calendario de tareas, con su color. Solo se leen: para cambiarlos, hazlo en su aplicación. Se actualizan cada 15 minutos.':
+    'Events from your other calendars show up in the tasks calendar, in their own colour. They’re read-only: change them in their own app. They refresh every 15 minutes.',
+  'Cambiar el color': 'Change colour',
+  'Nombre del calendario': 'Calendar name',
+  'Mostrar en el calendario': 'Show in the calendar',
+  Visible: 'Shown',
+  Oculto: 'Hidden',
+  'Aún no hay ninguno.': 'None yet.',
+  'Añadir un calendario': 'Add a calendar',
+  'Pega su enlace iCal (.ics). En Google Calendar: Configuración › tu calendario › «Dirección secreta en formato iCal». En Outlook: Configuración › Calendario › Calendarios compartidos › Publicar un calendario › ICS. En Apple: comparte el calendario como público y copia el enlace webcal://.':
+    'Paste its iCal (.ics) link. In Google Calendar: Settings › your calendar › “Secret address in iCal format”. In Outlook: Settings › Calendar › Shared calendars › Publish a calendar › ICS. In Apple Calendar: share it as a public calendar and copy the webcal:// link.',
+  'Nombre (opcional)': 'Name (optional)',
+  Añadir: 'Add',
+  'Ese enlace no parece válido: tiene que empezar por https:// o webcal://.': 'That link doesn’t look right: it has to start with https:// or webcal://.',
+  'Actualizar ahora': 'Refresh now',
+  'Vuelve a descargar los calendarios sin esperar.': 'Downloads the calendars again right away.',
+  Actualizar: 'Refresh',
+  // Errores del servidor al leer un calendario
+  'Ese enlace no es un calendario iCal': 'That link isn’t an iCal calendar',
+  'El calendario es demasiado grande': 'The calendar is too big',
+  'El calendario tarda demasiado en responder': 'The calendar is taking too long to respond',
+  'No se ha podido leer el calendario': 'Couldn’t read the calendar',
+  'El servidor del calendario ha respondido con un error': 'The calendar’s server answered with an error',
 
   // Configuración
   General: 'General',
