@@ -156,6 +156,10 @@ export const EN_LIBRARY: Record<string, string> = {
   Fino: 'Thin',
   Medio: 'Medium',
   Grueso: 'Thick',
+  // Nombre del canvas en la ruta
+  'Clic para cambiar el nombre': 'Click to rename',
+  Nombre: 'Name',
+  'Meterlo dentro de otra nota': 'Put it inside another note',
 
   // Barras
   'Arrastra para cambiar el ancho · doble clic para volver al de siempre': 'Drag to change the width · double-click to reset',

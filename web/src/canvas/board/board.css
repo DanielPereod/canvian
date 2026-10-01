@@ -81,14 +81,10 @@
 .board-tools-file input { display: none; }
 .board-tools-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
 
-/* La hoja de una nota canvas: el lienzo ocupa todo, el título flota arriba. */
+/* La hoja de una nota canvas: el lienzo ocupa todo; solo el ⋯ flota arriba a la derecha.
+   El nombre se cambia en la ruta de la barra de arriba. */
 .sheet.is-canvas { overflow: hidden; }
-.sheet.is-canvas .sheet-top { position: relative; z-index: 6; }
-.sheet-canvas-head { position: absolute; top: 56px; left: var(--space-5); z-index: 6; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
-.sheet-canvas-head > * { pointer-events: auto; }
-.sheet-canvas-head .sheet-where { margin: 0; }
-.sheet-canvas-title { background: none; border: 0; outline: 0; color: var(--text); font-family: var(--font-serif); font-size: calc(clamp(26px, 3.4vw, 38px) * var(--type-scale, 1)); line-height: 1.1; padding: 0; width: min(60vw, 640px); }
-.sheet-canvas-title::placeholder { color: var(--text-ghost); font-style: italic; }
+.sheet.is-canvas .sheet-top { position: absolute; top: 0; right: 0; z-index: 6; justify-content: flex-end; padding: var(--space-3) var(--space-4); }
 @media (max-width: 640px) { .board-tools { bottom: var(--space-3); max-width: calc(100% - 24px); overflow-x: auto; } }
 
 /* Un archivo que no se ve dentro (PDF, documento…): su ficha. */
@@ -104,12 +100,14 @@
   --draw-green: oklch(0.68 0.12 150);
   --draw-blue: oklch(0.64 0.13 255);
 }
-.draw-c-ink { color: var(--draw-ink); }
-.draw-c-accent { color: var(--draw-accent); }
-.draw-c-red { color: var(--draw-red); }
-.draw-c-orange { color: var(--draw-orange); }
-.draw-c-green { color: var(--draw-green); }
-.draw-c-blue { color: var(--draw-blue); }
+/* Cada color es una variable: la barra la usa de fondo y el dibujo, de tinta. */
+.draw-c-ink { --draw-c: var(--draw-ink); }
+.draw-c-accent { --draw-c: var(--draw-accent); }
+.draw-c-red { --draw-c: var(--draw-red); }
+.draw-c-orange { --draw-c: var(--draw-orange); }
+.draw-c-green { --draw-c: var(--draw-green); }
+.draw-c-blue { --draw-c: var(--draw-blue); }
+.draw-shape, .draw-textarea { color: var(--draw-c); }
 
 /* Encima de las tarjetas, pero solo se toca el trazo de cada dibujo. */
 .board .react-flow__viewport-portal { pointer-events: none; z-index: 4000; }
@@ -156,9 +154,9 @@
 .draw-rail-sep, .draw-style-sep { width: 18px; height: 1px; background: var(--line); margin: 4px 0; }
 .draw-style { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px; border-radius: 999px; animation: fade var(--dur-base) var(--ease-out) both; }
 .draw-style button { width: 30px; height: 30px; }
-.draw-swatch span { width: 14px; height: 14px; border-radius: 50%; background: currentColor; transition: box-shadow var(--dur-fast), scale var(--dur-fast); }
+.draw-swatch span { width: 14px; height: 14px; border-radius: 50%; background: var(--draw-c); transition: box-shadow var(--dur-fast), scale var(--dur-fast); }
 .draw-swatch:hover span { scale: 1.15; }
-.draw-swatch.is-on span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px currentColor; }
+.draw-swatch.is-on span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--draw-c); }
 .draw-width span { border-radius: 50%; background: var(--text-faint); transition: background var(--dur-fast); }
 .draw-width:hover span { background: var(--text-muted); }
 .draw-width.is-on span { background: var(--text); }

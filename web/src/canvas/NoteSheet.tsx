@@ -10,7 +10,6 @@ import { MediaUpload, YouTubePaste, attachFiles } from './media';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
 import { Resizer, useSideWidth } from './Resizer';
-import { BackArrow } from '../BackArrow';
 import { parentMap } from './sections';
 import { decodeTime } from 'ulidx';
 import { editedLabel, kindOf, useContextMenu } from './Biblioteca';
@@ -542,25 +541,6 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     return out;
   }, [rows, note.id]);
   const isCanvas = note.kind === 'canvas';
-  const whereButton = (
-    <div className="sheet-where meta">
-      {chain.length ? (
-        chain.map((z, i) => (
-          <span key={z.id} className="sheet-where-wrap">
-            {i > 0 && <span className="sheet-where-sep">›</span>}
-            <button className="sheet-where-crumb" onClick={() => onNavigate(z.id)}>
-              {z.title || t('Nota sin título')}
-            </button>
-          </span>
-        ))
-      ) : (
-        <span className="sheet-where-empty">{t('Arriba del todo')}</span>
-      )}
-      <button className="sheet-where-move" onClick={() => setMoving(true)} title={t('Mover dentro de otra nota')}>
-        {t('Mover')}
-      </button>
-    </div>
-  );
   const shown = neighbors.slice(0, MAX_LINKS);
   const wiki: WikiHandlers = { rows, onOpen: onNavigate, onLink: onConnect, onCreate: onCreateLinked };
 
@@ -582,7 +562,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       // Con el inspector o el buscador abiertos, Esc los cierra a ellos y no a la hoja.
       // Escribiendo en una tarjeta del canvas, Esc solo termina de escribir.
       const target = e.target as HTMLElement | null;
-      if (e.key === 'Escape' && target?.closest('.board') && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
+      if (e.key === 'Escape' && target?.closest('.board, .bib-crumbs') && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
       // Dibujando en el canvas, Esc suelta la herramienta o lo elegido.
       if (e.key === 'Escape' && document.querySelector('.board[data-esc]')) return;
       // Ctrl/⌘ A fuera del texto (tras pulsar un botón, al abrir…) selecciona
@@ -809,28 +789,13 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   return (
     <div ref={ref} className={`sheet is-canvas${zen ? ' is-zen' : ''}`}>
       {zenExit}
+      {/* Sin «Volver» ni título: el lienzo ocupa todo y el nombre se cambia en la ruta de arriba. */}
       <header className="sheet-top meta">
-        <button className="sheet-back" onClick={() => close()}>
-          <BackArrow /> {t('Volver')}
-        </button>
         <button className="reader-icon" onClick={openMenu} aria-haspopup="menu" aria-expanded={!!menu} aria-label={t('Más acciones')} title={t('Más acciones')}>
           <DotsIcon />
         </button>
       </header>
       <div className="sheet-canvas" key={note.id + note.kind}>
-        <div className="sheet-canvas-head">
-          {whereButton}
-          <input
-            className="sheet-canvas-title"
-            defaultValue={note.title ?? ''}
-            placeholder={t('Canvas sin título')}
-            autoFocus={!note.title}
-            onChange={(e) => onRename(e.target.value.trim())}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur();
-            }}
-          />
-        </div>
         <CanvasBoard
           note={note}
           rows={rows}
@@ -848,6 +813,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
             { label: t('Ver en nodos'), title: t('Este canvas en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
             { label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el canvas (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
             null,
+            { label: t('Mover a…'), title: t('Meterlo dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
             { label: t('Propiedades'), run: () => onProps(note.id) },
             { label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de él'), keys: keysOf(keymap.archive), run: onArchive },
             { label: t('Borrar'), danger: true, run: () => close(() => onDelete(note.id)) },

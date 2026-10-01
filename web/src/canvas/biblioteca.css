@@ -325,6 +325,13 @@
 .bib-crumb { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-faint) !important; padding: 3px 4px; border-radius: var(--radius-xs); max-width: 220px; }
 .bib-crumb:hover { color: var(--text) !important; }
 .bib-crumb.is-here { color: var(--text) !important; font-weight: 500; }
+.bib-crumb.is-renamable { cursor: text; }
+.bib-crumb.is-renamable:hover { background: var(--accent-soft); }
+.bib-crumb-input {
+  min-width: 0; max-width: min(320px, 46vw); padding: 3px 4px; margin: 0; border: 0; outline: 0; border-radius: var(--radius-xs);
+  background: var(--accent-soft); color: var(--text); font: inherit; font-weight: 500;
+}
+.bib-crumb-input::placeholder { color: var(--text-ghost); font-weight: 400; }
 .bib-sep { padding: 0 2px; color: var(--text-ghost); }
 .bib-search { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px !important; border-radius: var(--radius-md); background: var(--surface-hover) !important; color: var(--text-faint) !important; transition: background var(--dur-fast); }
 .bib-search:hover { background: var(--bib-sel, var(--surface-hover)) !important; }
@@ -521,8 +528,7 @@
 .sheet.is-zen .note-chips { display: none; }
 .sheet.is-zen .reader-body { padding-top: 14vh; }
 /* En un canvas, sin «Volver» ni título: solo el tablero. */
-.sheet.is-canvas.is-zen .sheet-top,
-.sheet.is-canvas.is-zen .sheet-canvas-head { display: none; }
+.sheet.is-canvas.is-zen .sheet-top { display: none; }
 .sheet.is-canvas .reader-zen-exit { z-index: 20; }
 .reader-zen-exit {
   position: absolute; top: 14px; right: 18px; z-index: 1;

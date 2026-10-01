@@ -565,7 +565,63 @@ type BarProps = {
   folded: boolean;
   onFold: () => void;
   onDrawer: () => void;
+  // El último tramo se puede renombrar (el canvas abierto, que no tiene título propio en la hoja).
+  rename?: { id: string; value: string; placeholder: string; onRename: (title: string) => void } | null;
 };
+
+// Nombre del último tramo de la ruta, editable en su sitio: Enter guarda, Esc deja el que había.
+function CrumbRename({ r, label }: { r: NonNullable<BarProps['rename']>; label: string }) {
+  const [editing, setEditing] = useState(!r.value);
+  const [draft, setDraft] = useState(r.value);
+  const done = useRef(false);
+  useEffect(() => {
+    setEditing(!r.value);
+    setDraft(r.value);
+    // Solo al cambiar de canvas: uno nuevo, sin nombre, empieza escribiendo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [r.id]);
+  if (!editing)
+    return (
+      <button
+        className="bib-crumb is-here is-renamable"
+        title={t('Clic para cambiar el nombre')}
+        onClick={() => {
+          done.current = false;
+          setDraft(r.value);
+          setEditing(true);
+        }}
+      >
+        {r.value || label}
+      </button>
+    );
+  const finish = (save: boolean) => {
+    if (done.current) return;
+    done.current = true;
+    if (save && draft.trim() !== r.value) r.onRename(draft.trim());
+    setEditing(false);
+  };
+  return (
+    <input
+      className="bib-crumb-input"
+      value={draft}
+      placeholder={r.placeholder}
+      aria-label={t('Nombre')}
+      autoFocus
+      onFocus={(e) => {
+        done.current = false;
+        e.currentTarget.select();
+      }}
+      size={Math.max(8, Math.min(40, (draft || r.placeholder).length + 1))}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => finish(true)}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') finish(true);
+        else if (e.key === 'Escape') finish(false);
+      }}
+    />
+  );
+}
 
 const LAYOUT_ICONS: Record<BibLayout, ReactNode> = {
   lista: <path d="M5 7h14M5 12h14M5 17h14" />,
@@ -608,9 +664,13 @@ export function BibBar(p: BarProps) {
         {p.crumbs.map((c, i) => (
           <span key={`${c.id}:${i}`} className="bib-crumb-wrap">
             {i > 0 && <span className="bib-sep">/</span>}
-            <button className={`bib-crumb${i === p.crumbs.length - 1 ? ' is-here' : ''}`} onClick={() => p.onCrumb(c.id)}>
-              {c.title}
-            </button>
+            {p.rename && i === p.crumbs.length - 1 ? (
+              <CrumbRename r={p.rename} label={c.title} />
+            ) : (
+              <button className={`bib-crumb${i === p.crumbs.length - 1 ? ' is-here' : ''}`} onClick={() => p.onCrumb(c.id)}>
+                {c.title}
+              </button>
+            )}
           </span>
         ))}
       </nav>
