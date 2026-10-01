@@ -30,7 +30,11 @@ export const extensions = [
       if (editor.isEmpty) return t('Escribe algo, o «/» para ver los bloques…');
       if (node.type.name === 'heading') return t('Encabezado {n}', { n: node.attrs.level });
       if (node.type.name !== 'paragraph') return '';
-      const $p = editor.state.doc.resolve(pos);
+      // Las decoraciones se calculan con el documento nuevo antes de que el
+      // editor lo tenga: si su estado aún no coincide, no se mira el contenedor.
+      const doc = editor.state.doc;
+      if (pos > doc.content.size || doc.nodeAt(pos) !== node) return t('Escribe «/» para ver los bloques…');
+      const $p = doc.resolve(pos);
       const parent = $p.parent.type.name;
       if (parent === 'listItem') return t('Lista');
       if (parent === 'taskItem') return t('Tarea');

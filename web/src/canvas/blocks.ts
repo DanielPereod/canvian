@@ -382,6 +382,37 @@ export function insertColumns(editor: Editor, n: number) {
   return true;
 }
 
+// Una tabla de 3 × 3 con fila de encabezado, en la línea del cursor si está
+// vacía o debajo de ella (el comando del editor falla con la línea a medias).
+export function insertTable(editor: Editor) {
+  const { state, view } = editor;
+  const { schema } = state;
+  const { $from } = state.selection;
+  const { table, tableRow, tableHeader, tableCell } = schema.nodes;
+  const row = (cell: typeof tableCell) => tableRow.create(null, [0, 1, 2].map(() => cell.createAndFill()!));
+  const node = table.create(null, [row(tableHeader), row(tableCell), row(tableCell)]);
+  const tr = state.tr;
+  let at: number;
+  if ($from.parent.isTextblock && $from.depth > 0) {
+    const d = $from.depth;
+    if ($from.parent.content.size === 0) {
+      at = $from.before(d);
+      tr.replaceWith(at, $from.after(d), node);
+    } else {
+      at = $from.after(d);
+      tr.insert(at, node);
+    }
+  } else {
+    at = state.selection.to;
+    tr.insert(at, node);
+  }
+  // El cursor, en la primera celda.
+  tr.setSelection(Selection.near(tr.doc.resolve(at + 4)));
+  view.dispatch(tr.scrollIntoView());
+  view.focus();
+  return true;
+}
+
 // ── Arrastrar a un lado: columnas ─────────────────────────────────────
 // Soltar un bloque junto al borde derecho de otro (o a su izquierda, en el
 // margen) los pone en dos columnas; junto a una columna, añade otra.

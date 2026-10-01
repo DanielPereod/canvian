@@ -20,6 +20,7 @@ import {
   duplicateBlock,
   endDrag,
   insertColumns,
+  insertTable,
   kindOf,
   moveBlock,
   turnBlock,
@@ -108,7 +109,7 @@ function slashItems(editor: Editor): SlashItem[] {
       icon: '▦',
       group: 'Bloques básicos',
       words: 'table tabla grid filas columnas',
-      run: (ed) => void ed.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+      run: (ed) => void insertTable(ed),
     },
   );
   items.push(
