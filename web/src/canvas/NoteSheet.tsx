@@ -136,13 +136,32 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
     } else if (wasSource.current) editor.commands.focus(null, { scrollIntoView: false });
     wasSource.current = source;
   }, [editor, source]);
-  // El cuadro crece con lo escrito, como el texto normal.
-  useLayoutEffect(() => {
+  // El cuadro crece con lo escrito, como el texto normal; también si cambia
+  // de ancho o termina de cargar la letra (las líneas parten en otro sitio).
+  const fit = () => {
     const el = area.current;
     if (!el) return;
+    // Al medir encoge un instante: que la hoja no salte de donde estaba.
+    const scroller = el.closest('.reader-main');
+    const top = scroller?.scrollTop ?? 0;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
-  }, [md, source]);
+    if (scroller) scroller.scrollTop = top;
+  };
+  useLayoutEffect(fit, [md, source]);
+  useEffect(() => {
+    const el = area.current;
+    if (!el) return;
+    let width = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth === width) return;
+      width = el.clientWidth;
+      fit();
+    });
+    ro.observe(el);
+    void document.fonts?.ready.then(fit);
+    return () => ro.disconnect();
+  }, [source]);
   const typeSource = (value: string) => {
     setMd(value);
     if (editor) editor.commands.setContent(sourceToDoc(value, editor.getJSON()), { emitUpdate: true });
