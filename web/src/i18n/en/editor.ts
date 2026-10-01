@@ -34,8 +34,6 @@ export const EN_EDITOR: Record<string, string> = {
   'Bloques': 'Blocks',
   'Bloque': 'Block',
   // Textos de ayuda en líneas vacías
-  'Escribe algo, o «/» para ver los bloques…': "Write something, or type '/' for blocks…",
-  'Escribe «/» para ver los bloques…': "Type '/' for blocks…",
   'Lista': 'List',
   'Tarea': 'To-do',
   // Avisos y desplegables

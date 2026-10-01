@@ -23,23 +23,23 @@ export const extensions = [
   // Bloques de código con colores según su lenguaje (```js, ```python…); sin
   // lenguaje, se adivina.
   CodeBlockLowlight.configure({ lowlight: createLowlight(common) }),
-  // Como en Notion: la línea vacía en la que está el cursor dice qué escribir.
+  // Encabezados, listas, tareas y desplegables vacíos dicen qué son; las
+  // líneas normales se quedan en blanco.
   Placeholder.configure({
     includeChildren: true,
     placeholder: ({ editor, node, pos }) => {
-      if (editor.isEmpty) return t('Escribe algo, o «/» para ver los bloques…');
       if (node.type.name === 'heading') return t('Encabezado {n}', { n: node.attrs.level });
       if (node.type.name !== 'paragraph') return '';
       // Las decoraciones se calculan con el documento nuevo antes de que el
       // editor lo tenga: si su estado aún no coincide, no se mira el contenedor.
       const doc = editor.state.doc;
-      if (pos > doc.content.size || doc.nodeAt(pos) !== node) return t('Escribe «/» para ver los bloques…');
+      if (pos > doc.content.size || doc.nodeAt(pos) !== node) return '';
       const $p = doc.resolve(pos);
       const parent = $p.parent.type.name;
       if (parent === 'listItem') return t('Lista');
       if (parent === 'taskItem') return t('Tarea');
       if (parent === 'toggle' && $p.index() === 0) return t('Desplegable');
-      return t('Escribe «/» para ver los bloques…');
+      return '';
     },
   }),
   // Tablas, como en Notion: el ancho de cada columna se cambia arrastrando su borde.
