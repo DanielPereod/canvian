@@ -61,7 +61,7 @@ const SelectAllKeys = Extension.create({
 
 // Texto pegado que viene en Markdown (de otra app de notas, de un chat…) entra
 // ya con su formato. Si trae HTML, manda el HTML.
-const MARKDOWN = /^(#{1,6}\s|\s*[-*+]\s|\s*\d+[.)]\s|>\s?|```|\|.*\|\s*$)|\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\s]+\)|\[\[[^\]\n]+\]\]|==[^=\n]+==|~~[^~\n]+~~/m;
+const MARKDOWN = /^(#{1,6}\s|\s*[-*+]\s|\s*\d+[.)]\s|>\s?|\s*(```|~~~)|\|.*\|\s*$)|\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\s]+\)|\[\[[^\]\n]+\]\]|==[^=\n]+==|~~[^~\n]+~~/m;
 const MarkdownPaste = Extension.create({
   name: 'markdownPaste',
   addProseMirrorPlugins() {
