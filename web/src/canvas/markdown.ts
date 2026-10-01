@@ -100,36 +100,62 @@ function listLine(line: string): ListLine | null {
 
 const BOX_STATUS: Record<string, string> = { '/': 'doing', '!': 'blocked' };
 
+const indentOf = (line: string) => /^\s*/.exec(line.replace(/\t/g, '    '))![0].length;
+const dedent = (line: string, n: number) => line.replace(/\t/g, '    ').slice(Math.min(n, indentOf(line)));
+
+// Bloques de código con ``` o ~~~, también sangrados (dentro de una lista) y
+// con su lenguaje («```js»). Se cierran con la misma valla, al menos igual de larga.
+const FENCE = /^(\s*)(`{3,}|~{3,})\s*([^`~\s]*)[^`~]*$/;
+
 // Una lista y lo que cuelga de ella: lo más sangrado va dentro del punto de
-// encima (así, una casilla sangrada bajo otra es su subtarea).
-function parseList(lines: string[], start: number, links: string[]): [JSONContent, number] {
+// encima (así, una casilla sangrada bajo otra es su subtarea, y un bloque de
+// código o un párrafo sangrados siguen en ese punto). Las líneas en blanco
+// entre puntos no cortan la lista.
+function parseList(lines: string[], start: number, ctx: Ctx): [JSONContent, number] {
   const first = listLine(lines[start])!;
   const items: JSONContent[] = [];
   let i = start;
   while (i < lines.length) {
     const l = listLine(lines[i]);
-    if (!l || l.indent < first.indent || (l.indent === first.indent && l.type !== first.type)) break;
-    if (l.indent > first.indent && items.length) {
-      const [sub, next] = parseList(lines, i, links);
-      items[items.length - 1].content!.push(sub);
-      i = next;
-      continue;
+    if (!l || l.indent !== first.indent || l.type !== first.type) break;
+    // Lo que va debajo del punto: líneas en blanco o más sangradas que él.
+    let end = i + 1;
+    let last = i;
+    while (end < lines.length && (!lines[end].trim() || indentOf(lines[end]) > l.indent)) {
+      if (lines[end].trim()) last = end;
+      end++;
     }
+    const inner = lines.slice(i + 1, last + 1);
+    const shift = Math.min(...inner.filter((s) => s.trim()).map(indentOf));
+    const children = inner.length ? parseBlocks(inner.map((s) => dedent(s, shift)), ctx) : [];
     const status = BOX_STATUS[l.box ?? ''];
     items.push(
       first.type === 'taskList'
-        ? { type: 'taskItem', attrs: { checked: /x/i.test(l.box ?? ''), ...(status ? { status } : {}) }, content: [para(l.text, links)] }
-        : { type: 'listItem', content: [para(l.text, links)] },
+        ? { type: 'taskItem', attrs: { checked: /x/i.test(l.box ?? ''), ...(status ? { status } : {}) }, content: [para(l.text, ctx.links), ...children] }
+        : { type: 'listItem', content: [para(l.text, ctx.links), ...children] },
     );
-    i++;
+    i = last + 1;
+    // Tras líneas en blanco, la lista sigue si el siguiente es otro punto igual.
+    let next = i;
+    while (next < lines.length && !lines[next].trim()) next++;
+    const n = next < lines.length ? listLine(lines[next]) : null;
+    if (n && n.indent === first.indent && n.type === first.type) i = next;
   }
-  return [{ type: first.type, content: items }, i];
+  const num = first.type === 'orderedList' ? parseInt(lines[start].trim(), 10) : 1;
+  return [{ type: first.type, ...(num !== 1 ? { attrs: { start: num } } : {}), content: items }, i];
 }
 
+type Ctx = { links: string[]; heading: string | null };
+
 export function markdownToDoc(md: string): { doc: JSONContent; links: string[]; heading: string | null } {
-  const links: string[] = [];
-  let heading: string | null = null;
+  const ctx: Ctx = { links: [], heading: null };
   const lines = md.replace(/\r\n?/g, '\n').replace(/^---\n[\s\S]*?\n---\n/, '').split('\n');
+  const content = parseBlocks(lines, ctx);
+  return { doc: { type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] }, links: ctx.links, heading: ctx.heading };
+}
+
+function parseBlocks(lines: string[], ctx: Ctx): JSONContent[] {
+  const { links } = ctx;
   const content: JSONContent[] = [];
   let i = 0;
   while (i < lines.length) {
@@ -140,17 +166,20 @@ export function markdownToDoc(md: string): { doc: JSONContent; links: string[]; 
     }
     const h = /^(#{1,6})\s+(.*)$/.exec(line);
     if (h) {
-      heading ??= h[2].trim();
+      ctx.heading ??= h[2].trim();
       content.push({ type: 'heading', attrs: { level: h[1].length }, content: inline(h[2], links) });
       i++;
       continue;
     }
-    if (/^```/.test(line)) {
+    const f = FENCE.exec(line);
+    if (f) {
+      const [, pad, fence, lang] = f;
+      const close = new RegExp(String.raw`^\s*${fence[0] === '`' ? '`' : '~'}{${fence.length},}\s*$`);
       const code: string[] = [];
       i++;
-      while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++]);
+      while (i < lines.length && !close.test(lines[i])) code.push(dedent(lines[i++], indentOf(pad)));
       i++;
-      content.push({ type: 'codeBlock', content: code.length ? [{ type: 'text', text: code.join('\n') }] : [] });
+      content.push({ type: 'codeBlock', attrs: { language: lang || null }, content: code.length ? [{ type: 'text', text: code.join('\n') }] : [] });
       continue;
     }
     if (/^(-{3,}|\*{3,})\s*$/.test(line)) {
@@ -178,16 +207,16 @@ export function markdownToDoc(md: string): { doc: JSONContent; links: string[]; 
       continue;
     }
     if (listLine(line)) {
-      const [list, next] = parseList(lines, i, links);
+      const [list, next] = parseList(lines, i, ctx);
       content.push(list);
       i = next;
       continue;
     }
     const text: string[] = [];
-    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|```|>|\s*([-*+]|\d+[.)])\s)/.test(lines[i]) && !(text.length && TABLE_ROW.test(lines[i]))) text.push(lines[i++].trim());
+    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|>|\s*([-*+]|\d+[.)])\s)/.test(lines[i]) && !FENCE.test(lines[i]) && !(text.length && TABLE_ROW.test(lines[i]))) text.push(lines[i++].trim());
     content.push(para(text.join(' '), links));
   }
-  return { doc: { type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] }, links, heading };
+  return content;
 }
 
 export function docText(doc: JSONContent): string {
@@ -227,8 +256,9 @@ export function docToMarkdown(doc: JSONContent | null): string {
         return (n.content ?? [])
           .map((li, i) => {
             const [first, ...rest] = li.content ?? [];
-            const head = `${indent}${n.type === 'orderedList' ? `${i + 1}.` : '-'} ${first ? inl(first) : ''}`;
-            return [head, ...rest.map((r) => block(r, indent + '  '))].join('\n');
+            const mark = n.type === 'orderedList' ? `${Number(n.attrs?.start ?? 1) + i}.` : '-';
+            const head = `${indent}${mark} ${first ? inl(first) : ''}`;
+            return [head, ...rest.map((r) => block(r, indent + ' '.repeat(mark.length + 1)))].join('\n');
           })
           .join('\n');
       case 'taskList':
@@ -242,8 +272,11 @@ export function docToMarkdown(doc: JSONContent | null): string {
           .join('\n');
       case 'blockquote':
         return (n.content ?? []).map((c) => `> ${block(c)}`).join('\n');
-      case 'codeBlock':
-        return '```\n' + inl(n) + '\n```';
+      case 'codeBlock': {
+        const code = inl(n);
+        const fence = '`'.repeat(Math.max(3, ...(code.match(/`{3,}/g) ?? []).map((f) => f.length + 1)));
+        return [fence + String(n.attrs?.language ?? ''), ...code.split('\n'), fence].map((l) => (l ? indent + l : l)).join('\n');
+      }
       case 'horizontalRule':
         return '---';
       case 'table': {
