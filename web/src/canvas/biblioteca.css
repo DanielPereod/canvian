@@ -232,7 +232,6 @@
 .bib-tree.is-drop-root { border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px var(--accent); }
 
 .bib-side-foot { display: flex; flex-direction: column; gap: 1px; padding-top: 6px; border-top: 1px solid var(--line); }
-.bib-side-new svg { color: var(--text-faint); }
 .bib-side-foot .bib-it svg { flex: none; }
 
 /* ── Menú con clic derecho ── */

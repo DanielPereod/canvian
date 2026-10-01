@@ -369,12 +369,6 @@ export function BibSidebar(p: SideProps) {
           {roots.map((r) => renderRow(r, 0))}
         </div>
         <div className="bib-side-foot">
-          <button className="bib-it bib-side-new" onClick={p.onNewNote}>
-            Nota nueva
-            <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
-              <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
-          </button>
           <button className="bib-it" onClick={p.onSettings} title="Ctrl ,">
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
