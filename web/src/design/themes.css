@@ -2,10 +2,11 @@
  * Canvian · temas
  *
  * Cada tema cambia solo el aspecto: colores, letras y radios. Todo lo demás
- * sigue igual. Se elige en Configuración y se aplica con data-theme en <html>.
+ * sigue igual, también los tamaños: la escala de letra es una sola para todos
+ * y la marca el tamaño de Configuración › Aspecto (--type-scale). Se elige en Configuración y se aplica con data-theme en <html>.
  * Sin atributo, el tema es «Jardín nocturno» (tokens.css). Lo que cada uno
  * pone en la biblioteca (barra lateral, tapas, letra de títulos y de lectura)
- * son los tokens --bib-* , --title-* y --read-* (biblioteca.css).
+ * son los tokens --bib-* , --title-* y --read-font (biblioteca.css).
  */
 
 /* ── 0 · Jardín nocturno en la biblioteca ─────────────────────────── */
@@ -20,9 +21,7 @@
   --title-weight: 400;
   --title-style: italic;
   --title-tracking: 0;
-  --title-scale: 1.25;
   --read-font: var(--font-ui);
-  --read-size: 17px;
 }
 
 /* ── Comunes a los temas claros ─────────────────────────────────── */
@@ -74,8 +73,6 @@
   --title-font: var(--font-serif);
   --title-weight: 450;
   --title-tracking: -0.02em;
-  --title-scale: 1.1;
-  --read-size: 19px;
 }
 
 /* ── 2 · Observatorio: noche profunda, órbitas finas y letra clásica ── */
@@ -104,8 +101,6 @@
   --title-font: var(--font-serif);
   --title-weight: 500;
   --title-tracking: 0;
-  --title-scale: 1.3;
-  --read-size: 21px;
 }
 /* Un cielo muy tenue detrás de la colección y los nodos. */
 [data-theme='observatorio'] .canvas.is-bib > .home-layer {
@@ -164,7 +159,6 @@
   --title-weight: 900;
   --title-case: uppercase;
   --title-tracking: -0.03em;
-  --read-size: 18px;
 }
 /* Cajas con borde y sombra dura; lo señalado, en amarillo. */
 [data-theme='bloques'] .bib-side { border-right: 2px solid #111111; }
@@ -212,7 +206,6 @@
   --title-weight: 400;
   --title-tracking: -0.01em;
   --read-font: var(--font-ui);
-  --read-size: 18px;
 }
 /* Las tapas, como piedras: redondas, con su sombra debajo. */
 [data-theme='piedras'] .bib-cover { border-radius: 26px; box-shadow: 0 8px 0 -2px rgba(90, 70, 50, 0.14); }
@@ -258,9 +251,7 @@
   --title-weight: 500;
   --title-case: uppercase;
   --title-tracking: 0.04em;
-  --title-scale: 0.9;
   --read-font: var(--font-ui);
-  --read-size: 18px;
 }
 /* La rejilla del plano detrás de la colección y los nodos. */
 [data-theme='plano'] .canvas.is-bib > .home-layer {
@@ -277,7 +268,7 @@
 [data-theme='plano'] .bib-spine.is-branch { background: rgba(40, 90, 150, 0.6); }
 [data-theme='plano'] .bib-cover-k,
 [data-theme='plano'] .reader-meta,
-[data-theme='plano'] .bib-thead { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(10px * var(--type-scale, 1)); }
+[data-theme='plano'] .bib-thead { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; }
 [data-theme='plano'] .backdrop.dotted::before {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
@@ -342,7 +333,6 @@
   --bib-cover-c: 0;
   --title-weight: 500;
   --title-tracking: -0.03em;
-  --read-size: 17px;
 }
 /* Solo dos luces grises y suaves en las esquinas. */
 [data-theme^='minimo'] .backdrop,
@@ -358,7 +348,6 @@
 [data-theme^='minimo'] .serif { font-style: normal; font-weight: 500; letter-spacing: -0.02em; }
 [data-theme^='minimo'] .display { letter-spacing: -0.03em; font-weight: 500; }
 [data-theme^='minimo'] .meta { font-size: var(--text-xs); letter-spacing: 0; text-transform: none; }
-[data-theme^='minimo'] .sheet-where { font-size: var(--text-2xs); }
 /* Botón principal: una píldora blanca, sin brillo. */
 [data-theme^='minimo'] .btn-primary { background: #f2f2f2; color: #0a0a0a; box-shadow: none; border-radius: var(--radius-pill); }
 [data-theme^='minimo'] .btn-primary:hover:not(:disabled) { background: #ffffff; }
@@ -366,7 +355,7 @@
 /* Nada de cursivas ni etiquetas en versalitas; el texto de las notas sí las conserva. */
 [data-theme^='minimo'] :not(em, i, .prose *) { font-style: normal; }
 [data-theme^='minimo'] .label,
-[data-theme^='minimo'] .settings-subheading { letter-spacing: 0.02em; text-transform: none; font-family: var(--font-ui); font-size: var(--text-xs); }
+[data-theme^='minimo'] .settings-subheading { letter-spacing: 0.02em; text-transform: none; font-family: var(--font-ui); }
 [data-theme^='minimo'] .wordmark-glyph { color: var(--text); }
 [data-theme^='minimo'] .wordmark-text .c { font-size: 1em; font-weight: 600; letter-spacing: -0.02em; }
 [data-theme^='minimo'] .wordmark-text .rest { text-transform: lowercase; font-size: 1em; font-weight: 600; letter-spacing: -0.02em; }

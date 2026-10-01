@@ -18,7 +18,7 @@
 .settings-section { margin-bottom: 48px; }
 .settings-note { color: var(--accent-ink); margin: 0 0 var(--space-4); font-size: var(--text-sm); }
 .settings-group { margin-bottom: var(--space-6); }
-.settings-subheading { font-family: var(--font-mono, inherit); font-weight: 400; font-size: calc(11px * var(--type-scale, 1)); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-ghost); margin: 0 0 var(--space-2); }
+.settings-subheading { font-family: var(--font-mono, inherit); font-weight: 400; font-size: var(--text-xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-ghost); margin: 0 0 var(--space-2); }
 .settings-key { min-width: 120px; display: inline-flex; justify-content: flex-end; background: none; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; color: inherit; transition: border-color var(--dur-fast), background var(--dur-fast); }
 .settings-key:hover { border-color: var(--line-strong); }
 .settings-reset { background: none; border: 0; cursor: pointer; color: var(--text-ghost); }
