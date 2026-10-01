@@ -9,6 +9,7 @@ import { loadLang } from './i18n';
 import { loadTypography } from './typography';
 import { loadSidebarPrefs } from './canvas/sidebarPrefs';
 import { loadWide } from './canvas/widePrefs';
+import { loadZenPrefs } from './canvas/zenPrefs';
 import { loadCalendars } from './calendars';
 import { Settings } from './Settings';
 import { Help } from './Help';
@@ -39,6 +40,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     void loadTypography();
     void loadSidebarPrefs();
     void loadWide();
+    void loadZenPrefs();
     void loadCalendars();
   }, []);
 
@@ -57,6 +59,8 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           void loadTypography();
           void loadSidebarPrefs();
           void loadWide();
+          void loadZenPrefs();
+    void loadZenPrefs();
           void loadCalendars();
         } else if (scope === 'profiles') api.profiles().then(setProfiles, () => {});
       }),

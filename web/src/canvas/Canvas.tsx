@@ -24,6 +24,7 @@ import { actionFor, keyParts, keysBlocked, setView, useKeymap } from '../keys';
 import { useSideWidth } from './Resizer';
 import { BibBar, BibMenu, BibSidebar, Library, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 import { getLang, t } from '../i18n';
+import { zenPrefs } from './zenPrefs';
 
 // La vista de Canvian: la biblioteca. Aquí viven las notas, los enlaces y todo
 // lo que se guarda; la barra lateral, la colección, los nodos y el lector solo
@@ -779,6 +780,28 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   useEffect(() => {
     if (!focusId) setZen(false);
   }, [focusId]);
+  // Si se pidió en Configuración, el modo zen pone también la pantalla
+  // completa; y salir de ella (Esc del navegador) sale del modo zen.
+  const zenFull = useRef(false);
+  useEffect(() => {
+    if (zenOn && zenPrefs().fullscreen && !document.fullscreenElement && document.fullscreenEnabled) {
+      zenFull.current = true;
+      document.documentElement.requestFullscreen().catch(() => (zenFull.current = false));
+    } else if (!zenOn && zenFull.current) {
+      zenFull.current = false;
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    }
+  }, [zenOn]);
+  useEffect(() => {
+    const onChange = () => {
+      if (!document.fullscreenElement && zenFull.current) {
+        zenFull.current = false;
+        setZen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
   const focusNeighbors = useMemo(() => {
     if (!focusId) return [];
     const ids = new Set(links.flatMap((l) => (l.source === focusId ? [l.target] : l.target === focusId ? [l.source] : [])));
