@@ -11,7 +11,8 @@ const KINDS = ['text', 'canvas', 'link', 'image', 'checklist', 'code'] as const;
 const noteFields = {
   kind: z.enum(KINDS),
   title: z.string().max(500).nullable(),
-  bodyJson: z.string().max(1_000_000).nullable(),
+  // Un canvas con mucho dibujado a mano pesa más que una nota de texto.
+  bodyJson: z.string().max(5_000_000).nullable(),
   bodyText: z.string().max(200_000).nullable(),
   x: z.number(),
   y: z.number(),

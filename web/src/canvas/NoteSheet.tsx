@@ -567,6 +567,8 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       // Escribiendo en una tarjeta del canvas, Esc solo termina de escribir.
       const target = e.target as HTMLElement | null;
       if (e.key === 'Escape' && target?.closest('.board') && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
+      // Dibujando en el canvas, Esc suelta la herramienta o lo elegido.
+      if (e.key === 'Escape' && document.querySelector('.board[data-esc]')) return;
       // Ctrl/⌘ A fuera del texto (tras pulsar un botón, al abrir…) selecciona
       // la nota, no la página entera.
       // Antes que el editor, que con Ctrl E pondría el texto como código.
