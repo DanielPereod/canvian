@@ -5,6 +5,7 @@ import { MODES, setMode, setTheme, THEMES, useAppearance, type Tone } from './th
 import { FONTS, KINDS, SAME_AS_UI, SIZES, SLOTS, THEME, setTypography, useTypography } from './typography';
 import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
+import { Select } from './design/Pickers';
 
 // Configuración con la forma de Obsidian: a la izquierda las secciones, a la
 // derecha los ajustes de la elegida, cada uno con su nombre y explicación a la
@@ -193,19 +194,19 @@ export function Settings({ onClose, onProfiles }: Props) {
               </Row>
               {SLOTS.map((s) => (
                 <Row key={s.id} name={s.name} hint={s.hint}>
-                  <select className="set-select" value={type[s.id]} onChange={(e) => report(setTypography({ [s.id]: e.target.value }))} aria-label={s.name}>
-                    <option value={THEME}>Del tema</option>
-                    {s.sameAsUi && <option value={SAME_AS_UI}>La de la interfaz</option>}
-                    {KINDS.map((k) => (
-                      <optgroup key={k.id} label={k.name}>
-                        {FONTS.filter((f) => f.kind === k.id).map((f) => (
-                          <option key={f.id} value={f.id} style={{ fontFamily: f.stack }}>
-                            {f.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                  <Select
+                    className="set-pick"
+                    label={s.name}
+                    value={type[s.id]}
+                    onChange={(v) => report(setTypography({ [s.id]: v }))}
+                    groups={[
+                      { options: [{ value: THEME, label: 'Del tema' }, ...(s.sameAsUi ? [{ value: SAME_AS_UI, label: 'La de la interfaz' }] : [])] },
+                      ...KINDS.map((k) => ({
+                        label: k.name,
+                        options: FONTS.filter((f) => f.kind === k.id).map((f) => ({ value: f.id, label: f.name, style: { fontFamily: f.stack } })),
+                      })),
+                    ]}
+                  />
                 </Row>
               ))}
               <div className="set-block">

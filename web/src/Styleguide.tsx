@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { Wordmark } from './Wordmark';
 import { Fireflies } from './Fireflies';
+import { DatePicker, Select } from './design/Pickers';
 
 // Muestra viva del sistema de diseño: abre la app con #sistema en la URL.
 
@@ -40,6 +41,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function Styleguide() {
   const [hue, setHue] = useState('teal');
   const [cursor, setCursor] = useState(0);
+  const [font, setFont] = useState('inter');
+  const [day, setDay] = useState<string | null>(null);
 
   const pick = (h: string) => {
     setHue(h);
@@ -185,6 +188,22 @@ export function Styleguide() {
                 </li>
               </ul>
             </div>
+          </div>
+        </Section>
+
+        <Section title="Desplegables y fechas">
+          <div className="sg-row">
+            <Select
+              label="Letra"
+              value={font}
+              onChange={setFont}
+              groups={[
+                { options: [{ value: 'tema', label: 'Del tema' }] },
+                { label: 'Sans', options: [{ value: 'inter', label: 'Inter' }, { value: 'geist', label: 'Geist' }] },
+                { label: 'Serif', options: [{ value: 'lora', label: 'Lora' }, { value: 'fraunces', label: 'Fraunces' }] },
+              ]}
+            />
+            <DatePicker value={day} onChange={setDay} />
           </div>
         </Section>
 

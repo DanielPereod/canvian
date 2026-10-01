@@ -10,6 +10,7 @@ import {
   type PropValue,
 } from '../api';
 import { kindChange } from './board/board';
+import { DatePicker } from '../design/Pickers';
 
 export const PRIORITIES = ['Sin prioridad', 'Baja', 'Media', 'Alta'] as const;
 const TYPES: { id: PropertyType; name: string }[] = [
@@ -187,12 +188,7 @@ function Segmented<T extends string>({
 function DateInput({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
   return (
     <span className="insp-date">
-      <input
-        type="date"
-        className="insp-input"
-        value={value?.slice(0, 10) ?? ''}
-        onChange={(e) => onChange(e.target.value || null)}
-      />
+      <DatePicker className="insp-input" value={value} onChange={onChange} />
       {value && (
         <button className="insp-clear" onClick={() => onChange(null)} aria-label="Quitar fecha">
           ×

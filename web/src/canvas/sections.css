@@ -387,7 +387,8 @@
 .tv-detail { flex: none; width: var(--tv-detail-w, 360px); display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-left: 1px solid var(--line); overflow-y: auto; animation: rise-in 300ms var(--ease-out) both; }
 .tv-detail-empty { color: var(--text-ghost); font-size: var(--text-sm); justify-content: center; text-align: center; }
 .tv-detail-bar { display: flex; align-items: center; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--line); }
-.tv-date { background: none; border: 0; color: var(--text-muted); font: inherit; font-size: var(--text-sm); color-scheme: inherit; cursor: pointer; }
+.tv-date { background: none; border-color: transparent; color: var(--text-muted); padding: 4px 8px; gap: 6px; }
+.tv-date:hover { background: var(--surface-hover); border-color: transparent; }
 .tv-date.is-late { color: var(--danger); }
 .tv-prio { margin-left: auto; display: flex; gap: 2px; }
 .tv-prio button { background: none; border: 0; border-radius: 6px; padding: 2px 7px; font: inherit; font-size: var(--text-xs); font-weight: 600; color: var(--text-ghost); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }

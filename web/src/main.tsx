@@ -21,6 +21,7 @@ import './fonts';
 import './design/tokens.css';
 import './design/base.css';
 import './design/components.css';
+import './design/pickers.css';
 import './canvas/canvas.css';
 import './app.css';
 import './canvas/properties.css';
