@@ -4,6 +4,7 @@ import { Fragment, Slice } from '@tiptap/pm/model';
 import { Plugin } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { api } from '../api';
+import { locale, t } from '../i18n';
 
 // Archivos dentro de las notas. Imágenes, vídeo y audio se ven en el texto;
 // cualquier otro (PDF, documentos, hojas de cálculo…) queda como una ficha que
@@ -22,7 +23,7 @@ const player = (name: 'video' | 'audio') =>
   });
 
 // La extensión que se enseña en la ficha: «PDF», «DOCX»…
-export const fileExt = (name: string) => /\.([a-z0-9]{1,6})$/i.exec(name)?.[1].toUpperCase() ?? 'ARCHIVO';
+export const fileExt = (name: string) => /\.([a-z0-9]{1,6})$/i.exec(name)?.[1].toUpperCase() ?? t('ARCHIVO');
 
 export function fileSize(bytes: number | null | undefined) {
   if (bytes == null || !Number.isFinite(bytes)) return '';
@@ -31,7 +32,7 @@ export function fileSize(bytes: number | null | undefined) {
   let n = bytes / 1024;
   let i = 0;
   for (; n >= 1024 && i < units.length - 1; i++) n /= 1024;
-  return `${n.toLocaleString('es', { maximumFractionDigits: n < 10 ? 1 : 0 })} ${units[i]}`;
+  return `${n.toLocaleString(locale(), { maximumFractionDigits: n < 10 ? 1 : 0 })} ${units[i]}`;
 }
 
 // Los que el navegador sabe enseñar en una pestaña; el resto se descarga.
@@ -70,9 +71,9 @@ const FileNode = Node.create({
     const { src, name, size } = node.attrs as { src: string | null; name: string; size: number | null };
     return [
       'div',
-      { 'data-note-file': '', 'data-src': src ?? '', 'data-name': name, 'data-size': size ?? '', class: 'note-file', title: viewable(src ?? '') ? 'Abrir' : 'Descargar' },
+      { 'data-note-file': '', 'data-src': src ?? '', 'data-name': name, 'data-size': size ?? '', class: 'note-file', title: viewable(src ?? '') ? t('Abrir') : t('Descargar') },
       ['span', { class: 'note-file-ext' }, fileExt(name)],
-      ['span', { class: 'note-file-name' }, name || 'Archivo'],
+      ['span', { class: 'note-file-name' }, name || t('Archivo')],
       ['span', { class: 'note-file-size' }, fileSize(size)],
     ];
   },

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { NoteRow } from '../api';
 import { splitWiki, type WikiQuery } from './obsidian';
+import { t } from '../i18n';
 
 // La lista que sale al escribir «[[» en una nota: las notas del perfil que
 // casan con lo escrito, y crear una nueva si no hay ninguna con ese nombre.
@@ -14,12 +15,12 @@ const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCas
 // El texto normalizado de cada nota, mientras la nota no cambie.
 const cache = new WeakMap<NoteRow, { title: string; body: string }>();
 function textOf(r: NoteRow) {
-  let t = cache.get(r);
-  if (!t) {
-    t = { title: norm(r.title ?? ''), body: norm((r.bodyText ?? '').slice(0, 2000)) };
-    cache.set(r, t);
+  let text = cache.get(r);
+  if (!text) {
+    text = { title: norm(r.title ?? ''), body: norm((r.bodyText ?? '').slice(0, 2000)) };
+    cache.set(r, text);
   }
-  return t;
+  return text;
 }
 
 export function wikiItems(rows: NoteRow[], query: string, exclude: string): WikiItem[] {
@@ -80,9 +81,9 @@ export function WikiMenu({ query, rows, exclude, onPick, keys }: Props) {
 
   // En el body: dentro de la hoja, su animación desplazaría la posición fija.
   return createPortal(
-    <div className="surface-3 wiki-suggest" style={style} role="listbox" aria-label="Enlazar con una nota" onMouseDown={(e) => e.preventDefault()}>
+    <div className="surface-3 wiki-suggest" style={style} role="listbox" aria-label={t('Enlazar con una nota')} onMouseDown={(e) => e.preventDefault()}>
       {items.length === 0 ? (
-        <div className="list-item static">Escribe el nombre de una nota</div>
+        <div className="list-item static">{t('Escribe el nombre de una nota')}</div>
       ) : (
         <ul className="list">
           {items.map((item, i) => (
@@ -96,13 +97,13 @@ export function WikiMenu({ query, rows, exclude, onPick, keys }: Props) {
             >
               {item.kind === 'note' ? (
                 <div className="hit">
-                  <span className="hit-title">{item.row.title || 'Nota sin título'}</span>
-                  {item.row.zoneId && byId.get(item.row.zoneId) && <span className="hit-snippet">en {byId.get(item.row.zoneId)!.title || 'Nota sin título'}</span>}
+                  <span className="hit-title">{item.row.title || t('Nota sin título')}</span>
+                  {item.row.zoneId && byId.get(item.row.zoneId) && <span className="hit-snippet">{t('en {name}', { name: byId.get(item.row.zoneId)!.title || t('Nota sin título') })}</span>}
                 </div>
               ) : (
                 <>
                   <span className="list-icon">+</span>
-                  Crear nota «{item.title}»
+                  {t('Crear nota «{name}»', { name: item.title })}
                 </>
               )}
             </li>

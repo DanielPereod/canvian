@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { parentMap } from './sections';
 import { longPress, TOUCH } from './touch';
 import type { NoteRow, TaskStatus } from '../api';
-import { daysUntil, dueLabel, localToday } from './dates';
+import { dateFmt, daysUntil, dueLabel, localToday } from './dates';
+import { t } from '../i18n';
 import { actionFor, keyParts, keysBlocked, useKeymap, type ActionId } from '../keys';
 import { mergeTags } from './tags';
 import { allTasks, type Task, type TaskChange } from './tasks';
@@ -65,30 +66,31 @@ const urgency = (r: Task) =>
   (r.updatedAt ? Date.parse(r.updatedAt) / 1e11 : 0) -
   r.n / 1e4;
 
-const WEEKDAY = new Intl.DateTimeFormat('es-ES', { weekday: 'long' });
 function whenGroup(r: Task): [number, string] {
-  if (!r.dueAt) return [9, 'Sin fecha'];
+  if (!r.dueAt) return [9, t('Sin fecha')];
   const d = daysUntil(r.dueAt);
-  if (d < 0) return [0, 'Vencidas'];
-  if (d === 0) return [1, `${cap(WEEKDAY.format(new Date(localToday())))}, hoy`];
-  if (d === 1) return [2, 'Mañana'];
-  if (d <= 7) return [3, 'Próximos 7 días'];
-  if (d <= 31) return [4, 'Este mes'];
-  return [5, 'Más adelante'];
+  if (d < 0) return [0, t('Vencidas')];
+  if (d === 0) return [1, t('{day}, hoy', { day: cap(dateFmt({ weekday: 'long' }).format(new Date(localToday()))) })];
+  if (d === 1) return [2, t('Mañana')];
+  if (d <= 7) return [3, t('Próximos 7 días')];
+  if (d <= 31) return [4, t('Este mes')];
+  return [5, t('Más adelante')];
 }
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const isoDay = (offset: number) => {
   const t = new Date(localToday());
   return isoOf(new Date(t.getFullYear(), t.getMonth(), t.getDate() + offset));
 };
-const titleOf = (r: Task) => r.title || 'Tarea sin título';
-const noteTitle = (r: NoteRow) => r.title || 'Nota sin título';
+const titleOf = (r: Task) => r.title || t('Tarea sin título');
+const noteTitle = (r: NoteRow) => r.title || t('Nota sin título');
 const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const MONTH = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
+// Formatos de fecha en el idioma de la interfaz (se crean al usarlos).
+const MONTH = () => dateFmt({ month: 'long', year: 'numeric' });
+const MONTH_NAME = () => dateFmt({ month: 'long' });
 const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
-const LONG_DAY = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-const SHORT_DOW = new Intl.DateTimeFormat('es-ES', { weekday: 'short' });
-const RANGE = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+const LONG_DAY = () => dateFmt({ weekday: 'long', day: 'numeric', month: 'long' });
+const SHORT_DOW = () => dateFmt({ weekday: 'short' });
+const RANGE = () => dateFmt({ day: 'numeric', month: 'short', year: 'numeric' });
 const dateOf = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, m - 1, d);
@@ -208,18 +210,18 @@ export function TasksView(p: Props) {
 
   const due = (r: Task) => (r.dueAt ? daysUntil(r.dueAt) : null);
   const smart: { id: string; name: string; icon: string; test: (r: Task) => boolean }[] = [
-    { id: 'all', name: 'Todas', icon: '◎', test: () => true },
-    { id: 'today', name: 'Hoy', icon: '◐', test: (r) => due(r) !== null && due(r)! <= 0 },
-    { id: 'week', name: 'Próximos 7 días', icon: '◔', test: (r) => due(r) !== null && due(r)! <= 7 },
+    { id: 'all', name: t('Todas'), icon: '◎', test: () => true },
+    { id: 'today', name: t('Hoy'), icon: '◐', test: (r) => due(r) !== null && due(r)! <= 0 },
+    { id: 'week', name: t('Próximos 7 días'), icon: '◔', test: (r) => due(r) !== null && due(r)! <= 7 },
   ];
 
   const current = useMemo(() => {
-    if (view === 'done') return { name: 'Hechas', list: [...done].sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? '') || b.updatedAt.localeCompare(a.updatedAt)), test: () => true };
+    if (view === 'done') return { name: t('Hechas'), list: [...done].sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? '') || b.updatedAt.localeCompare(a.updatedAt)), test: () => true };
     let name: string;
     let test: (r: Task) => boolean;
     if (view.startsWith('sec:')) {
       const id = view.slice(4);
-      name = byId.get(id) ? noteTitle(byId.get(id)!) : 'Nota';
+      name = byId.get(id) ? noteTitle(byId.get(id)!) : t('Nota');
       test = (r) => r.noteId === id;
     } else if (view.startsWith('tag:')) {
       const t = view.slice(4).toLowerCase();
@@ -247,19 +249,19 @@ export function TasksView(p: Props) {
       for (const r of [...items].sort(sort)) if (!r.parentId || !here.has(r.parentId)) put(r, 0);
       return out;
     };
-    if (view === 'done') return current.list.length ? [{ key: 0 as number | string, title: 'Hechas', items: nest(current.list, () => 0) }] : [];
+    if (view === 'done') return current.list.length ? [{ key: 0 as number | string, title: t('Hechas'), items: nest(current.list, () => 0) }] : [];
     const out = new Map<string, { key: number | string; title: string; items: Task[] }>();
     for (const r of current.list) {
       let key: number | string;
       let title: string;
       // Dos notas con el mismo nombre en sitios distintos son dos grupos.
       let at: string | undefined;
-      if (grouping === 'estado') [key, title] = r.status === 'doing' ? [0, 'En curso'] : r.status === 'blocked' ? [2, 'Bloqueadas'] : [1, 'Por hacer'];
+      if (grouping === 'estado') [key, title] = r.status === 'doing' ? [0, t('En curso')] : r.status === 'blocked' ? [2, t('Bloqueadas')] : [1, t('Por hacer')];
       else if (grouping === 'fecha') [key, title] = whenGroup(r);
       else {
         const home = homeOf(r);
         at = r.noteId;
-        title = home ? noteTitle(home) : 'Nota';
+        title = home ? noteTitle(home) : t('Nota');
         key = `${title.toLocaleLowerCase('es')}\u0000${r.noteId}`;
       }
       const g = out.get(at ?? title) ?? { key, title, items: [] };
@@ -318,20 +320,20 @@ export function TasksView(p: Props) {
   const calDays = calMode === 'dia' ? [calDay] : calMode === 'tres' ? [0, 1, 2].map((k) => addDays(threeFrom, k)) : Array.from({ length: 7 }, (_, k) => addDays(mondayOf(calDay), k));
   const calTitle =
     calMode === 'mes'
-      ? cap(MONTH.format(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1)))
+      ? cap(MONTH().format(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1)))
       : calMode === 'dia'
-        ? cap(LONG_DAY.format(dateOf(calDay)))
+        ? cap(LONG_DAY().format(dateOf(calDay)))
         : calMode === 'agenda'
           ? calDay === isoDay(0)
-            ? 'Agenda'
-            : `Agenda desde el ${LONG_DAY.format(dateOf(calDay))}`
-          : RANGE.formatRange(dateOf(calDays[0]), dateOf(calDays[calDays.length - 1]));
+            ? t('Agenda')
+            : t('Agenda desde el {date}', { date: LONG_DAY().format(dateOf(calDay)) })
+          : RANGE().formatRange(dateOf(calDays[0]), dateOf(calDays[calDays.length - 1]));
   const PERIOD: Record<CalMode, [string, string]> = {
-    agenda: ['Semana anterior', 'Semana siguiente'],
-    dia: ['Día anterior', 'Día siguiente'],
-    tres: ['3 días antes', '3 días después'],
-    semana: ['Semana anterior', 'Semana siguiente'],
-    mes: ['Mes anterior', 'Mes siguiente'],
+    agenda: [t('Semana anterior'), t('Semana siguiente')],
+    dia: [t('Día anterior'), t('Día siguiente')],
+    tres: [t('3 días antes'), t('3 días después')],
+    semana: [t('Semana anterior'), t('Semana siguiente')],
+    mes: [t('Mes anterior'), t('Mes siguiente')],
   };
 
   // Tablero: una columna por estado. Las hechas, solo las últimas.
@@ -430,8 +432,14 @@ export function TasksView(p: Props) {
     setIntoShut(-1);
   };
   const addHint = cal
-    ? `Añadir tarea para ${calDay === isoDay(0) ? 'hoy' : dueLabel(calDay)}…`
-    : view.startsWith('sec:') ? `Añadir tarea en ${current.name}…` : view === 'today' ? 'Añadir tarea para hoy…' : `Añadir tarea en «${INBOX}»… (#etiqueta, > otra nota)`;
+    ? calDay === isoDay(0)
+      ? t('Añadir tarea para hoy…')
+      : t('Añadir tarea para {day}…', { day: dueLabel(calDay) })
+    : view.startsWith('sec:')
+      ? t('Añadir tarea en {note}…', { note: current.name })
+      : view === 'today'
+        ? t('Añadir tarea para hoy…')
+        : t('Añadir tarea en «{inbox}»… (#etiqueta, > otra nota)', { inbox: INBOX });
 
   // «Espacio hecha» para el pie, con la tecla que tenga cada uno (o nada).
   const keymap = useKeymap();
@@ -505,21 +513,21 @@ export function TasksView(p: Props) {
   let i = 0;
   return (
     <div className="tasks-view tv" style={{ '--tv-side-w': `${sideWidth.width}px`, '--tv-detail-w': `${detailWidth.width}px` } as CSSProperties}>
-      <nav className="tv-side" aria-label="Listas de tareas">
+      <nav className="tv-side" aria-label={t('Listas de tareas')}>
         {smart.map((s) => (
           <Nav key={s.id} id={s.id} name={s.name} icon={s.icon} n={active.filter(s.test).length} />
         ))}
-        {sections.length > 0 && <div className="tv-side-title">En las notas</div>}
+        {sections.length > 0 && <div className="tv-side-title">{t('En las notas')}</div>}
         {sections.map(({ row, n }) => (
           <Nav key={row.id} id={`sec:${row.id}`} name={noteTitle(row)} hint={pathOf(row.id)} icon="◇" n={n} />
         ))}
-        {tags.length > 0 && <div className="tv-side-title">Etiquetas</div>}
+        {tags.length > 0 && <div className="tv-side-title">{t('Etiquetas')}</div>}
         {tags.map(([t, n]) => (
           <Nav key={t} id={`tag:${t}`} name={t} icon="#" n={n} />
         ))}
         <div className="tv-side-sep" />
-        <Nav id="cal" name="Calendario" icon="▦" />
-        <Nav id="done" name="Hechas" icon="✓" n={done.length} />
+        <Nav id="cal" name={t('Calendario')} icon="▦" />
+        <Nav id="done" name={t('Hechas')} icon="✓" n={done.length} />
       </nav>
 
       <Resizer size={sideWidth} edge="right" className="tv-side-resizer" />
@@ -532,19 +540,19 @@ export function TasksView(p: Props) {
           </h1>
           {cal && (
             <div className="tv-head-tools">
-              <div className="tv-group-by" role="radiogroup" aria-label="Vista del calendario">
+              <div className="tv-group-by" role="radiogroup" aria-label={t('Vista del calendario')}>
                 {CAL_MODES.map((m, n) => (
-                  <button key={m.id} role="radio" aria-checked={calMode === m.id} className={calMode === m.id ? 'is-on' : ''} onClick={() => pickMode(m.id)} title={`${m.label} (${n + 1})`}>
-                    {m.label}
+                  <button key={m.id} role="radio" aria-checked={calMode === m.id} className={calMode === m.id ? 'is-on' : ''} onClick={() => pickMode(m.id)} title={`${t(m.label)} (${n + 1})`}>
+                    {t(m.label)}
                   </button>
                 ))}
               </div>
-              <div className="tv-group-by" aria-label="Moverse">
+              <div className="tv-group-by" aria-label={t('Moverse')}>
                 <button onClick={() => shiftPeriod(-1)} aria-label={PERIOD[calMode][0]} title={`${PERIOD[calMode][0]} ([)`}>
                   ‹
                 </button>
-                <button onClick={goToday} title="Hoy (T)">
-                  Hoy
+                <button onClick={goToday} title={t('Hoy (T)')}>
+                  {t('Hoy')}
                 </button>
                 <button onClick={() => shiftPeriod(1)} aria-label={PERIOD[calMode][1]} title={`${PERIOD[calMode][1]} (])`}>
                   ›
@@ -555,18 +563,18 @@ export function TasksView(p: Props) {
           {view !== 'done' && !cal && (
             <div className="tv-head-tools">
               {!board && (
-                <div className="tv-group-by" role="radiogroup" aria-label="Agrupar por">
+                <div className="tv-group-by" role="radiogroup" aria-label={t('Agrupar por')}>
                   {GROUPINGS.map((g) => (
                     <button key={g.id} role="radio" aria-checked={g.id === grouping} className={g.id === grouping ? 'is-on' : ''} onClick={() => choose(g.id)}>
-                      {g.label}
+                      {t(g.label)}
                     </button>
                   ))}
                 </div>
               )}
-              <div className="tv-group-by" role="radiogroup" aria-label="Forma">
+              <div className="tv-group-by" role="radiogroup" aria-label={t('Forma')}>
                 {(['lista', 'tablero'] as const).map((l) => (
                   <button key={l} role="radio" aria-checked={layout === l} className={layout === l ? 'is-on' : ''} onClick={() => pickLayout(l)}>
-                    {l === 'lista' ? 'Lista' : 'Tablero'}
+                    {l === 'lista' ? t('Lista') : t('Tablero')}
                   </button>
                 ))}
               </div>
@@ -581,15 +589,15 @@ export function TasksView(p: Props) {
             {intoPath && (
               <span className="tv-add-into" title={intoPath}>
                 <span className="tv-add-into-name">{intoPath.split(' › ').at(-1)}</span>
-                <button onClick={() => (setInto(null), addRef.current?.focus())} aria-label="Quitar la nota" title="Quitar la nota">
+                <button onClick={() => (setInto(null), addRef.current?.focus())} aria-label={t('Quitar la nota')} title={t('Quitar la nota')}>
                   ×
                 </button>
               </span>
             )}
             <input
               ref={addRef}
-              placeholder={intoPath ? 'Tarea dentro de esta nota…' : addHint}
-              aria-label="Añadir tarea"
+              placeholder={intoPath ? t('Tarea dentro de esta nota…') : addHint}
+              aria-label={t('Añadir tarea')}
               aria-expanded={intoQuery !== null}
               aria-controls="tv-add-menu"
               value={adding}
@@ -617,16 +625,16 @@ export function TasksView(p: Props) {
             />
             <span className="tv-add-key">N</span>
             {intoQuery !== null && (
-              <div className="surface-3 tv-add-menu" id="tv-add-menu" role="listbox" aria-label="Meter la tarea dentro de" onMouseDown={(e) => e.preventDefault()}>
+              <div className="surface-3 tv-add-menu" id="tv-add-menu" role="listbox" aria-label={t('Meter la tarea dentro de')} onMouseDown={(e) => e.preventDefault()}>
                 {intoItems.length === 0 ? (
-                  <div className="list-item static">{intoQuery.trim() ? 'Ninguna nota se llama así · Esc para dejar el «>»' : 'Escribe el nombre de una nota'}</div>
+                  <div className="list-item static">{intoQuery.trim() ? t('Ninguna nota se llama así · Esc para dejar el «>»') : t('Escribe el nombre de una nota')}</div>
                 ) : (
                   <ul className="list">
                     {intoItems.map((o, n) => (
                       <li key={o.id} role="option" aria-selected={n === intoAt} className="list-item" onMouseEnter={() => setIntoCursor(n)} onClick={() => pickInto(o.id!)}>
                         <div className="hit">
                           <span className="hit-title">{o.path.split(' › ').at(-1)}</span>
-                          {o.path.includes(' › ') && <span className="hit-snippet">en {o.path.split(' › ').slice(0, -1).join(' › ')}</span>}
+                          {o.path.includes(' › ') && <span className="hit-snippet">{t('en {path}', { path: o.path.split(' › ').slice(0, -1).join(' › ') })}</span>}
                         </div>
                       </li>
                     ))}
@@ -682,7 +690,7 @@ export function TasksView(p: Props) {
                 }}
               >
                 <h2 className="tv-col-title">
-                  {c.name} <span className="tv-count">{c.total}</span>
+                  {t(c.name)} <span className="tv-count">{c.total}</span>
                 </h2>
                 <div className="tv-col-list">
                   {c.items.map((r) => {
@@ -722,8 +730,8 @@ export function TasksView(p: Props) {
                       </div>
                     );
                   })}
-                  {!c.items.length && <p className="tv-col-empty">{over === c.id ? 'Suelta aquí' : 'Nada'}</p>}
-                  {c.total > c.items.length && <p className="tv-col-empty">y {c.total - c.items.length} más en Hechas</p>}
+                  {!c.items.length && <p className="tv-col-empty">{over === c.id ? t('Suelta aquí') : t('Nada')}</p>}
+                  {c.total > c.items.length && <p className="tv-col-empty">{t('y {n} más en Hechas', { n: c.total - c.items.length })}</p>}
                 </div>
               </section>
             ))}
@@ -731,7 +739,7 @@ export function TasksView(p: Props) {
         )}
         <div className="tv-list" ref={listRef} hidden={cal || board}>
           {!groups.length && (
-            <p className="tv-empty">{view === 'done' ? 'Aún no hay nada hecho.' : all.length ? 'Nada pendiente aquí.' : 'Aún no hay tareas. Escribe «- [ ] » en cualquier nota, o apunta una arriba.'}</p>
+            <p className="tv-empty">{view === 'done' ? t('Aún no hay nada hecho.') : all.length ? t('Nada pendiente aquí.') : t('Aún no hay tareas. Escribe «- [ ] » en cualquier nota, o apunta una arriba.')}</p>
           )}
           {groups.map((g) => {
             const shut = collapsed.has(g.title);
@@ -774,7 +782,7 @@ export function TasksView(p: Props) {
                       >
                         <Check row={r} onToggle={() => toggleDone(r)} />
                         <span className="tv-row-title">{titleOf(r)}</span>
-                        {r.kids.length > 0 && <span className="tv-kids" title="Subtareas hechas">{`${kidsDone(r)}/${r.kids.length}`}</span>}
+                        {r.kids.length > 0 && <span className="tv-kids" title={t('Subtareas hechas')}>{`${kidsDone(r)}/${r.kids.length}`}</span>}
                         {r.tags.map((t) => (
                           <span key={t} className="tv-tag">
                             #{t}
@@ -792,12 +800,28 @@ export function TasksView(p: Props) {
         <p className="tv-foot meta">
           {[
             ...(cal
-              ? [`1–5 vista · ←→${calMode === 'mes' || calMode === 'semana' ? '↑↓' : ''} día · [ ] ${calMode === 'mes' ? 'mes' : calMode === 'dia' ? 'día' : calMode === 'tres' ? '3 días' : 'semana'} · T hoy · arrastra una tarea para cambiar su fecha`, foot('newNote', 'añadir en el día')]
+              ? [
+                  t('1–5 vista · ←→{arrows} día · [ ] {period} · T hoy · arrastra una tarea para cambiar su fecha', {
+                    arrows: calMode === 'mes' || calMode === 'semana' ? '↑↓' : '',
+                    period: calMode === 'mes' ? t('mes') : calMode === 'dia' ? t('día') : calMode === 'tres' ? t('3 días') : t('semana'),
+                  }),
+                  foot('newNote', t('añadir en el día')),
+                ]
               : board
-                ? ['←→↑↓ moverse · Mayús ←→ cambiar de columna · arrastra una tarjeta', foot('taskDone', 'hecha'), foot('move', 'otra nota'), foot('taskLayout', 'lista')]
-                : ['↑↓ moverse', foot('taskDone', 'hecha'), foot('cycleStatus', 'estado'), 'Enter abrir la nota', foot('taskEdit', 'editar'), foot('move', 'otra nota'), foot('newNote', 'añadir (> en una nota)'), 'Tab agrupar', foot('taskLayout', 'tablero')]),
-            foot('help', 'atajos'),
-            'Esc salir',
+                ? [t('←→↑↓ moverse · Mayús ←→ cambiar de columna · arrastra una tarjeta'), foot('taskDone', t('hecha')), foot('move', t('otra nota')), foot('taskLayout', t('lista'))]
+                : [
+                    t('↑↓ moverse'),
+                    foot('taskDone', t('hecha')),
+                    foot('cycleStatus', t('estado')),
+                    t('Enter abrir la nota'),
+                    foot('taskEdit', t('editar')),
+                    foot('move', t('otra nota')),
+                    foot('newNote', t('añadir (> en una nota)')),
+                    t('Tab agrupar'),
+                    foot('taskLayout', t('tablero')),
+                  ]),
+            foot('help', t('atajos')),
+            t('Esc salir'),
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -842,7 +866,7 @@ function Check({ row, onToggle }: { row: Task; onToggle: () => void }) {
       className={`tv-check is-${s} prio-${row.priority}`}
       role="checkbox"
       aria-checked={s === 'done'}
-      aria-label={s === 'done' ? 'Marcar pendiente' : 'Marcar hecha'}
+      aria-label={s === 'done' ? t('Marcar pendiente') : t('Marcar hecha')}
       onClick={(e) => {
         e.stopPropagation();
         onToggle();
@@ -882,7 +906,7 @@ function Detail({
   const [title, setTitle] = useState(row?.source ?? '');
   const [tag, setTag] = useState('');
   const [sub, setSub] = useState('');
-  if (!row) return <aside className="tv-detail tv-detail-empty">Elige una tarea para ver su detalle.</aside>;
+  if (!row) return <aside className="tv-detail tv-detail-empty">{t('Elige una tarea para ver su detalle.')}</aside>;
   const up = row.parentId ? find(row.parentId) : undefined;
   const kids = row.kids.map((k) => find(k)).filter((k): k is Task => !!k);
 
@@ -893,22 +917,22 @@ function Detail({
   };
 
   return (
-    <aside className="tv-detail" aria-label="Detalle de la tarea">
+    <aside className="tv-detail" aria-label={t('Detalle de la tarea')}>
       <div className="tv-detail-bar">
         <Check row={row} onToggle={() => onToggle(row)} />
         <DatePicker
           className={`tv-date${row.dueAt && daysUntil(row.dueAt) < 0 && row.status !== 'done' ? ' is-late' : ''}`}
-          label="Fecha"
+          label={t('Fecha')}
           value={row.dueAt?.slice(0, 10) ?? null}
           onChange={(v) => p.onChange(row, { dueAt: v })}
         />
-        <div className="tv-prio" role="radiogroup" aria-label="Prioridad">
+        <div className="tv-prio" role="radiogroup" aria-label={t('Prioridad')}>
           {[1, 2, 3].map((n) => (
             <button
               key={n}
               role="radio"
               aria-checked={row.priority === n}
-              title={PRIOS[n]}
+              title={t(PRIOS[n])}
               className={`prio-${n}${row.priority === n ? ' is-on' : ''}`}
               onClick={() => p.onChange(row, { priority: row.priority === n ? 0 : n })}
             >
@@ -919,16 +943,16 @@ function Detail({
       </div>
 
       {up && (
-        <button className="tv-detail-up" onClick={() => onPick(up)} title="Ir a la tarea madre">
-          ↳ Subtarea de <span>{titleOf(up)}</span>
+        <button className="tv-detail-up" onClick={() => onPick(up)} title={t('Ir a la tarea madre')}>
+          ↳ {t('Subtarea de')} <span>{titleOf(up)}</span>
         </button>
       )}
       <input
         ref={titleRef}
         className="tv-detail-title"
-        aria-label="Título"
+        aria-label={t('Título')}
         value={title}
-        placeholder="Tarea sin título"
+        placeholder={t('Tarea sin título')}
         onChange={(e) => setTitle(e.target.value)}
         onBlur={saveTitle}
         onKeyDown={(e) => {
@@ -941,29 +965,29 @@ function Detail({
           e.stopPropagation();
         }}
       />
-      <button className="tv-detail-where" onClick={onMove} title={`${path} · llevarla a otra nota (M)`}>
-        En {section || 'una nota'}
-        <span className="tv-detail-move">Mover</span>
+      <button className="tv-detail-where" onClick={onMove} title={t('{path} · llevarla a otra nota (M)', { path })}>
+        {t('En {note}', { note: section || t('una nota') })}
+        <span className="tv-detail-move">{t('Mover')}</span>
       </button>
 
-      <div className="tv-status" role="radiogroup" aria-label="Estado">
+      <div className="tv-status" role="radiogroup" aria-label={t('Estado')}>
         {STATUSES.map((s) => (
           <button key={s.id} role="radio" aria-checked={row.status === s.id} className={row.status === s.id ? 'is-on' : ''} onClick={() => p.onChange(row, { status: s.id })}>
-            {s.name}
+            {t(s.name)}
           </button>
         ))}
       </div>
 
       <div className="tv-detail-tags">
-        {row.tags.map((t) => (
-          <button key={t} className="tv-tag is-chip" title="Quitar" onClick={() => p.onChange(row, { tags: row.tags.filter((x) => x !== t) })}>
-            #{t} <span aria-hidden="true">×</span>
+        {row.tags.map((tg) => (
+          <button key={tg} className="tv-tag is-chip" title={t('Quitar')} onClick={() => p.onChange(row, { tags: row.tags.filter((x) => x !== tg) })}>
+            #{tg} <span aria-hidden="true">×</span>
           </button>
         ))}
         <input
           className="tv-tag-add"
-          placeholder="+ etiqueta"
-          aria-label="Añadir etiqueta"
+          placeholder={t('+ etiqueta')}
+          aria-label={t('Añadir etiqueta')}
           value={tag}
           onChange={(e) => setTag(e.target.value)}
           onKeyDown={(e) => {
@@ -978,9 +1002,9 @@ function Detail({
         />
       </div>
 
-      <div className="tv-subs" aria-label="Subtareas">
+      <div className="tv-subs" aria-label={t('Subtareas')}>
         <span className="tv-subs-h">
-          Subtareas{kids.length > 0 && <span className="tv-count">{`${kids.filter((k) => k.status === 'done').length}/${kids.length}`}</span>}
+          {t('Subtareas')}{kids.length > 0 && <span className="tv-count">{`${kids.filter((k) => k.status === 'done').length}/${kids.length}`}</span>}
         </span>
         {kids.map((k) => (
           <div key={k.id} className={`tv-sub${k.status === 'done' ? ' is-done' : ''}`} onClick={() => onPick(k)}>
@@ -991,8 +1015,8 @@ function Detail({
         ))}
         <input
           className="tv-sub-add"
-          placeholder="+ subtarea"
-          aria-label="Añadir subtarea"
+          placeholder={t('+ subtarea')}
+          aria-label={t('Añadir subtarea')}
           value={sub}
           onChange={(e) => setSub(e.target.value)}
           onKeyDown={(e) => {
@@ -1007,10 +1031,10 @@ function Detail({
       </div>
 
       <div className="tv-detail-foot">
-        <button className="set-button tv-danger" onClick={() => p.onDelete(row)} title={kids.length ? 'Borrar la tarea y sus subtareas (Supr)' : 'Borrar la tarea (Supr)'}>
-          Borrar
+        <button className="set-button tv-danger" onClick={() => p.onDelete(row)} title={kids.length ? t('Borrar la tarea y sus subtareas (Supr)') : t('Borrar la tarea (Supr)')}>
+          {t('Borrar')}
         </button>
-        <button className="set-button tv-expand" onClick={() => p.onOpen(row)} title="Abrir su nota (Enter)" aria-label="Abrir su nota">
+        <button className="set-button tv-expand" onClick={() => p.onOpen(row)} title={t('Abrir su nota (Enter)')} aria-label={t('Abrir su nota')}>
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6" />
           </svg>
@@ -1053,29 +1077,29 @@ function TaskMenu({ row, x, y, onPick, onClose }: { row: Task; x: number; y: num
     </div>
   );
   const soon = [
-    { iso: isoDay(0), name: 'Hoy' },
-    { iso: isoDay(1), name: 'Mañana' },
-    { iso: isoDay(7), name: '+1 sem.', title: 'Dentro de una semana' },
+    { iso: isoDay(0), name: t('Hoy') },
+    { iso: isoDay(1), name: t('Mañana') },
+    { iso: isoDay(7), name: t('+1 sem.'), title: t('Dentro de una semana') },
   ];
 
   // En <body>: la vista de tareas entra con un transform, y dentro de ella «fixed» no se mediría desde la ventana.
   return createPortal(
     <div className="bib-menu tv-menu" ref={ref} role="menu" aria-label={titleOf(row)} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
       <div className="bib-menu-head bib-ellipsis">{titleOf(row)}</div>
-      {item('open', 'Abrir su nota', 'Enter')}
-      {item('edit', 'Editar el texto', 'E')}
-      {item('done', s === 'done' ? 'Marcar pendiente' : 'Marcar hecha', 'Espacio')}
+      {item('open', t('Abrir su nota'), 'Enter')}
+      {item('edit', t('Editar el texto'), 'E')}
+      {item('done', s === 'done' ? t('Marcar pendiente') : t('Marcar hecha'), t('Espacio'))}
       <div className="bib-menu-sep" role="separator" />
-      {chips('Estado', STATUSES.map((x) => ({ a: { status: x.id }, name: x.name, on: s === x.id })))}
-      {chips('Prioridad', [0, 1, 2, 3].map((n) => ({ a: { priority: n }, name: n ? '!'.repeat(n) : '—', title: PRIOS[n], on: row.priority === n, className: `prio-${n}` })))}
-      {chips('Fecha', [
+      {chips(t('Estado'), STATUSES.map((x) => ({ a: { status: x.id }, name: t(x.name), on: s === x.id })))}
+      {chips(t('Prioridad'), [0, 1, 2, 3].map((n) => ({ a: { priority: n }, name: n ? '!'.repeat(n) : '—', title: t(PRIOS[n]), on: row.priority === n, className: `prio-${n}` })))}
+      {chips(t('Fecha'), [
         ...soon.map((d) => ({ a: { dueAt: d.iso }, name: d.name, title: d.title ?? dueLabel(d.iso), on: dueDay === d.iso })),
-        { a: { dueAt: null }, name: 'Sin fecha', on: !dueDay },
+        { a: { dueAt: null }, name: t('Sin fecha'), on: !dueDay },
       ])}
       <div className="bib-menu-sep" role="separator" />
-      {item('move', 'Llevar a otra nota…', 'M')}
+      {item('move', t('Llevar a otra nota…'), 'M')}
       <div className="bib-menu-sep" role="separator" />
-      {item('delete', row.kids.length ? 'Borrar con sus subtareas' : 'Borrar', 'Supr', true)}
+      {item('delete', row.kids.length ? t('Borrar con sus subtareas') : t('Borrar'), t('Supr'), true)}
     </div>,
     document.body,
   );
@@ -1198,7 +1222,7 @@ function CalMonth(p: CalProps) {
     <div className="tv-cal" style={{ '--weeks': weeks } as React.CSSProperties}>
       {DOW.map((d) => (
         <div key={d} className="tv-cal-dow">
-          {d}
+          {t(d)}
         </div>
       ))}
       {days.slice(0, weeks * 7).map((iso) => {
@@ -1215,7 +1239,7 @@ function CalMonth(p: CalProps) {
             {shown.map((r) => (
               <CalTask key={r.id} r={r} iso={iso} p={p} />
             ))}
-            {list.length > shown.length && <span className="tv-cal-more">+{list.length - shown.length} más</span>}
+            {list.length > shown.length && <span className="tv-cal-more">{t('+{n} más', { n: list.length - shown.length })}</span>}
           </div>
         );
       })}
@@ -1233,7 +1257,7 @@ function CalColumns(p: CalProps) {
     <div className={`tv-cal-cols is-${p.mode}`} style={{ '--cols': p.days.length } as React.CSSProperties}>
       {p.days.map((iso) => (
         <button key={iso} className={`tv-cal-colhead${iso === today ? ' is-today' : ''}${iso === p.day ? ' is-on' : ''}`} onClick={() => p.onDay(iso)} {...dropOn(iso, setOver, p.onMove)}>
-          <span className="tv-cal-coldow">{SHORT_DOW.format(dateOf(iso)).replace('.', '')}</span>
+          <span className="tv-cal-coldow">{SHORT_DOW().format(dateOf(iso)).replace('.', '')}</span>
           <span className="tv-cal-num">{Number(iso.slice(8))}</span>
           {!!byDay.get(iso)?.length && <span className="tv-count">{byDay.get(iso)!.filter((r) => r.status !== 'done').length || ''}</span>}
         </button>
@@ -1245,7 +1269,7 @@ function CalColumns(p: CalProps) {
             {list.map((r) => (
               <CalTask key={r.id} r={r} iso={iso} p={p} where={roomy ? p.whereOf(r) : undefined} />
             ))}
-            {!list.length && p.mode === 'dia' && <p className="tv-cal-empty">Nada para este día. N para apuntar algo.</p>}
+            {!list.length && p.mode === 'dia' && <p className="tv-cal-empty">{t('Nada para este día. N para apuntar algo.')}</p>}
           </div>
         );
       })}
@@ -1264,14 +1288,14 @@ function CalAgenda(p: CalProps) {
   if (!days.includes(p.day)) days.unshift(p.day);
   const label = (iso: string) => {
     const n = daysUntil(iso);
-    return n === 0 ? 'Hoy' : n === 1 ? 'Mañana' : n === -1 ? 'Ayer' : cap(SHORT_DOW.format(dateOf(iso)).replace('.', ''));
+    return n === 0 ? t('Hoy') : n === 1 ? t('Mañana') : n === -1 ? t('Ayer') : cap(SHORT_DOW().format(dateOf(iso)).replace('.', ''));
   };
   return (
     <div className="tv-agenda">
       {late.length > 0 && (
         <section className="tv-agenda-day is-late">
           <div className="tv-agenda-date">
-            <span className="tv-agenda-dow">Vencidas</span>
+            <span className="tv-agenda-dow">{t('Vencidas')}</span>
           </div>
           <div className="tv-agenda-list">
             {late.map(([iso, r]) => (
@@ -1284,23 +1308,23 @@ function CalAgenda(p: CalProps) {
         const list = byDay.get(iso) ?? [];
         return (
           <section key={iso} className={`tv-agenda-day${iso === today ? ' is-today' : ''}${iso === p.day ? ' is-on' : ''}${over === iso ? ' is-over' : ''}`} {...dropOn(iso, setOver, p.onMove)}>
-            <button className="tv-agenda-date" onClick={() => p.onDay(iso)} title="Apuntar en este día">
+            <button className="tv-agenda-date" onClick={() => p.onDay(iso)} title={t('Apuntar en este día')}>
               <span className="tv-cal-num">{Number(iso.slice(8))}</span>
               <span className="tv-agenda-dow">
                 {label(iso)}
-                <span className="tv-agenda-month">{MONTH.format(dateOf(iso)).replace(/ de \d+$/, '')}</span>
+                <span className="tv-agenda-month">{MONTH_NAME().format(dateOf(iso))}</span>
               </span>
             </button>
             <div className="tv-agenda-list">
               {list.map((r) => (
                 <CalTask key={r.id} r={r} iso={iso} p={p} where={p.whereOf(r)} />
               ))}
-              {!list.length && <p className="tv-cal-empty">Nada este día.</p>}
+              {!list.length && <p className="tv-cal-empty">{t('Nada este día.')}</p>}
             </div>
           </section>
         );
       })}
-      {days.length === 1 && !(byDay.get(p.day)?.length) && <p className="tv-cal-empty tv-agenda-end">No hay nada con fecha a partir de aquí.</p>}
+      {days.length === 1 && !(byDay.get(p.day)?.length) && <p className="tv-cal-empty tv-agenda-end">{t('No hay nada con fecha a partir de aquí.')}</p>}
     </div>
   );
 }

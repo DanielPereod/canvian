@@ -28,6 +28,7 @@ import { ulid } from 'ulidx';
 import type { NoteRow } from '../../api';
 import { fileExt, fileSize, openFile, uploadMedia } from '../media';
 import { boardText, parseBoard, type Board, type BoardNode } from './board';
+import { t } from '../../i18n';
 import './board.css';
 
 // El lienzo de una nota de tipo canvas: tarjetas de texto, notas enlazadas,
@@ -83,7 +84,7 @@ function TextCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ct
           ref={ref}
           className="board-textarea nodrag nowheel"
           defaultValue={data.text ?? ''}
-          placeholder="Escribe…"
+          placeholder={t('Escribe…')}
           onBlur={(e) => ctx.setData(id, { text: e.target.value, editing: false })}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
@@ -93,7 +94,7 @@ function TextCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ct
           }}
         />
       ) : (
-        <div className="board-text-body">{data.text?.trim() ? data.text : <span className="faint">Doble clic para escribir</span>}</div>
+        <div className="board-text-body">{data.text?.trim() ? data.text : <span className="faint">{t('Doble clic para escribir')}</span>}</div>
       )}
     </div>
   );
@@ -106,10 +107,10 @@ function NoteCard({ data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ctx })
     <div className={`board-card board-note${selected ? ' is-selected' : ''}${row ? '' : ' is-missing'}`} onDoubleClick={() => row && ctx.onOpenNote(row.id)}>
       <NodeResizer isVisible={selected} minWidth={160} minHeight={60} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
       {handles}
-      <span className="board-note-kind meta">{row?.kind === 'canvas' ? 'Canvas' : 'Nota'}</span>
-      <strong className="board-note-title">{row ? row.title || 'Nota sin título' : 'Nota borrada'}</strong>
+      <span className="board-note-kind meta">{row?.kind === 'canvas' ? t('Canvas') : t('Nota')}</span>
+      <strong className="board-note-title">{row ? row.title || t('Nota sin título') : t('Nota borrada')}</strong>
       {body && <p className="board-note-body">{body}</p>}
-      {row && <span className="board-note-open meta">Doble clic para abrir</span>}
+      {row && <span className="board-note-open meta">{t('Doble clic para abrir')}</span>}
     </div>
   );
 }
@@ -124,9 +125,9 @@ function FileCard({ data, selected }: NodeProps<Node<Data>>) {
         ? 'image'
         : 'doc';
   if (kind === 'doc') {
-    const name = data.name || src.split('/').pop() || 'Archivo';
+    const name = data.name || src.split('/').pop() || t('Archivo');
     return (
-      <div className={`board-card board-doc${selected ? ' is-selected' : ''}`} onDoubleClick={() => openFile(src, name)} title="Doble clic para abrir">
+      <div className={`board-card board-doc${selected ? ' is-selected' : ''}`} onDoubleClick={() => openFile(src, name)} title={t('Doble clic para abrir')}>
         <NodeResizer isVisible={selected} minWidth={160} minHeight={56} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
         {handles}
         <span className="note-file-ext">{fileExt(name)}</span>
@@ -156,7 +157,7 @@ function GroupCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: C
       <input
         className="board-group-label nodrag"
         value={data.label ?? ''}
-        placeholder="Grupo"
+        placeholder={t('Grupo')}
         onChange={(e) => ctx.setData(id, { label: e.target.value })}
         onKeyDown={(e) => {
           if (e.key === 'Escape' || e.key === 'Enter') {
@@ -394,15 +395,15 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
       </ReactFlow>
       {!nodes.length && (
         <p className="board-empty">
-          Doble clic para una <em>tarjeta</em>, o pega o suelta un archivo
+          {t('Doble clic para una')} <em>{t('tarjeta')}</em>{t(', o pega o suelta un archivo')}
         </p>
       )}
-      <nav className="board-tools surface-2" aria-label="Añadir al lienzo">
-        <button onClick={() => add('text', center(), { editing: true })}>Tarjeta</button>
-        <button onClick={() => onPickNote((id) => add('note', center(), { noteId: id }))}>Nota</button>
-        <button onClick={() => add('group', center(), { label: '' })}>Grupo</button>
+      <nav className="board-tools surface-2" aria-label={t('Añadir al lienzo')}>
+        <button onClick={() => add('text', center(), { editing: true })}>{t('Tarjeta')}</button>
+        <button onClick={() => onPickNote((id) => add('note', center(), { noteId: id }))}>{t('Nota')}</button>
+        <button onClick={() => add('group', center(), { label: '' })}>{t('Grupo')}</button>
         <label className="board-tools-file">
-          Archivo
+          {t('Archivo')}
           <input
             type="file"
             multiple
@@ -414,7 +415,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
           />
         </label>
         <span className="board-tools-sep" />
-        <button onClick={() => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 })}>Encuadrar</button>
+        <button onClick={() => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 })}>{t('Encuadrar')}</button>
       </nav>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
+import { t } from '../i18n';
 
 // Elegir dentro de qué nota va otra: todas las notas del perfil con su ruta,
 // filtrables escribiendo, y «Arriba del todo».
@@ -43,7 +44,7 @@ export function SectionPicker({ options, current, exclude, onPick, onClose }: Pr
         <input
           className="field field-bare"
           autoFocus
-          placeholder="Mover dentro de…"
+          placeholder={t('Mover dentro de…')}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -64,10 +65,10 @@ export function SectionPicker({ options, current, exclude, onPick, onClose }: Pr
               onClick={() => onPick(o.id)}
             >
               <span className={o.id ? undefined : 'faint'}>{o.path}</span>
-              {o.id === current && <span className="meta list-note">aquí está</span>}
+              {o.id === current && <span className="meta list-note">{t('aquí está')}</span>}
             </li>
           ))}
-          {!items.length && <li className="list-item static">Ninguna nota se llama así.</li>}
+          {!items.length && <li className="list-item static">{t('Ninguna nota se llama así.')}</li>}
         </ul>
       </div>
     </div>

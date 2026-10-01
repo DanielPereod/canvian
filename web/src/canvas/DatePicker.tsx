@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import { daysUntil, dueLabel } from './dates';
+import { dateFmt, daysUntil, dueLabel } from './dates';
+import { t } from '../i18n';
 
 // Selector de fecha propio, en vez del calendario nativo del navegador: un
 // botón que abre un mes en cuadrícula, con mes anterior/siguiente, atajos
 // (Hoy, Mañana, Próximo lunes) y se maneja también con el teclado.
 
-const DOW = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-const MONTH = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
+// Iniciales de lunes a domingo, en el idioma de la interfaz (L M X J V S D).
+const dows = () => Array.from({ length: 7 }, (_, k) => dateFmt({ weekday: 'narrow' }).format(new Date(2024, 0, 1 + k)));
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dateOf = (iso: string) => {
@@ -28,7 +29,9 @@ type Props = {
   placeholder?: string;
 };
 
-export function DatePicker({ value, onChange, className, label = 'Fecha', placeholder = 'Fecha' }: Props) {
+export function DatePicker({ value, onChange, className, label, placeholder }: Props) {
+  label ??= t('Fecha');
+  placeholder ??= t('Fecha');
   const [open, setOpen] = useState(false);
   const today = isoOf(new Date());
   const [cursor, setCursor] = useState(value ?? today);
@@ -91,11 +94,11 @@ export function DatePicker({ value, onChange, className, label = 'Fecha', placeh
         <div className="overlay dp-overlay" onMouseDown={() => setOpen(false)}>
           <div className="surface-3 popover dp-pop" onMouseDown={(e) => e.stopPropagation()}>
             <div className="dp-head">
-              <button type="button" className="dp-nav" aria-label="Mes anterior" onClick={() => setCursor(isoOf(new Date(y, m - 2, dateOf(cursor).getDate())))}>
+              <button type="button" className="dp-nav" aria-label={t('Mes anterior')} onClick={() => setCursor(isoOf(new Date(y, m - 2, dateOf(cursor).getDate())))}>
                 ‹
               </button>
-              <span className="dp-month">{cap(MONTH.format(dateOf(`${month}-01`)))}</span>
-              <button type="button" className="dp-nav" aria-label="Mes siguiente" onClick={() => setCursor(isoOf(new Date(y, m, dateOf(cursor).getDate())))}>
+              <span className="dp-month">{cap(dateFmt({ month: 'long', year: 'numeric' }).format(dateOf(`${month}-01`)))}</span>
+              <button type="button" className="dp-nav" aria-label={t('Mes siguiente')} onClick={() => setCursor(isoOf(new Date(y, m, dateOf(cursor).getDate())))}>
                 ›
               </button>
             </div>
@@ -108,8 +111,8 @@ export function DatePicker({ value, onChange, className, label = 'Fecha', placeh
               ref={gridRef}
               onKeyDown={onKeyDown}
             >
-              {DOW.map((d) => (
-                <span key={d} className="dp-dow">
+              {dows().map((d, k) => (
+                <span key={k} className="dp-dow">
                   {d}
                 </span>
               ))}
@@ -130,17 +133,17 @@ export function DatePicker({ value, onChange, className, label = 'Fecha', placeh
             </div>
             <div className="dp-foot">
               <button type="button" className="dp-quick" onClick={() => pick(today)}>
-                Hoy
+                {t('Hoy')}
               </button>
               <button type="button" className="dp-quick" onClick={() => pick(addDays(today, 1))}>
-                Mañana
+                {t('Mañana')}
               </button>
               <button type="button" className="dp-quick" onClick={() => pick(nextMonday(today))}>
-                Próximo lunes
+                {t('Próximo lunes')}
               </button>
               {value && (
                 <button type="button" className="dp-quick dp-clear" onClick={() => onChange(null)}>
-                  Quitar fecha
+                  {t('Quitar fecha')}
                 </button>
               )}
             </div>

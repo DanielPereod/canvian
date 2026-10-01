@@ -4,6 +4,7 @@ import { SectionPicker, type SectionOption } from './SectionPicker';
 import { parentMap } from './sections';
 import { makeSuggester } from './suggest';
 import { actionFor, keyParts, keysBlocked, useKeymap, type ActionId } from '../keys';
+import { t, tn } from '../i18n';
 
 // Otra vista, fuera del mapa: ordenar. A la izquierda el árbol de secciones;
 // a la derecha las notas de la elegida. Se marcan varias y se llevan a otra
@@ -88,7 +89,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
   const listRef = useRef<HTMLDivElement>(null);
 
   const suggest = useMemo(() => makeSuggester(rows), [rows]);
-  const nameOf = (id: string | null) => (id ? byId.get(id)?.title || 'Sin nombre' : 'Arriba del todo');
+  const nameOf = (id: string | null) => (id ? byId.get(id)?.title || t('Sin nombre') : t('Arriba del todo'));
 
   // Las notas de la sección elegida; buscando, las de todas.
   const q = norm(query.trim());
@@ -156,7 +157,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
     onMove(moves);
     setMarked(new Set());
     const n = moves.length;
-    setUndo({ text: `${n === 1 ? '1 nota' : `${n} notas`} a ${nameOf(zoneId)}`, moves: back });
+    setUndo({ text: tn(n, '{n} nota a {name}', '{n} notas a {name}', { name: nameOf(zoneId) }), moves: back });
   };
 
   // Lo que se lleva: lo marcado o, si no hay nada, la nota del cursor.
@@ -174,7 +175,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
     const back = moves.map((m) => ({ id: m.id, zoneId: byId.get(m.id)!.zoneId }));
     onMove(moves);
     setMarked(new Set());
-    setUndo({ text: `${moves.length === 1 ? '1 nota colocada' : `${moves.length} notas colocadas`} donde se sugería`, moves: back });
+    setUndo({ text: tn(moves.length, '{n} nota colocada donde se sugería', '{n} notas colocadas donde se sugería'), moves: back });
   };
 
   const hinted = (chosen.length ? chosen : items.map((r) => r.id)).filter((id) => hints.get(id));
@@ -187,7 +188,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
     e.dataTransfer.setData('text/plain', ids.join(' '));
     const ghost = document.createElement('div');
     ghost.className = 'org-ghost';
-    ghost.textContent = ids.length === 1 ? (byId.get(ids[0])?.title || 'Nota sin título') : `${ids.length} notas`;
+    ghost.textContent = ids.length === 1 ? byId.get(ids[0])?.title || t('Nota sin título') : tn(ids.length, '{n} nota', '{n} notas');
     document.body.appendChild(ghost);
     e.dataTransfer.setDragImage(ghost, 14, 14);
     setTimeout(() => ghost.remove(), 0);
@@ -210,7 +211,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
       if (home(zone) === target) return;
       const back = [{ id: zone.id, zoneId: zone.zoneId }];
       onMove([{ id: zone.id, zoneId: target || null }]);
-      setUndo({ text: `${zone.title || 'Nota'} dentro de ${nameOf(target || null)}`, moves: back });
+      setUndo({ text: t('{note} dentro de {name}', { note: zone.title || t('Nota'), name: nameOf(target || null) }), moves: back });
     } else move(ids, target || null);
   };
 
@@ -271,57 +272,57 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
     return () => window.removeEventListener('keydown', onKey, true);
   });
 
-  const title = q ? 'Buscando en todas' : here ? nameOf(here) : 'Arriba del todo';
-  const pathOf = (r: NoteRow) => sections.find((s) => s.id === (home(r) || null))?.path ?? 'Arriba del todo';
+  const title = q ? t('Buscando en todas') : here ? nameOf(here) : t('Arriba del todo');
+  const pathOf = (r: NoteRow) => sections.find((s) => s.id === (home(r) || null))?.path ?? t('Arriba del todo');
 
   return (
     <div className="org-view">
       <header className="tasks-top">
-        <nav className="tasks-group-by" aria-label="Ordenar la lista">
+        <nav className="tasks-group-by" aria-label={t('Ordenar la lista')}>
           {SORTS.map((s) => (
             <button key={s.id} className={`meta${s.id === sortBy ? ' is-on' : ''}`} onClick={() => setSortBy(s.id)}>
-              {s.label}
+              {t(s.label)}
             </button>
           ))}
         </nav>
       </header>
       <div className="org-body">
-        <aside className="org-tree" aria-label="Secciones">
+        <aside className="org-tree" aria-label={t('Secciones')}>
           <h1 className="display org-title">
-            <em>Ordenar</em>
+            <em>{t('Ordenar')}</em>
           </h1>
           <ul>
-            {tree.map((t, i) => (
+            {tree.map((b, i) => (
               <li
-                key={t.id || 'loose'}
-                className={`org-branch${t.id === here && !q ? ' is-here' : ''}${dragOver === t.id ? ' is-over' : ''}${t.id ? '' : ' is-loose'}`}
-                style={{ '--depth': t.depth, '--i': Math.min(i, 20) } as React.CSSProperties}
-                draggable={!!t.zone}
-                onDragStart={(e) => t.zone && startDrag(e, [t.zone.id])}
+                key={b.id || 'loose'}
+                className={`org-branch${b.id === here && !q ? ' is-here' : ''}${dragOver === b.id ? ' is-over' : ''}${b.id ? '' : ' is-loose'}`}
+                style={{ '--depth': b.depth, '--i': Math.min(i, 20) } as React.CSSProperties}
+                draggable={!!b.zone}
+                onDragStart={(e) => b.zone && startDrag(e, [b.zone.id])}
                 onDragEnd={() => {
                   drag.current = [];
                   setDragOver(null);
                 }}
                 onDragOver={(e) => {
-                  if (!canDrop(t.id)) return;
+                  if (!canDrop(b.id)) return;
                   e.preventDefault();
                   e.dataTransfer.dropEffect = 'move';
-                  setDragOver(t.id);
+                  setDragOver(b.id);
                 }}
-                onDragLeave={() => setDragOver((d) => (d === t.id ? null : d))}
+                onDragLeave={() => setDragOver((d) => (d === b.id ? null : d))}
                 onDrop={(e) => {
                   e.preventDefault();
-                  dropOn(t.id);
+                  dropOn(b.id);
                 }}
-                onClick={() => goTo(t.id)}
+                onClick={() => goTo(b.id)}
               >
-                <span className="org-branch-name">{t.zone ? t.zone.title || 'Sin nombre' : 'Arriba del todo'}</span>
-                <span className="meta">{t.count || ''}</span>
+                <span className="org-branch-name">{b.zone ? b.zone.title || t('Sin nombre') : t('Arriba del todo')}</span>
+                <span className="meta">{b.count || ''}</span>
               </li>
             ))}
           </ul>
           <button className="sheet-link sheet-link-add org-new" onClick={() => onNewSection(here || null)}>
-            + Nota{here ? ` en ${nameOf(here)}` : ''}
+            {here ? t('+ Nota en {name}', { name: nameOf(here) }) : t('+ Nota')}
           </button>
         </aside>
 
@@ -333,7 +334,7 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
             <input
               ref={searchRef}
               className="field org-search"
-              placeholder="Buscar en todas…  /"
+              placeholder={t('Buscar en todas…  /')}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -341,9 +342,9 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
               }}
             />
           </div>
-          <p className="meta org-help">Clic marca · arrastra a otra nota · M mover · S sugerida · ← → ramas</p>
+          <p className="meta org-help">{t('Clic marca · arrastra a otra nota · M mover · S sugerida · ← → ramas')}</p>
           {!items.length && (
-            <p className="tasks-empty">{q ? 'Nada coincide.' : here ? 'Aquí dentro no hay nada.' : 'Todo tiene su sitio.'}</p>
+            <p className="tasks-empty">{q ? t('Nada coincide.') : here ? t('Aquí dentro no hay nada.') : t('Todo tiene su sitio.')}</p>
           )}
           {items.map((r, idx) => {
             const hint = hints.get(r.id);
@@ -371,12 +372,12 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
               >
                 <span className={`org-check${on ? ' is-on' : ''}`} aria-hidden="true" />
                 <span className={`org-kind org-kind-${r.kind}`} aria-hidden="true" />
-                <span className="org-row-title">{r.title || 'Nota sin título'}</span>
+                <span className="org-row-title">{r.title || t('Nota sin título')}</span>
                 {q && <span className="meta tasks-where">{pathOf(r)}</span>}
                 {hint && (
                   <button
                     className="meta org-hint"
-                    title={kt('acceptHints') ? `Llevarla a donde se sugiere (${kt('acceptHints')})` : 'Llevarla a donde se sugiere'}
+                    title={kt('acceptHints') ? `${t('Llevarla a donde se sugiere')} (${kt('acceptHints')})` : t('Llevarla a donde se sugiere')}
                     onClick={(e) => {
                       e.stopPropagation();
                       move([r.id], hint);
@@ -387,13 +388,13 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
                 )}
                 <button
                   className="meta org-open"
-                  title="Abrir (Enter)"
+                  title={t('Abrir (Enter)')}
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpen(r.id);
                   }}
                 >
-                  abrir
+                  {t('abrir')}
                 </button>
               </div>
             );
@@ -412,29 +413,29 @@ export function OrganizeView({ rows, sections, paused, onOpen, onMove, onNewSect
                 setUndo(null);
               }}
             >
-              Deshacer {kt('undo') && <span className="meta">{kt('undo')}</span>}
+              {t('Deshacer')} {kt('undo') && <span className="meta">{kt('undo')}</span>}
             </button>
           </>
         ) : (
           <>
             {chosen.length > 0 ? (
               <>
-                <span>{chosen.length === 1 ? '1 marcada' : `${chosen.length} marcadas`}</span>
+                <span>{tn(chosen.length, '{n} marcada', '{n} marcadas')}</span>
                 <button className="sheet-link" onClick={() => setPicking(true)}>
-                  Mover a… {kt('move') && <span className="meta">{kt('move')}</span>}
+                  {t('Mover a…')} {kt('move') && <span className="meta">{kt('move')}</span>}
                 </button>
               </>
             ) : (
-              <span>{hinted.length === 1 ? '1 nota tiene' : `${hinted.length} notas tienen`} un sitio sugerido</span>
+              <span>{tn(hinted.length, '{n} nota tiene un sitio sugerido', '{n} notas tienen un sitio sugerido')}</span>
             )}
             {hinted.length > 0 && (
               <button className="sheet-link" onClick={() => acceptHints(hinted)}>
-                Colocar {hinted.length === 1 ? 'la sugerida' : `las ${hinted.length} sugeridas`} {kt('acceptHints') && <span className="meta">{kt('acceptHints')}</span>}
+                {tn(hinted.length, 'Colocar la sugerida', 'Colocar las {n} sugeridas')} {kt('acceptHints') && <span className="meta">{kt('acceptHints')}</span>}
               </button>
             )}
             {chosen.length > 0 && (
               <button className="sheet-link faint" onClick={() => setMarked(new Set())}>
-                Desmarcar
+                {t('Desmarcar')}
               </button>
             )}
           </>

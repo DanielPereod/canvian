@@ -1,5 +1,6 @@
 import { useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { FONTS, KINDS, SAME_AS_UI, THEME } from './typography';
+import { getLang, t } from './i18n';
 
 // Selector de letra propio, en vez del <select> nativo: una lista filtrable
 // y agrupada (Sans, Serif, Monoespaciadas), con cada nombre en su propia letra.
@@ -15,7 +16,7 @@ type Props = {
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-const ALL: Option[] = [{ id: THEME, name: 'Del tema' }, { id: SAME_AS_UI, name: 'La de la interfaz' }, ...FONTS];
+const all = (): Option[] => [{ id: THEME, name: t('Del tema') }, { id: SAME_AS_UI, name: t('La de la interfaz') }, ...FONTS.map((f) => ({ ...f, name: t(f.name) }))];
 
 export function FontPicker({ value, sameAsUi, label, onPick }: Props) {
   const [open, setOpen] = useState(false);
@@ -24,19 +25,19 @@ export function FontPicker({ value, sameAsUi, label, onPick }: Props) {
 
   const groups = useMemo(() => {
     const q = norm(query.trim());
-    const top: Option[] = [{ id: THEME, name: 'Del tema' }, ...(sameAsUi ? [{ id: SAME_AS_UI, name: 'La de la interfaz' }] : [])].filter(
+    const top: Option[] = [{ id: THEME, name: t('Del tema') }, ...(sameAsUi ? [{ id: SAME_AS_UI, name: t('La de la interfaz') }] : [])].filter(
       (o) => !q || norm(o.name).includes(q),
     );
     const rest = KINDS.map((k) => ({
-      name: k.name,
-      items: FONTS.filter((f) => f.kind === k.id && (!q || norm(f.name).includes(q))) as Option[],
+      name: t(k.name),
+      items: FONTS.filter((f) => f.kind === k.id && (!q || norm(t(f.name)).includes(q))).map((f) => ({ ...f, name: t(f.name) })) as Option[],
     }));
     return [{ name: '', items: top }, ...rest].filter((g) => g.items.length);
-  }, [query, sameAsUi]);
+  }, [query, sameAsUi, getLang()]);
 
   const flat = groups.flatMap((g) => g.items);
   const at = Math.min(cursor, Math.max(0, flat.length - 1));
-  const current = ALL.find((o) => o.id === value);
+  const current = all().find((o) => o.id === value);
 
   const pick = (id: string) => {
     onPick(id);
@@ -76,7 +77,7 @@ export function FontPicker({ value, sameAsUi, label, onPick }: Props) {
             <input
               className="field field-bare"
               autoFocus
-              placeholder={`Buscar en ${label.toLowerCase()}…`}
+              placeholder={t('Buscar en {what}…', { what: label.toLowerCase() })}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -86,7 +87,7 @@ export function FontPicker({ value, sameAsUi, label, onPick }: Props) {
             />
             <div className="popover-divider" />
             <ul className="list" role="listbox" aria-label={label}>
-              {!flat.length && <li className="list-item static">Ninguna letra se llama así.</li>}
+              {!flat.length && <li className="list-item static">{t('Ninguna letra se llama así.')}</li>}
               {groups.map((g) => (
                 <ListGroup key={g.name || '_top'} name={g.name}>
                   {g.items.map((o) => {
@@ -102,7 +103,7 @@ export function FontPicker({ value, sameAsUi, label, onPick }: Props) {
                         onClick={() => pick(o.id)}
                       >
                         <span style={o.stack ? { fontFamily: o.stack } : undefined}>{o.name}</span>
-                        {o.id === value && <span className="meta list-note">elegida</span>}
+                        {o.id === value && <span className="meta list-note">{t('elegida')}</span>}
                       </li>
                     );
                   })}

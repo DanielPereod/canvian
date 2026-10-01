@@ -1,4 +1,5 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
+import { t } from './i18n';
 import type { Profile } from './api';
 
 type Item =
@@ -55,7 +56,7 @@ export function ProfileSwitcher({ profiles, activeId, onSelect, onCreate, onSign
           id="profile-search"
           className="field field-bare"
           autoFocus
-          placeholder="Cambiar de perfil o crear uno"
+          placeholder={t('Cambiar de perfil o crear uno')}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -81,19 +82,19 @@ export function ProfileSwitcher({ profiles, activeId, onSelect, onCreate, onSign
                     <span className="dot" style={{ background: item.profile.color ?? 'var(--accent)' }} />
                   </span>
                   {item.profile.name}
-                  {item.profile.id === activeId && <span className="trail">actual</span>}
+                  {item.profile.id === activeId && <span className="trail">{t('actual')}</span>}
                 </>
               )}
               {item.kind === 'create' && (
                 <>
                   <span className="list-icon">+</span>
-                  Crear perfil «{item.name}»
+                  {t('Crear perfil «{name}»', { name: item.name })}
                 </>
               )}
               {item.kind === 'signout' && (
                 <>
                   <span className="list-icon faint">↩</span>
-                  <span className="muted">Cerrar sesión</span>
+                  <span className="muted">{t('Cerrar sesión')}</span>
                 </>
               )}
             </li>

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { api } from './api';
+import { t } from './i18n';
 
 // Atajos de teclado: un solo sitio con todas las acciones, su tecla de fábrica
 // y la que haya elegido cada uno en Configuración (se guarda en el servidor).
@@ -54,7 +55,8 @@ export type Group = (typeof GROUPS)[number];
 // `key` vacío: sin tecla de fábrica (está en la paleta y se le puede poner una).
 export type KeyAction = { id: ActionId; label: string; hint?: string; group: Group; ctx: Ctx[]; key: string };
 
-export const ACTIONS: KeyAction[] = [
+// Los textos se escriben en español; `ACTIONS` los da ya en el idioma elegido.
+const RAW: KeyAction[] = [
   { id: 'search', label: 'Buscar o abrir nota', hint: 'También crea notas; «a>b>c» crea en esa ruta', group: 'Ir a', ctx: ['global'], key: 'mod+p' },
   { id: 'commands', label: 'Comandos', group: 'Ir a', ctx: ['global'], key: 'mod+shift+p' },
   { id: 'toRoot', label: 'Todas las notas', group: 'Ir a', ctx: ['list'], key: '1' },
@@ -100,13 +102,28 @@ export const ACTIONS: KeyAction[] = [
   { id: 'exportCanvas', label: 'Exportar a JSON Canvas', group: 'Aplicación', ctx: ['global'], key: '' },
 ];
 
+const translated = <T extends { label: string; hint?: string }>(a: T): T => ({
+  ...a,
+  get label() {
+    return t(a.label);
+  },
+  get hint() {
+    return a.hint && t(a.hint);
+  },
+});
+
+export const ACTIONS: KeyAction[] = RAW.map(translated);
+
+// Nombre de un grupo en el idioma elegido (`group` sigue siendo el español).
+export const groupName = (g: Group) => t(g);
+
 export const ACTION = Object.fromEntries(ACTIONS.map((a) => [a.id, a])) as Record<ActionId, KeyAction>;
 
 // Si un comando sirve en la vista actual.
 export const appliesIn = (ctx: Ctx[], view: View) => ctx.includes('global') || ctx.includes(view);
 
 // Teclas que no se pueden cambiar (se muestran en la lista de atajos).
-export const FIXED: { keys: string[]; label: string; ctx: Ctx }[] = [
+const FIXED_RAW: { keys: string[]; label: string; ctx: Ctx }[] = [
   { keys: ['enter'], label: 'Abrir lo señalado', ctx: 'global' },
   { keys: ['escape'], label: 'Atrás, o cerrar lo que esté abierto', ctx: 'global' },
   { keys: ['↑', '↓'], label: 'Moverse por las listas', ctx: 'global' },
@@ -130,6 +147,7 @@ export const FIXED: { keys: string[]; label: string; ctx: Ctx }[] = [
   { keys: ['/'], label: 'Buscar', ctx: 'organize' },
   { keys: ['←', '→'], label: 'Nota anterior o siguiente', ctx: 'organize' },
 ];
+export const FIXED = FIXED_RAW.map(translated);
 
 // ── Vista actual (la paleta y la ayuda enseñan primero lo de aquí) ──
 
@@ -152,7 +170,7 @@ export function useView() {
 }
 
 const RESERVED = /^(escape|enter|tab|arrow(up|down|left|right)|shift\+\d)$/;
-const DEFAULTS = Object.fromEntries(ACTIONS.map((a) => [a.id, a.key])) as Record<ActionId, string>;
+const DEFAULTS = Object.fromEntries(RAW.map((a) => [a.id, a.key])) as Record<ActionId, string>;
 
 let custom: Partial<Record<ActionId, string>> = {};
 let current: Record<ActionId, string> = { ...DEFAULTS };
@@ -291,6 +309,8 @@ const NAMES: Record<string, string> = {
   arrowdown: '↓',
   arrowleft: '←',
   arrowright: '→',
+  clic: 'clic',
+  arrastrar: 'arrastrar',
 };
 
 // ['Ctrl', '⇧', 'E'] para pintarlo en <kbd>.
@@ -298,5 +318,5 @@ export function keyParts(combo: string): string[] {
   if (!combo) return [];
   // «?» ya lleva Mayús en todos los teclados.
   if (combo === 'shift+?') return ['?'];
-  return combo.split(/\+(?!$)/).map((p) => NAMES[p] ?? (p.length === 1 || /^f\d+$/.test(p) ? p.toUpperCase() : p));
+  return combo.split(/\+(?!$)/).map((p) => (NAMES[p] ? t(NAMES[p]) : p.length === 1 || /^f\d+$/.test(p) ? p.toUpperCase() : p));
 }

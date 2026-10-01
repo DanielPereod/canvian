@@ -3,6 +3,7 @@ import { api } from './api';
 import { AuthCard } from './AuthCard';
 import { Workspace } from './Workspace';
 import { Styleguide } from './Styleguide';
+import { t } from './i18n';
 
 type State = 'loading' | 'setup' | 'login' | 'ready' | 'offline';
 
@@ -31,9 +32,9 @@ export function App() {
       <div className="backdrop dotted center">
         <div className="surface-3 dialog">
           <h1 className="display">
-            Sin <em>señal</em>
+            {t('Sin')} <em>{t('señal')}</em>
           </h1>
-          <p className="muted">No encuentro el servidor de Canvian. Comprueba que está en marcha y recarga la página.</p>
+          <p className="muted">{t('No encuentro el servidor de Canvian. Comprueba que está en marcha y recarga la página.')}</p>
         </div>
       </div>
     );

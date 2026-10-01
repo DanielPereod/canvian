@@ -18,6 +18,7 @@ import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian'
 import { WikiMenu, type WikiItem } from './WikiMenu';
 import { actionFor, keyParts, keysBlocked, matches, useKeymap } from '../keys';
 import { toggleWide, useWide } from './widePrefs';
+import { t, tn } from '../i18n';
 
 // Una nota se abre como lector: el texto a la izquierda y un panel de detalles
 // a la derecha. Un canvas se abre en su hoja, con el lienzo a pantalla completa.
@@ -69,7 +70,7 @@ function SheetMenu({ x, y, items, onClose }: { x: number; y: number; items: Shee
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
   return (
-    <div className="bib-menu reader-menu" ref={ref} role="menu" aria-label="Acciones de la nota" style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
+    <div className="bib-menu reader-menu" ref={ref} role="menu" aria-label={t('Acciones de la nota')} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
       {items.map((it, i) =>
         it ? (
           <button
@@ -231,8 +232,8 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
     const quiet = Date.now() - typed.current;
     const typing = editor.isFocused || source || document.activeElement === titleBox.current;
     if (typing && quiet < 1500) {
-      const t = setTimeout(() => setRetry((n) => n + 1), 1500 - quiet);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setRetry((n) => n + 1), 1500 - quiet);
+      return () => clearTimeout(timer);
     }
     shown.current = note.bodyJson;
     const remote = splitTitle(parseBody(note.bodyJson));
@@ -406,8 +407,8 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
         value={title}
         onChange={(e) => typeTitle(e.target.value)}
         onKeyDown={titleKeys}
-        placeholder="Sin título"
-        aria-label="Título de la nota"
+        placeholder={t('Sin título')}
+        aria-label={t('Título de la nota')}
         spellCheck={false}
       />
       <EditorContent editor={editor} className="sheet-editor" hidden={source} />
@@ -418,8 +419,8 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
           value={md}
           onChange={(e) => typeSource(e.target.value)}
           spellCheck={false}
-          aria-label="Markdown de la nota"
-          placeholder="Escribe algo…"
+          aria-label={t('Markdown de la nota')}
+          placeholder={t('Escribe algo…')}
         />
       )}
       {!source && query && <WikiMenu query={query} rows={wiki.rows} exclude={note.id} onPick={pick} keys={menuKeys} />}
@@ -532,15 +533,15 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
           <span key={z.id} className="sheet-where-wrap">
             {i > 0 && <span className="sheet-where-sep">›</span>}
             <button className="sheet-where-crumb" onClick={() => onNavigate(z.id)}>
-              {z.title || 'Nota sin título'}
+              {z.title || t('Nota sin título')}
             </button>
           </span>
         ))
       ) : (
-        <span className="sheet-where-empty">Arriba del todo</span>
+        <span className="sheet-where-empty">{t('Arriba del todo')}</span>
       )}
-      <button className="sheet-where-move" onClick={() => setMoving(true)} title="Mover dentro de otra nota">
-        Mover
+      <button className="sheet-where-move" onClick={() => setMoving(true)} title={t('Mover dentro de otra nota')}>
+        {t('Mover')}
       </button>
     </div>
   );
@@ -564,8 +565,8 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     const onKey = (e: KeyboardEvent) => {
       // Con el inspector o el buscador abiertos, Esc los cierra a ellos y no a la hoja.
       // Escribiendo en una tarjeta del canvas, Esc solo termina de escribir.
-      const t = e.target as HTMLElement | null;
-      if (e.key === 'Escape' && t?.closest('.board') && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
+      const target = e.target as HTMLElement | null;
+      if (e.key === 'Escape' && target?.closest('.board') && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
       // Ctrl/⌘ A fuera del texto (tras pulsar un botón, al abrir…) selecciona
       // la nota, no la página entera.
       // Antes que el editor, que con Ctrl E pondría el texto como código.
@@ -583,7 +584,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         else if (!zen) toggleFolded();
         return;
       }
-      const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+      const typing = !!target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
       // Mover, enlazar y adjuntar (desde la paleta, o M fuera del texto).
       const act = !typing && !keysBlocked() && !document.querySelector('.inspector, .overlay') ? actionFor(e, isCanvas ? ['move'] : ['move', 'linkNote', 'attach']) : null;
       if (act) {
@@ -641,25 +642,25 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     const words = (note.bodyText ?? '').split(/\s+/).filter(Boolean).length;
     const tasks = taskCount(note);
     const items: SheetItem[] = [
-      { label: 'Adjuntar archivos…', title: 'PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto', run: () => filePick.current?.click() },
-      { label: 'Ver en nodos', title: 'Esta nota en el centro, con sus relaciones', keys: keysOf(keymap.nodes), run: onNodes },
+      { label: t('Adjuntar archivos…'), title: t('PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto'), run: () => filePick.current?.click() },
+      { label: t('Ver en nodos'), title: t('Esta nota en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
       null,
-      { label: source ? 'Ver el texto' : 'Ver el Markdown', keys: keysOf(keymap.markdownSource), run: () => setSource((s) => !s) },
-      { label: wide ? 'Texto estrecho' : 'Texto ancho', keys: keysOf(keymap.wideNote), run: flipWide },
-      { label: 'Modo zen', title: 'Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)', keys: keysOf(keymap.zen), run: () => setZen(true) },
+      { label: source ? t('Ver el texto') : t('Ver el Markdown'), keys: keysOf(keymap.markdownSource), run: () => setSource((s) => !s) },
+      { label: wide ? t('Texto estrecho') : t('Texto ancho'), keys: keysOf(keymap.wideNote), run: flipWide },
+      { label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
       null,
-      { label: 'Propiedades', run: () => onProps(note.id) },
-      { label: 'Mover a…', title: 'Meterla dentro de otra nota', keys: keysOf(keymap.move), run: () => setMoving(true) },
-      { label: 'Enlazar con…', run: onLink },
-      { label: note.archivedAt ? 'Desarchivar' : 'Archivar', title: 'Se oculta con lo que cuelga de ella', keys: keysOf(keymap.archive), run: onArchive },
-      { label: 'Borrar', danger: true, run: () => close(() => onDelete(note.id)) },
+      { label: t('Propiedades'), run: () => onProps(note.id) },
+      { label: t('Mover a…'), title: t('Meterla dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
+      { label: t('Enlazar con…'), run: onLink },
+      { label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de ella'), keys: keysOf(keymap.archive), run: onArchive },
+      { label: t('Borrar'), danger: true, run: () => close(() => onDelete(note.id)) },
     ];
     const tools = (
       <>
-        <button className="reader-icon" onClick={openMenu} aria-haspopup="menu" aria-expanded={!!menu} aria-label="Más acciones" title="Más acciones">
+        <button className="reader-icon" onClick={openMenu} aria-haspopup="menu" aria-expanded={!!menu} aria-label={t('Más acciones')} title={t('Más acciones')}>
           <DotsIcon />
         </button>
-        <button className="reader-icon reader-fold" onClick={toggleFolded} aria-label={folded ? 'Mostrar los detalles' : 'Plegar los detalles'} title={`${folded ? 'Mostrar los detalles' : 'Plegar los detalles'} (${keysOf(keymap.details)})`}>
+        <button className="reader-icon reader-fold" onClick={toggleFolded} aria-label={folded ? t('Mostrar los detalles') : t('Plegar los detalles')} title={`${folded ? t('Mostrar los detalles') : t('Plegar los detalles')} (${keysOf(keymap.details)})`}>
           <PanelIcon />
         </button>
       </>
@@ -667,14 +668,14 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     return (
       <div ref={ref} className={`sheet is-reader${zen ? ' is-zen' : ''}${wide ? ' is-wide' : ''}${folded ? ' is-side-folded' : ''}`} style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
         {zen && (
-          <button className="reader-zen-exit" onClick={() => setZen(false)} title="Salir del modo zen (Esc)">
-            Salir del modo zen <span className="reader-zen-k">Esc</span>
+          <button className="reader-zen-exit" onClick={() => setZen(false)} title={t('Salir del modo zen (Esc)')}>
+            {t('Salir del modo zen')} <span className="reader-zen-k">Esc</span>
           </button>
         )}
         <div className="reader-main">
           <article className="reader-body" key={note.id + note.kind}>
             <span className="reader-meta">
-              {madre ? madre.title || 'Nota sin título' : 'Arriba del todo'} · {kindOf(note, kids)} · editada {editedLabel(note.updatedAt)}
+              {madre ? madre.title || t('Nota sin título') : t('Arriba del todo')} · {kindOf(note, kids)} · {t('editada {date}', { date: editedLabel(note.updatedAt) })}
               {source && ' · Markdown'}
             </span>
             <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} wiki={wiki} source={source} />
@@ -698,35 +699,35 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         />
         {!folded && <Resizer size={sideWidth} edge="left" className="reader-resizer" />}
         {!folded && (
-          <aside className="reader-side" aria-label="Detalles de la nota">
+          <aside className="reader-side" aria-label={t('Detalles de la nota')}>
             <div className="reader-side-top">
-              <span className="reader-side-h">Detalles</span>
+              <span className="reader-side-h">{t('Detalles')}</span>
             </div>
             <dl className="reader-facts">
-              <dt>Tipo</dt>
+              <dt>{t('Tipo')}</dt>
               <dd>{kindOf(note, kids)}</dd>
-              <dt>Madre</dt>
+              <dt>{t('Madre')}</dt>
               <dd>
-                <button className="reader-madre" onClick={() => setMoving(true)} title="Mover dentro de otra nota">
-                  {madre ? madre.title || 'Nota sin título' : 'Arriba del todo'}
+                <button className="reader-madre" onClick={() => setMoving(true)} title={t('Mover dentro de otra nota')}>
+                  {madre ? madre.title || t('Nota sin título') : t('Arriba del todo')}
                 </button>
               </dd>
               {kids > 0 && (
                 <>
-                  <dt>Dentro</dt>
-                  <dd>{kids === 1 ? '1 nota' : `${kids} notas`}</dd>
+                  <dt>{t('Dentro')}</dt>
+                  <dd>{tn(kids, '{n} nota', '{n} notas')}</dd>
                 </>
               )}
-              <dt>Creada</dt>
+              <dt>{t('Creada')}</dt>
               <dd>{created}</dd>
-              <dt>Editada</dt>
+              <dt>{t('Editada')}</dt>
               <dd>{editedLabel(note.updatedAt)}</dd>
-              <dt>Palabras</dt>
+              <dt>{t('Palabras')}</dt>
               <dd>{words}</dd>
               {tasks.total > 0 && (
                 <>
-                  <dt>Tareas</dt>
-                  <dd>{tasks.done === tasks.total ? `${tasks.total} hechas` : `${tasks.done} de ${tasks.total} hechas`}</dd>
+                  <dt>{t('Tareas')}</dt>
+                  <dd>{tasks.done === tasks.total ? tn(tasks.total, '{n} hecha', '{n} hechas') : t('{done} de {total} hechas', { done: tasks.done, total: tasks.total })}</dd>
                 </>
               )}
             </dl>
@@ -734,7 +735,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
               <>
                 <div className="reader-rule" />
                 <div className="reader-side-row">
-                  <span className="reader-side-h">Dentro</span>
+                  <span className="reader-side-h">{t('Dentro')}</span>
                   <span className="reader-muted">{kids}</span>
                 </div>
                 <div className="reader-links">
@@ -744,18 +745,18 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
                         <span className="reader-link-g" aria-hidden="true">
                           {n ? '▸' : '·'}
                         </span>
-                        <span className="reader-ellipsis">{r.kind === 'canvas' ? r.title || 'Canvas sin título' : r.title || 'Nota sin título'}</span>
+                        <span className="reader-ellipsis">{r.kind === 'canvas' ? r.title || t('Canvas sin título') : r.title || t('Nota sin título')}</span>
                         {n > 0 && <span className="reader-muted reader-link-n">{n}</span>}
                       </button>
                     </span>
                   ))}
-                  {kids > MAX_LINKS && <span className="reader-muted">+{kids - MAX_LINKS} más</span>}
+                  {kids > MAX_LINKS && <span className="reader-muted">{t('+{n} más', { n: kids - MAX_LINKS })}</span>}
                 </div>
               </>
             )}
             <div className="reader-rule" />
             <div className="reader-side-row">
-              <span className="reader-side-h">Enlaces</span>
+              <span className="reader-side-h">{t('Enlaces')}</span>
               <span className="reader-muted">{neighbors.length}</span>
             </div>
             <div className="reader-links">
@@ -765,16 +766,16 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
                     <span className="reader-link-g" aria-hidden="true">
                       ·
                     </span>
-                    <span className="reader-ellipsis">{n.title || 'Nota sin título'}</span>
+                    <span className="reader-ellipsis">{n.title || t('Nota sin título')}</span>
                   </button>
-                  <button className="reader-link-x" onClick={() => onUnlink(n.id)} aria-label={`Quitar el enlace con ${n.title || 'esta nota'}`} title="Quitar enlace">
+                  <button className="reader-link-x" onClick={() => onUnlink(n.id)} aria-label={t('Quitar el enlace con {name}', { name: n.title || t('esta nota') })} title={t('Quitar enlace')}>
                     ×
                   </button>
                 </span>
               ))}
-              {neighbors.length > MAX_LINKS && <span className="reader-muted">+{neighbors.length - MAX_LINKS} más</span>}
+              {neighbors.length > MAX_LINKS && <span className="reader-muted">{t('+{n} más', { n: neighbors.length - MAX_LINKS })}</span>}
               <button className="reader-add" onClick={onLink}>
-                ＋ Enlazar
+                {t('＋ Enlazar')}
               </button>
             </div>
           </aside>
@@ -789,9 +790,9 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     <div ref={ref} className="sheet is-canvas">
       <header className="sheet-top meta">
         <button className="sheet-back" onClick={() => close()}>
-          <BackArrow /> Volver
+          <BackArrow /> {t('Volver')}
         </button>
-        <button className="reader-icon" onClick={openMenu} aria-haspopup="menu" aria-expanded={!!menu} aria-label="Más acciones" title="Más acciones">
+        <button className="reader-icon" onClick={openMenu} aria-haspopup="menu" aria-expanded={!!menu} aria-label={t('Más acciones')} title={t('Más acciones')}>
           <DotsIcon />
         </button>
       </header>
@@ -801,7 +802,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
           <input
             className="sheet-canvas-title"
             defaultValue={note.title ?? ''}
-            placeholder="Canvas sin título"
+            placeholder={t('Canvas sin título')}
             autoFocus={!note.title}
             onChange={(e) => onRename(e.target.value.trim())}
             onKeyDown={(e) => {
@@ -823,11 +824,11 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
           x={menu.x}
           y={menu.y}
           items={[
-            { label: 'Ver en nodos', title: 'Este canvas en el centro, con sus relaciones', keys: keysOf(keymap.nodes), run: onNodes },
+            { label: t('Ver en nodos'), title: t('Este canvas en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
             null,
-            { label: 'Propiedades', run: () => onProps(note.id) },
-            { label: note.archivedAt ? 'Desarchivar' : 'Archivar', title: 'Se oculta con lo que cuelga de él', keys: keysOf(keymap.archive), run: onArchive },
-            { label: 'Borrar', danger: true, run: () => close(() => onDelete(note.id)) },
+            { label: t('Propiedades'), run: () => onProps(note.id) },
+            { label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de él'), keys: keysOf(keymap.archive), run: onArchive },
+            { label: t('Borrar'), danger: true, run: () => close(() => onDelete(note.id)) },
           ]}
           onClose={closeMenu}
         />

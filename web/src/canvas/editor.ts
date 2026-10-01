@@ -7,6 +7,7 @@ import { TableKit } from '@tiptap/extension-table';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import { mediaNodes } from './media';
+import { getLang, t } from '../i18n';
 import { markdownToDoc } from './markdown';
 import { Highlight, MarkdownLinkInput, WikiLink, tasks } from './obsidian';
 
@@ -20,7 +21,7 @@ export const extensions = [
   // Bloques de código con colores según su lenguaje (```js, ```python…); sin
   // lenguaje, se adivina.
   CodeBlockLowlight.configure({ lowlight: createLowlight(common) }),
-  Placeholder.configure({ placeholder: 'Escribe algo…' }),
+  Placeholder.configure({ placeholder: () => t('Escribe algo…') }),
   // Tablas: sobre todo las que llegan importadas de Markdown.
   TableKit.configure({ table: { resizable: false } }),
   ...mediaNodes,
@@ -142,7 +143,9 @@ const htmlCache = new Map<string, string>();
 
 export function bodyToHtml(bodyJson: string | null): string {
   if (!bodyJson) return '';
-  const hit = htmlCache.get(bodyJson);
+  // Las fichas de adjuntos llevan texto de la interfaz: cada idioma, su HTML.
+  const key = `${getLang()}:${bodyJson}`;
+  const hit = htmlCache.get(key);
   if (hit !== undefined) return hit;
   const doc = parseBody(bodyJson);
   let html = '';
@@ -155,7 +158,7 @@ export function bodyToHtml(bodyJson: string | null): string {
     }
   }
   if (htmlCache.size > 5000) htmlCache.delete(htmlCache.keys().next().value!);
-  htmlCache.set(bodyJson, html);
+  htmlCache.set(key, html);
   return html;
 }
 

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { ACTIONS, FIXED, comboOf, matches, useKeymap, useView, type Ctx, type View } from './keys';
 import { Keys } from './Kbd';
+import { t } from './i18n';
 
 const PLACE: Record<Ctx, string> = { list: 'Notas y nodos', note: 'Nota abierta', tasks: 'Tareas', organize: 'Ordenar', global: 'En todas partes' };
 
@@ -30,11 +31,11 @@ export function Help({ onClose, onSettings }: { onClose: () => void; onSettings:
 
   return (
     <div className="overlay" onMouseDown={onClose} data-keys-modal>
-      <div className="surface-3 popover help" role="dialog" aria-label="Atajos de teclado" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="surface-3 popover help" role="dialog" aria-label={t('Atajos de teclado')} onMouseDown={(e) => e.stopPropagation()}>
         <div className="help-head">
-          <span className="label">Atajos</span>
+          <span className="label">{t('Atajos')}</span>
           <button className="sheet-back meta" onClick={onSettings}>
-            Cambiarlos
+            {t('Cambiarlos')}
           </button>
         </div>
         <div className="help-cols">
@@ -44,7 +45,7 @@ export function Help({ onClose, onSettings }: { onClose: () => void; onSettings:
             if (!acts.length && !fixed.length) return null;
             return (
               <section key={c}>
-                <h3 className="settings-subheading">{i === 0 ? `Aquí · ${PLACE[c]}` : PLACE[c]}</h3>
+                <h3 className="settings-subheading">{i === 0 ? t('Aquí · {place}', { place: t(PLACE[c]) }) : t(PLACE[c])}</h3>
                 {acts.map((a) => (
                   <div key={a.id} className="help-row">
                     <Keys combo={keymap[a.id]} />

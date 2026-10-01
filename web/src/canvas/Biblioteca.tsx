@@ -8,6 +8,7 @@ import { taskCount } from './tasks';
 import { LOOSE, type MapAction } from './NodeView';
 import { Resizer, type SideWidth } from './Resizer';
 import { longPress, TOUCH } from './touch';
+import { locale, t, tn } from '../i18n';
 
 // La tecla de un comando como texto («Ctrl G»), o vacío si no tiene.
 function useKeyText() {
@@ -85,11 +86,11 @@ export function useFamily(rows: NoteRow[]) {
 }
 type Family = ReturnType<typeof useFamily>;
 
-export const titleOf = (r: NoteRow | null | undefined) => (r?.kind === 'canvas' ? r.title || 'Canvas sin título' : r?.title || 'Nota sin título');
+export const titleOf = (r: NoteRow | null | undefined) => (r?.kind === 'canvas' ? r.title || t('Canvas sin título') : r?.title || t('Nota sin título'));
 
 export function kindOf(r: NoteRow, kids: number) {
-  if (r.kind === 'canvas') return 'Canvas';
-  return kids ? 'Colección' : 'Nota';
+  if (r.kind === 'canvas') return t('Canvas');
+  return kids ? t('Colección') : t('Nota');
 }
 
 // El texto de la nota sin su título, para el resumen.
@@ -99,18 +100,25 @@ export const snippetOf = (r: NoteRow) => {
   return lines.join(' · ');
 };
 
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
+// «3 oct» o «3 oct 2025»; uno por idioma y por si lleva el año.
+const dateFmts = new Map<string, Intl.DateTimeFormat>();
+const shortDate = (d: Date, year: boolean) => {
+  const k = `${locale()}:${year}`;
+  let f = dateFmts.get(k);
+  if (!f) dateFmts.set(k, (f = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}) })));
+  return f.format(d).replace(/\.(?=\s|$)/g, '');
+};
 export function editedLabel(at: string | null) {
-  const t = at ? Date.parse(at) : NaN;
-  if (Number.isNaN(t)) return '—';
-  const d = new Date(t);
+  const ms = at ? Date.parse(at) : NaN;
+  if (Number.isNaN(ms)) return '—';
+  const d = new Date(ms);
   const now = new Date();
   const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const days = Math.round((day(now) - day(d)) / 86_400_000);
-  if (days === 0) return `hoy, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  if (days === 1) return 'ayer';
-  if (days < 7) return `hace ${days} días`;
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}${d.getFullYear() !== now.getFullYear() ? ` ${d.getFullYear()}` : ''}`;
+  if (days === 0) return t('hoy, {time}', { time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` });
+  if (days === 1) return t('ayer');
+  if (days < 7) return tn(days, 'hace {n} día', 'hace {n} días');
+  return shortDate(d, d.getFullYear() !== now.getFullYear());
 }
 
 // Cada colección tiene su tapa de un color suave y estable.
@@ -307,7 +315,7 @@ export function BibSidebar(p: SideProps) {
             p.onMenu(row.id, e.clientX, e.clientY);
           }}
         >
-          <button className={`bib-chev${n ? '' : ' is-leaf'}${shut ? '' : ' is-open'}`} onClick={() => n && toggle(row.id)} aria-label={n ? (shut ? 'Desplegar' : 'Plegar') : undefined} tabIndex={-1}>
+          <button className={`bib-chev${n ? '' : ' is-leaf'}${shut ? '' : ' is-open'}`} onClick={() => n && toggle(row.id)} aria-label={n ? (shut ? t('Desplegar') : t('Plegar')) : undefined} tabIndex={-1}>
             <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true">
               <path d="M3.5 2 7 5 3.5 8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -345,7 +353,7 @@ export function BibSidebar(p: SideProps) {
       {p.drawer && <div className="bib-scrim" aria-hidden="true" onClick={() => p.onDrawer(false)} />}
       <aside
         className="bib-side"
-        aria-label="Biblioteca"
+        aria-label={t('Biblioteca')}
         onClickCapture={(e) => {
           // Elegir algo cierra el cajón; las flechas de plegar no.
           const b = (e.target as HTMLElement).closest('button');
@@ -353,51 +361,51 @@ export function BibSidebar(p: SideProps) {
         }}
       >
         <div className="bib-side-top">
-          <button className="bib-profile" onClick={p.onProfiles} title={withKey('Cambiar de perfil', key('profiles'))}>
+          <button className="bib-profile" onClick={p.onProfiles} title={withKey(t('Cambiar de perfil'), key('profiles'))}>
             <span className="bib-profile-dot" aria-hidden="true" />
             <span className="bib-ellipsis">{p.profileName}</span>
             <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" className="bib-profile-chev">
               <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <button className="bib-icon" onClick={p.onFold} title={withKey(p.folded ? 'Fijar la barra' : 'Plegar la barra', key('sidebar'))} aria-label={p.folded ? 'Fijar la barra' : 'Plegar la barra'}>
+          <button className="bib-icon" onClick={p.onFold} title={withKey(p.folded ? t('Fijar la barra') : t('Plegar la barra'), key('sidebar'))} aria-label={p.folded ? t('Fijar la barra') : t('Plegar la barra')}>
             <PanelIcon />
           </button>
         </div>
         <nav className="bib-nav">
           <button className={`bib-it${libraryOn && p.here === null ? ' is-on' : ''}`} onClick={() => p.onLibrary(null)} title={key('toRoot') || undefined}>
-            Todas las notas
+            {t('Todas las notas')}
           </button>
           <button className={`bib-it${p.view === 'tasks' ? ' is-on' : ''}`} onClick={p.onTasks} title={key('tasks') || undefined}>
-            Tareas<span className="bib-count">{p.tasks || ''}</span>
+            {t('Tareas')}<span className="bib-count">{p.tasks || ''}</span>
           </button>
           <button className={`bib-it${p.view === 'organize' ? ' is-on' : ''}`} onClick={p.onOrganize} title={key('organize') || undefined}>
-            Ordenar
+            {t('Ordenar')}
           </button>
           <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title={key('showArchived') || undefined}>
-            {p.showArchived ? 'Ocultar archivadas' : 'Archivadas'}
+            {p.showArchived ? t('Ocultar archivadas') : t('Archivadas')}
           </button>
           {/* Sin teclado, lo que solo tenía atajo. */}
           <button className="bib-it bib-touch" onClick={p.onLantern}>
-            Filtrar
+            {t('Filtrar')}
           </button>
         </nav>
-        <div className={`bib-side-label${drop && drop.id === null ? ' is-drop-inside' : ''}`} {...rootDrop} title="Suelta aquí para sacar una nota arriba del todo">
-          Mi biblioteca
+        <div className={`bib-side-label${drop && drop.id === null ? ' is-drop-inside' : ''}`} {...rootDrop} title={t('Suelta aquí para sacar una nota arriba del todo')}>
+          {t('Mi biblioteca')}
           <span className="bib-label-tools">
-            <button className="bib-label-add" onClick={p.onNewNote} title="Nota nueva arriba del todo" aria-label="Nota nueva arriba del todo">
+            <button className="bib-label-add" onClick={p.onNewNote} title={t('Nota nueva arriba del todo')} aria-label={t('Nota nueva arriba del todo')}>
               <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
                 <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
               </svg>
             </button>
-            <button className="bib-label-add" data-keep="" onClick={foldAll} title="Plegar todo" aria-label="Plegar todo">
+            <button className="bib-label-add" data-keep="" onClick={foldAll} title={t('Plegar todo')} aria-label={t('Plegar todo')}>
               <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
                 <path d="M3.5 1.5 6 4l2.5-2.5M3.5 10.5 6 8l2.5 2.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           </span>
         </div>
-        <div className={`bib-tree${drop && drop.id === null ? ' is-drop-root' : ''}`} role="tree" aria-label="Notas" {...rootDrop}>
+        <div className={`bib-tree${drop && drop.id === null ? ' is-drop-root' : ''}`} role="tree" aria-label={t('Notas')} {...rootDrop}>
           {roots.map((r) => renderRow(r, 0))}
         </div>
         <div className="bib-side-foot">
@@ -405,14 +413,14 @@ export function BibSidebar(p: SideProps) {
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 7l5 5-5 5M12 17h7" />
             </svg>
-            Comandos
+            {t('Comandos')}
           </button>
           <button className="bib-it" onClick={p.onSettings} title={key('settings') || undefined}>
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
             </svg>
-            Configuración
+            {t('Configuración')}
           </button>
         </div>
       </aside>
@@ -483,16 +491,16 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
   const items: ({ a: MenuAction; label: string; key?: string; danger?: boolean } | null)[] = [
-    { a: 'open', label: 'Abrir' },
-    ...(kids ? [{ a: 'library' as const, label: 'Ver como colección' }] : []),
-    { a: 'nodes', label: 'Ver en nodos', key: key('nodes') },
+    { a: 'open', label: t('Abrir') },
+    ...(kids ? [{ a: 'library' as const, label: t('Ver como colección') }] : []),
+    { a: 'nodes', label: t('Ver en nodos'), key: key('nodes') },
     null,
-    { a: 'child', label: 'Nota dentro', key: key('newSection') },
-    { a: 'rename', label: 'Renombrar', key: key('rename') },
-    { a: 'move', label: 'Mover a…', key: key('move') },
+    { a: 'child', label: t('Nota dentro'), key: key('newSection') },
+    { a: 'rename', label: t('Renombrar'), key: key('rename') },
+    { a: 'move', label: t('Mover a…'), key: key('move') },
     null,
-    { a: 'archive', label: row.archivedAt ? 'Desarchivar' : 'Archivar', key: key('archive') },
-    { a: 'delete', label: 'Borrar', key: key('deleteCell'), danger: true },
+    { a: 'archive', label: row.archivedAt ? t('Desarchivar') : t('Archivar'), key: key('archive') },
+    { a: 'delete', label: t('Borrar'), key: key('deleteCell'), danger: true },
   ];
 
   const color = prefs.colors[row.id] ?? null;
@@ -518,7 +526,7 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
         ),
       )}
       <div className="bib-menu-sep" role="separator" />
-      <div className="bib-menu-colors" role="group" aria-label="Color">
+      <div className="bib-menu-colors" role="group" aria-label={t('Color')}>
         {COLORS.map((c) => (
           <button
             key={c.hex}
@@ -526,12 +534,12 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
             aria-checked={color === c.hex}
             className={`bib-swatch${color === c.hex ? ' is-on' : ''}`}
             style={{ '--tint': c.hex } as CSSProperties}
-            title={c.name}
-            aria-label={c.name}
+            title={t(c.name)}
+            aria-label={t(c.name)}
             onClick={() => void setColor(row.id, c.hex).catch(() => {})}
           />
         ))}
-        <button role="menuitemradio" aria-checked={!color} className={`bib-swatch is-auto${!color ? ' is-on' : ''}`} style={{ '--h': hueOf(row.id) } as CSSProperties} title="Automático" aria-label="Color automático" onClick={() => void setColor(row.id, null).catch(() => {})} />
+        <button role="menuitemradio" aria-checked={!color} className={`bib-swatch is-auto${!color ? ' is-on' : ''}`} style={{ '--h': hueOf(row.id) } as CSSProperties} title={t('Automático')} aria-label={t('Color automático')} onClick={() => void setColor(row.id, null).catch(() => {})} />
       </div>
     </div>
   );
@@ -583,18 +591,18 @@ export function BibBar(p: BarProps) {
   const key = useKeyText();
   return (
     <header className="bib-bar">
-      <nav className="bib-crumbs" aria-label="Ruta">
-        <button className="bib-icon bib-drawer-btn" onClick={p.onDrawer} aria-label="Abrir el menú" title="Menú">
+      <nav className="bib-crumbs" aria-label={t('Ruta')}>
+        <button className="bib-icon bib-drawer-btn" onClick={p.onDrawer} aria-label={t('Abrir el menú')} title={t('Menú')}>
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
             <path d="M4 7h16M4 12h16M4 17h10" />
           </svg>
         </button>
         {p.folded && (
-          <button className="bib-icon bib-unfold" onClick={p.onFold} title={withKey('Fijar la barra', key('sidebar'))} aria-label="Fijar la barra">
+          <button className="bib-icon bib-unfold" onClick={p.onFold} title={withKey(t('Fijar la barra'), key('sidebar'))} aria-label={t('Fijar la barra')}>
             <PanelIcon />
           </button>
         )}
-        <button className="bib-up" onClick={p.onUp ?? undefined} disabled={!p.onUp} aria-label="Subir" title="Subir (Retroceso)">
+        <button className="bib-up" onClick={p.onUp ?? undefined} disabled={!p.onUp} aria-label={t('Subir')} title={t('Subir (Retroceso)')}>
           ‹
         </button>
         {p.crumbs.map((c, i) => (
@@ -611,21 +619,21 @@ export function BibBar(p: BarProps) {
           <circle cx="11" cy="11" r="7" />
           <path d="m20 20-3.5-3.5" />
         </svg>
-        Buscar en tu biblioteca
+        {t('Buscar en tu biblioteca')}
         {key('search') && <span className="bib-search-k">{key('search')}</span>}
       </button>
       <div className="bib-bar-end">
-        <button className="bib-icon bib-search-btn" onClick={p.onSearch} aria-label="Buscar" title="Buscar">
+        <button className="bib-icon bib-search-btn" onClick={p.onSearch} aria-label={t('Buscar')} title={t('Buscar')}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-3.5-3.5" />
           </svg>
         </button>
         {p.view === 'library' && (
-          <div className="bib-seg" role="group" aria-label="Cómo ver la colección">
+          <div className="bib-seg" role="group" aria-label={t('Cómo ver la colección')}>
             {(['lista', 'portadas', 'nodos'] as const).map((l) => (
-              <button key={l} className={p.layout === l ? 'is-on' : ''} onClick={() => p.onLayout(l)} aria-pressed={p.layout === l} aria-label={l === 'lista' ? 'Lista' : l === 'portadas' ? 'Portadas' : 'Nodos'}>
-                <span className="bib-seg-t">{l === 'lista' ? 'Lista' : l === 'portadas' ? 'Portadas' : 'Nodos'}</span>
+              <button key={l} className={p.layout === l ? 'is-on' : ''} onClick={() => p.onLayout(l)} aria-pressed={p.layout === l} aria-label={l === 'lista' ? t('Lista') : l === 'portadas' ? t('Portadas') : t('Nodos')}>
+                <span className="bib-seg-t">{l === 'lista' ? t('Lista') : l === 'portadas' ? t('Portadas') : t('Nodos')}</span>
                 <svg className="bib-seg-i" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
                   {LAYOUT_ICONS[l]}
                 </svg>
@@ -716,8 +724,8 @@ export function Library(p: LibProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (p.paused || keysBlocked()) return;
-      const t = e.target as HTMLElement | null;
-      if (t?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t?.tagName ?? '')) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName ?? '')) return;
       const plain = !(e.metaKey || e.ctrlKey || e.altKey || e.shiftKey);
       const cols = p.layout === 'portadas' ? Math.max(1, Math.round((list.current?.clientWidth ?? 1000) / 200)) : 1;
       const cur = items[at];
@@ -743,8 +751,8 @@ export function Library(p: LibProps) {
     return () => window.removeEventListener('keydown', onKey, true);
   });
 
-  const title = p.center === LOOSE ? 'Sueltas' : here ? titleOf(here) : 'Todas las notas';
-  const upTitle = here ? p.family.pathTo(parent.get(here.id) ?? null).map(titleOf).join(' / ') || 'Biblioteca' : 'Biblioteca';
+  const title = p.center === LOOSE ? t('Sueltas') : here ? titleOf(here) : t('Todas las notas');
+  const upTitle = here ? p.family.pathTo(parent.get(here.id) ?? null).map(titleOf).join(' / ') || t('Biblioteca') : t('Biblioteca');
 
   return (
     <div className="bib-lib">
@@ -754,17 +762,17 @@ export function Library(p: LibProps) {
           <h1>{title}</h1>
         </div>
         <span className="bib-muted bib-lib-count">
-          {items.length === 1 ? '1 nota' : `${items.length} notas`} · {p.center !== LOOSE && prefs.order[here?.id ?? ROOT_KEY]?.length ? 'en tu orden' : 'ordenadas por importancia'}
+          {tn(items.length, '{n} nota', '{n} notas')} · {p.center !== LOOSE && prefs.order[here?.id ?? ROOT_KEY]?.length ? t('en tu orden') : t('ordenadas por importancia')}
         </span>
         {here && (
           <button className="bib-link" onClick={() => p.onOpen(here.id)}>
-            Abrir «{titleOf(here)}» ↗
+            {t('Abrir «{name}» ↗', { name: titleOf(here) })}
           </button>
         )}
       </div>
       {items.length === 0 && (
         <p className="bib-empty">
-          Aquí no hay nada todavía.<span className="bib-keys"> <kbd>N</kbd> para la primera nota.</span>
+          {t('Aquí no hay nada todavía.')}<span className="bib-keys"> <kbd>N</kbd> {t('para la primera nota.')}</span>
         </p>
       )}
       {p.layout === 'lista' ? (
@@ -772,10 +780,10 @@ export function Library(p: LibProps) {
           {items.length > 0 && (
             <div className="bib-thead" aria-hidden="true">
               <span />
-              <span>Título</span>
-              <span>Tipo</span>
-              <span>Dentro</span>
-              <span className="bib-right">Editada</span>
+              <span>{t('Título')}</span>
+              <span>{t('Tipo')}</span>
+              <span>{t('Dentro')}</span>
+              <span className="bib-right">{t('Editada')}</span>
             </div>
           )}
           {items.map((r, i) => {
@@ -794,12 +802,12 @@ export function Library(p: LibProps) {
                 <Spine row={r} kids={n} />
                 <span className="bib-row-main">
                   <span className="bib-row-t">{titleOf(r)}</span>
-                  <span className="bib-row-s">{snippetOf(r) || (n ? `${n} notas dentro` : 'Sin texto todavía.')}</span>
+                  <span className="bib-row-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : t('Sin texto todavía.'))}</span>
                 </span>
                 <span>
                   <span className="bib-pill">{kind}</span>
                 </span>
-                <span className="bib-muted">{n ? `${n} notas` : '—'}</span>
+                <span className="bib-muted">{n ? tn(n, '{n} nota', '{n} notas') : '—'}</span>
                 <span className="bib-muted bib-right">{editedLabel(r.updatedAt)}</span>
               </button>
             );
@@ -821,9 +829,9 @@ export function Library(p: LibProps) {
                 onClick={() => enter(r)}
               >
                 <span className={`bib-cover${n ? ' is-branch' : ''}`}>
-                  <span className="bib-cover-k">{kind.toUpperCase()}</span>
+                  <span className="bib-cover-k">{kind.toLocaleUpperCase(locale())}</span>
                   <span className="bib-cover-t">{titleOf(r)}</span>
-                  <span className="bib-cover-s">{snippetOf(r) || (n ? `${n} notas dentro` : '')}</span>
+                  <span className="bib-cover-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : '')}</span>
                   <span className="bib-cover-lines" aria-hidden="true">
                     <span />
                     <span />
@@ -832,7 +840,7 @@ export function Library(p: LibProps) {
                 </span>
                 <span className="bib-cover-name">{titleOf(r)}</span>
                 <span className="bib-muted bib-small">
-                  {n ? `${n} notas` : kind} · {editedLabel(r.updatedAt)}
+                  {n ? tn(n, '{n} nota', '{n} notas') : kind} · {editedLabel(r.updatedAt)}
                 </span>
               </button>
             );

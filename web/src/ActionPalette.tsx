@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from 'react';
 import { ACTIONS, GROUPS, appliesIn, runAction, useKeymap, useView } from './keys';
 import { Keys } from './Kbd';
 import { MODES, THEMES, setMode, setTheme, useAppearance } from './theme';
+import { LANGS, setLang, t, useLang } from './i18n';
 
 // Paleta de comandos: los que sirven donde estás, agrupados, y además órdenes
 // sin tecla (temas, modo, secciones de Configuración). Elegir uno lo ejecuta
@@ -42,6 +43,7 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
   const keymap = useKeymap();
   const view = useView();
   const { mode, dark, light } = useAppearance();
+  const lang = useLang();
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
 
@@ -54,10 +56,11 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
       combo: keymap[a.id],
       run: () => setTimeout(() => runAction(a.id), 0),
     })),
-    ...MODES.map((m) => ({ key: `mode-${m.id}`, label: `Modo ${m.name.toLowerCase()}`, hint: m.id === 'auto' ? 'Según el sistema' : undefined, group: 'Aspecto', run: () => void setMode(m.id).catch(() => {}), on: mode === m.id })),
-    ...THEMES.map((t) => ({ key: `theme-${t.id}`, label: `Tema: ${t.name}${t.tone === 'dark' ? ' (oscuro)' : ' (claro)'}`, hint: t.hint, group: 'Aspecto', run: () => void setTheme(t.id).catch(() => {}), on: dark === t.id || light === t.id })),
-    { key: 'set-aspecto', label: 'Configuración: Aspecto', group: 'Aplicación', run: () => openSettingsAt('aspecto') },
-    { key: 'set-atajos', label: 'Configuración: Atajos de teclado', group: 'Aplicación', run: () => openSettingsAt('atajos') },
+    ...MODES.map((m) => ({ key: `mode-${m.id}`, label: t('Modo {name}', { name: t(m.name).toLowerCase() }), hint: m.id === 'auto' ? t('Según el sistema') : undefined, group: 'Aspecto', run: () => void setMode(m.id).catch(() => {}), on: mode === m.id })),
+    ...THEMES.map((th) => ({ key: `theme-${th.id}`, label: t(th.tone === 'dark' ? 'Tema: {name} (oscuro)' : 'Tema: {name} (claro)', { name: t(th.name) }), hint: t(th.hint), group: 'Aspecto', run: () => void setTheme(th.id).catch(() => {}), on: dark === th.id || light === th.id })),
+    ...LANGS.map((l) => ({ key: `lang-${l.id}`, label: t('Idioma: {name}', { name: l.name }), hint: 'Language', group: 'Aspecto', run: () => void setLang(l.id).catch(() => {}), on: lang === l.id })),
+    { key: 'set-aspecto', label: t('Configuración: Aspecto'), group: 'Aplicación', run: () => openSettingsAt('aspecto') },
+    { key: 'set-atajos', label: t('Configuración: Atajos de teclado'), group: 'Aplicación', run: () => openSettingsAt('atajos') },
   ];
 
   // Sin escribir: recientes y luego por grupos. Escribiendo: por parecido.
@@ -71,11 +74,11 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
       .map((k) => byKey.get(k))
       .filter((e): e is Entry => !!e);
     const order = [...GROUPS, 'Aspecto'] as string[];
-    const grouped = order.flatMap((g) => entries.filter((e) => e.group === g).map((entry, i) => ({ entry, id: entry.key, head: i === 0 ? g : undefined })));
-    rows = [...recent.map((entry, i) => ({ entry, id: `r-${entry.key}`, head: i === 0 ? 'Recientes' : undefined })), ...grouped];
+    const grouped = order.flatMap((g) => entries.filter((e) => e.group === g).map((entry, i) => ({ entry, id: entry.key, head: i === 0 ? t(g) : undefined })));
+    rows = [...recent.map((entry, i) => ({ entry, id: `r-${entry.key}`, head: i === 0 ? t('Recientes') : undefined })), ...grouped];
   } else {
     rows = entries
-      .filter((e) => words.every((w) => norm(`${e.label} ${e.hint ?? ''} ${e.group}`).includes(w)))
+      .filter((e) => words.every((w) => norm(`${e.label} ${e.hint ?? ''} ${t(e.group)}`).includes(w)))
       .map((entry, i) => ({ entry, rank: (norm(entry.label).startsWith(q) ? 0 : words.every((w) => norm(entry.label).includes(w)) ? 1 : 2) * 100 + i }))
       .sort((x, y) => x.rank - y.rank)
       .map(({ entry }) => ({ entry, id: entry.key }));
@@ -107,7 +110,7 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
         <input
           className="field field-bare"
           autoFocus
-          placeholder="Escribe un comando"
+          placeholder={t('Escribe un comando')}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -137,10 +140,10 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
                 {a.label}
                 {a.hint && <span className="palette-hint">{a.hint}</span>}
               </span>
-              <span className="trail">{a.combo ? <Keys combo={a.combo} /> : a.on ? <span className="meta">Activo</span> : null}</span>
+              <span className="trail">{a.combo ? <Keys combo={a.combo} /> : a.on ? <span className="meta">{t('Activo')}</span> : null}</span>
             </li>,
           ])}
-          {!rows.length && <li className="list-item static">Ningún comando se llama así</li>}
+          {!rows.length && <li className="list-item static">{t('Ningún comando se llama así')}</li>}
         </ul>
       </div>
     </div>
