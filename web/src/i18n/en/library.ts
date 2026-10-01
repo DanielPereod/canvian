@@ -141,6 +141,21 @@ export const EN_LIBRARY: Record<string, string> = {
   'Añadir al lienzo': 'Add to canvas',
   Tarjeta: 'Card',
   Encuadrar: 'Fit',
+  // Dibujo sobre el canvas
+  Dibujar: 'Draw',
+  Seleccionar: 'Select',
+  Lápiz: 'Pen',
+  Línea: 'Line',
+  Flecha: 'Arrow',
+  Rectángulo: 'Rectangle',
+  Elipse: 'Ellipse',
+  Goma: 'Eraser',
+  Rehacer: 'Redo',
+  Tinta: 'Ink',
+  Acento: 'Accent',
+  Fino: 'Thin',
+  Medio: 'Medium',
+  Grueso: 'Thick',
 
   // Barras
   'Arrastra para cambiar el ancho · doble clic para volver al de siempre': 'Drag to change the width · double-click to reset',

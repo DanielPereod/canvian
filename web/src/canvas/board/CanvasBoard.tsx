@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -14,6 +14,7 @@ import {
   getBezierPath,
   useInternalNode,
   useReactFlow,
+  ViewportPortal,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -28,12 +29,15 @@ import { ulid } from 'ulidx';
 import type { NoteRow } from '../../api';
 import { fileExt, fileSize, openFile, uploadMedia } from '../media';
 import { boardText, parseBoard, type Board, type BoardNode } from './board';
+import { constrain, fontSize, tidy, translate, type DrawColor, type DrawSize, type Drawing, type ShapeKind, type Tool } from './draw';
+import { DrawBar, DrawLayer, type Typing } from './Draw';
 import { t } from '../../i18n';
 import './board.css';
 
 // El lienzo de una nota de tipo canvas: tarjetas de texto, notas enlazadas,
 // archivos (imágenes, PDF, documentos…) y grupos que se colocan libremente y se unen con flechas, como un
-// canvas de Obsidian. Guarda en formato JSON Canvas.
+// canvas de Obsidian, y encima se puede dibujar a mano (ver draw.ts). Guarda en
+// formato JSON Canvas.
 
 type Data = {
   text?: string;
@@ -225,7 +229,7 @@ const toFlow = (b: Board) => {
   return { nodes, edges };
 };
 
-const fromFlow = (nodes: Node<Data>[], edges: Edge[]): Board => ({
+const fromFlow = (nodes: Node<Data>[], edges: Edge[], drawings: Drawing[]): Board => ({
   type: 'canvas',
   nodes: nodes.map((n): BoardNode => {
     const base = { id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y), width: Math.round(n.width ?? n.measured?.width ?? 200), height: Math.round(n.height ?? n.measured?.height ?? 100) };
@@ -235,7 +239,25 @@ const fromFlow = (nodes: Node<Data>[], edges: Edge[]): Board => ({
     return { ...base, type: 'text', text: n.data.text ?? '' };
   }),
   edges: edges.map((e) => ({ id: e.id, fromNode: e.source, toNode: e.target, ...(e.markerEnd ? {} : { toEnd: 'none' as const }) })),
+  ...(drawings.length ? { drawings } : {}),
 });
+
+// Color y grosor con los que se dibuja, recordados en este navegador.
+const STYLE_KEY = 'canvian:draw';
+function loadStyle(): { color: DrawColor; size: DrawSize } {
+  try {
+    const v = JSON.parse(localStorage.getItem(STYLE_KEY) ?? 'null');
+    if (v && typeof v.color === 'string' && [1, 2, 3].includes(v.size)) return v;
+  } catch {
+    // Sin almacenamiento local se empieza con tinta y trazo medio.
+  }
+  return { color: 'ink', size: 2 };
+}
+
+const isTyping = (el: EventTarget | null) => {
+  const n = el as HTMLElement | null;
+  return !!n && (n.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(n.tagName));
+};
 
 const ARROW = { type: MarkerType.ArrowClosed, width: 16, height: 16, color: 'var(--board-edge)' };
 
@@ -251,15 +273,18 @@ type Props = {
 };
 
 function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
-  const initial = useMemo(() => toFlow(parseBoard(note.bodyJson)), [note.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const initialBoard = useMemo(() => parseBoard(note.bodyJson), [note.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const initial = useMemo(() => toFlow(initialBoard), [initialBoard]);
   const [nodes, setNodes] = useState<Node<Data>[]>(initial.nodes);
   const [edges, setEdges] = useState<Edge[]>(initial.edges);
+  const [drawings, setDrawings] = useState<Drawing[]>(initialBoard.drawings ?? []);
   const flow = useReactFlow();
   const host = useRef<HTMLDivElement>(null);
   const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
 
   // Guardar al rato de dejar de tocar; lo que se está escribiendo no cuenta.
   const first = useRef(true);
+  const lastDrawn = useRef(JSON.stringify(initialBoard.drawings ?? []));
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
   // Al cerrar la hoja se guarda lo que quedara pendiente.
@@ -269,22 +294,274 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     pending.current = null;
   };
   useEffect(() => flush, []);
+  const boardJson = JSON.stringify(fromFlow(nodes, edges, drawings));
   useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
-    const board = fromFlow(nodes, edges);
-    pending.current = () => onSaveRef.current({ bodyJson: JSON.stringify(board), bodyText: boardText(board, byId) });
+    const json = boardJson;
+    const board = JSON.parse(json) as Board;
+    // Cada trazo es un paso de deshacer al momento; lo demás (arrastrar
+    // tarjetas, escribir) cuenta al dejar de tocar.
+    const drawn = JSON.stringify(board.drawings ?? []);
+    if (drawn !== lastDrawn.current && gesture.current?.kind !== 'move') record(json);
+    lastDrawn.current = drawn;
+    pending.current = () => {
+      record(json);
+      onSaveRef.current({ bodyJson: json, bodyText: boardText(board, byId) });
+    };
     const t = setTimeout(flush, 450);
     return () => clearTimeout(t);
-    // Solo el contenido: posiciones, tamaños, textos y flechas.
+    // Solo el contenido: posiciones, tamaños, textos, flechas y dibujos.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(fromFlow(nodes, edges))]);
+  }, [boardJson]);
+
+  // ── Deshacer y rehacer: cada estado guardado del lienzo es un paso ──
+  const hist = useRef({ stack: [JSON.stringify(fromFlow(initial.nodes, initial.edges, initialBoard.drawings ?? []))], at: 0 });
+  const [, setHistTick] = useState(0);
+  function record(json: string) {
+    const h = hist.current;
+    if (h.stack[h.at] === json) return;
+    h.stack = h.stack.slice(Math.max(0, h.at - 199), h.at + 1);
+    h.stack.push(json);
+    h.at = h.stack.length - 1;
+    setHistTick((n) => n + 1);
+  }
+  const restore = (json: string) => {
+    const b = parseBoard(json);
+    const f = toFlow(b);
+    setNodes(f.nodes);
+    setEdges(f.edges);
+    setDrawings(b.drawings ?? []);
+    setSel(null);
+    setHistTick((n) => n + 1);
+  };
+  const current = () => JSON.stringify(fromFlow(flow.getNodes() as Node<Data>[], flow.getEdges(), drawingsRef.current));
+  const undo = () => {
+    commitTyping();
+    record(current());
+    const h = hist.current;
+    if (h.at > 0) restore(h.stack[--h.at]);
+  };
+  const redo = () => {
+    const h = hist.current;
+    if (h.stack[h.at] !== current()) return;
+    if (h.at < h.stack.length - 1) restore(h.stack[++h.at]);
+  };
 
   const setData = useCallback((id: string, data: Partial<Data>) => {
     setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...data } } : n)));
   }, []);
+
+  // ── Dibujo ─────────────────────────────────────────────────────────
+  const [tool, setTool] = useState<Tool>('select');
+  const [style, setStyleState] = useState(loadStyle);
+  const [draft, setDraft] = useState<Drawing | null>(null);
+  const [sel, setSel] = useState<string | null>(null);
+  const [erasing, setErasing] = useState<Set<string>>(new Set());
+  const [typing, setTypingState] = useState<Typing | null>(null);
+  const drawingsRef = useRef(drawings);
+  drawingsRef.current = drawings;
+  const typingRef = useRef<Typing | null>(null);
+  const gesture = useRef<{ pointer: number; kind: 'draw' | 'erase' | 'move'; start: { x: number; y: number }; client: { x: number; y: number }; orig?: Drawing } | null>(null);
+  const draftRef = useRef<Drawing | null>(null);
+  const erasingRef = useRef<Set<string>>(new Set());
+  const pointers = useRef(new Set<number>());
+  const drawing = tool !== 'select';
+
+  const setStyle = (next: Partial<{ color: DrawColor; size: DrawSize }>) => {
+    const s = { ...style, ...next };
+    setStyleState(s);
+    try {
+      localStorage.setItem(STYLE_KEY, JSON.stringify(s));
+    } catch {
+      // Se recordará solo mientras esté abierto.
+    }
+    // Con una forma elegida, el color y el grosor van a ella.
+    if (sel) setDrawings((ds) => ds.map((d) => (d.id === sel ? { ...d, ...next } : d)));
+  };
+
+  const setTyping = (v: Typing | null) => {
+    typingRef.current = v;
+    setTypingState(v);
+  };
+  function commitTyping() {
+    const cur = typingRef.current;
+    if (!cur) return;
+    setTyping(null);
+    const text = cur.text.replace(/\s+$/, '');
+    setDrawings((ds) => {
+      const rest = ds.filter((d) => d.id !== cur.id);
+      if (!text.trim()) return rest;
+      const at = ds.findIndex((d) => d.id === cur.id);
+      const d: Drawing = tidy({ id: cur.id, kind: 'text', x: cur.x, y: cur.y, text, color: cur.color, size: cur.size });
+      return at < 0 ? [...rest, d] : ds.map((x) => (x.id === cur.id ? d : x));
+    });
+  }
+  const editText = (d: Drawing) => {
+    if (d.kind !== 'text') return;
+    commitTyping();
+    setSel(null);
+    setTyping({ id: d.id, x: d.x, y: d.y, text: d.text, color: d.color, size: d.size });
+  };
+
+  const deselectNodes = () => setNodes((ns) => (ns.some((n) => n.selected) ? ns.map((n) => (n.selected ? { ...n, selected: false } : n)) : ns));
+  const pickTool = (next: Tool) => {
+    commitTyping();
+    setSel(null);
+    setTool(next);
+    if (next !== 'select') deselectNodes();
+  };
+
+  const toFlowPoint = (e: { clientX: number; clientY: number }) => flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+
+  // La goma borra lo que toca: se marca al pasar y se quita al soltar.
+  const eraseAt = (x: number, y: number) => {
+    for (const el of document.elementsFromPoint(x, y)) {
+      const id = (el as HTMLElement).dataset?.drawId;
+      if (id && !erasingRef.current.has(id)) {
+        erasingRef.current = new Set(erasingRef.current).add(id);
+        setErasing(erasingRef.current);
+      }
+    }
+  };
+
+  const cancelGesture = () => {
+    gesture.current = null;
+    draftRef.current = null;
+    setDraft(null);
+    erasingRef.current = new Set();
+    setErasing(erasingRef.current);
+  };
+
+  const onDrawDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!drawing) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('.draw-ui, .board-tools, .draw-textarea')) return;
+    pointers.current.add(e.pointerId);
+    // Dos dedos: se acerca o se mueve el lienzo, no se dibuja.
+    if (pointers.current.size > 1) return cancelGesture();
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const p = toFlowPoint(e);
+    const base = { pointer: e.pointerId, start: p, client: { x: e.clientX, y: e.clientY } };
+    if (tool === 'text') {
+      const hit = document.elementsFromPoint(e.clientX, e.clientY).map((el) => (el as HTMLElement).dataset?.drawId).find(Boolean);
+      const old = hit && drawingsRef.current.find((d) => d.id === hit && d.kind === 'text');
+      if (old) return editText(old);
+      commitTyping();
+      const fs = fontSize(style.size);
+      setTyping({ id: ulid(), x: p.x, y: p.y - fs * 0.6, text: '', ...style });
+      return;
+    }
+    if (tool === 'eraser') {
+      gesture.current = { ...base, kind: 'erase' };
+      eraseAt(e.clientX, e.clientY);
+      return;
+    }
+    commitTyping();
+    gesture.current = { ...base, kind: 'draw' };
+    const d: Drawing =
+      tool === 'pen'
+        ? { id: ulid(), kind: 'pen', pts: [p.x, p.y, e.pointerType === 'pen' ? e.pressure : 0.5], ...(e.pointerType === 'pen' ? { pr: 1 as const } : {}), ...style }
+        : { id: ulid(), kind: tool as ShapeKind, x1: p.x, y1: p.y, x2: p.x, y2: p.y, seed: Math.floor(Math.random() * 2 ** 31), ...style };
+    draftRef.current = d;
+    setDraft(d);
+  };
+
+  // Elegir y arrastrar un dibujo con la flecha de seleccionar.
+  const onShapeDown = (e: ReactPointerEvent, id: string) => {
+    if (drawing || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const orig = drawingsRef.current.find((d) => d.id === id);
+    if (!orig) return;
+    e.stopPropagation();
+    setSel(id);
+    deselectNodes();
+    host.current!.setPointerCapture(e.pointerId);
+    gesture.current = { pointer: e.pointerId, kind: 'move', start: toFlowPoint(e), client: { x: e.clientX, y: e.clientY }, orig };
+  };
+
+  const onDrawMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const g = gesture.current;
+    if (!g || g.pointer !== e.pointerId) return;
+    if (g.kind === 'move') {
+      const p = toFlowPoint(e);
+      const moved = translate(g.orig!, p.x - g.start.x, p.y - g.start.y);
+      setDrawings((ds) => ds.map((d) => (d.id === moved.id ? moved : d)));
+      return;
+    }
+    if (g.kind === 'erase') {
+      // Entre dos movimientos rápidos, se repasa el camino a saltitos.
+      const { x, y } = g.client;
+      const steps = Math.ceil(Math.hypot(e.clientX - x, e.clientY - y) / 6);
+      for (let i = 1; i <= steps; i++) eraseAt(x + ((e.clientX - x) * i) / steps, y + ((e.clientY - y) * i) / steps);
+      g.client = { x: e.clientX, y: e.clientY };
+      return;
+    }
+    const d = draftRef.current;
+    if (!d) return;
+    let next: Drawing;
+    if (d.kind === 'pen') {
+      const zoom = flow.getZoom();
+      const pts = d.pts.slice();
+      const events = e.nativeEvent.getCoalescedEvents?.() ?? [];
+      for (const ev of events.length ? events : [e.nativeEvent]) {
+        const p = toFlowPoint(ev);
+        if (Math.hypot(p.x - pts[pts.length - 3], p.y - pts[pts.length - 2]) < 1.2 / zoom) continue;
+        pts.push(p.x, p.y, d.pr ? ev.pressure : 0.5);
+      }
+      next = { ...d, pts };
+    } else if (d.kind !== 'text') {
+      const p = toFlowPoint(e);
+      next = { ...d, x2: p.x, y2: p.y, ...(e.shiftKey ? constrain(d.kind, d.x1, d.y1, p.x, p.y) : {}) };
+    } else return;
+    draftRef.current = next;
+    setDraft(next);
+  };
+
+  const onDrawUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    pointers.current.delete(e.pointerId);
+    const g = gesture.current;
+    if (!g || g.pointer !== e.pointerId) return;
+    gesture.current = null;
+    if (g.kind === 'erase') {
+      const gone = erasingRef.current;
+      if (gone.size) setDrawings((ds) => ds.filter((d) => !gone.has(d.id)));
+      erasingRef.current = new Set();
+      setErasing(erasingRef.current);
+      return;
+    }
+    if (g.kind === 'move') return;
+    const d = draftRef.current;
+    draftRef.current = null;
+    setDraft(null);
+    if (!d || e.type === 'pointercancel') return;
+    // Un toque sin arrastrar no deja una forma de tamaño cero (un punto con el lápiz, sí).
+    if (d.kind !== 'pen' && d.kind !== 'text' && Math.hypot(d.x2 - d.x1, d.y2 - d.y1) * flow.getZoom() < 4) return;
+    setDrawings((ds) => [...ds, tidy(d)]);
+  };
+
+  // Teclas del lienzo: deshacer, rehacer, Esc y borrar lo dibujado.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isTyping(e.target) || document.querySelector('.inspector, .overlay')) return;
+      const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+      if (mod && e.code === 'KeyZ') e.shiftKey ? redo() : undo();
+      else if (mod && !e.shiftKey && e.code === 'KeyY') redo();
+      else if (e.key === 'Escape' && (sel || tool !== 'select')) sel ? setSel(null) : pickTool('select');
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && sel) {
+        setDrawings((ds) => ds.filter((d) => d.id !== sel));
+        setSel(null);
+      } else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   const ctx: Ctx = { rows: byId, onOpenNote, setData };
   const ctxRef = useRef(ctx);
@@ -352,7 +629,14 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   return (
     <div
       ref={host}
-      className="board"
+      className={`board${drawing ? ' is-drawing' : ''}`}
+      data-tool={tool}
+      // La hoja deja el Esc al lienzo mientras haya herramienta o dibujo elegido.
+      data-esc={drawing || sel ? '' : undefined}
+      onPointerDownCapture={onDrawDown}
+      onPointerMove={onDrawMove}
+      onPointerUp={onDrawUp}
+      onPointerCancel={onDrawUp}
       onDragOver={(e) => {
         if ([...e.dataTransfer.types].includes('Files')) e.preventDefault();
       }}
@@ -376,9 +660,17 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
           setEdges((es) => (es.some((e) => e.source === c.source && e.target === c.target) ? es : [...es, { id: ulid(), source: c.source, target: c.target, type: 'arrow', markerEnd: ARROW }]))
         }
         onPaneClick={(e) => {
+          setSel(null);
           // Doble clic en el vacío: tarjeta nueva, ya escribiendo.
           if (e.detail === 2) add('text', flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }), { editing: true });
         }}
+        onNodeClick={() => setSel(null)}
+        // Dibujando, las tarjetas se quedan quietas; el lienzo se mueve con la
+        // rueda, con dos dedos o arrastrando con el botón central.
+        nodesDraggable={!drawing}
+        nodesConnectable={!drawing}
+        elementsSelectable={!drawing}
+        panOnDrag={drawing ? [1] : true}
         connectionMode={ConnectionMode.Loose}
         defaultEdgeOptions={{ type: 'arrow', markerEnd: ARROW }}
         connectionLineStyle={{ stroke: 'var(--board-edge)', strokeWidth: 1.5 }}
@@ -392,8 +684,34 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         colorMode="dark"
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1.2} className="board-dots" />
+        <ViewportPortal>
+          <DrawLayer
+            drawings={drawings}
+            draft={draft}
+            selected={sel}
+            erasing={erasing}
+            typing={typing}
+            onShapeDown={onShapeDown}
+            onTextEdit={editText}
+            onTyping={(text) => typingRef.current && setTyping({ ...typingRef.current, text })}
+            onTypingDone={commitTyping}
+          />
+        </ViewportPortal>
       </ReactFlow>
-      {!nodes.length && (
+      <DrawBar
+        tool={tool}
+        color={sel ? (drawings.find((d) => d.id === sel)?.color ?? style.color) : style.color}
+        size={sel ? (drawings.find((d) => d.id === sel)?.size ?? style.size) : style.size}
+        showStyle={(drawing && tool !== 'eraser') || !!sel}
+        canUndo={hist.current.at > 0 || hist.current.stack[hist.current.at] !== boardJson}
+        canRedo={hist.current.at < hist.current.stack.length - 1 && hist.current.stack[hist.current.at] === boardJson}
+        onTool={pickTool}
+        onColor={(color) => setStyle({ color })}
+        onSize={(size) => setStyle({ size })}
+        onUndo={undo}
+        onRedo={redo}
+      />
+      {!nodes.length && !drawings.length && !drawing && (
         <p className="board-empty">
           {t('Doble clic para una')} <em>{t('tarjeta')}</em>{t(', o pega o suelta un archivo')}
         </p>

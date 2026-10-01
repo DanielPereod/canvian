@@ -94,3 +94,76 @@
 /* Un archivo que no se ve dentro (PDF, documento…): su ficha. */
 .board-doc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: default; }
 .board-doc-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-md); }
+
+/* ── Dibujo a mano encima del lienzo ─────────────────────────────── */
+.board {
+  --draw-ink: var(--text);
+  --draw-accent: var(--accent);
+  --draw-red: oklch(0.64 0.17 25);
+  --draw-orange: oklch(0.74 0.14 65);
+  --draw-green: oklch(0.68 0.12 150);
+  --draw-blue: oklch(0.64 0.13 255);
+}
+.draw-c-ink { color: var(--draw-ink); }
+.draw-c-accent { color: var(--draw-accent); }
+.draw-c-red { color: var(--draw-red); }
+.draw-c-orange { color: var(--draw-orange); }
+.draw-c-green { color: var(--draw-green); }
+.draw-c-blue { color: var(--draw-blue); }
+
+/* Encima de las tarjetas, pero solo se toca el trazo de cada dibujo. */
+.board .react-flow__viewport-portal { pointer-events: none; z-index: 4000; }
+.draw-layer { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.draw-shape { transition: opacity var(--dur-fast); }
+.draw-shape.is-erasing { opacity: 0.2; }
+.draw-ink { fill: currentColor; }
+.draw-line { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+.draw-hit { fill: none; stroke: transparent; stroke-width: 16px; vector-effect: non-scaling-stroke; stroke-linecap: round; pointer-events: stroke; cursor: move; }
+.draw-text { fill: currentColor; font-family: var(--font-sans); line-height: 1.25; dominant-baseline: text-before-edge; white-space: pre; pointer-events: bounding-box; cursor: move; user-select: none; }
+.board.is-drawing .draw-hit, .board.is-drawing .draw-text { cursor: inherit; }
+.draw-selection { fill: none; stroke: var(--accent); stroke-width: 1px; vector-effect: non-scaling-stroke; stroke-dasharray: 4 4; opacity: 0.8; }
+.draw-textarea {
+  position: absolute; margin: 0; padding: 0; border: 0; outline: 0; resize: none; overflow: hidden;
+  background: transparent; font-family: var(--font-sans); line-height: 1.25; white-space: pre;
+  min-width: 2ch; field-sizing: content; pointer-events: auto; caret-color: var(--accent);
+}
+.draw-textarea::placeholder { color: var(--text-ghost); }
+
+/* Dibujando: las tarjetas no reaccionan y el cursor dice qué se hace. */
+.board.is-drawing .react-flow__pane, .board.is-drawing .react-flow__node { cursor: crosshair; }
+.board[data-tool='text'] .react-flow__pane, .board[data-tool='text'] .react-flow__node { cursor: text; }
+.board[data-tool='eraser'] .react-flow__pane, .board[data-tool='eraser'] .react-flow__node {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Ccircle cx='10' cy='10' r='7' fill='white' fill-opacity='.25' stroke='gray' stroke-width='1.5'/%3E%3C/svg%3E") 10 10, cell;
+}
+.board.is-drawing .board-handle { display: none; }
+.board.is-drawing .react-flow__node { pointer-events: none; }
+.board.is-drawing { touch-action: none; }
+
+/* La barra: un riel discreto a la derecha, y al lado el color y el grosor. */
+.draw-ui {
+  position: absolute; right: var(--space-4); top: 50%; transform: translateY(-50%); z-index: 5;
+  display: flex; flex-direction: row-reverse; align-items: center; gap: 8px;
+  animation: rise-in var(--dur-slow) var(--ease-out) 260ms both;
+}
+.draw-rail { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; }
+.draw-rail button, .draw-style button {
+  display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 999px;
+  background: none; color: var(--text-muted); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast), opacity var(--dur-fast);
+}
+.draw-rail button:hover:not(:disabled) { color: var(--text); background: var(--accent-soft); }
+.draw-rail button.is-on { color: var(--accent-ink, var(--accent)); background: var(--accent-soft); }
+.draw-rail button:disabled { opacity: 0.3; cursor: default; }
+.draw-rail-sep, .draw-style-sep { width: 18px; height: 1px; background: var(--line); margin: 4px 0; }
+.draw-style { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px; border-radius: 999px; animation: fade var(--dur-base) var(--ease-out) both; }
+.draw-style button { width: 30px; height: 30px; }
+.draw-swatch span { width: 14px; height: 14px; border-radius: 50%; background: currentColor; transition: box-shadow var(--dur-fast), scale var(--dur-fast); }
+.draw-swatch:hover span { scale: 1.15; }
+.draw-swatch.is-on span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px currentColor; }
+.draw-width span { border-radius: 50%; background: var(--text-faint); transition: background var(--dur-fast); }
+.draw-width:hover span { background: var(--text-muted); }
+.draw-width.is-on span { background: var(--text); }
+
+@media (max-width: 640px) {
+  .draw-ui { right: 8px; top: auto; bottom: calc(var(--space-3) + 52px); transform: none; align-items: flex-end; }
+  .draw-rail button { width: 32px; height: 32px; }
+}
