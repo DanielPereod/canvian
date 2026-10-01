@@ -64,7 +64,7 @@ export const EN_LIBRARY: Record<string, string> = {
   Nodos: 'Nodes',
   Sueltas: 'Loose',
   'en tu orden': 'in your order',
-  'ordenadas por importancia': 'sorted by importance',
+  'las más activas primero': 'most active first',
   'Abrir «{name}» ↗': 'Open “{name}” ↗',
   'Aquí no hay nada todavía.': 'Nothing here yet.',
   'para la primera nota.': 'for the first note.',

@@ -687,7 +687,8 @@ export function Library(p: LibProps) {
     else list = kids.get(here?.id ?? null) ?? [];
     list = list.filter((r) => !p.hide || !p.lit || p.lit.has(r.id));
     const weight = (r: NoteRow) => importanceOf(r, degree.get(r.id) ?? 0) + Math.min(8, count(r.id)) * 0.6;
-    // Arriba, las colecciones; después, por importancia (o como las ordenaste en la barra).
+    // Arriba, las colecciones; después, las más activas: enlaces, tareas abiertas,
+    // cambios recientes y largo (o como las ordenaste en la barra).
     const auto = (a: NoteRow, b: NoteRow) => Number(!!count(b.id)) - Number(!!count(a.id)) || weight(b) - weight(a);
     return p.center === LOOSE ? [...list].sort(auto) : sortByOrder(here?.id ?? null, list, auto, prefs);
   }, [p.center, p.hide, p.lit, kids, count, here, degree, prefs]);
@@ -762,7 +763,7 @@ export function Library(p: LibProps) {
           <h1>{title}</h1>
         </div>
         <span className="bib-muted bib-lib-count">
-          {tn(items.length, '{n} nota', '{n} notas')} · {p.center !== LOOSE && prefs.order[here?.id ?? ROOT_KEY]?.length ? t('en tu orden') : t('ordenadas por importancia')}
+          {tn(items.length, '{n} nota', '{n} notas')} · {p.center !== LOOSE && prefs.order[here?.id ?? ROOT_KEY]?.length ? t('en tu orden') : t('las más activas primero')}
         </span>
         {here && (
           <button className="bib-link" onClick={() => p.onOpen(here.id)}>
