@@ -367,7 +367,11 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const gesture = useRef<{ pointer: number; kind: 'draw' | 'erase' | 'move'; start: { x: number; y: number }; client: { x: number; y: number }; orig?: Drawing } | null>(null);
   const draftRef = useRef<Drawing | null>(null);
   const erasingRef = useRef<Set<string>>(new Set());
-  const pointers = useRef(new Set<number>());
+  // Dedos (o punteros) apoyados ahora, para mover y acercar con dos.
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ vp: { x: number; y: number; zoom: number }; mid: { x: number; y: number }; dist: number } | null>(null);
+  // Arrastrar con el botón central del ratón mueve el lienzo.
+  const pan = useRef<{ pointer: number; vp: { x: number; y: number; zoom: number }; x: number; y: number } | null>(null);
   const drawing = tool !== 'select';
 
   const setStyle = (next: Partial<{ color: DrawColor; size: DrawSize }>) => {
@@ -439,13 +443,25 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     if (!drawing) return;
     const target = e.target as HTMLElement;
     if (target.closest('.draw-ui, .board-tools, .draw-textarea')) return;
-    pointers.current.add(e.pointerId);
-    // Dos dedos: se acerca o se mueve el lienzo, no se dibuja.
-    if (pointers.current.size > 1) return cancelGesture();
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (e.pointerType === 'mouse' && e.button === 1) {
+      pan.current = { pointer: e.pointerId, vp: flow.getViewport(), x: e.clientX, y: e.clientY };
+      return;
+    }
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // Dos dedos: se mueve y se acerca el lienzo, no se dibuja. Lo empezado con
+    // el primero se descarta.
+    if (pointers.current.size > 1) {
+      cancelGesture();
+      if (typingRef.current && !typingRef.current.text) setTyping(null);
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = { vp: flow.getViewport(), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)) };
+      return;
+    }
+    if (pinch.current) return;
     const p = toFlowPoint(e);
     const base = { pointer: e.pointerId, start: p, client: { x: e.clientX, y: e.clientY } };
     if (tool === 'text') {
@@ -485,6 +501,25 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   };
 
   const onDrawMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (pan.current?.pointer === e.pointerId) {
+      const { vp, x, y } = pan.current;
+      flow.setViewport({ x: vp.x + e.clientX - x, y: vp.y + e.clientY - y, zoom: vp.zoom });
+      return;
+    }
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pz = pinch.current;
+    if (pz) {
+      if (pointers.current.size < 2) return;
+      const [a, b] = [...pointers.current.values()];
+      const r = host.current!.getBoundingClientRect();
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const zoom = Math.min(3, Math.max(0.1, (pz.vp.zoom * Math.hypot(a.x - b.x, a.y - b.y)) / pz.dist));
+      // El punto del lienzo que había bajo los dedos sigue bajo ellos.
+      const fx = (pz.mid.x - r.left - pz.vp.x) / pz.vp.zoom;
+      const fy = (pz.mid.y - r.top - pz.vp.y) / pz.vp.zoom;
+      flow.setViewport({ x: mid.x - r.left - fx * zoom, y: mid.y - r.top - fy * zoom, zoom });
+      return;
+    }
     const g = gesture.current;
     if (!g || g.pointer !== e.pointerId) return;
     if (g.kind === 'move') {
@@ -523,7 +558,10 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   };
 
   const onDrawUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (pan.current?.pointer === e.pointerId) pan.current = null;
     pointers.current.delete(e.pointerId);
+    // Hasta levantar todos los dedos no se vuelve a dibujar.
+    if (pinch.current && !pointers.current.size) pinch.current = null;
     const g = gesture.current;
     if (!g || g.pointer !== e.pointerId) return;
     gesture.current = null;
@@ -665,12 +703,13 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
           if (e.detail === 2) add('text', flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }), { editing: true });
         }}
         onNodeClick={() => setSel(null)}
-        // Dibujando, las tarjetas se quedan quietas; el lienzo se mueve con la
-        // rueda, con dos dedos o arrastrando con el botón central.
+        // Dibujando, las tarjetas se quedan quietas y un dedo solo dibuja; el
+        // lienzo se mueve con la rueda, con dos dedos o con el botón central
+        // (eso lo lleva la capa de dibujo, no React Flow).
         nodesDraggable={!drawing}
         nodesConnectable={!drawing}
         elementsSelectable={!drawing}
-        panOnDrag={drawing ? [1] : true}
+        panOnDrag={!drawing}
         connectionMode={ConnectionMode.Loose}
         defaultEdgeOptions={{ type: 'arrow', markerEnd: ARROW }}
         connectionLineStyle={{ stroke: 'var(--board-edge)', strokeWidth: 1.5 }}
