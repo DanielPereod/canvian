@@ -159,6 +159,42 @@ export function bodyToHtml(bodyJson: string | null): string {
   return html;
 }
 
+// El título se edita aparte, como en Notion, pero se guarda como hasta ahora:
+// es el primer bloque del texto. Así el resto (búsqueda, vista previa, tareas,
+// exportar) sigue igual. Solo cuenta como título un párrafo o encabezado de
+// texto llano; si la nota empieza por otra cosa (una lista, una imagen), no tiene.
+export type TitleSplit = { title: string; head: JSONContent | null; body: JSONContent };
+
+function plainText(node: JSONContent): string | null {
+  let text = '';
+  for (const c of node.content ?? []) {
+    if (c.type === 'text') text += c.text ?? '';
+    else if (c.type === 'hardBreak') text += ' ';
+    else return null;
+  }
+  return text;
+}
+
+export function splitTitle(doc: JSONContent | null): TitleSplit {
+  const content = doc?.content ?? [];
+  const first = content[0];
+  const text = first && (first.type === 'heading' || first.type === 'paragraph') ? plainText(first) : null;
+  if (text === null) return { title: '', head: null, body: { type: 'doc', content } };
+  return { title: text, head: first, body: { ...doc, type: 'doc', content: content.slice(1) } };
+}
+
+// Lo contrario: el título (como un encabezado) delante del texto. Si no ha
+// cambiado, el bloque se queda como estaba, con su formato.
+export function titleBlock(title: string, head: JSONContent | null): JSONContent | null {
+  if (head && plainText(head) === title) return head;
+  if (!head && !title) return null;
+  return { type: head?.type ?? 'heading', ...(head ? (head.attrs ? { attrs: head.attrs } : {}) : { attrs: { level: 1 } }), ...(title ? { content: [{ type: 'text', text: title }] } : {}) };
+}
+
+export function joinTitle(head: JSONContent | null, body: JSONContent): JSONContent {
+  return head ? { ...body, type: 'doc', content: [head, ...(body.content ?? [])] } : body;
+}
+
 // El título de una nota es su primera línea con texto; sirve para buscar y para Ctrl P.
 export function titleFrom(text: string): string | null {
   const line = text.split('\n').find((l) => l.trim().length > 0);

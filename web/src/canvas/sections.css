@@ -53,7 +53,6 @@
 .sheet .sheet-prose:focus-visible { box-shadow: none; }
 /* Un enlace se selecciona como el resto del texto: no se arrastra. */
 .sheet .sheet-prose a { -webkit-user-drag: none; user-drag: none; }
-.sheet .sheet-prose > p:first-child strong, .sheet .sheet-prose > h1:first-child { font-family: var(--font-serif); font-weight: 400; font-size: calc(clamp(34px, 5vw, 52px) * var(--type-scale, 1)); line-height: 1.1; }
 .sheet .note-chips { padding: var(--space-4) 0 0; }
 .sheet-link {
   display: inline-flex;

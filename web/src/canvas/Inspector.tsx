@@ -12,7 +12,6 @@ import {
 import { kindChange } from './board/board';
 import { DatePicker } from './DatePicker';
 
-export const PRIORITIES = ['Sin prioridad', 'Baja', 'Media', 'Alta'] as const;
 const TYPES: { id: PropertyType; name: string }[] = [
   { id: 'text', name: 'Texto' },
   { id: 'select', name: 'Opciones' },
@@ -97,14 +96,7 @@ export function Inspector({ note, defs, profileId, onChange, onDefsChange, onErr
             />
           </Row>
 
-          <Row label="Prioridad" i={2}>
-            <Segmented
-              value={String(note.priority ?? 0)}
-              options={PRIORITIES.map((name, i) => ({ id: String(i), name: i === 0 ? '—' : name, className: `prio-${i}` }))}
-              onChange={(v) => onChange(note.id, { priority: Number(v) || null })}
-            />
-          </Row>
-
+          {/* Las notas no tienen prioridad: solo sus tareas (⏫ 🔼 🔽). */}
           <Row label="Fecha" i={3}>
             <DateInput value={note.dueAt} onChange={(dueAt) => onChange(note.id, { dueAt })} />
           </Row>

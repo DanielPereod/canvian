@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { parseProps, type NoteRow, type PropertyDef } from '../api';
 import { daysUntil, dueLabel } from './dates';
-import { PRIORITIES, hueOf } from './Inspector';
+import { hueOf } from './Inspector';
 
 const MAX = 4;
 
@@ -9,8 +9,6 @@ const MAX = 4;
 export function NoteChips({ note, defs, onOpen }: { note: NoteRow; defs: PropertyDef[]; onOpen: () => void }) {
   const chips: { key: string; text: string; className?: string; style?: CSSProperties; title?: string }[] = [];
 
-  if (note.priority)
-    chips.push({ key: 'prio', text: PRIORITIES[note.priority], className: `chip-prio prio-${note.priority}`, title: `Prioridad ${PRIORITIES[note.priority].toLowerCase()}` });
   if (note.dueAt) {
     const n = daysUntil(note.dueAt);
     const open = note.status !== 'done';

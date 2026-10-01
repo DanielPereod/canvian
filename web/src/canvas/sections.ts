@@ -16,10 +16,10 @@ export const bounds = (rs: Rect[]): Rect => {
   return { x, y, w: Math.max(...rs.map((r) => r.x + r.w)) - x || 1, h: Math.max(...rs.map((r) => r.y + r.h)) - y || 1 };
 };
 
-// Importancia de una nota: enlaces, prioridad, sus tareas (en curso o a punto
+// Importancia de una nota: enlaces, sus tareas (en curso o a punto
 // de vencer), si la tocaste hace poco y cuánto texto tiene.
 export function importanceOf(row: NoteRow, degree: number, now = Date.now()) {
-  let imp = 1 + 0.55 * Math.min(degree, 8) + 0.5 * (row.priority ?? 0);
+  let imp = 1 + 0.55 * Math.min(degree, 8);
   const open = tasksOf(row).filter((t) => t.status !== 'done');
   if (open.some((t) => t.status === 'doing')) imp += 0.8;
   if (open.some((t) => t.dueAt && daysUntil(t.dueAt) <= 2) || (row.dueAt && daysUntil(row.dueAt) <= 2)) imp += 1;
