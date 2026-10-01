@@ -564,3 +564,25 @@ button.tv-agenda-date:hover { background: var(--surface-sunken); }
 .note-popup-btn:hover { background: var(--surface-hover); color: var(--text); }
 @keyframes note-popup-fade { from { opacity: 0; } }
 @keyframes note-popup-in { from { opacity: 0; transform: translateY(8px) scale(0.985); } }
+
+/* Selector de fecha propio (DatePicker): botón + mes en cuadrícula. */
+.dp-placeholder { color: var(--text-ghost); }
+.dp-pop { width: min(280px, 100%); padding: var(--space-3); gap: var(--space-2); }
+.dp-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px var(--space-1); }
+.dp-month { font-size: var(--text-sm); color: var(--text); text-transform: capitalize; }
+.dp-nav { display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); font-size: var(--text-md); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
+.dp-nav:hover { background: var(--surface-hover); color: var(--text); }
+.dp-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.dp-dow { padding: 4px 0; text-align: center; font-size: var(--text-2xs); color: var(--text-ghost); text-transform: uppercase; }
+.dp-day { aspect-ratio: 1; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; font-size: var(--text-sm); font-variant-numeric: tabular-nums; cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
+.dp-day:hover { background: var(--surface-hover); }
+.dp-day.is-other { color: var(--text-ghost); }
+.dp-day.is-past { color: var(--text-faint); }
+.dp-day.is-today { color: var(--accent-ink); font-weight: 600; }
+.dp-day.is-on { background: var(--accent-ink); color: var(--accent-contrast); font-weight: 600; }
+.dp-day.is-cursor { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.dp-grid:focus-visible { outline: none; }
+.dp-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: var(--space-2) 2px 0; border-top: 1px solid var(--line); margin-top: var(--space-1); }
+.dp-quick { background: none; border: 0; font: inherit; font-size: var(--text-xs); color: var(--text-faint); cursor: pointer; padding: 4px 6px; border-radius: var(--radius-sm); transition: background var(--dur-fast), color var(--dur-fast); }
+.dp-quick:hover { background: var(--surface-hover); color: var(--text); }
+.dp-clear { margin-left: auto; }
