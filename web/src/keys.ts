@@ -74,7 +74,7 @@ const RAW: KeyAction[] = [
   { id: 'deleteCell', label: 'Borrar', group: 'Lo señalado', ctx: ['list', 'tasks'], key: 'delete' },
 
   { id: 'markdownSource', label: 'Ver el Markdown', hint: 'O volver al texto normal', group: 'Nota', ctx: ['note'], key: 'mod+e' },
-  { id: 'zen', label: 'Modo zen', hint: 'Solo el texto, sin interfaz', group: 'Nota', ctx: ['note'], key: 'mod+shift+f' },
+  { id: 'zen', label: 'Modo zen', hint: 'Solo el texto, sin interfaz', group: 'Nota', ctx: ['global'], key: 'mod+shift+f' },
   { id: 'wideNote', label: 'Texto ancho', group: 'Nota', ctx: ['note'], key: '' },
   { id: 'details', label: 'Panel de detalles', hint: 'Plegarlo o mostrarlo', group: 'Nota', ctx: ['note'], key: 'mod+alt+d' },
   { id: 'linkNote', label: 'Enlazar con…', hint: 'Unir esta nota con otra', group: 'Nota', ctx: ['note'], key: '' },
