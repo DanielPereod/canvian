@@ -1,5 +1,6 @@
 import type { JSONContent } from '@tiptap/react';
 import { splitWiki } from './obsidian';
+import { youtubeEmbed, youtubeMarkdown } from './youtube';
 
 // Markdown ↔ documento de Tiptap, lo justo para importar notas sueltas (o de
 // Obsidian) y exportar el lienzo a JSON Canvas. No pretende cubrir todo Markdown.
@@ -291,8 +292,15 @@ function parseBlocks(lines: string[], ctx: Ctx): JSONContent[] {
       i = next;
       continue;
     }
+    // ![](enlace de YouTube), !<enlace> o ![[enlace]] solos en su línea: el vídeo.
+    const video = youtubeEmbed(line);
+    if (video) {
+      content.push({ type: 'youtube', attrs: { src: video } });
+      i++;
+      continue;
+    }
     const text: string[] = [];
-    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|>|\s*([-*+]|\d+[.)])\s|<!--)/.test(lines[i]) && !FENCE.test(lines[i]) && !(text.length && TABLE_ROW.test(lines[i]))) text.push(lines[i++].trim());
+    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|>|\s*([-*+]|\d+[.)])\s|<!--)/.test(lines[i]) && !FENCE.test(lines[i]) && !youtubeEmbed(lines[i]) && !(text.length && TABLE_ROW.test(lines[i]))) text.push(lines[i++].trim());
     content.push(para(text.join(' '), links));
   }
   return content;
@@ -388,7 +396,7 @@ export function docToMarkdown(doc: JSONContent | null): string {
       case 'audio':
         return `[${n.type === 'video' ? 'Vídeo' : 'Audio'}](${String(n.attrs?.src ?? '')})`;
       case 'youtube':
-        return String(n.attrs?.src ?? '');
+        return youtubeMarkdown(String(n.attrs?.src ?? ''));
       case 'file':
         return `[${String(n.attrs?.name || 'Archivo').replace(/[[\]]/g, '\\$&')}](${String(n.attrs?.src ?? '')})`;
       default:
