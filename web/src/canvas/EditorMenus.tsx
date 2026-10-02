@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type { Editor } from '@tiptap/react';
+import { getMarkRange, type Editor } from '@tiptap/react';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import { t } from '../i18n';
-import { attachFiles, youtubeId } from './media';
+import { attachFiles, linkToVideo, youtubeId } from './media';
+import { useContextMenu } from './Biblioteca';
 import { TOUCH } from './touch';
 import type { SlashQuery } from './slash';
 import { promptLink } from './editor';
@@ -363,6 +364,78 @@ export function BlockMenu({ editor, block, at, onClose, above }: MenuProps) {
       <MenuItem danger onClick={act((b) => deleteBlock(view, b))} keys={TOUCH ? undefined : t('Supr')}>
         {t('Eliminar')}
       </MenuItem>
+    </div>,
+    document.body,
+  );
+}
+
+// ── Menú de un enlace (clic derecho) ──────────────────────────────────
+type LinkSpot = { from: number; to: number; href: string; x: number; y: number };
+
+export function LinkMenu({ editor }: { editor: Editor }) {
+  const [spot, setSpot] = useState<LinkSpot | null>(null);
+  useEffect(() => {
+    const dom = editor.view.dom;
+    const onMenu = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest('a[href]');
+      if (!a || !dom.contains(a)) return;
+      const { state, view } = editor;
+      const type = state.schema.marks.link;
+      let range: { from: number; to: number } | void = undefined;
+      try {
+        range = type && getMarkRange(state.doc.resolve(view.posAtDOM(a.firstChild ?? a, 0)), type);
+      } catch {
+        return;
+      }
+      if (!range) return;
+      e.preventDefault();
+      setSpot({ ...range, href: a.getAttribute('href') ?? '', x: e.clientX, y: e.clientY });
+    };
+    dom.addEventListener('contextmenu', onMenu);
+    return () => dom.removeEventListener('contextmenu', onMenu);
+  }, [editor]);
+  return spot && <LinkMenuBox editor={editor} spot={spot} onClose={() => setSpot(null)} />;
+}
+
+function LinkMenuBox({ editor, spot, onClose }: { editor: Editor; spot: LinkSpot; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const at = useContextMenu(ref, spot.x, spot.y, onClose);
+  const { from, to, href } = spot;
+  const run = (fn: () => void) => () => {
+    onClose();
+    fn();
+  };
+  // Vuelve a «[texto](dirección)» con la dirección seleccionada; al salir, es otra vez un enlace.
+  const edit = () => {
+    const { state, view } = editor;
+    const text = state.doc.textBetween(from, to);
+    const tr = state.tr.replaceWith(from, to, state.schema.text(`[${text}](${href})`));
+    const start = from + text.length + 3;
+    view.dispatch(tr.setSelection(TextSelection.create(tr.doc, start, start + href.length)).scrollIntoView());
+    view.focus();
+  };
+  const embed = () => {
+    const tr = editor.state.tr;
+    if (linkToVideo(tr, from, to, href)) editor.view.dispatch(tr);
+    editor.view.focus();
+  };
+  const unlink = () => {
+    const { state, view } = editor;
+    view.dispatch(state.tr.removeMark(from, to, state.schema.marks.link));
+    view.focus();
+  };
+  return createPortal(
+    <div ref={ref} className="bib-menu" style={{ left: at.x, top: at.y }} role="menu" aria-label={href} onContextMenu={keep}>
+      <MenuItem onClick={run(() => window.open(href, '_blank', 'noopener,noreferrer'))}>{t('Abrir enlace')}</MenuItem>
+      <MenuItem onClick={run(() => void navigator.clipboard?.writeText(href))}>{t('Copiar enlace')}</MenuItem>
+      {editor.isEditable && (
+        <>
+          <MenuItem onClick={run(edit)}>{t('Editar enlace')}</MenuItem>
+          {youtubeId(href) && <MenuItem onClick={run(embed)}>{t('Ver como vídeo')}</MenuItem>}
+          <div className="bib-menu-sep" role="separator" />
+          <MenuItem onClick={run(unlink)}>{t('Quitar enlace')}</MenuItem>
+        </>
+      )}
     </div>,
     document.body,
   );

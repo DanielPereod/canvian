@@ -2,7 +2,7 @@ import { Extension, InputRule, Node, mergeAttributes } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import { Fragment, Slice } from '@tiptap/pm/model';
 import { closeHistory } from '@tiptap/pm/history';
-import { Plugin, TextSelection, type Transaction } from '@tiptap/pm/state';
+import { Plugin, Selection, TextSelection, type Transaction } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { api } from '../api';
 import { locale, t } from '../i18n';
@@ -233,6 +233,32 @@ export const YouTubePaste = Extension.create({
     ];
   },
 });
+
+// Un enlace de YouTube que ya está en el texto pasa a ser el vídeo. Si la
+// línea era solo el enlace, el vídeo ocupa su sitio; si no (está en una frase,
+// o es la primera línea de un punto de lista, que ha de ser texto), el enlace
+// se queda y el vídeo va justo debajo.
+export function linkToVideo(tr: Transaction, from: number, to: number, src: string): boolean {
+  const $from = tr.doc.resolve(from);
+  const line = $from.parent;
+  const holder = $from.node(-1);
+  const index = $from.index(-1);
+  const { schema } = tr.doc.type;
+  const video = schema.nodes.youtube.create({ src });
+  const alone = line.textContent.trim() === tr.doc.textBetween(from, to).trim();
+  let at: number;
+  if (alone && holder.canReplaceWith(index, index + 1, video.type)) {
+    at = $from.before();
+    tr.replaceWith(at, $from.after(), video);
+  } else if (holder.canReplaceWith(index + 1, index + 1, video.type)) {
+    at = $from.after();
+    tr.insert(at, video);
+  } else return false;
+  const next = at + video.nodeSize;
+  if ($from.depth === 1 && !tr.doc.nodeAt(next)) tr.insert(next, schema.nodes.paragraph.create());
+  tr.setSelection(Selection.near(tr.doc.resolve(Math.min(next, tr.doc.content.size)))).scrollIntoView();
+  return true;
+}
 
 export const mediaNodes = [
   Image.configure({ allowBase64: false, HTMLAttributes: { class: 'note-media', loading: 'lazy' } }),

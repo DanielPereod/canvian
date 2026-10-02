@@ -158,9 +158,8 @@ function linkify(state: EditorState, around: number[]): Transaction | null {
     for (const m of text.matchAll(MD_LINK)) {
       const from = start + m.index!;
       const to = from + m[0].length;
-      // Mientras se escribe dentro, se deja como está.
-      const cursor = state.selection.from;
-      if (state.selection.empty && cursor > from && cursor < to) continue;
+      // Mientras se escribe (o se selecciona) dentro, se deja como está.
+      if (state.selection.from > from && state.selection.to < to) continue;
       let plain = true;
       state.doc.nodesBetween(from, to, (n) => {
         if (n.isText && n.marks.some((mk) => mk.type.spec.code)) plain = false;

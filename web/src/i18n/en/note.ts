@@ -92,4 +92,7 @@ export const EN_NOTE: Record<string, string> = {
   'Descargar': 'Download',
   'Archivo': 'File',
   'Ver como enlace': 'Show as link',
+  'Copiar enlace': 'Copy link',
+  'Editar enlace': 'Edit link',
+  'Ver como vídeo': 'Show as video',
 };
