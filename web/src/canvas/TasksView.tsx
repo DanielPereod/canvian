@@ -1049,8 +1049,15 @@ function Detail({
       </div>
 
       <div className="tv-detail-foot">
-        <button className="set-button tv-danger" onClick={() => p.onDelete(row)} title={kids.length ? t('Borrar la tarea y sus subtareas (Supr)') : t('Borrar la tarea (Supr)')}>
-          {t('Borrar')}
+        <button
+          className="set-button tv-danger tv-expand"
+          onClick={() => p.onDelete(row)}
+          title={kids.length ? t('Borrar la tarea y sus subtareas (Supr)') : t('Borrar la tarea (Supr)')}
+          aria-label={t('Borrar')}
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7m2 0v12.5A1.5 1.5 0 0 1 15.5 21h-7A1.5 1.5 0 0 1 7 19.5V7h10ZM10 11v6M14 11v6" />
+          </svg>
         </button>
         <button className="set-button tv-expand" onClick={() => p.onOpen(row)} title={t('Abrir su nota (Enter)')} aria-label={t('Abrir su nota')}>
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
