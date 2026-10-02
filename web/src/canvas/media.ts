@@ -1,11 +1,14 @@
-import { Extension, Node, mergeAttributes } from '@tiptap/react';
+import { Extension, InputRule, Node, mergeAttributes } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import { Fragment, Slice } from '@tiptap/pm/model';
 import { closeHistory } from '@tiptap/pm/history';
-import { Plugin, TextSelection } from '@tiptap/pm/state';
+import { Plugin, TextSelection, type Transaction } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { api } from '../api';
 import { locale, t } from '../i18n';
+import { youtubeEmbed, youtubeId } from './youtube';
+
+export { youtubeId };
 
 // Archivos dentro de las notas. Imágenes, vídeo y audio se ven en el texto;
 // cualquier otro (PDF, documentos, hojas de cálculo…) queda como una ficha que
@@ -96,33 +99,11 @@ const FileNode = Node.create({
   },
 });
 
-// Vídeos de YouTube. Al pegar el enlace solo en una línea se ve el vídeo; la
-// nota guarda el enlace tal cual, y al exportar a Markdown sale el enlace.
+// Vídeos de YouTube. Al pegar el enlace solo en una línea, o al escribir
+// ![](enlace), !<enlace> o ![[enlace]], se ve el vídeo; la nota guarda el
+// enlace tal cual, y al exportar a Markdown sale como ![](enlace).
 // Fuera del editor (vistas previas) se enseña su miniatura, que pesa mucho
 // menos que un reproductor.
-export function youtubeId(url: string): { id: string; start: number } | null {
-  let u: URL;
-  try {
-    u = new URL(url.trim());
-  } catch {
-    return null;
-  }
-  if (!/^https?:$/.test(u.protocol)) return null;
-  const host = u.hostname.replace(/^(www|m|music)\./, '');
-  let id: string | null = null;
-  if (host === 'youtu.be') id = u.pathname.slice(1).split('/')[0];
-  else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
-    if (u.pathname === '/watch') id = u.searchParams.get('v');
-    else id = /^\/(?:shorts|embed|live|v)\/([^/]+)/.exec(u.pathname)?.[1] ?? null;
-  }
-  if (!id || !/^[\w-]{11}$/.test(id)) return null;
-  // ?t=90, ?t=1m30s o ?start=90: empieza ahí.
-  const t = u.searchParams.get('t') ?? u.searchParams.get('start') ?? '';
-  const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/.exec(t);
-  const start = m ? Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0) : 0;
-  return { id, start };
-}
-
 const embedUrl = ({ id, start }: { id: string; start: number }) => `https://www.youtube-nocookie.com/embed/${id}?rel=0${start ? `&start=${start}` : ''}`;
 
 const YouTube = Node.create({
@@ -193,31 +174,58 @@ const YouTube = Node.create({
   },
 });
 
-// Pegar un enlace de YouTube solo en una línea vacía lo convierte en el vídeo.
-// Primero entra como enlace y luego se cambia: Ctrl Z lo devuelve a enlace.
+// Cambia la línea vacía (o con solo `len` letras escritas) del cursor por el
+// vídeo, y sigue escribiendo debajo.
+function toVideo(tr: Transaction, src: string): boolean {
+  const { $from } = tr.selection;
+  if ($from.depth !== 1 || $from.parent.type.name !== 'paragraph' || $from.parentOffset !== $from.parent.content.size) return false;
+  const { schema } = tr.doc.type;
+  const at = $from.before(1);
+  const video = schema.nodes.youtube.create({ src });
+  tr.replaceWith(at, at + $from.parent.nodeSize, video);
+  const next = at + video.nodeSize;
+  if (tr.doc.nodeAt(next)?.type.name !== 'paragraph') tr.insert(next, schema.nodes.paragraph.create());
+  tr.setSelection(TextSelection.create(tr.doc, next + 1)).scrollIntoView();
+  return true;
+}
+
+// Pegar un enlace de YouTube (o ![](enlace)…) solo en una línea vacía lo
+// convierte en el vídeo. Primero entra como enlace y luego se cambia: Ctrl Z
+// lo devuelve a enlace. Escribir ![](enlace), !<enlace> o ![[enlace]] solo en
+// una línea hace lo mismo (y Retroceso justo después lo deshace).
 export const YouTubePaste = Extension.create({
   name: 'youtubePaste',
   priority: 1000,
+  addInputRules() {
+    const rule = (find: RegExp) =>
+      new InputRule({
+        find,
+        handler: ({ state, range, match }) => {
+          const src = youtubeEmbed(match[0]);
+          const { tr } = state;
+          const $from = tr.doc.resolve(range.from);
+          // Solo si la sintaxis ocupa la línea entera.
+          if (!src || range.from !== $from.start() || $from.depth !== 1) return null;
+          tr.delete(range.from, range.to);
+          if (!toVideo(tr, src)) return null;
+        },
+      });
+    return [rule(/^\s*!\[[^\]\n]*\]\([^()\n]+\)$/), rule(/^\s*!<[^\s<>]+>$/), rule(/^\s*!\[\[[^\]\n]+\]\]$/)];
+  },
   addProseMirrorPlugins() {
     return [
       new Plugin({
         props: {
           handlePaste: (view, event) => {
             const text = event.clipboardData?.getData('text/plain').trim() ?? '';
-            if (!text || /\s/.test(text) || !youtubeId(text)) return false;
+            const src = text && (youtubeEmbed(text) ?? (!/\s/.test(text) && youtubeId(text) ? text : null));
+            if (!src) return false;
             const { $from, empty } = view.state.selection;
-            const parent = $from.parent;
-            if (!empty || parent.type.name !== 'paragraph' || parent.content.size || $from.depth !== 1) return false;
+            if (!empty || $from.parent.type.name !== 'paragraph' || $from.parent.content.size || $from.depth !== 1) return false;
             const { schema } = view.state;
-            view.dispatch(view.state.tr.replaceSelectionWith(schema.text(text, [schema.marks.link.create({ href: text })]), false));
-            const after = view.state;
-            const at = after.selection.$from.before(1);
-            const video = schema.nodes.youtube.create({ src: text });
-            const tr = closeHistory(after.tr).replaceWith(at, at + after.selection.$from.parent.nodeSize, video);
-            // Se sigue escribiendo debajo, en la línea siguiente (o en una nueva).
-            const next = at + video.nodeSize;
-            if (tr.doc.nodeAt(next)?.type.name !== 'paragraph') tr.insert(next, schema.nodes.paragraph.create());
-            view.dispatch(tr.setSelection(TextSelection.create(tr.doc, next + 1)).scrollIntoView());
+            view.dispatch(view.state.tr.replaceSelectionWith(schema.text(src, [schema.marks.link.create({ href: src })]), false));
+            const tr = closeHistory(view.state.tr);
+            if (toVideo(tr, src)) view.dispatch(tr);
             return true;
           },
         },
