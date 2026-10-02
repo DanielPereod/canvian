@@ -467,7 +467,7 @@
    Sin encogerse en la columna, o se cortaría en vez de hacer scroll. */
 .sheet.is-reader .sheet-source { display: block; flex: none; width: 100%; padding: 0; border: 0; outline: none; resize: none; overflow: hidden; background: transparent; color: inherit; font-family: var(--font-mono); font-size: calc(var(--read-size) * var(--type-scale, 1) * 0.86); line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; }
 /* El título va aparte, como en Notion: grande, solo y editable por su cuenta. */
-.sheet.is-reader .sheet-title { display: block; width: 100%; margin: 6px 0 10px; padding: 0; border: 0; outline: none; resize: none; overflow: hidden; background: transparent; color: var(--text); font-size: calc(40px * var(--title-scale) * var(--type-scale, 1)); line-height: 1.15; overflow-wrap: anywhere; }
+.sheet.is-reader .sheet-title { display: block; flex: none; width: 100%; margin: 6px 0 10px; padding: 0; border: 0; outline: none; resize: none; overflow: hidden; background: transparent; color: var(--text); font-size: calc(40px * var(--title-scale) * var(--type-scale, 1)); line-height: 1.15; overflow-wrap: anywhere; }
 .sheet.is-reader .sheet-title::placeholder { color: var(--text-ghost); opacity: 1; }
 /* Sin el anillo de foco de los campos: el título se escribe como el texto. */
 .sheet.is-reader .sheet-title:focus-visible,
