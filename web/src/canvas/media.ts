@@ -2,10 +2,11 @@ import { Extension, InputRule, Node, mergeAttributes } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import { Fragment, Slice } from '@tiptap/pm/model';
 import { closeHistory } from '@tiptap/pm/history';
-import { Plugin, TextSelection, type Transaction } from '@tiptap/pm/state';
+import { Plugin, type Transaction } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { api } from '../api';
 import { locale, t } from '../i18n';
+import { caretBelow, placeBlock } from './links';
 import { youtubeEmbed, youtubeId } from './youtube';
 
 export { youtubeId };
@@ -174,19 +175,12 @@ const YouTube = Node.create({
   },
 });
 
-// Cambia la línea vacía (o con solo `len` letras escritas) del cursor por el
-// vídeo, y sigue escribiendo debajo.
-function toVideo(tr: Transaction, src: string): boolean {
+// El párrafo del cursor, que solo tiene el enlace, pasa a ser el vídeo (o,
+// si es el primero de un punto de lista, el vídeo va debajo).
+function toVideo(tr: Transaction, src: string) {
   const { $from } = tr.selection;
-  if ($from.depth !== 1 || $from.parent.type.name !== 'paragraph' || $from.parentOffset !== $from.parent.content.size) return false;
-  const { schema } = tr.doc.type;
-  const at = $from.before(1);
-  const video = schema.nodes.youtube.create({ src });
-  tr.replaceWith(at, at + $from.parent.nodeSize, video);
-  const next = at + video.nodeSize;
-  if (tr.doc.nodeAt(next)?.type.name !== 'paragraph') tr.insert(next, schema.nodes.paragraph.create());
-  tr.setSelection(TextSelection.create(tr.doc, next + 1)).scrollIntoView();
-  return true;
+  const video = tr.doc.type.schema.nodes.youtube.create({ src });
+  caretBelow(tr, placeBlock(tr, $from.before(), video, true));
 }
 
 // Pegar un enlace de YouTube (o ![](enlace)…) solo en una línea vacía lo
@@ -205,9 +199,9 @@ export const YouTubePaste = Extension.create({
           const { tr } = state;
           const $from = tr.doc.resolve(range.from);
           // Solo si la sintaxis ocupa la línea entera.
-          if (!src || range.from !== $from.start() || $from.depth !== 1) return null;
-          tr.delete(range.from, range.to);
-          if (!toVideo(tr, src)) return null;
+          if (!src || range.from !== $from.start() || $from.parent.type.name !== 'paragraph' || $from.parent.content.size !== range.to - range.from) return null;
+          tr.replaceWith(range.from, range.to, state.schema.text(src, [state.schema.marks.link.create({ href: src })]));
+          toVideo(tr, src);
         },
       });
     return [rule(/^\s*!\[[^\]\n]*\]\([^()\n]+\)$/), rule(/^\s*!<[^\s<>]+>$/), rule(/^\s*!\[\[[^\]\n]+\]\]$/)];
@@ -221,11 +215,12 @@ export const YouTubePaste = Extension.create({
             const src = text && (youtubeEmbed(text) ?? (!/\s/.test(text) && youtubeId(text) ? text : null));
             if (!src) return false;
             const { $from, empty } = view.state.selection;
-            if (!empty || $from.parent.type.name !== 'paragraph' || $from.parent.content.size || $from.depth !== 1) return false;
+            if (!empty || $from.parent.type.name !== 'paragraph' || $from.parent.content.size) return false;
             const { schema } = view.state;
             view.dispatch(view.state.tr.replaceSelectionWith(schema.text(src, [schema.marks.link.create({ href: src })]), false));
             const tr = closeHistory(view.state.tr);
-            if (toVideo(tr, src)) view.dispatch(tr);
+            toVideo(tr, src);
+            view.dispatch(tr);
             return true;
           },
         },

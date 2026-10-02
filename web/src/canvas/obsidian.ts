@@ -139,11 +139,13 @@ const hrefOf = (url: string) => (/^[a-z][\w+.-]*:/i.test(url) ? url : `https://$
 // enlace al cerrar el paréntesis o en cuanto el cursor sale de él. Así se
 // puede escribir el texto y luego la dirección, como en Obsidian.
 const MD_LINK = /(?<![!\[])\[([^[\]\n￼]+)\]\(([^()\s￼]+)\)/g;
+const WIKI_TEXT = /(?<!!)\[\[([^[\]\n￼]+)\]\]/g;
 const mdLinkKey = new PluginKey('markdownLinks');
 
 function linkify(state: EditorState, around: number[]): Transaction | null {
   const link = state.schema.marks.link;
   if (!link) return null;
+  const wiki = state.schema.nodes.wikilink;
   const tr = state.tr;
   const seen = new Set<number>();
   for (const at of around) {
@@ -155,9 +157,13 @@ function linkify(state: EditorState, around: number[]): Transaction | null {
     if (seen.has(start)) continue;
     seen.add(start);
     const text = block.textBetween(0, block.content.size, undefined, '￼');
-    for (const m of text.matchAll(MD_LINK)) {
+    // Los [texto](url) y, si se volvieron a escribir desde el menú, los [[enlaces]].
+    const found = [...text.matchAll(MD_LINK), ...(wiki ? text.matchAll(WIKI_TEXT) : [])].sort((x, y) => x.index! - y.index!);
+    let last = -1;
+    for (const m of found) {
       const from = start + m.index!;
       const to = from + m[0].length;
+      if (from < last) continue;
       // Mientras se escribe dentro, se deja como está.
       const cursor = state.selection.from;
       if (state.selection.empty && cursor > from && cursor < to) continue;
@@ -166,9 +172,15 @@ function linkify(state: EditorState, around: number[]): Transaction | null {
         if (n.isText && n.marks.some((mk) => mk.type.spec.code)) plain = false;
       });
       if (!plain) continue;
+      last = to;
       const a = tr.mapping.map(from);
       const b = tr.mapping.map(to);
-      tr.replaceWith(a, b, state.schema.text(m[1], [...(state.doc.resolve(from + 1).marks().filter((mk) => mk.type !== link)), link.create({ href: hrefOf(m[2]) })]));
+      if (m[0].startsWith('[[')) {
+        const { note, section, alias } = splitWiki(m[1]);
+        if (note) tr.replaceWith(a, b, wiki!.create({ id: null, target: section ? `${note}#${section}` : note, alias }));
+        continue;
+      }
+      tr.replaceWith(a, b, state.schema.text(m[1], [...state.doc.resolve(from + 1).marks().filter((mk) => mk.type !== link), link.create({ href: hrefOf(m[2]) })]));
     }
   }
   return tr.steps.length ? tr.removeStoredMark(link) : null;
