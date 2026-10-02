@@ -327,11 +327,14 @@
 .bib-crumb:hover { color: var(--text) !important; }
 .bib-crumb.is-here { color: var(--text) !important; font-weight: 500; }
 .bib-crumb.is-renamable { cursor: text; }
-.bib-crumb.is-renamable:hover { background: var(--accent-soft); }
+.bib-crumb.is-renamable:hover { background: var(--surface-hover); }
+.bib-crumb.is-renamable:focus-visible { box-shadow: none; background: var(--surface-hover); }
+/* Mismo tamaño y sitio que la miga: solo un filo fino alrededor, sin anillo. */
 .bib-crumb-input {
-  min-width: 0; max-width: min(320px, 46vw); padding: 3px 4px; margin: 0; border: 0; outline: 0; border-radius: var(--radius-xs);
-  background: var(--accent-soft); color: var(--text); font: inherit; font-weight: 500;
+  field-sizing: content; min-width: 4ch; max-width: min(320px, 46vw); padding: 3px 4px; margin: 0; border: 0; outline: 0; border-radius: var(--radius-xs);
+  background: var(--surface-hover); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); font: inherit; font-weight: 500; line-height: inherit;
 }
+.bib-crumb-input:focus-visible { box-shadow: inset 0 0 0 1px var(--line-strong); }
 .bib-crumb-input::placeholder { color: var(--text-ghost); font-weight: 400; }
 .bib-sep { padding: 0 2px; color: var(--text-ghost); }
 .bib-search { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px !important; border-radius: var(--radius-md); background: var(--surface-hover) !important; color: var(--text-faint) !important; transition: background var(--dur-fast); }
