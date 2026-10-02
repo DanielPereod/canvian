@@ -55,6 +55,7 @@ export const notes = sqliteTable(
     dueAt: text('due_at'),
     doneAt: text('done_at'),
     archivedAt: text('archived_at'), // archivada: oculta salvo que se pidan las ocultas
+    cover: text('cover'), // portada: imagen o degradado (ver web/src/canvas/cover.ts)
     createdAt: text('created_at').notNull().default(now),
     updatedAt: text('updated_at').notNull().default(now),
     deletedAt: text('deleted_at'),

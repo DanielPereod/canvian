@@ -9,6 +9,7 @@ import { LOOSE, type MapAction } from './NodeView';
 import { Resizer, type SideWidth } from './Resizer';
 import { longPress, TOUCH } from './touch';
 import { locale, t, tn } from '../i18n';
+import { coverStyle, parseCover } from './cover';
 
 // La tecla de un comando como texto («Ctrl G»), o vacío si no tiene.
 function useKeyText() {
@@ -930,7 +931,8 @@ export function Library(p: LibProps) {
                 onMouseEnter={() => setSel(i)}
                 onClick={() => enter(r)}
               >
-                <span className={`bib-cover${n ? ' is-branch' : ''}`}>
+                <span className={`bib-cover${n ? ' is-branch' : ''}${r.cover ? ' has-cover' : ''}`}>
+                  {parseCover(r.cover) && <span className="bib-cover-img" style={coverStyle(parseCover(r.cover)!)} aria-hidden="true" />}
                   <span className="bib-cover-k">{kind.toLocaleUpperCase(locale())}</span>
                   <span className="bib-cover-t">{titleOf(r)}</span>
                   <span className="bib-cover-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : '')}</span>

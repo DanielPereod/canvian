@@ -50,6 +50,13 @@
       "when": 1790530000000,
       "tag": "0006_drop_profile_background",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1790540000000,
+      "tag": "0007_cover",
+      "breakpoints": true
     }
   ]
 }

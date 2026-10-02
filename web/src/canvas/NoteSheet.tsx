@@ -1,10 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
-import type { NoteRow, PropertyDef } from '../api';
+import type { NoteInput, NoteRow, PropertyDef } from '../api';
 import { applyRemote, bodyToHtml, editingExtensions, extensions, joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from './editor';
 import { repairDoc, sourceOf, sourceToDoc } from './markdown';
-import { NoteChips } from './NoteChips';
+import { NoteProps } from './NoteProps';
+import { NoteCover } from './NoteCover';
+import { randomCover } from './cover';
 import { taskCount } from './tasks';
 import { MediaUpload, YouTubePaste, attachFiles } from './media';
 import { editLink, embedLink, embedOf, linkAt, unlink, type LinkHit } from './links';
@@ -105,7 +107,8 @@ export type NoteContent = { bodyJson: string; bodyText: string; title: string | 
 export type WikiHandlers = { rows: NoteRow[]; onOpen: (id: string) => void; onLink: (id: string) => void; onCreate: (title: string) => string };
 
 // `source`: en vez del texto con formato, su Markdown para verlo y editarlo.
-type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void; editorRef: { current: Editor | null }; wiki: WikiHandlers; source: boolean };
+// `between`: lo que va entre el título y el texto (las propiedades).
+type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void; editorRef: { current: Editor | null }; wiki: WikiHandlers; source: boolean; between?: ReactNode };
 
 const sameTitle = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
 
@@ -120,7 +123,7 @@ function withTitle(split: ReturnType<typeof splitTitle>, note: NoteRow): ReturnT
   return sameTitle(firstLine, saved) ? split : { ...split, title: saved };
 }
 
-function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorProps) {
+function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between }: EditorProps) {
   // Lo que se importó mal antes (tablas como texto con barras, direcciones con
   // _ hechas cursiva o sin enlace) se abre ya arreglado.
   const [initial] = useState(() => {
@@ -458,6 +461,7 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
         aria-label={t('Título de la nota')}
         spellCheck={false}
       />
+      {between}
       <EditorContent editor={editor} className="sheet-editor" hidden={source} />
       {source && (
         <textarea
@@ -531,6 +535,10 @@ type Props = {
   onNavigate: (id: string) => void;
   onSave: (id: string, content: NoteContent) => void;
   onProps: (id: string) => void;
+  // Cambiar la nota (propiedades, fecha, portada) y las propiedades del perfil.
+  onChange: (id: string, change: NoteInput) => void;
+  onDefsChange: (update: (defs: PropertyDef[]) => PropertyDef[]) => void;
+  profileId: string;
   // Modo nodo: la nota en el centro de la vista de nodos.
   onNodes: () => void;
   onArchive: () => void;
@@ -555,7 +563,7 @@ type Props = {
   onZen: (on: boolean) => void;
 };
 
-export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen }: Props) {
+export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onChange, onDefsChange, profileId, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen }: Props) {
   const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -634,7 +642,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       // Con el inspector o el buscador abiertos, Esc los cierra a ellos y no a la hoja.
       // Escribiendo en una tarjeta del canvas, Esc solo termina de escribir.
       const target = e.target as HTMLElement | null;
-      if (e.key === 'Escape' && target?.closest('.board, .bib-crumbs') && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
+      if (e.key === 'Escape' && target?.closest('.board, .bib-crumbs, .nprops') && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
       // Dibujando en el canvas, Esc suelta la herramienta o lo elegido.
       if (e.key === 'Escape' && document.querySelector('.board[data-esc]')) return;
       // Ctrl/⌘ A fuera del texto (tras pulsar un botón, al abrir…) selecciona
@@ -717,6 +725,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     }
     const words = (note.bodyText ?? '').split(/\s+/).filter(Boolean).length;
     const tasks = taskCount(note);
+    const setCover = (cover: string | null) => onChange(note.id, { cover });
     const items: SheetItem[] = [
       { label: t('Adjuntar archivos…'), title: t('PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto'), run: () => filePick.current?.click() },
       { label: t('Ver en nodos'), title: t('Esta nota en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
@@ -725,6 +734,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       { label: wide ? t('Texto estrecho') : t('Texto ancho'), keys: keysOf(keymap.wideNote), run: flipWide },
       { label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
       null,
+      { label: note.cover ? t('Quitar portada') : t('Añadir portada'), run: () => setCover(note.cover ? null : randomCover()) },
       { label: t('Propiedades'), run: () => onProps(note.id) },
       { label: t('Mover a…'), title: t('Meterla dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
       { label: t('Enlazar con…'), run: onLink },
@@ -745,13 +755,32 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       <div ref={ref} className={`sheet is-reader${zen ? ' is-zen' : ''}${wide ? ' is-wide' : ''}${folded ? ' is-side-folded' : ''}`} style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
         {zenExit}
         <div className="reader-main">
-          <article className="reader-body" key={note.id + note.kind}>
+          <NoteCover key={note.id} cover={note.cover} onChange={setCover} onError={onError} />
+          <article className={`reader-body${note.cover ? ' has-cover' : ''}`} key={note.id + note.kind}>
             <span className="reader-meta">
               {madre ? madre.title || t('Nota sin título') : t('Arriba del todo')} · {kindOf(note, kids)} · {t('editada {date}', { date: editedLabel(note.updatedAt) })}
               {source && ' · Markdown'}
             </span>
-            <SheetEditor note={note} onSave={onSave} onError={onError} editorRef={editorRef} wiki={wiki} source={source} />
-            <NoteChips note={note} defs={defs} onOpen={() => onProps(note.id)} />
+            {!note.cover && (
+              <div className="reader-addons">
+                <button onClick={() => setCover(randomCover())}>
+                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round">
+                    <rect x="2" y="3" width="12" height="10" rx="2" />
+                    <path d="m2.5 11 3.2-3.2 2.6 2.6 1.7-1.7 3.5 3.5" />
+                  </svg>
+                  {t('Añadir portada')}
+                </button>
+              </div>
+            )}
+            <SheetEditor
+              note={note}
+              onSave={onSave}
+              onError={onError}
+              editorRef={editorRef}
+              wiki={wiki}
+              source={source}
+              between={<NoteProps key={note.id} note={note} defs={defs} profileId={profileId} onChange={onChange} onDefsChange={onDefsChange} onError={onError} />}
+            />
           </article>
         </div>
         {/* Los botones de la nota van en la barra de arriba, a la altura de los de la barra lateral;

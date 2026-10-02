@@ -449,6 +449,7 @@
 .bib-cover.is-branch { background: oklch(var(--bib-cover-l) calc(var(--bib-cover-c) * 1.4) var(--h)); }
 .bib-cover-it:hover .bib-cover,
 .bib-cover-it.is-sel .bib-cover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px var(--line-strong); }
+.bib-cover-img { flex: none; height: 38%; margin: -16px -14px 4px; background-size: cover; background-position: 50% 50%; }
 .bib-cover-k { font-size: calc(10px * var(--type-scale, 1)); letter-spacing: 0.12em; opacity: 0.7; }
 .bib-cover-t { font-size: calc(17px * var(--title-scale) * var(--type-scale, 1)); line-height: 1.15; }
 .bib-cover-s { font-family: var(--read-font); font-size: calc(12px * var(--type-scale, 1)); line-height: 1.45; opacity: 0.75; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
@@ -462,7 +463,8 @@
 /* ── El lector ──────────────────────────────────────────────────────── */
 
 .sheet.is-reader { display: flex; overflow: hidden; background: var(--bg); box-shadow: none; }
-.reader-main { flex: 1; min-width: 0; overflow-y: auto; display: flex; justify-content: center; }
+.reader-main { flex: 1; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+.reader-main > .reader-body { flex: none; }
 .reader-body { position: relative; width: min(680px, calc(100% - 48px)); padding: 48px 0 18vh; display: flex; flex-direction: column; gap: 14px; animation: bib-in 320ms var(--ease-out) both; }
 .reader-meta { font-size: calc(12px * var(--type-scale, 1)); color: var(--text-faint); }
 .sheet.is-reader .sheet-prose { font-family: var(--read-font); font-size: calc(var(--read-size) * var(--type-scale, 1)); line-height: 1.7; min-height: 40vh; }
@@ -479,7 +481,6 @@
 .sheet.is-reader .sheet-prose h5,
 .sheet.is-reader .sheet-prose h6 { font-family: var(--font-ui); font-weight: 600; letter-spacing: -0.01em; }
 .sheet.is-reader .sheet-prose a { color: var(--accent-ink); }
-.sheet.is-reader .note-chips { padding: 0; }
 .reader-side { width: var(--reader-w, 300px); flex: none; overflow-y: auto; border-left: 1px solid var(--line); padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; font-size: calc(13px * var(--type-scale, 1)); color: var(--text); animation: bib-in 360ms var(--ease-out) 60ms both; }
 .reader-side button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
 .reader-side-h { font-weight: 500; }
@@ -516,6 +517,38 @@
 .sheet.is-side-folded .reader-float { display: flex; }
 .reader-menu { min-width: 240px; transform-origin: top right; }
 
+/* La portada, como en Notion: a todo el ancho de la hoja, encima del texto. */
+.note-cover { position: relative; flex: none; align-self: stretch; height: clamp(150px, 30vh, 280px); overflow: hidden; background: var(--surface-sunken); animation: bib-in 320ms var(--ease-out) both; }
+.note-cover img,
+.note-cover-fill { display: block; width: 100%; height: 100%; object-fit: cover; user-select: none; }
+.note-cover.is-moving { cursor: ns-resize; }
+.note-cover-hint { position: absolute; left: 50%; top: 50%; translate: -50% -50%; padding: 5px 12px; border-radius: 999px; background: rgb(0 0 0 / 0.55); color: #fff; font-size: calc(12px * var(--type-scale, 1)); pointer-events: none; }
+.note-cover-tools { position: absolute; right: max(24px, calc((100% - 680px) / 2)); bottom: 12px; display: flex; overflow: hidden; border-radius: 6px; background: var(--bg); box-shadow: 0 0 0 1px var(--line), 0 2px 8px rgb(0 0 0 / 0.12); opacity: 0; transition: opacity var(--dur-fast); }
+.note-cover:hover .note-cover-tools,
+.note-cover.is-moving .note-cover-tools,
+.note-cover-tools:focus-within { opacity: 1; }
+.note-cover-tools button { height: 26px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: calc(12px * var(--type-scale, 1)); color: var(--text-muted); cursor: pointer; }
+.note-cover-tools button + button { border-left: 1px solid var(--line); }
+.note-cover-tools button:hover { background: var(--surface-hover); color: var(--text); }
+.reader-body.has-cover { padding-top: 22px; }
+/* «Añadir portada»: solo se ve al pasar por encima de la nota, como en Notion. */
+.reader-addons { display: flex; gap: 4px; height: 24px; margin: -6px 0 -14px; opacity: 0; transition: opacity var(--dur-base); }
+.reader-body:hover .reader-addons,
+.reader-addons:focus-within { opacity: 1; }
+.reader-addons button { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px 0 6px; margin-left: -6px; border: 0; border-radius: 5px; background: none; font: inherit; font-size: calc(13px * var(--type-scale, 1)); color: var(--text-faint); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
+.reader-addons button:hover { background: var(--surface-hover); color: var(--text-muted); }
+@media (hover: none) { .reader-addons { opacity: 1; } .note-cover-tools { opacity: 1; } }
+.cover-pick { width: 320px; max-width: calc(100vw - 16px); }
+.cover-pick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 2px 9px 8px; }
+.cover-pick-swatch { height: 40px; border: 0; border-radius: 6px; cursor: pointer; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08); transition: transform var(--dur-fast); }
+.cover-pick-swatch:hover { transform: scale(1.04); }
+.cover-pick-swatch.is-on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text-muted); }
+.cover-pick-url { display: flex; gap: 6px; padding: 4px 9px 6px; }
+.cover-pick-url input { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; font: inherit; color: var(--text); outline: none; }
+.cover-pick-url input:focus { border-color: var(--line-strong); }
+.cover-pick-go { height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--surface-hover); font: inherit; color: var(--text); cursor: pointer; }
+.cover-pick-go:disabled { opacity: 0.4; cursor: default; }
+
 /* Modo ancho: el texto de la nota ocupa más de la hoja. */
 .sheet.is-reader.is-wide .reader-body { width: min(1120px, calc(100% - 48px)); }
 
@@ -529,7 +562,8 @@
 .sheet.is-zen .reader-resizer,
 .sheet.is-zen .reader-float,
 .sheet.is-zen .reader-meta,
-.sheet.is-zen .note-chips { display: none; }
+.sheet.is-zen .reader-addons,
+.sheet.is-zen .nprops { display: none; }
 .sheet.is-zen .reader-body { padding-top: 14vh; }
 /* En un canvas, sin «Volver» ni título: solo el tablero. */
 .sheet.is-canvas.is-zen .sheet-top { display: none; }

@@ -35,6 +35,8 @@ export type NoteRow = {
   doneAt: string | null;
   // Archivada: oculta en todas las vistas salvo al mostrar las ocultas.
   archivedAt?: string | null;
+  // Portada opcional (ver canvas/cover.ts).
+  cover?: string | null;
   // JSON con los valores de las propiedades personalizadas, por id de propiedad.
   props: string;
   updatedAt: string;
