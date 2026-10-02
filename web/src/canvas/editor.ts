@@ -7,6 +7,7 @@ import { TableKit } from '@tiptap/extension-table';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import { mediaNodes } from './media';
+import { embedNodes } from './embeds';
 import { getLang, t } from '../i18n';
 import { markdownToDoc } from './markdown';
 import { Highlight, MarkdownLinkInput, WikiLink, tasks } from './obsidian';
@@ -45,6 +46,8 @@ export const extensions = [
   // Tablas, como en Notion: el ancho de cada columna se cambia arrastrando su borde.
   TableKit.configure({ table: { resizable: true, cellMinWidth: 60, lastColumnResizable: true } }),
   ...mediaNodes,
+  // Enlaces vistos incrustados: la ficha de una web y otra nota entera.
+  ...embedNodes,
   // Lo propio de Obsidian: [[enlaces]], ==resaltado== y casillas.
   WikiLink,
   Highlight,

@@ -1,13 +1,13 @@
 import { Extension, InputRule, Node, mergeAttributes } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
-import { Fragment, Slice } from '@tiptap/pm/model';
+import { Fragment, Slice, type Node as PMNode, type Schema } from '@tiptap/pm/model';
 import { closeHistory } from '@tiptap/pm/history';
 import { Plugin, type Transaction } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { api } from '../api';
 import { locale, t } from '../i18n';
 import { caretBelow, placeBlock } from './links';
-import { youtubeEmbed, youtubeId } from './youtube';
+import { embedJson, parseEmbed, youtubeId } from './youtube';
 
 export { youtubeId };
 
@@ -175,18 +175,24 @@ const YouTube = Node.create({
   },
 });
 
-// El párrafo del cursor, que solo tiene el enlace, pasa a ser el vídeo (o,
-// si es el primero de un punto de lista, el vídeo va debajo).
-function toVideo(tr: Transaction, src: string) {
-  const { $from } = tr.selection;
-  const video = tr.doc.type.schema.nodes.youtube.create({ src });
-  caretBelow(tr, placeBlock(tr, $from.before(), video, true));
+// El párrafo del cursor, que solo tiene el enlace, pasa a ser el bloque
+// incrustado (o, si es el primero de un punto de lista, el bloque va debajo).
+function toBlock(tr: Transaction, block: PMNode) {
+  caretBelow(tr, placeBlock(tr, tr.selection.$from.before(), block, true));
 }
 
-// Pegar un enlace de YouTube (o ![](enlace)…) solo en una línea vacía lo
-// convierte en el vídeo. Primero entra como enlace y luego se cambia: Ctrl Z
-// lo devuelve a enlace. Escribir ![](enlace), !<enlace> o ![[enlace]] solo en
-// una línea hace lo mismo (y Retroceso justo después lo deshace).
+// El enlace (web o a una nota) que queda en la línea mientras tanto.
+function linkFor(schema: Schema, block: PMNode): PMNode {
+  if (block.type.name === 'noteEmbed') return schema.nodes.wikilink.create({ id: block.attrs.id, target: block.attrs.target, alias: null });
+  const href = String(block.attrs.src ?? block.attrs.href ?? '');
+  return schema.text(href, [schema.marks.link.create({ href })]);
+}
+
+// Pegar un enlace de YouTube solo en una línea vacía lo convierte en el vídeo.
+// Escribir o pegar la sintaxis de incrustar (![](enlace), !<enlace>,
+// ![[nota]]) sola en una línea muestra lo enlazado: el vídeo, la imagen, la
+// ficha de la web o la otra nota. Primero entra como enlace y luego se cambia:
+// Ctrl Z (o Retroceso justo después de escribirlo) lo devuelve a enlace.
 export const YouTubePaste = Extension.create({
   name: 'youtubePaste',
   priority: 1000,
@@ -195,13 +201,15 @@ export const YouTubePaste = Extension.create({
       new InputRule({
         find,
         handler: ({ state, range, match }) => {
-          const src = youtubeEmbed(match[0]);
+          const ref = parseEmbed(match[0]);
+          const json = ref && embedJson(ref);
           const { tr } = state;
           const $from = tr.doc.resolve(range.from);
           // Solo si la sintaxis ocupa la línea entera.
-          if (!src || range.from !== $from.start() || $from.parent.type.name !== 'paragraph' || $from.parent.content.size !== range.to - range.from) return null;
-          tr.replaceWith(range.from, range.to, state.schema.text(src, [state.schema.marks.link.create({ href: src })]));
-          toVideo(tr, src);
+          if (!json || range.from !== $from.start() || $from.parent.type.name !== 'paragraph' || $from.parent.content.size !== range.to - range.from) return null;
+          const block = state.schema.nodeFromJSON(json);
+          tr.replaceWith(range.from, range.to, linkFor(state.schema, block));
+          toBlock(tr, block);
         },
       });
     return [rule(/^\s*!\[[^\]\n]*\]\([^()\n]+\)$/), rule(/^\s*!<[^\s<>]+>$/), rule(/^\s*!\[\[[^\]\n]+\]\]$/)];
@@ -212,14 +220,17 @@ export const YouTubePaste = Extension.create({
         props: {
           handlePaste: (view, event) => {
             const text = event.clipboardData?.getData('text/plain').trim() ?? '';
-            const src = text && (youtubeEmbed(text) ?? (!/\s/.test(text) && youtubeId(text) ? text : null));
-            if (!src) return false;
+            if (!text || /\n/.test(text)) return false;
+            const ref = parseEmbed(text) ?? (!/\s/.test(text) && youtubeId(text) ? { url: text, alt: '' } : null);
+            const json = ref && embedJson(ref);
+            if (!json) return false;
             const { $from, empty } = view.state.selection;
             if (!empty || $from.parent.type.name !== 'paragraph' || $from.parent.content.size) return false;
             const { schema } = view.state;
-            view.dispatch(view.state.tr.replaceSelectionWith(schema.text(src, [schema.marks.link.create({ href: src })]), false));
+            const block = schema.nodeFromJSON(json);
+            view.dispatch(view.state.tr.replaceSelectionWith(linkFor(schema, block), false));
             const tr = closeHistory(view.state.tr);
-            toVideo(tr, src);
+            toBlock(tr, block);
             view.dispatch(tr);
             return true;
           },
@@ -230,7 +241,9 @@ export const YouTubePaste = Extension.create({
 });
 
 export const mediaNodes = [
-  Image.configure({ allowBase64: false, HTMLAttributes: { class: 'note-media', loading: 'lazy' } }),
+  // Sin su regla de escribir ![](…): esa sintaxis la decide YouTubePaste (vídeo,
+  // imagen, ficha de la web o nota).
+  Image.extend({ addInputRules: () => [] }).configure({ allowBase64: false, HTMLAttributes: { class: 'note-media', loading: 'lazy' } }),
   player('video'),
   player('audio'),
   FileNode,
@@ -238,7 +251,7 @@ export const mediaNodes = [
 ];
 
 // Una nota con solo una imagen o un adjunto no está vacía.
-export const hasMedia = (bodyJson: string | null) => !!bodyJson && /"type":"(image|video|audio|file|youtube)"/.test(bodyJson);
+export const hasMedia = (bodyJson: string | null) => !!bodyJson && /"type":"(image|video|audio|file|youtube|bookmark|noteEmbed)"/.test(bodyJson);
 
 // Lo que se ve dentro de la nota (sin SVG, que puede llevar código).
 export const isMedia = (f: File) => /^(image|video|audio)\//.test(f.type) && f.type !== 'image/svg+xml';
