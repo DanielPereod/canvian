@@ -1,4 +1,4 @@
-import type { NoteInput, NoteRow } from '../../api';
+import type { NoteRow } from '../../api';
 import { cleanDrawings, type Drawing } from './draw';
 
 // Contenido de una nota de tipo canvas, en el formato de JSON Canvas
@@ -40,27 +40,4 @@ export function boardText(board: Board, rows: Map<string, NoteRow>): string {
     .concat((board.drawings ?? []).map((d) => (d.kind === 'text' ? d.text : '')))
     .filter((t) => t.trim())
     .join('\n');
-}
-
-// Una nota de texto pasa a canvas con su texto como primera tarjeta.
-export function boardFromText(text: string | null): Board {
-  const b = emptyBoard();
-  if (text?.trim()) b.nodes.push({ id: 'n' + Date.now().toString(36), type: 'text', x: -160, y: -60, width: 320, height: 160, text: text.trim() });
-  return b;
-}
-
-// Cambio de tipo de una nota. El cuerpo se convierte cuando se entra o se sale
-// de canvas: el texto pasa a una tarjeta, y el título y el texto de las
-// tarjetas, a párrafos.
-export function kindChange(row: NoteRow, kind: 'text' | 'canvas'): NoteInput {
-  if (row.kind === kind) return {};
-  // La primera línea de una nota es su título, que el canvas guarda aparte.
-  if (kind === 'canvas') {
-    const text = (row.bodyText ?? '').split('\n').slice(1).join('\n').trim();
-    return { kind, bodyJson: JSON.stringify(boardFromText(text)), bodyText: text || null };
-  }
-  if (row.kind !== 'canvas') return { kind };
-  const lines = [row.title ?? '', ...(row.bodyText ?? '').split('\n')].filter((l) => l.trim());
-  const doc = { type: 'doc', content: lines.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })) };
-  return { kind, bodyJson: lines.length ? JSON.stringify(doc) : null, bodyText: lines.join('\n') || null };
 }

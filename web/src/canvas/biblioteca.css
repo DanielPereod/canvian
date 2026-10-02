@@ -252,6 +252,7 @@
   transform-origin: top left;
 }
 @keyframes bib-menu-in { from { opacity: 0; transform: scale(0.97); } }
+.bib-new-menu { min-width: 140px; }
 .bib-menu-head { padding: 6px 9px 5px; font-size: calc(11.5px * var(--type-scale, 1)); color: var(--text-faint); }
 .bib-menu-it { display: flex; align-items: center; width: 100%; height: calc(28px * var(--type-scale, 1)); padding: 0 9px; border: 0; border-radius: 6px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .bib-menu-it:hover, .bib-menu-it:focus-visible { background: var(--bib-sel, var(--surface-hover)); outline: none; }

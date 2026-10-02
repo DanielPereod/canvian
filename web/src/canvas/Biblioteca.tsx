@@ -162,7 +162,7 @@ type SideProps = {
   onTasks: () => void;
   onOrganize: () => void;
   onArchived: () => void;
-  onNewNote: () => void;
+  onNewNote: (kind: NewKind) => void;
   onMove: (id: string, parent: string | null) => void;
   onMenu: (id: string, x: number, y: number) => void;
 };
@@ -176,6 +176,7 @@ export function BibSidebar(p: SideProps) {
   const key = useKeyText();
   const { kids, count, pathTo, parent } = p.family;
   const prefs = useSidebarPrefs();
+  const [newAt, setNewAt] = useState<{ x: number; y: number } | null>(null);
   const [open, setOpen] = useState<Set<string>>(() => {
     try {
       return new Set(JSON.parse(read(OPEN_KEY) ?? '[]') as string[]);
@@ -393,7 +394,16 @@ export function BibSidebar(p: SideProps) {
         <div className={`bib-side-label${drop && drop.id === null ? ' is-drop-inside' : ''}`} {...rootDrop} title={t('Suelta aquí para sacar una nota arriba del todo')}>
           {t('Mi biblioteca')}
           <span className="bib-label-tools">
-            <button className="bib-label-add" onClick={p.onNewNote} title={t('Nota nueva arriba del todo')} aria-label={t('Nota nueva arriba del todo')}>
+            <button
+              className="bib-label-add"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setNewAt({ x: r.left, y: r.bottom + 4 });
+              }}
+              title={t('Nueva arriba del todo')}
+              aria-label={t('Nueva arriba del todo')}
+              aria-haspopup="menu"
+            >
               <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
                 <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
               </svg>
@@ -424,6 +434,7 @@ export function BibSidebar(p: SideProps) {
           </button>
         </div>
       </aside>
+      {newAt && <NewMenu x={newAt.x} y={newAt.y} onPick={p.onNewNote} onClose={() => setNewAt(null)} />}
       {!p.folded && <Resizer size={p.width} edge="right" className="bib-resizer" />}
     </div>
   );
@@ -431,7 +442,7 @@ export function BibSidebar(p: SideProps) {
 
 // ── Menú contextual ───────────────────────────────────────────────────
 
-export type MenuAction = 'open' | 'library' | 'nodes' | 'child' | 'rename' | 'move' | 'archive' | 'delete';
+export type MenuAction = 'open' | 'library' | 'nodes' | 'child' | 'childCanvas' | 'rename' | 'move' | 'archive' | 'delete';
 
 type MenuProps = {
   row: NoteRow;
@@ -485,6 +496,35 @@ export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: n
   return spot;
 }
 
+export type NewKind = 'text' | 'canvas';
+
+// Lo que se crea se elige al crearlo: luego una nota no pasa a ser canvas ni al revés.
+export function NewMenu({ x, y, onPick, onClose }: { x: number; y: number; onPick: (kind: NewKind) => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const spot = useContextMenu(ref, x, y, onClose);
+  const items: { kind: NewKind; label: string }[] = [
+    { kind: 'text', label: t('Nota') },
+    { kind: 'canvas', label: 'Canvas' },
+  ];
+  return (
+    <div className="bib-menu bib-new-menu" ref={ref} role="menu" aria-label={t('Crear')} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
+      {items.map((it) => (
+        <button
+          key={it.kind}
+          role="menuitem"
+          className="bib-menu-it"
+          onClick={() => {
+            onClose();
+            onPick(it.kind);
+          }}
+        >
+          {it.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
   const key = useKeyText();
   const prefs = useSidebarPrefs();
@@ -496,6 +536,7 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
     { a: 'nodes', label: t('Ver en nodos'), key: key('nodes') },
     null,
     { a: 'child', label: t('Nota dentro'), key: key('newSection') },
+    { a: 'childCanvas', label: t('Canvas dentro') },
     { a: 'rename', label: t('Renombrar'), key: key('rename') },
     { a: 'move', label: t('Mover a…'), key: key('move') },
     null,
