@@ -1003,7 +1003,11 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             crumbs={bibCrumbs}
             view={bibView}
             layout={bibLayout}
-            onCrumb={(id) => (bibView === 'tasks' || bibView === 'organize' ? undefined : goLibrary(id))}
+            onCrumb={(id) => {
+              if (bibView === 'tasks' || bibView === 'organize') return;
+              if (bibView === 'note' && id) bibOpen(id);
+              else goLibrary(id);
+            }}
             onUp={bibUp}
             onSearch={() => setPaletteOpen('open')}
             onLayout={setBibLayout}
