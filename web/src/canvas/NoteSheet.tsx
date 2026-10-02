@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
-import { applyRemote, editingExtensions, extensions, joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from './editor';
+import { applyRemote, editingExtensions, extensions, joinTitle, parseBody, splitNoteTitle, titleBlock, titleFrom } from './editor';
 import { repairDoc, sourceOf, sourceToDoc } from './markdown';
 import { NoteChips } from './NoteChips';
 import { taskCount } from './tasks';
@@ -113,7 +113,7 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
   const [initial] = useState(() => {
     const doc = parseBody(note.bodyJson);
     const fixed = repairDoc(doc);
-    return { ...splitTitle(fixed ?? doc), repaired: !!fixed };
+    return { ...splitNoteTitle(fixed ?? doc, note.title), repaired: !!fixed };
   });
   // El título, aparte del texto (como en Notion). `head` es su bloque tal como
   // estaba guardado, para no perderle el formato si no se toca.
@@ -242,7 +242,7 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
       return () => clearTimeout(timer);
     }
     shown.current = note.bodyJson;
-    const remote = splitTitle(parseBody(note.bodyJson));
+    const remote = splitNoteTitle(parseBody(note.bodyJson), note.title);
     head.current = remote.head;
     titleRef.current = remote.title;
     setTitle(remote.title);

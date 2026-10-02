@@ -8,7 +8,7 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import { mediaNodes } from './media';
 import { getLang, t } from '../i18n';
-import { markdownToDoc } from './markdown';
+import { docText, markdownToDoc } from './markdown';
 import { Highlight, MarkdownLinkInput, WikiLink, tasks } from './obsidian';
 import { BlockKit, blockNodes } from './blocks';
 
@@ -204,6 +204,19 @@ export function splitTitle(doc: JSONContent | null): TitleSplit {
   const text = first && (first.type === 'heading' || first.type === 'paragraph') ? plainText(first) : null;
   if (text === null) return { title: '', head: null, body: { type: 'doc', content } };
   return { title: text, head: first, body: { ...doc, type: 'doc', content: content.slice(1) } };
+}
+
+// Igual, pero con el nombre guardado de la nota: si el texto no empieza por
+// él (notas importadas o creadas sin título delante, que empiezan con una
+// lista, por ejemplo), el título es ese nombre y todo el texto queda debajo.
+export function splitNoteTitle(doc: JSONContent | null, name: string | null | undefined): TitleSplit {
+  const split = splitTitle(doc);
+  const stored = name?.trim().toLocaleLowerCase();
+  const same = (s: string | null) => s?.trim().slice(0, 120).toLocaleLowerCase() === stored;
+  // Si el nombre sale del propio texto (su primera línea), el título se deja
+  // como está, aunque esté vacío a propósito.
+  if (!stored || same(split.title) || same(titleFrom(docText(doc ?? { type: 'doc' })))) return split;
+  return { title: name!.trim(), head: null, body: { ...doc, type: 'doc', content: doc?.content ?? [] } };
 }
 
 // Lo contrario: el título (como un encabezado) delante del texto. Si no ha
