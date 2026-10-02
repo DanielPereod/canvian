@@ -183,43 +183,52 @@
 .chip[style*='--chip'] { color: hsl(var(--chip) 60% 76%); }
 .chip[style*='--chip'].on { background: hsl(var(--chip) 60% 60% / 0.16); border-color: hsl(var(--chip) 60% 60% / 0.45); }
 
-/* ── Chips al pie de la nota ───────────────────────────── */
-.note-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 0 var(--space-4) var(--space-3);
-  margin-top: calc(-1 * var(--space-1));
-  cursor: pointer;
-}
-.note-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 20px;
-  max-width: 100%;
-  padding: 0 7px;
-  border-radius: 999px;
-  font-size: calc(11.5px * var(--type-scale, 1));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-muted);
-  background: rgb(var(--ink) / 0.045);
-  animation: rise-in var(--dur-base) var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 30ms);
-  transition: background var(--dur-fast), color var(--dur-fast);
-}
-.note-chips:hover .note-chip { background: rgb(var(--ink) / 0.07); }
-.note-chip i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
-.chip-prio.prio-1 { color: var(--prio-1); }
-.chip-prio.prio-2 { color: var(--prio-2); }
-.chip-prio.prio-3 { color: var(--prio-3); background: color-mix(in oklab, var(--prio-3) 12%, transparent); }
-.chip-due.soon { color: var(--warning); }
-.chip-due.overdue { color: var(--danger); background: color-mix(in oklab, var(--danger) 13%, transparent); animation: rise-in var(--dur-base) var(--ease-out) both, overdue 2.4s ease-in-out 3; }
-.chip-option { color: hsl(var(--chip) 60% 76%); background: hsl(var(--chip) 60% 60% / 0.13); }
-.note-chip.more { color: var(--text-ghost); }
-@keyframes overdue { 50% { box-shadow: 0 0 12px -2px color-mix(in oklab, var(--danger) 60%, transparent); } }
-
 /* El estado tiene cuatro opciones: va debajo de su etiqueta, a todo el ancho. */
 .insp-row-wide { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); padding-block: 2px var(--space-1); }
+
+/* ── Propiedades bajo el título de la nota, como en Notion ── */
+.nprops { display: flex; flex-direction: column; gap: 2px; margin: -4px 0 10px; padding-bottom: 12px; border-bottom: 1px solid var(--line); font-family: var(--font-ui); font-size: calc(14px * var(--type-scale, 1)); }
+.nprop { display: grid; grid-template-columns: minmax(110px, 168px) minmax(0, 1fr); align-items: start; gap: 6px; min-height: 34px; }
+.nprop-k,
+.nprop-add { display: flex; align-items: center; gap: 8px; min-width: 0; height: 34px; padding: 0 6px; margin-left: -6px; border: 0; border-radius: 5px; background: none; font: inherit; color: var(--text-faint); text-align: left; cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
+.nprop-k:hover,
+.nprop-add:hover { background: var(--surface-hover); color: var(--text-muted); }
+.nprop-add { align-self: flex-start; padding-right: 10px; color: var(--text-ghost); }
+.nprop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nprop-icon { display: inline-grid; place-items: center; width: 16px; flex: none; font-size: calc(16px * var(--type-scale, 1)); line-height: 1; }
+.nprop-v { min-width: 0; display: flex; align-items: center; min-height: 34px; }
+.nprop-line { display: flex; align-items: center; gap: 4px; width: 100%; }
+.nprop-input { width: 100%; min-height: 30px; padding: 0 6px; margin-left: -6px; border: 0; border-radius: 5px; background: none; font: inherit; color: var(--text); text-align: left; outline: none; cursor: pointer; transition: background var(--dur-fast); }
+.nprop-input:hover { background: var(--surface-hover); }
+.nprop-input:focus { background: var(--surface-hover); cursor: text; box-shadow: none; }
+.nprop-input::placeholder { color: var(--text-ghost); }
+.nprop-input[type='number'] { -moz-appearance: textfield; }
+.nprop-open { flex: none; width: 24px; height: 24px; display: inline-grid; place-items: center; border-radius: 5px; color: var(--text-faint); text-decoration: none; }
+.nprop-open:hover { background: var(--surface-hover); color: var(--text); }
+.nprop-check { width: 16px; height: 16px; display: inline-grid; place-items: center; padding: 0; border: 1.3px solid var(--text-faint); border-radius: 4px; background: none; color: transparent; cursor: pointer; transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast); }
+.nprop-check.is-on { background: var(--accent, var(--text)); border-color: var(--accent, var(--text)); color: var(--bg); }
+.nprop-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; width: 100%; min-height: 30px; padding: 3px 6px; margin-left: -6px; border: 0; border-radius: 5px; background: none; font: inherit; text-align: left; cursor: pointer; transition: background var(--dur-fast); }
+.nprop-pills:hover { background: var(--surface-hover); }
+.nprop-empty { color: var(--text-ghost); }
+.nprop-pill { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; height: 22px; padding: 0 7px; border-radius: 4px; background: hsl(var(--chip) 45% 50% / 0.26); color: var(--text); font-size: calc(13.5px * var(--type-scale, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nprop-pill button { padding: 0 0 0 2px; border: 0; background: none; font: inherit; color: var(--text-faint); cursor: pointer; }
+.nprop-pill button:hover { color: var(--text); }
+.nprop-menu { min-width: 260px; max-height: min(420px, calc(100vh - 16px)); overflow-y: auto; }
+.nprop-menu .bib-menu-it { height: auto; min-height: calc(30px * var(--type-scale, 1)); }
+.nprop-menu-it { gap: 8px; color: var(--text-muted) !important; }
+.nprop-menu-it:hover { color: var(--text) !important; }
+.nprop-menu-input { width: 100%; height: 30px; margin-bottom: 4px; padding: 0 9px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; font: inherit; color: var(--text); outline: none; box-sizing: border-box; }
+.nprop-menu-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 7px 7px; margin-bottom: 2px; border-bottom: 1px solid var(--line); }
+.nprop-menu-pills input { flex: 1 1 80px; min-width: 60px; height: 24px; border: 0; background: none; font: inherit; color: var(--text); outline: none; }
+.nprop-warn { color: var(--danger); }
+.nprop-input .dp-placeholder { color: var(--text-ghost); }
+.nprop-menu-input:focus-visible,
+.nprop-menu-pills input:focus-visible,
+.cover-pick-url input:focus-visible { outline: none; box-shadow: none; }
+/* Sin propiedades: ni raya ni hueco; «Añadir propiedad» aparece al pasar por la nota. */
+.nprops.is-empty { margin: -14px 0 -8px; padding: 0; border: 0; }
+.nprops.is-empty .nprop-add { opacity: 0; transition: opacity var(--dur-base), background var(--dur-fast), color var(--dur-fast); }
+.reader-body:hover .nprops.is-empty .nprop-add,
+.nprops.is-empty .nprop-add:focus-visible,
+.nprops.is-empty .nprop-add[aria-expanded='true'] { opacity: 1; }
+@media (hover: none) { .nprops.is-empty .nprop-add { opacity: 1; } }

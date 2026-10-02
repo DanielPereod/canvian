@@ -1184,6 +1184,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           sections={sectionOptions}
           onMove={(zoneId) => moveTo(focused.id, zoneId)}
           onProps={(id) => setInspectId(id)}
+          onChange={updateNote}
+          onDefsChange={setDefs}
+          profileId={profile.id}
           rows={rows}
           onRename={(title) => updateNote(focused.id, { title: title || null })}
           onPickNote={(then) => {
