@@ -151,6 +151,8 @@ async function upload(file: File): Promise<{ url: string; kind: 'image' | 'video
 
 export const api = {
   uploadMedia: upload,
+  // La ficha (título, descripción, imagen) de un enlace web.
+  unfurl: (url: string) => request<{ url: string; title: string | null; description: string | null; image: string | null; site: string | null }>('GET', `/unfurl?url=${encodeURIComponent(url)}`),
   prefs: () => request<Record<string, unknown>>('GET', '/prefs'),
   savePref: (key: string, value: unknown) => request('PUT', `/prefs/${key}`, value),
   deletePref: (key: string) => request('DELETE', `/prefs/${key}`),

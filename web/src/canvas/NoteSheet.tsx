@@ -2,12 +2,13 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { NoteRow, PropertyDef } from '../api';
-import { applyRemote, editingExtensions, extensions, joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from './editor';
+import { applyRemote, bodyToHtml, editingExtensions, extensions, joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from './editor';
 import { repairDoc, sourceOf, sourceToDoc } from './markdown';
 import { NoteChips } from './NoteChips';
 import { taskCount } from './tasks';
 import { MediaUpload, YouTubePaste, attachFiles } from './media';
 import { editLink, embedLink, embedOf, linkAt, unlink, type LinkHit } from './links';
+import { setNoteSource } from './embeds';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
 import { Resizer, useSideWidth } from './Resizer';
@@ -144,6 +145,22 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
   // El editor se crea una vez: lo que cambia le llega por referencias.
   const wikiRef = useRef(wiki);
   wikiRef.current = wiki;
+  // Las notas incrustadas (![[Nota]]) se buscan entre las de la biblioteca y
+  // se repintan cuando alguna cambia.
+  useEffect(() => {
+    setNoteSource({
+      find: (id, target) => {
+        const { rows } = wikiRef.current;
+        const name = splitWiki(target).note;
+        const row = (id && rows.find((r) => r.id === id)) || rows.find((r) => sameTitle(r.title ?? '', name));
+        return row ? { id: row.id, title: row.title ?? '', bodyJson: row.bodyJson } : null;
+      },
+      open: (id) => wikiRef.current.onOpen(id),
+      // Sin el título, que ya está en la cabecera.
+      html: (bodyJson) => bodyToHtml(JSON.stringify(splitTitle(parseBody(bodyJson)).body)),
+    });
+  }, [wiki.rows]);
+  useEffect(() => () => setNoteSource(null), []);
   const [query, setQuery] = useState<WikiQuery | null>(null);
   const menuKeys = useRef<(e: KeyboardEvent) => boolean>(() => false);
   const [suggest] = useState(() => WikiSuggest.configure({ onChange: setQuery, onKey: (e) => menuKeys.current(e) }));

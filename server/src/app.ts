@@ -21,6 +21,7 @@ import { lensRoutes } from './routes/lenses.js';
 import { mediaRoutes } from './routes/media.js';
 import { prefRoutes } from './routes/prefs.js';
 import { calendarRoutes } from './routes/calendars.js';
+import { unfurlRoutes } from './routes/unfurl.js';
 import type { Fetcher } from './calendars.js';
 import { createHub, scopeOf } from './live.js';
 
@@ -42,7 +43,7 @@ const DEFAULT_PROFILES = [
   { name: 'Trabajo', color: PROFILE_COLORS[1], icon: 'briefcase' },
 ];
 
-export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher } = {}) {
+export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher; fetchPage?: Fetcher } = {}) {
   const api = new Hono();
   const hub = createHub();
 
@@ -193,6 +194,7 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
   api.route('/', lensRoutes(db));
   api.route('/', prefRoutes(db));
   api.route('/', calendarRoutes(db, opts.fetchCalendar));
+  api.route('/', unfurlRoutes(opts.fetchPage));
   if (opts.mediaDir) api.route('/', mediaRoutes(opts.mediaDir));
 
   const app = new Hono();

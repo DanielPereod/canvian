@@ -131,6 +131,32 @@
 }
 .note-youtube-bar button:hover { background: rgb(0 0 0 / 0.85); }
 
+/* Enlaces incrustados: la ficha de una web y otra nota entera. */
+.prose .note-bookmark-wrap { position: relative; margin: 0.6em 0; max-width: 720px; }
+.prose .note-bookmark {
+  display: flex; align-items: stretch; gap: 12px; overflow: hidden; min-height: 84px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-sunken);
+  color: inherit; text-decoration: none; cursor: pointer; transition: border-color var(--dur-fast);
+}
+.prose .note-bookmark:hover { border-color: var(--line-strong); }
+.prose .note-bookmark-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; }
+.prose .note-bookmark-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prose .note-bookmark-desc { color: var(--text-dim, var(--text-faint)); font-size: var(--text-sm); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.prose .note-bookmark-site { margin-top: auto; color: var(--text-faint); font-size: var(--text-sm); }
+.prose .note-bookmark-img { flex: none; width: 30%; max-width: 220px; object-fit: cover; margin: 0; border-radius: 0; }
+.prose .note-bookmark-wrap:hover .note-youtube-bar, .prose .ProseMirror-selectednode .note-youtube-bar,
+.prose .note-embed:hover .note-youtube-bar { opacity: 1; }
+.prose .ProseMirror-selectednode > .note-bookmark, .prose .note-embed.ProseMirror-selectednode { outline: 2px solid var(--accent-line); outline-offset: 3px; }
+.prose .note-embed {
+  position: relative; margin: 0.6em 0; padding: 8px 16px 4px;
+  border-left: 3px solid var(--accent-line, var(--line-strong)); background: color-mix(in oklab, var(--surface-sunken) 60%, transparent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.prose .note-embed-head { all: unset; display: block; cursor: pointer; color: var(--text-faint); font-size: var(--text-sm); }
+.prose .note-embed-head:hover { color: var(--accent); }
+.prose .note-embed-body > :first-child { margin-top: 0.3em; }
+.prose .note-embed-empty { color: var(--text-faint); font-style: italic; }
+
 /* Cualquier otro adjunto (PDF, documentos…): una ficha que lo abre o lo descarga. */
 .prose .note-file {
   display: flex; align-items: center; gap: 12px;

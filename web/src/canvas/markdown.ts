@@ -1,6 +1,6 @@
 import type { JSONContent } from '@tiptap/react';
 import { splitWiki } from './obsidian';
-import { youtubeEmbed, youtubeMarkdown } from './youtube';
+import { embedJson, parseEmbed, youtubeMarkdown } from './youtube';
 
 // Markdown ↔ documento de Tiptap, lo justo para importar notas sueltas (o de
 // Obsidian) y exportar el lienzo a JSON Canvas. No pretende cubrir todo Markdown.
@@ -292,15 +292,18 @@ function parseBlocks(lines: string[], ctx: Ctx): JSONContent[] {
       i = next;
       continue;
     }
-    // ![](enlace de YouTube), !<enlace> o ![[enlace]] solos en su línea: el vídeo.
-    const video = youtubeEmbed(line);
-    if (video) {
-      content.push({ type: 'youtube', attrs: { src: video } });
+    // ![](enlace), !<enlace> o ![[nota]] solos en su línea: lo enlazado, incrustado
+    // (un vídeo de YouTube, una imagen, la ficha de una web u otra nota).
+    const ref = parseEmbed(line);
+    const embed = ref && embedJson(ref);
+    if (embed) {
+      if (ref && 'note' in ref) links.push(splitWiki(ref.note).note);
+      content.push(embed);
       i++;
       continue;
     }
     const text: string[] = [];
-    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|>|\s*([-*+]|\d+[.)])\s|<!--)/.test(lines[i]) && !FENCE.test(lines[i]) && !youtubeEmbed(lines[i]) && !(text.length && TABLE_ROW.test(lines[i]))) text.push(lines[i++].trim());
+    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|>|\s*([-*+]|\d+[.)])\s|<!--)/.test(lines[i]) && !FENCE.test(lines[i]) && !(parseEmbed(lines[i]) && embedJson(parseEmbed(lines[i])!)) && !(text.length && TABLE_ROW.test(lines[i]))) text.push(lines[i++].trim());
     content.push(para(text.join(' '), links));
   }
   return content;
@@ -397,6 +400,10 @@ export function docToMarkdown(doc: JSONContent | null): string {
         return `[${n.type === 'video' ? 'Vídeo' : 'Audio'}](${String(n.attrs?.src ?? '')})`;
       case 'youtube':
         return youtubeMarkdown(String(n.attrs?.src ?? ''));
+      case 'bookmark':
+        return `![${String(n.attrs?.title ?? '').replace(/[[\]]/g, '')}](${String(n.attrs?.href ?? '')})`;
+      case 'noteEmbed':
+        return `![[${String(n.attrs?.target ?? '')}]]`;
       case 'file':
         return `[${String(n.attrs?.name || 'Archivo').replace(/[[\]]/g, '\\$&')}](${String(n.attrs?.src ?? '')})`;
       default:

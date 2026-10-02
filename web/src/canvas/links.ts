@@ -2,17 +2,17 @@ import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
 import { NodeSelection, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { splitWiki } from './obsidian';
-import { youtubeId } from './youtube';
+import { embedJson } from './youtube';
 
 // Lo que se hace con un enlace desde su menú (clic derecho): abrirlo, volver a
 // escribirlo en Markdown para editarlo, quitarlo o verlo incrustado.
 
-export type LinkHit = { from: number; to: number; kind: 'web' | 'wiki'; href: string; text: string };
+export type LinkHit = { from: number; to: number; kind: 'web' | 'wiki'; href: string; text: string; id?: string | null };
 
 // El enlace (web o [[nota]]) que hay en `pos`, entero.
 export function linkAt(state: EditorState, pos: number): LinkHit | null {
   const wiki = state.doc.nodeAt(pos);
-  if (wiki?.type.name === 'wikilink') return { from: pos, to: pos + wiki.nodeSize, kind: 'wiki', href: String(wiki.attrs.target), text: String(wiki.attrs.alias ?? '') };
+  if (wiki?.type.name === 'wikilink') return { from: pos, to: pos + wiki.nodeSize, kind: 'wiki', href: String(wiki.attrs.target), text: String(wiki.attrs.alias ?? ''), id: wiki.attrs.id ?? null };
   const link = state.schema.marks.link;
   const $pos = state.doc.resolve(pos);
   const parent = $pos.parent;
@@ -34,15 +34,16 @@ export function linkAt(state: EditorState, pos: number): LinkHit | null {
   return { from: kids[a].from, to: kids[b].to, kind: 'web', href, text: kids.slice(a, b + 1).map((k) => k.text).join('') };
 }
 
-const IMAGE = /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i;
-
-// Lo que puede verse incrustado: un vídeo de YouTube o una imagen.
+// Lo que se ve al incrustarlo: un vídeo de YouTube, una imagen, la ficha de la
+// web o, si es un [[enlace]], la otra nota entera.
 export function embedOf(state: EditorState, hit: LinkHit): PMNode | null {
-  if (hit.kind !== 'web') return null;
-  const { nodes } = state.schema;
-  if (youtubeId(hit.href)) return nodes.youtube.create({ src: hit.href });
-  if (IMAGE.test(hit.href) && nodes.image) return nodes.image.create({ src: hit.href });
-  return null;
+  const json = embedJson(hit.kind === 'wiki' ? { note: hit.href } : { url: hit.href, alt: '' }, hit.id ?? null);
+  if (!json || !state.schema.nodes[json.type]) return null;
+  try {
+    return state.schema.nodeFromJSON(json);
+  } catch {
+    return null;
+  }
 }
 
 // Pone el bloque en lugar del párrafo que empieza en `at` (si el sitio lo
@@ -61,10 +62,11 @@ export function placeBlock(tr: Transaction, at: number, block: PMNode, replace: 
   return after + block.nodeSize;
 }
 
-// Deja el cursor en una línea debajo de `pos` (creándola si no hay).
+// Deja el cursor en una línea vacía debajo de `pos` (creándola si no la hay).
 export function caretBelow(tr: Transaction, pos: number) {
   const { paragraph } = tr.doc.type.schema.nodes;
-  if (tr.doc.nodeAt(pos)?.type !== paragraph) {
+  const next = tr.doc.nodeAt(pos);
+  if (next?.type !== paragraph || next.content.size) {
     const $p = tr.doc.resolve(pos);
     if (!$p.parent.canReplaceWith($p.index(), $p.index(), paragraph)) return;
     tr.insert(pos, paragraph.create());

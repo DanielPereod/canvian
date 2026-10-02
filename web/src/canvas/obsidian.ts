@@ -320,7 +320,8 @@ export const WikiSuggest = Extension.create<WikiSuggestOptions>({
 export function wikiLinksIn(doc: PMNode): { node: PMNode; pos: number }[] {
   const out: { node: PMNode; pos: number }[] = [];
   doc.descendants((node, pos) => {
-    if (node.type.name === 'wikilink') out.push({ node, pos });
+    // Una nota incrustada (![[Nota]]) también la enlaza.
+    if (node.type.name === 'wikilink' || node.type.name === 'noteEmbed') out.push({ node, pos });
   });
   return out;
 }

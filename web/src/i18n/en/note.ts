@@ -95,4 +95,6 @@ export const EN_NOTE: Record<string, string> = {
   'Editar': 'Edit',
   'Ver incrustado': 'Embed',
   'Copiar enlace': 'Copy link',
+  'Nota vacía': 'Empty note',
+  'Esta nota aún no existe': 'This note doesn’t exist yet',
 };
