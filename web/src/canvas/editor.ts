@@ -56,11 +56,12 @@ export const extensions = [
 // Ctrl/⌘ K pone un enlace a lo seleccionado, o lo quita si ya lo es.
 export function promptLink(ed: Editor) {
   if (ed.isActive('link')) return ed.chain().focus().extendMarkRange('link').unsetLink().run();
-  const url = window.prompt(t('Enlace'), 'https://')?.trim();
-  if (!url || url === 'https://') return true;
-  const href = /^[a-z][\w+.-]*:/i.test(url) ? url : `https://${url}`;
-  if (ed.state.selection.empty) return ed.chain().focus().insertContent({ type: 'text', text: url, marks: [{ type: 'link', attrs: { href } }] }).run();
-  return ed.chain().focus().setLink({ href }).run();
+  // Como en Obsidian: entra «[texto]()» en Markdown. Sin selección, el cursor
+  // queda para el texto; con ella, para la dirección. Al salir, es un enlace.
+  const { from, to, empty } = ed.state.selection;
+  const text = ed.state.doc.textBetween(from, to, ' ');
+  const cursor = empty ? from + 1 : from + text.length + 3;
+  return ed.chain().focus().insertContentAt({ from, to }, { type: 'text', text: `[${text}]()` }).setTextSelection(cursor).run();
 }
 const LinkKey = Extension.create({
   name: 'linkKey',

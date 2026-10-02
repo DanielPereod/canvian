@@ -1,6 +1,6 @@
 import { Extension, InputRule, Mark, Node, markInputRule, markPasteRule, mergeAttributes } from '@tiptap/react';
 import type { Node as PMNode } from '@tiptap/pm/model';
-import { Plugin, PluginKey, type EditorState } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 
 // El Markdown de Obsidian que no trae el editor de serie: [[enlaces]] entre
@@ -133,18 +133,91 @@ const TaskInput = TaskItem.extend({
 
 export const tasks = [TaskList, TaskInput.configure({ nested: true })];
 
-// [texto](url) al cerrar el paréntesis se vuelve un enlace.
+const hrefOf = (url: string) => (/^[a-z][\w+.-]*:/i.test(url) ? url : `https://${url}`);
+
+// [texto](url) en Markdown, escrito a mano o dejado por Ctrl K: se vuelve un
+// enlace al cerrar el paréntesis o en cuanto el cursor sale de él. Así se
+// puede escribir el texto y luego la dirección, como en Obsidian.
+const MD_LINK = /(?<![!\[])\[([^[\]\n￼]+)\]\(([^()\s￼]+)\)/g;
+const mdLinkKey = new PluginKey('markdownLinks');
+
+function linkify(state: EditorState, around: number[]): Transaction | null {
+  const link = state.schema.marks.link;
+  if (!link) return null;
+  const tr = state.tr;
+  const seen = new Set<number>();
+  for (const at of around) {
+    if (at < 0 || at > state.doc.content.size) continue;
+    const $at = state.doc.resolve(at);
+    const block = $at.parent;
+    if (!block.isTextblock || block.type.spec.code) continue;
+    const start = $at.start();
+    if (seen.has(start)) continue;
+    seen.add(start);
+    const text = block.textBetween(0, block.content.size, undefined, '￼');
+    for (const m of text.matchAll(MD_LINK)) {
+      const from = start + m.index!;
+      const to = from + m[0].length;
+      // Mientras se escribe dentro, se deja como está.
+      const cursor = state.selection.from;
+      if (state.selection.empty && cursor > from && cursor < to) continue;
+      let plain = true;
+      state.doc.nodesBetween(from, to, (n) => {
+        if (n.isText && n.marks.some((mk) => mk.type.spec.code)) plain = false;
+      });
+      if (!plain) continue;
+      const a = tr.mapping.map(from);
+      const b = tr.mapping.map(to);
+      tr.replaceWith(a, b, state.schema.text(m[1], [...(state.doc.resolve(from + 1).marks().filter((mk) => mk.type !== link)), link.create({ href: hrefOf(m[2]) })]));
+    }
+  }
+  return tr.steps.length ? tr.removeStoredMark(link) : null;
+}
+
 export const MarkdownLinkInput = Extension.create({
   name: 'markdownLinkInput',
   addInputRules() {
     return [
       new InputRule({
-        find: /(?<!\[)\[([^[\]\n]+)\]\((\S+)\)$/,
+        find: /(?<![![])\[([^[\]\n]+)\]\((\S+)\)$/,
         handler: ({ state, range, match }) => {
           const link = state.schema.marks.link;
           if (!link) return null;
-          const href = /^[a-z][\w+.-]*:/i.test(match[2]) ? match[2] : `https://${match[2]}`;
-          state.tr.replaceWith(range.from, range.to, state.schema.text(match[1], [link.create({ href })])).removeStoredMark(link);
+          state.tr.replaceWith(range.from, range.to, state.schema.text(match[1], [link.create({ href: hrefOf(match[2]) })])).removeStoredMark(link);
+        },
+      }),
+    ];
+  },
+  // Intro con el cursor dentro de «[texto](url)» no lo parte: primero lo
+  // cierra como enlace y luego salta de línea detrás.
+  addKeyboardShortcuts() {
+    return {
+      Enter: () => {
+        const { state, view } = this.editor;
+        const { $from, empty } = state.selection;
+        if (!empty || $from.parent.type.spec.code) return false;
+        const text = $from.parent.textBetween(0, $from.parent.content.size, undefined, '￼');
+        for (const m of text.matchAll(MD_LINK)) {
+          const end = m.index! + m[0].length;
+          if ($from.parentOffset > m.index! && $from.parentOffset < end) {
+            view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, $from.start() + end)));
+            break;
+          }
+        }
+        return false;
+      },
+    };
+  },
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: mdLinkKey,
+        appendTransaction: (trs, old, state) => {
+          if (!trs.some((tr) => tr.selectionSet || tr.docChanged) || trs.some((tr) => tr.getMeta(mdLinkKey))) return null;
+          // Donde estaba el cursor (ya puede haber salido) y donde está.
+          const prev = trs.reduce((pos, tr) => tr.mapping.map(pos), old.selection.from);
+          const tr = linkify(state, [prev, state.selection.from]);
+          return tr && tr.setMeta(mdLinkKey, true).setMeta('addToHistory', true);
         },
       }),
     ];
