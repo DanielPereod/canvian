@@ -7,6 +7,7 @@ import { repairDoc, sourceOf, sourceToDoc } from './markdown';
 import { NoteChips } from './NoteChips';
 import { taskCount } from './tasks';
 import { MediaUpload, YouTubePaste, attachFiles } from './media';
+import { editLink, embedLink, embedOf, linkAt, unlink, type LinkHit } from './links';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
 import { Resizer, useSideWidth } from './Resizer';
@@ -148,6 +149,8 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
   const [suggest] = useState(() => WikiSuggest.configure({ onChange: setQuery, onKey: (e) => menuKeys.current(e) }));
   // El menú «/» de bloques, como en Notion.
   const [slash, setSlash] = useState<SlashQuery | null>(null);
+  // Clic derecho en un enlace: su menú.
+  const [linkMenu, setLinkMenu] = useState<{ x: number; y: number; hit: LinkHit } | null>(null);
   const slashKeys = useRef<(e: KeyboardEvent) => boolean>(() => false);
   const [slashExt] = useState(() => SlashSuggest.configure({ onChange: setSlash, onKey: (e) => slashKeys.current(e) }));
   // Las notas enlazadas con [[ ]] en el texto. Una que aparece nueva se une a
@@ -188,7 +191,7 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
       attributes: { class: 'note-body prose sheet-prose' },
       // Clic en un [[enlace]] abre esa nota; Ctrl/⌘ clic (o clic central) abre
       // un enlace web en otra pestaña.
-      handleClick: (view, _pos, e) => openWiki(view.dom, e) || openLink(e),
+      handleClick: (view, _pos, e) => e.button === 0 && (openWiki(view.dom, e) || openLink(e)),
       // Del principio del texto se sube al título: con la flecha arriba en la
       // primera línea, o con borrar al principio (y entonces se le une esa línea).
       handleKeyDown: (view, e) => {
@@ -221,6 +224,15 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
       },
       handleDOMEvents: {
         auxclick: (_view, e) => e.button === 1 && openLink(e, true),
+        contextmenu: (view, e) => {
+          const at = view.posAtCoords({ left: e.clientX, top: e.clientY });
+          if (!at) return false;
+          const hit = [at.inside, at.pos, at.pos - 1].map((p) => (p >= 0 ? linkAt(view.state, p) : null)).find(Boolean);
+          if (!hit) return false;
+          e.preventDefault();
+          setLinkMenu({ x: e.clientX, y: e.clientY, hit });
+          return true;
+        },
         // Pulsar dentro de un texto ya seleccionado empieza una selección nueva,
         // como en un editor de texto, en vez de arrastrar lo seleccionado.
         mousedown: (_view, e) => {
@@ -443,6 +455,19 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
       )}
       {!source && query && <WikiMenu query={query} rows={wiki.rows} exclude={note.id} onPick={pick} keys={menuKeys} />}
       {!source && slash && editor && <SlashMenu query={slash} editor={editor} onError={onError} keys={slashKeys} />}
+      {/* Encima de todo, para que el panel lateral no lo tape. */}
+      {!source &&
+        editor &&
+        linkMenu &&
+        createPortal(
+          <SheetMenu
+            x={linkMenu.x}
+            y={linkMenu.y}
+            onClose={() => setLinkMenu(null)}
+            items={linkItems(editor, linkMenu.hit, (el) => openWiki(editor.view.dom, { target: el, preventDefault: () => {} } as unknown as MouseEvent))}
+          />,
+          document.body,
+        )}
       {!source && editor && (
         <>
           <BlockHandle editor={editor} />
@@ -453,6 +478,24 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
       )}
     </>
   );
+}
+
+// Lo que se puede hacer con un enlace desde su menú (clic derecho).
+function linkItems(editor: Editor, hit: LinkHit, openNote: (el: HTMLElement) => void): SheetItem[] {
+  const { view } = editor;
+  const web = hit.kind === 'web';
+  const open = () => {
+    if (web) window.open(hit.href, '_blank', 'noopener,noreferrer');
+    else if (view.nodeDOM(hit.from) instanceof HTMLElement) openNote(view.nodeDOM(hit.from) as HTMLElement);
+  };
+  return [
+    { label: web ? t('Abrir enlace') : t('Abrir'), run: open },
+    { label: t('Editar'), run: () => editLink(view, hit) },
+    ...(embedOf(view.state, hit) ? [{ label: t('Ver incrustado'), run: () => embedLink(view, hit) }] : []),
+    ...(web ? [{ label: t('Copiar enlace'), run: () => void navigator.clipboard?.writeText(hit.href).catch(() => {}) }] : []),
+    null,
+    { label: t('Quitar enlace'), run: () => unlink(view, hit) },
+  ];
 }
 
 function openLink(e: MouseEvent, any = false) {
