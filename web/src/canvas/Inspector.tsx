@@ -9,7 +9,6 @@ import {
   type PropertyType,
   type PropValue,
 } from '../api';
-import { kindChange } from './board/board';
 import { DatePicker } from './DatePicker';
 import { t } from '../i18n';
 
@@ -85,17 +84,6 @@ export function Inspector({ note, defs, profileId, onChange, onDefsChange, onErr
       ) : (
         <div className="insp-body" key={note.id}>
           <p className="insp-title">{note.title || t('Nota sin título')}</p>
-
-          <Row label={t('Tipo')} i={0}>
-            <Segmented
-              value={note.kind === 'canvas' ? 'canvas' : 'text'}
-              options={[
-                { id: 'text', name: t('Nota') },
-                { id: 'canvas', name: 'Canvas' },
-              ]}
-              onChange={(v) => onChange(note.id, kindChange(note, v as 'text' | 'canvas'))}
-            />
-          </Row>
 
           {/* Las notas no tienen prioridad: solo sus tareas (⏫ 🔼 🔽). */}
           <Row label={t('Fecha')} i={3}>

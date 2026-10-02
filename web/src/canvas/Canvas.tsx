@@ -22,7 +22,7 @@ import { mergeTags, splitTags } from './tags';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keyParts, keysBlocked, setView, useKeymap } from '../keys';
 import { useSideWidth } from './Resizer';
-import { BibBar, BibMenu, BibSidebar, Library, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
+import { BibBar, BibMenu, BibSidebar, Library, NewMenu, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 import { getLang, t } from '../i18n';
 import { zenPrefs } from './zenPrefs';
 
@@ -78,6 +78,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [tasksOpen, setTasksOpen] = useState(false);
   // Y la de ordenar: el árbol de secciones y sus notas, para mover en bloque.
   const [organizeOpen, setOrganizeOpen] = useState(false);
+  const [fabMenu, setFabMenu] = useState<{ x: number; y: number } | null>(null);
   const [defs, setDefs] = useState<PropertyDef[]>([]);
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
@@ -845,6 +846,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       if (bibLayout === 'nodos') setBibLayout('lista');
     } else if (a === 'nodes') toNodes(id);
     else if (a === 'child') act('section', id, null);
+    else if (a === 'childCanvas') act('createCanvas', null, id);
     else if (a === 'move') setMovingId(id);
     else act(a, id, null);
   };
@@ -988,12 +990,13 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
               setOrganizeOpen(true);
             }}
             onArchived={() => setShowArchived((v) => !v)}
-            onNewNote={() => {
+            onNewNote={(kind) => {
               if (focused) closeFocused();
               setTasksOpen(false);
               setOrganizeOpen(false);
               setCenter(null);
-              newNote(null);
+              if (kind === 'canvas') newCanvas(null);
+              else newNote(null);
             }}
           />
           <BibBar
@@ -1015,11 +1018,29 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           />
           {/* Sin teclado no hay N: un botón para la nota nueva (solo en el móvil). */}
           {bibView === 'library' && (
-            <button className="bib-fab" onClick={() => act('create', null, center && center !== LOOSE ? center : null)} aria-label={t('Nota nueva')} title={t('Nota nueva')}>
+            <button
+              className="bib-fab"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                // Encima del botón; el menú se recoloca solo para no salirse.
+                setFabMenu({ x: r.right, y: r.top - 84 });
+              }}
+              aria-label={t('Crear')}
+              title={t('Crear')}
+              aria-haspopup="menu"
+            >
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
                 <path d="M12 5v14M5 12h14" />
               </svg>
             </button>
+          )}
+          {fabMenu && (
+            <NewMenu
+              x={fabMenu.x}
+              y={fabMenu.y}
+              onClose={() => setFabMenu(null)}
+              onPick={(kind) => act(kind === 'canvas' ? 'createCanvas' : 'create', null, center && center !== LOOSE ? center : null)}
+            />
           )}
         </>
       )}
