@@ -107,13 +107,24 @@ type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) =
 
 const sameTitle = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
 
+// Una nota cuyo texto empieza por una lista, una tabla… no tiene bloque de
+// título: se enseña el título guardado de la nota (el del archivo importado,
+// por ejemplo), salvo que sea la misma primera línea del texto. Al escribirlo
+// pasa a ser su primer bloque, como en las demás.
+function withTitle(split: ReturnType<typeof splitTitle>, note: NoteRow): ReturnType<typeof splitTitle> {
+  const saved = note.title?.trim();
+  if (split.head || !saved) return split;
+  const firstLine = (note.bodyText ?? '').split('\n').find((l) => l.trim())?.trim() ?? '';
+  return sameTitle(firstLine, saved) ? split : { ...split, title: saved };
+}
+
 function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorProps) {
   // Lo que se importó mal antes (tablas como texto con barras, direcciones con
   // _ hechas cursiva o sin enlace) se abre ya arreglado.
   const [initial] = useState(() => {
     const doc = parseBody(note.bodyJson);
     const fixed = repairDoc(doc);
-    return { ...splitTitle(fixed ?? doc), repaired: !!fixed };
+    return { ...withTitle(splitTitle(fixed ?? doc), note), repaired: !!fixed };
   });
   // El título, aparte del texto (como en Notion). `head` es su bloque tal como
   // estaba guardado, para no perderle el formato si no se toca.
@@ -242,7 +253,8 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source }: EditorP
       return () => clearTimeout(timer);
     }
     shown.current = note.bodyJson;
-    const remote = splitTitle(parseBody(note.bodyJson));
+    const parsed = parseBody(note.bodyJson);
+    const remote = withTitle(splitTitle(repairDoc(parsed) ?? parsed), note);
     head.current = remote.head;
     titleRef.current = remote.title;
     setTitle(remote.title);

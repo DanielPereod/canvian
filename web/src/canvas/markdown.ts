@@ -30,9 +30,24 @@ const INLINE = new RegExp(
 // La puntuación del final de la frase no es parte de la dirección.
 const urlTail = (url: string) => /[.,;:!?)\]]+$/.exec(url)?.[0] ?? '';
 
+// Entidades de HTML que el Markdown escribe por ciertos signos («W &gt; 200»
+// es «W > 200»). Fuera del código se leen como el signo.
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+const ENTITY = /&(?:#(\d{1,7})|#x([0-9a-f]{1,6})|([a-z]+));/gi;
+export function decodeEntities(text: string): string {
+  return text.replace(ENTITY, (m, dec: string | undefined, hex: string | undefined, name: string | undefined) => {
+    const code = dec ? Number(dec) : hex ? parseInt(hex, 16) : null;
+    if (code !== null) return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : m;
+    return ENTITIES[name!.toLowerCase()] ?? m;
+  });
+}
+
 function inline(text: string, links: string[]): JSONContent[] {
   const out: JSONContent[] = [];
-  const push = (t: string, marks?: Mark[]) => t && out.push(marks?.length ? { type: 'text', text: t, marks } : { type: 'text', text: t });
+  const push = (raw: string, marks?: Mark[]) => {
+    const t = marks?.some((m) => m.type === 'code') ? raw : decodeEntities(raw);
+    if (t) out.push(marks?.length ? { type: 'text', text: t, marks } : { type: 'text', text: t });
+  };
   let last = 0;
   for (const m of text.matchAll(INLINE)) {
     push(text.slice(last, m.index));
@@ -516,8 +531,30 @@ export function repairLinks(doc: JSONContent | null): JSONContent | null {
   return changed ? out : null;
 }
 
+// Notas importadas antes con «&gt;» y compañía escritos tal cual.
+export function repairEntities(doc: JSONContent | null): JSONContent | null {
+  if (!doc) return null;
+  let changed = false;
+  const walk = (n: JSONContent): JSONContent => {
+    if (n.type === 'codeBlock') return n;
+    if (n.type === 'text') {
+      if (!n.text || hasMark(n, 'code')) return n;
+      const text = decodeEntities(n.text);
+      if (text === n.text) return n;
+      changed = true;
+      return { ...n, text };
+    }
+    if (!n.content?.length) return n;
+    const content = n.content.map(walk);
+    return content.some((c, i) => c !== n.content![i]) ? { ...n, content } : n;
+  };
+  const out = walk(doc);
+  return changed ? out : null;
+}
+
 // Todo lo que se arregla al abrir una nota importada antes; null si nada.
 export function repairDoc(doc: JSONContent | null): JSONContent | null {
   const tables = repairTables(doc);
-  return repairLinks(tables ?? doc) ?? tables;
+  const links = repairLinks(tables ?? doc) ?? tables;
+  return repairEntities(links ?? doc) ?? links;
 }
