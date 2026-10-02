@@ -165,7 +165,8 @@ function parseList(lines: string[], start: number, ctx: Ctx): [JSONContent, numb
 
 type Ctx = { links: string[]; heading: string | null };
 
-const CALLOUT = /^>\s?\[!([\w-]+)\]([+-]?)\s*(.*)$/;
+// Tolera espacios de más, como «> [! Summary]» o «>[!note ]».
+const CALLOUT = /^\s*>\s*\[!\s*([\w-]+)\s*\]([+-]?)\s*(.*)$/;
 const COLS_OPEN = /^\s*<!--\s*columns\s*-->\s*$/i;
 const COL_SPLIT = /^\s*<!--\s*column\s*-->\s*$/i;
 const COLS_CLOSE = /^\s*<!--\s*\/columns\s*-->\s*$/i;
@@ -244,7 +245,7 @@ function parseBlocks(lines: string[], ctx: Ctx): JSONContent[] {
     if (call) {
       const inner: string[] = [];
       i++;
-      while (i < lines.length && /^>/.test(lines[i])) inner.push(lines[i++].replace(/^>\s?/, ''));
+      while (i < lines.length && /^\s*>/.test(lines[i])) inner.push(lines[i++].replace(/^\s*>\s?/, ''));
       content.push(calloutBlock(call[1].toLowerCase(), call[2], call[3].trim(), parseBlocks(inner, ctx), ctx));
       continue;
     }
