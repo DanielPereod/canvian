@@ -12,7 +12,7 @@ import { NoteSheet } from './NoteSheet';
 import { SectionName } from './SectionName';
 import { SectionPicker } from './SectionPicker';
 import { docText, docToMarkdown, markdownToDoc } from './markdown';
-import { parseBody } from './editor';
+import { parseBody, retitle } from './editor';
 import { hasMedia, uploadMedia } from './media';
 import { emptyBoard, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
@@ -1011,8 +1011,13 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             onFold={toggleBibFolded}
             onDrawer={() => setDrawer(true)}
             rename={
-              bibView === 'note' && focused?.kind === 'canvas'
-                ? { id: focused.id, value: focused.title ?? '', placeholder: t('Canvas sin título'), onRename: (title) => updateNote(focused.id, { title: title || null }) }
+              bibView === 'note' && focused
+                ? {
+                    id: focused.id,
+                    value: focused.title ?? '',
+                    placeholder: focused.kind === 'canvas' ? t('Canvas sin título') : t('Sin título'),
+                    onRename: (title) => updateNote(focused.id, focused.kind === 'canvas' ? { title: title || null } : retitle(focused, title)),
+                  }
                 : null
             }
           />

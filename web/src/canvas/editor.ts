@@ -223,3 +223,13 @@ export function titleFrom(text: string): string | null {
   const line = text.split('\n').find((l) => l.trim().length > 0);
   return line ? line.trim().slice(0, 120) : null;
 }
+
+// Renombrar una nota de texto desde fuera (las migas): el título es el primer
+// bloque del texto, así que se cambia ahí, como si se escribiera en la hoja.
+export function retitle(note: { bodyJson: string | null; bodyText: string | null }, title: string) {
+  const split = splitTitle(parseBody(note.bodyJson));
+  const head = titleBlock(title, split.head);
+  const rest = split.head ? (note.bodyText ?? '').split('\n').slice(1).join('\n') : (note.bodyText ?? '');
+  const bodyText = head ? `${title}\n${rest}` : rest;
+  return { bodyJson: JSON.stringify(joinTitle(head, split.body)), bodyText, title: titleFrom(bodyText) };
+}
