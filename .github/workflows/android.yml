@@ -29,7 +29,7 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: gradle
-      - uses: android-actions/setup-android@v3
+      # El SDK de Android ya viene en ubuntu-latest (ANDROID_HOME).
       - run: npm ci
       - run: npx cap sync android
       - run: ./gradlew assembleRelease --no-daemon
