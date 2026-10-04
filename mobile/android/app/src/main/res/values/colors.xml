@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- El fondo de Canvian: detrás de las barras del sistema y al arrancar. -->
+    <color name="canvian_bg">#030405</color>
+</resources>

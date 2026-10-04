@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Canvian</string>
+    <string name="title_activity_main">Canvian</string>
+    <string name="package_name">org.daniyel.canvian</string>
+    <string name="custom_url_scheme">org.daniyel.canvian</string>
+</resources>
