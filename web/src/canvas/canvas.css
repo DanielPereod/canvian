@@ -22,7 +22,8 @@
 .prose li::marker { color: var(--text-ghost); }
 .prose a { color: var(--accent-ink); text-underline-offset: 3px; text-decoration-color: var(--accent-line); }
 .prose strong { font-weight: var(--weight-semibold); }
-.prose em { font-family: var(--font-serif); font-size: 1.1em; }
+/* La cursiva es la misma letra y el mismo tamaño que el texto, solo inclinada. */
+.prose em, .prose i { font-family: inherit; font-size: inherit; font-style: italic; }
 .prose code { font: 0.86em var(--font-mono); background: var(--surface-sunken); border: 1px solid var(--line); padding: 0 var(--space-1); border-radius: var(--radius-xs); }
 .prose pre { background: var(--surface-sunken); border: 1px solid var(--line); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.88em; line-height: 1.55; }
 .prose pre code { background: none; border: 0; padding: 0; }
