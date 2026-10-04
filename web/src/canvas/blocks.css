@@ -29,12 +29,26 @@
   .prose .note-columns { grid-auto-flow: row; gap: 0.3em; }
 }
 
-/* ── Aviso ── */
-.prose .note-callout { display: flex; gap: 0.6em; margin: 0.2em 0 0.6em; padding: 0.8em 1em; border-radius: var(--radius-sm); background: var(--surface-sunken); border: 1px solid var(--line); }
-.prose .note-callout[data-color$='-bg'] { padding: 0.8em 1em; border-color: transparent; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--tone) 17%, transparent); }
-.prose .note-callout-icon { flex: none; width: 1.5em; padding: 0; border: 0; background: none; font: inherit; font-size: 1.1em; line-height: 1.55; text-align: center; color: inherit; cursor: pointer; border-radius: 4px; user-select: none; }
-button.note-callout-icon:hover { background: var(--surface-hover); }
-.prose .note-callout-body { flex: 1; min-width: 0; }
+/* ── Aviso ── (como en Obsidian: cabecera con icono y tipo en su color,
+   el texto debajo a todo lo ancho, fondo apenas teñido y sin borde) */
+.prose .note-callout { --kind: #3f86c9; --c: var(--kind); display: flex; flex-direction: column; gap: 0.35em; margin: 0.2em 0 0.6em; padding: 0.7em 1em 0.8em; border-radius: 8px; border: 0; background: color-mix(in oklab, var(--c) 7%, var(--surface-sunken)); }
+.prose .note-callout[data-color] { --c: var(--tone); }
+.prose .note-callout[data-color$='-bg'] { padding: 0.7em 1em 0.8em; border-radius: 8px; background: color-mix(in oklab, var(--c) 16%, transparent); }
+.note-callout[data-kind='example'] { --kind: #9467b5; }
+.note-callout[data-kind='warning'] { --kind: #db7f30; }
+.note-callout[data-kind='success'] { --kind: #4c9a6a; }
+.note-callout[data-kind='danger'] { --kind: #d5504a; }
+.note-callout[data-kind='question'] { --kind: #d18f2a; }
+.note-callout:is([data-kind='abstract'], [data-kind='tip']) { --kind: #2fa4b5; }
+.note-callout[data-kind='quote'] { --kind: #8b9099; }
+.note-callout[data-kind='star'] { --kind: #c9a227; }
+.prose .note-callout-head { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.4em; margin: 0 0 0 -0.3em; padding: 0.1em 0.3em; border: 0; border-radius: 4px; background: none; font: inherit; font-size: 0.95em; font-weight: 600; line-height: 1.5; color: color-mix(in oklab, var(--c) 85%, var(--text)); cursor: pointer; user-select: none; }
+button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, transparent); }
+.prose .note-callout-icon { display: inline-flex; font-size: 0.95em; line-height: 1; }
+.prose .note-callout-icon svg { width: 1em; height: 1em; }
+.prose .note-callout-body { min-width: 0; }
+.prose .note-callout-body p { margin-block: 0.2em; }
+.prose .note-callout-body > :first-child { margin-top: 0; }
 .prose .note-callout-body > :last-child { margin-bottom: 0; }
 
 /* ── Desplegable ── */

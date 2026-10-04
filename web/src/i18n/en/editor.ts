@@ -37,7 +37,15 @@ export const EN_EDITOR: Record<string, string> = {
   'Lista': 'List',
   'Tarea': 'To-do',
   // Avisos y desplegables
-  'Cambiar el icono': 'Change icon',
+  'Cambiar el tipo': 'Change type',
+  'Ejemplo': 'Example',
+  'Atención': 'Warning',
+  'Hecho': 'Success',
+  'Peligro': 'Danger',
+  'Pregunta': 'Question',
+  'Resumen': 'Summary',
+  'Consejo': 'Tip',
+  'Destacado': 'Important',
   'Plegar': 'Collapse',
   'Desplegar': 'Expand',
   // Menú del bloque
