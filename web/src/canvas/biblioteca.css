@@ -23,7 +23,7 @@
   --read-font: var(--font-serif);
   /* Tamaños comunes a todos los temas: solo los cambia --type-scale. */
   --title-scale: 1;
-  --read-size: 18px;
+  --read-size: 16px;
 }
 
 /* ── Temas Biblioteca (claro y oscuro) ─────────────────────────────── */
@@ -480,6 +480,15 @@
 .sheet.is-reader .sheet-prose h4,
 .sheet.is-reader .sheet-prose h5,
 .sheet.is-reader .sheet-prose h6 { font-family: var(--font-ui); font-weight: 600; letter-spacing: -0.01em; }
+/* Los encabezados de la hoja, en proporción al texto: cada nivel se distingue
+   del siguiente y ninguno queda por debajo del texto normal. */
+.sheet .sheet-prose h1 { font-size: 1.875em; margin: 0.9em 0 0.3em; }
+.sheet .sheet-prose h2 { font-size: 1.5em; margin: 0.8em 0 0.25em; }
+.sheet .sheet-prose h3 { font-size: 1.25em; margin: 0.7em 0 0.2em; }
+.sheet .sheet-prose h4 { font-size: 1.075em; margin: 0.6em 0 0.15em; }
+.sheet .sheet-prose h5 { font-size: 1em; margin: 0.5em 0 0.1em; }
+.sheet .sheet-prose h6 { font-size: 0.875em; margin: 0.5em 0 0.1em; color: var(--text-muted); }
+.sheet .sheet-prose > :first-child { margin-top: 0; }
 .sheet.is-reader .sheet-prose a { color: var(--accent-ink); }
 .reader-side { width: var(--reader-w, 300px); flex: none; overflow-y: auto; border-left: 1px solid var(--line); padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; font-size: calc(13px * var(--type-scale, 1)); color: var(--text); animation: bib-in 360ms var(--ease-out) 60ms both; }
 .reader-side button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
