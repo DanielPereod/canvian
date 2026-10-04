@@ -16,7 +16,7 @@ function useKeyText() {
   const keymap = useKeymap();
   return (id: ActionId) => keyParts(keymap[id]).join(' ');
 }
-// «Fijar la barra (Ctrl .)», o solo el texto si no hay tecla.
+// «Fijar la barra (Ctrl ⇧ B)», o solo el texto si no hay tecla.
 const withKey = (text: string, keys: string) => (keys ? `${text} (${keys})` : text);
 
 // Diseño «Biblioteca»: la app como una biblioteca de investigación. A la

@@ -458,6 +458,15 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     }, 280);
   };
 
+  // La nota de hoy, titulada AAAA-MM-DD como las de Obsidian: se abre, o se crea arriba del todo.
+  const openDaily = () => {
+    const d = new Date();
+    const title = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const found = rowsRef.current.find((r) => r.kind !== 'canvas' && !r.archivedAt && r.title?.trim() === title);
+    if (found) openNote(found.id);
+    else newNote(null, title);
+  };
+
   const newCanvas = (zoneId: string | null) => {
     const row = createNote(spotFor(zoneId), 'canvas', { zoneId, bodyJson: JSON.stringify(emptyBoard()) });
     openNote(row.id);
@@ -590,7 +599,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
-      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar', 'zen', 'wideNote', 'newNote', 'newCanvas', 'newSection', 'calendar']);
+      const action = actionFor(e, ['exportCanvas', 'search', 'switcher', 'quickNote', 'daily', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar', 'zen', 'wideNote', 'newNote', 'newCanvas', 'newSection', 'calendar']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
       // Con una nota abierta los atiende ella; aquí solo llegan sin nota.
       if ((action === 'zen' || action === 'wideNote') && (chord || !isTyping(e.target))) {
@@ -639,9 +648,22 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         setTasksOpen(true);
         return;
       }
-      if (action === 'search' && (chord || !isTyping(e.target))) {
+      if (action === 'search' || action === 'switcher') {
+        if (!chord && isTyping(e.target)) return;
         e.preventDefault();
         setPaletteOpen((o) => (o ? false : 'open'));
+        return;
+      }
+      // Nota rápida: junto a la abierta, o donde estés. En Tareas apunta una
+      // tarea (lo atiende la vista de tareas).
+      if (action === 'quickNote' && (chord || !isTyping(e.target)) && !(tasksOpen && !focused)) {
+        e.preventDefault();
+        newNote(focused ? focused.zoneId : (currentZone()?.id ?? null));
+        return;
+      }
+      if (action === 'daily' && (chord || !isTyping(e.target))) {
+        e.preventDefault();
+        openDaily();
         return;
       }
       // Con una nota o un canvas abierto, crear desde la paleta (o con una
