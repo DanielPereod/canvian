@@ -58,6 +58,8 @@ const save = (k: string, v: string) => {
     // Sin almacenamiento local no se recuerda, sin más.
   }
 };
+/** Que la vista de tareas se abra en esa lista (`cal`, el calendario). */
+export const rememberTasksView = (v: string) => save(VIEW_KEY, v);
 
 // Lo que más urge arriba: en curso, vencida o cerca, prioridad, lo último tocado.
 const urgency = (r: Task) =>
