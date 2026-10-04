@@ -113,7 +113,18 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
 
   return (
     <div className="workspace backdrop">
-      <Canvas key={active.id} profile={active} shell={{ onProfiles: () => setSwitcherOpen(true), onSettings: () => setSettingsOpen(true), onCommands: () => setCommandsOpen(true) }} />
+      <Canvas key={active.id} profile={active} shell={{
+          onProfiles: () => setSwitcherOpen(true),
+          onSettings: () => setSettingsOpen(true),
+          onCommands: () => setCommandsOpen(true),
+          overlay: commandsOpen || switcherOpen || settingsOpen || helpOpen,
+          closeOverlay: () => {
+            setCommandsOpen(false);
+            setSwitcherOpen(false);
+            setSettingsOpen(false);
+            setHelpOpen(false);
+          },
+        }} />
 
       {commandsOpen && <ActionPalette onClose={() => setCommandsOpen(false)} />}
       {switcherOpen && (
