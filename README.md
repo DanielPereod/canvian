@@ -31,7 +31,7 @@ npm start        # sirve todo desde :3210
 | `server/` | Hono + better-sqlite3 + Drizzle. Esquema en `src/db/schema.ts`, migraciones en `drizzle/` (se generan con `npm run db:generate -w server`) y se aplican al arrancar. |
 | `web/`    | React 19 + Vite. La interfaz es una biblioteca (`web/src/canvas/Biblioteca.tsx`): barra lateral con el árbol de notas, la colección en lista, portadas o nodos, y un lector con su panel de detalles. |
 
-Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (los archivos adjuntos a las notas: imágenes, vídeo, audio, PDF, documentos…; por defecto `media/` junto a la base, así que en Docker también quedan en el volumen `/data`), `CANVIAN_WEB_DIR` (por defecto `web/dist`).
+Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (los archivos adjuntos a las notas: imágenes, vídeo, audio, PDF, documentos…; por defecto `media/` junto a la base, así que en Docker también quedan en el volumen `/data`), `CANVIAN_WEB_DIR` (por defecto `web/dist`), `CANVIAN_MCP_TOKEN` (llave fija para el MCP, en vez de crearla en Configuración › Claude) y `TZ` (la zona horaria: decide qué es «hoy» para las tareas que pide Claude).
 
 ## Datos de ejemplo
 
@@ -56,6 +56,16 @@ Las tareas no son notas aparte: son las casillas que escribes dentro de cualquie
 `[ ]` pendiente, `[/]` en curso, `[!]` bloqueada y `[x]` hecha. Lo demás va en la propia línea: `📅 AAAA-MM-DD` es la fecha, `⏫` `🔼` `🔽` la prioridad (alta, media, baja), `#palabra` una etiqueta y `✅ AAAA-MM-DD` cuándo se hizo. No hace falta escribirlo a mano: la vista de tareas (`A`) lo pone al cambiar la fecha, la prioridad o el estado, y lo escribe en la nota.
 
 Al actualizar desde una versión en la que las tareas eran notas, el servidor las pasa solo, una vez, a casillas dentro de su nota madre (con su estado, fecha, prioridad y etiquetas). Una tarea que tenía más texto, notas dentro o enlaces se queda como nota y su casilla la enlaza (`- [ ] [[Título]]`); las tareas rápidas y las que no estaban dentro de ninguna nota van a una nota «Tareas».
+
+## Conectar con Claude (MCP)
+
+Canvian lleva un servidor MCP en `/mcp` para que Claude lea y escriba tus notas: buscar y leer notas, crearlas y editarlas en Markdown (con `[[enlaces]]`), listar, añadir y completar tareas, mover, archivar y poner propiedades, y un resumen de la actividad reciente. Respeta los perfiles.
+
+1. En Configuración › Claude, pulsa «Crear enlace» y cópialo (solo se enseña una vez).
+2. En claude.ai: Configuración › Conectores › Añadir conector personalizado, y pega el enlace con tu dirección pública (por ejemplo `https://canvian.example.org/mcp/<llave>`). Claude tiene que llegar al servidor por internet con https.
+3. En Claude Code: `claude mcp add --transport http canvian https://…/mcp/<llave>`.
+
+La llave también vale como cabecera `Authorization: Bearer <llave>` en `/mcp`. Crear otra invalida la anterior.
 
 ## Archivos adjuntos
 

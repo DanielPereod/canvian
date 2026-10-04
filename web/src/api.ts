@@ -192,6 +192,9 @@ export const api = {
   deleteLens: (id: string) => request('DELETE', `/lenses/${id}`),
   calendarEvents: (from: string, to: string, fresh = false) =>
     request<{ events: CalEvent[]; errors: Record<string, string> }>('GET', `/calendars/events?from=${from}&to=${to}${fresh ? '&fresh=1' : ''}`),
+  mcpStatus: () => request<{ enabled: boolean; fromEnv: boolean }>('GET', '/mcp'),
+  createMcpToken: () => request<{ token: string }>('POST', '/mcp/token'),
+  revokeMcpToken: () => request('DELETE', '/mcp/token'),
   search: (profileId: string, q: string) =>
     request<SearchHit[]>('GET', `/profiles/${profileId}/search?q=${encodeURIComponent(q)}`),
 };

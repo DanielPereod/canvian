@@ -24,6 +24,9 @@ import { calendarRoutes } from './routes/calendars.js';
 import { unfurlRoutes } from './routes/unfurl.js';
 import type { Fetcher } from './calendars.js';
 import { createHub, scopeOf } from './live.js';
+import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import { createMcpServer } from './mcp/server.js';
+import { createMcpToken, isMcpToken, mcpStatus, revokeMcpToken } from './mcp/token.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -189,6 +192,17 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
     return c.body(null, 204);
   });
 
+  // La llave del MCP (Configuración › Claude): se enseña una sola vez al crearla.
+  api.get('/mcp', (c) => c.json(mcpStatus(db)));
+  api.post('/mcp/token', (c) => {
+    if (mcpStatus(db).fromEnv) return c.json({ error: 'La llave viene de CANVIAN_MCP_TOKEN' }, 409);
+    return c.json({ token: createMcpToken(db) }, 201);
+  });
+  api.delete('/mcp/token', (c) => {
+    revokeMcpToken(db);
+    return c.body(null, 204);
+  });
+
   api.route('/', canvasRoutes(db));
   api.route('/', propertyRoutes(db));
   api.route('/', lensRoutes(db));
@@ -199,6 +213,23 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
 
   const app = new Hono();
   app.get('/health', (c) => c.json({ ok: true }));
+
+  // El servidor MCP (Streamable HTTP, sin estado). La llave va en la ruta
+  // (/mcp/<llave>, para los conectores de claude.ai, que no dejan poner
+  // cabeceras) o como «Authorization: Bearer <llave>».
+  const mcp = async (c: Context, token: string | undefined) => {
+    if (!isMcpToken(db, token)) return c.json({ error: 'Llave del MCP no válida' }, 401);
+    // Sin sesiones no hay canal de avisos (GET) ni sesión que cerrar (DELETE).
+    if (c.req.method !== 'POST') return c.json({ error: 'Solo POST' }, 405, { Allow: 'POST' });
+    const server = createMcpServer(db, hub);
+    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    await server.connect(transport);
+    return transport.handleRequest(c.req.raw);
+  };
+  // Sin OAuth: que los clientes MCP no tomen la web por sus metadatos.
+  app.all('/.well-known/*', (c) => c.json({ error: 'No encontrado' }, 404));
+  app.all('/mcp', (c) => mcp(c, /^Bearer\s+(.+)$/i.exec(c.req.header('authorization') ?? '')?.[1]?.trim()));
+  app.all('/mcp/:token', (c) => mcp(c, c.req.param('token')));
   app.route('/api', api);
   app.all('/api/*', (c) => c.json({ error: 'No encontrado' }, 404));
   return app;
