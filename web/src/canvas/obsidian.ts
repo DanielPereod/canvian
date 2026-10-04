@@ -8,18 +8,8 @@ import { TaskItem, TaskList } from '@tiptap/extension-list';
 
 export type WikiAttrs = { id: string | null; target: string; alias: string | null };
 
-// «Nota#Sección|alias» → sus partes. La nota es lo que se busca.
-export function splitWiki(raw: string): { note: string; section: string | null; alias: string | null } {
-  const bar = raw.indexOf('|');
-  const target = bar < 0 ? raw : raw.slice(0, bar);
-  const alias = bar < 0 ? null : raw.slice(bar + 1).trim() || null;
-  const hash = target.indexOf('#');
-  return {
-    note: (hash < 0 ? target : target.slice(0, hash)).trim(),
-    section: hash < 0 ? null : target.slice(hash + 1).trim() || null,
-    alias,
-  };
-}
+import { splitWiki } from '../../../server/src/doc/json';
+export { splitWiki };
 
 export const wikiLabel = (a: { target: string; alias: string | null }) => a.alias || a.target;
 

@@ -8,6 +8,7 @@ import { FontPicker } from './FontPicker';
 import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
 import { CalendarSettings } from './CalendarSettings';
+import { ClaudeSettings } from './ClaudeSettings';
 import { setZenFullscreen, useZenPrefs } from './canvas/zenPrefs';
 
 // Configuración con la forma de Obsidian: a la izquierda las secciones, a la
@@ -19,12 +20,13 @@ type Props = {
   onProfiles: () => void;
 };
 
-type SectionId = 'general' | 'aspecto' | 'calendarios' | 'atajos';
+type SectionId = 'general' | 'aspecto' | 'calendarios' | 'claude' | 'atajos';
 
 const SECTIONS: { id: SectionId; name: string }[] = [
   { id: 'general', name: 'General' },
   { id: 'aspecto', name: 'Aspecto' },
   { id: 'calendarios', name: 'Calendarios' },
+  { id: 'claude', name: 'Claude' },
   { id: 'atajos', name: 'Atajos de teclado' },
 ];
 
@@ -269,6 +271,8 @@ export function Settings({ onClose, onProfiles }: Props) {
           )}
 
           {section === 'calendarios' && <CalendarSettings report={report} />}
+
+          {section === 'claude' && <ClaudeSettings report={report} />}
 
           {section === 'atajos' && (
             <>
