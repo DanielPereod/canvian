@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
-import { AuthCard } from './AuthCard';
+import { AuthCard, AuthScreen } from './AuthCard';
 import { Workspace } from './Workspace';
 import { Styleguide } from './Styleguide';
 import { t } from './i18n';
@@ -29,14 +29,10 @@ export function App() {
   if (state === 'loading') return <div className="backdrop" />;
   if (state === 'offline')
     return (
-      <div className="backdrop dotted center">
-        <div className="surface-3 dialog">
-          <h1 className="display">
-            {t('Sin')} <em>{t('señal')}</em>
-          </h1>
-          <p className="muted">{t('No encuentro el servidor de Canvian. Comprueba que está en marcha y recarga la página.')}</p>
-        </div>
-      </div>
+      <AuthScreen
+        title={t('Sin conexión')}
+        hint={t('No encuentro el servidor de Canvian. Comprueba que está en marcha y recarga la página.')}
+      />
     );
   if (state === 'setup' || state === 'login')
     return <AuthCard mode={state} onDone={() => setState('ready')} />;

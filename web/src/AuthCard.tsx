@@ -1,8 +1,27 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { api, ApiError } from './api';
-import { Wordmark } from './Wordmark';
-import { Fireflies } from './Fireflies';
+import { Glyph } from './Wordmark';
 import { t } from './i18n';
+
+// Pantalla de entrada: la marca, una frase y el campo. Sin tarjeta ni
+// adornos; toma los colores y la letra del tema, claro u oscuro.
+export function AuthScreen({ title, hint, children }: { title: string; hint: string; children?: ReactNode }) {
+  return (
+    <main className="auth">
+      <div className="auth-col">
+        <div className="auth-brand">
+          <Glyph className="auth-glyph" />
+          <span>Canvian</span>
+        </div>
+        <div className="auth-copy">
+          <h1 className="auth-title">{title}</h1>
+          <p className="auth-hint">{hint}</p>
+        </div>
+        {children}
+      </div>
+    </main>
+  );
+}
 
 export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: () => void }) {
   const [password, setPassword] = useState('');
@@ -23,43 +42,33 @@ export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: ()
   };
 
   return (
-    <div className="backdrop dotted center">
-      <Fireflies />
-      <form className="surface-3 dialog" onSubmit={submit}>
-        <Wordmark className="auth-brand" />
-        <div className="auth-copy">
-          <h1 className="display">
-            {mode === 'setup' ? (
-              <>
-                {t('Planta tu')} <em>{t('jardín')}</em>
-              </>
-            ) : (
-              <>
-                {t('Hola de')} <em>{t('nuevo')}</em>
-              </>
-            )}
-          </h1>
-          <p className="muted">
-            {mode === 'setup'
-              ? t('Elige una contraseña. Es la única cuenta de esta instalación y empezarás con los perfiles Personal y Trabajo.')
-              : t('Escribe tu contraseña para volver a tus notas.')}
-          </p>
-        </div>
+    <AuthScreen
+      title={mode === 'setup' ? t('Crea tu contraseña') : t('Entra en Canvian')}
+      hint={
+        mode === 'setup'
+          ? t('Elige una contraseña. Es la única cuenta de esta instalación y empezarás con los perfiles Personal y Trabajo.')
+          : t('Escribe tu contraseña para volver a tus notas.')
+      }
+    >
+      <form className="auth-form" onSubmit={submit}>
         <input
           id="password"
-          className="field"
+          className="auth-field"
           type="password"
           autoFocus
+          aria-label={t('Contraseña')}
           autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
           placeholder={mode === 'setup' ? t('Al menos 8 caracteres') : t('Contraseña')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        {error && <p className="error-text">{error}</p>}
-        <button className="btn btn-primary" type="submit" disabled={busy || password.length === 0}>
+        <button className="auth-button" type="submit" disabled={busy || password.length === 0}>
           {mode === 'setup' ? t('Crear y entrar') : t('Entrar')}
         </button>
+        <p className="auth-error" role="alert">
+          {error}
+        </p>
       </form>
-    </div>
+    </AuthScreen>
   );
 }

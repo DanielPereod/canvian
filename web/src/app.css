@@ -32,8 +32,56 @@
 .help-row { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-3); align-items: baseline; padding: 4px 0; font-size: var(--text-sm); color: var(--text-muted); }
 .help-row .keys { justify-content: flex-start; }
 
-.auth-brand { font-size: calc(20px * var(--type-scale, 1)); }
+/* ── Entrada: una columna estrecha sobre el fondo del tema ──────────── */
+.auth {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: max(var(--space-6), env(safe-area-inset-top)) var(--space-6) max(var(--space-6), env(safe-area-inset-bottom));
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+.auth-col { width: min(340px, 100%); display: grid; gap: var(--space-6); animation: auth-in 520ms var(--ease-out) both; }
+.auth-brand { display: inline-flex; align-items: center; gap: 10px; font-size: var(--text-md); font-weight: 600; letter-spacing: -0.01em; }
+.auth-glyph { width: 22px; height: 22px; color: var(--text); }
 .auth-copy { display: grid; gap: var(--space-2); }
+.auth-title { margin: 0; font-family: var(--font-ui); font-size: var(--text-xl); font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; }
+.auth-hint { margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.55; }
+.auth-form { display: grid; gap: var(--space-3); }
+.auth-field {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-md);
+  outline: none;
+  transition: border-color var(--dur-fast);
+}
+.auth-field::placeholder { color: var(--text-ghost); }
+.auth-field:focus-visible { border-color: var(--text-faint); box-shadow: none; }
+.auth-button {
+  min-height: 44px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--text);
+  color: var(--bg);
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+}
+.auth-button:active:not(:disabled) { transform: scale(0.98); }
+.auth-button:disabled { opacity: 0.35; cursor: default; }
+.auth-error { margin: 0; min-height: 1.5em; color: var(--danger); font-size: var(--text-sm); }
+.auth-error:not(:empty) { animation: shake 320ms var(--ease-out); }
+@keyframes auth-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .auth-col { animation: none; } }
 
 /* Luciérnagas: unas pocas luces que flotan detrás del canvas */
 .fireflies { position: absolute; inset: 0; z-index: var(--z-ambient); pointer-events: none; overflow: hidden; }

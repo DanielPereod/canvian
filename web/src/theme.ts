@@ -33,13 +33,16 @@ export type Appearance = { mode: Mode; dark: ThemeId; light: ThemeId };
 
 const LOCAL = 'canvian:appearance';
 const LEGACY = 'canvian:theme';
+// Sin nada guardado (instalación nueva, otro navegador, la app del móvil la
+// primera vez): Mínimo, claro u oscuro según el sistema.
+const DEFAULT: Appearance = { mode: 'auto', dark: 'minimo', light: 'minimo-claro' };
 const toneOf = (id: ThemeId) => THEMES.find((t) => t.id === id)!.tone;
 const isTheme = (v: unknown, tone?: Tone): v is ThemeId => THEMES.some((t) => t.id === v && (!tone || t.tone === tone));
 const isMode = (v: unknown): v is Mode => MODES.some((m) => m.id === v);
 
 // Del tema de antes (uno solo) al aspecto: su tono pasa a ser el modo.
 function fromLegacy(theme: unknown): Appearance {
-  if (!isTheme(theme)) return { mode: 'dark', dark: 'jardin', light: 'papel' };
+  if (!isTheme(theme)) return DEFAULT;
   const pair: ThemeId = theme === 'minimo' ? 'minimo-claro' : theme === 'minimo-claro' ? 'minimo' : toneOf(theme) === 'dark' ? 'papel' : 'jardin';
   return toneOf(theme) === 'dark' ? { mode: 'dark', dark: theme, light: pair } : { mode: 'light', dark: pair, light: theme };
 }
@@ -51,7 +54,7 @@ function clean(v: unknown): Appearance | null {
 }
 
 const system = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-let current: Appearance = { mode: 'dark', dark: 'jardin', light: 'papel' };
+let current: Appearance = DEFAULT;
 let active = 'jardin' as ThemeId;
 let snapshot: Appearance & { active: ThemeId } = { ...current, active };
 const listeners = new Set<() => void>();
@@ -93,6 +96,7 @@ export function startTheme() {
     saved = null;
   }
   if (saved) apply(saved);
+  else paint();
 }
 
 // Tras entrar: lo que diga el servidor (o el tema de antes, si aún no hay aspecto).
