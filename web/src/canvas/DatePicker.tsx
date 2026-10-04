@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { dateFmt, daysUntil, dueLabel } from './dates';
 import { t } from '../i18n';
+import { parseRecur, recurText, type Recur, type RecurUnit } from './tasks';
+import { repeatLabel } from './repeat';
 
 // Selector de fecha propio, en vez del calendario nativo del navegador: un
 // botón que abre un mes en cuadrícula, con mes anterior/siguiente, atajos
 // (Hoy, Mañana, Próximo lunes) y se maneja también con el teclado.
+// En las tareas, debajo se elige además si se repite (y cada cuánto).
 
 // Iniciales de lunes a domingo, en el idioma de la interfaz (L M X J V S D).
 const dows = () => Array.from({ length: 7 }, (_, k) => dateFmt({ weekday: 'narrow' }).format(new Date(2024, 0, 1 + k)));
@@ -27,9 +30,27 @@ type Props = {
   className?: string;
   label?: string;
   placeholder?: string;
+  /** La repetición («every week»); con `onRepeat`, el selector la deja elegir. */
+  repeat?: string | null;
+  onRepeat?: (rule: string | null) => void;
 };
 
-export function DatePicker({ value, onChange, className, label, placeholder }: Props) {
+const PRESETS: { rule: string; name: string }[] = [
+  { rule: 'every day', name: 'Diaria' },
+  { rule: 'every week', name: 'Semanal' },
+  { rule: 'every month', name: 'Mensual' },
+  { rule: 'every year', name: 'Anual' },
+];
+const UNITS: { id: RecurUnit; one: string; many: string }[] = [
+  { id: 'day', one: 'día', many: 'días' },
+  { id: 'week', one: 'semana', many: 'semanas' },
+  { id: 'month', one: 'mes', many: 'meses' },
+  { id: 'year', one: 'año', many: 'años' },
+];
+// De lunes a domingo (0 es domingo).
+const WEEK = [1, 2, 3, 4, 5, 6, 0];
+
+export function DatePicker({ value, onChange, className, label, placeholder, repeat, onRepeat }: Props) {
   label ??= t('Fecha');
   placeholder ??= t('Fecha');
   const [open, setOpen] = useState(false);
@@ -87,8 +108,13 @@ export function DatePicker({ value, onChange, className, label, placeholder }: P
 
   return (
     <>
-      <button type="button" className={className} aria-label={label} onClick={openAt}>
+      <button type="button" className={className} aria-label={label} title={repeat ? repeatLabel(repeat) : undefined} onClick={openAt}>
         {value ? cap(dueLabel(value)) : <span className="dp-placeholder">{placeholder}</span>}
+        {repeat && (
+          <span className="dp-recur" aria-label={repeatLabel(repeat)}>
+            {' '}🔁
+          </span>
+        )}
       </button>
       {open && (
         <div className="overlay dp-overlay" onMouseDown={() => setOpen(false)}>
@@ -147,9 +173,134 @@ export function DatePicker({ value, onChange, className, label, placeholder }: P
                 </button>
               )}
             </div>
+            {onRepeat && <RepeatPicker rule={repeat ?? null} onChange={onRepeat} />}
           </div>
         </div>
       )}
     </>
+  );
+}
+
+// Si se repite: nunca, una de las de siempre o, en «Personalizada», cada
+// cuántos días, semanas, meses o años (y qué días de la semana).
+function RepeatPicker({ rule, onChange }: { rule: string | null; onChange: (rule: string | null) => void }) {
+  const parsed = rule ? parseRecur(rule) : null;
+  const preset = PRESETS.find((p) => p.rule === rule);
+  const [custom, setCustom] = useState(!!rule && !preset);
+  const r: Recur = parsed ?? { n: 1, unit: 'week', days: [], monthDay: null, whenDone: false };
+  const put = (next: Partial<Recur>) => {
+    const merged = { ...r, ...next };
+    if (merged.unit !== 'week') merged.days = [];
+    if (merged.unit !== 'month') merged.monthDay = null;
+    onChange(recurText(merged));
+  };
+  return (
+    <div className="dp-repeat">
+      <div className="dp-repeat-row" role="radiogroup" aria-label={t('Repetir')}>
+        <span className="dp-repeat-label" aria-hidden="true">
+          🔁
+        </span>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={!rule && !custom}
+          className={`dp-quick${!rule && !custom ? ' is-on' : ''}`}
+          onClick={() => {
+            setCustom(false);
+            onChange(null);
+          }}
+        >
+          {t('No se repite')}
+        </button>
+        {PRESETS.map((p) => (
+          <button
+            type="button"
+            key={p.rule}
+            role="radio"
+            aria-checked={!custom && rule === p.rule}
+            className={`dp-quick${!custom && rule === p.rule ? ' is-on' : ''}`}
+            onClick={() => {
+              setCustom(false);
+              onChange(p.rule);
+            }}
+          >
+            {t(p.name)}
+          </button>
+        ))}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={custom}
+          className={`dp-quick${custom ? ' is-on' : ''}`}
+          onClick={() => {
+            setCustom(true);
+            if (!rule) put({});
+          }}
+        >
+          {t('Personalizada')}
+        </button>
+      </div>
+      {custom && (
+        <div className="dp-custom">
+          <label className="dp-every">
+            {t('Cada')}
+            <input
+              type="number"
+              min={1}
+              max={99}
+              value={r.n}
+              aria-label={t('Cada cuántos')}
+              onChange={(e) => {
+                const n = Math.round(Number(e.target.value));
+                if (n >= 1 && n <= 99) put({ n });
+              }}
+            />
+            <select value={r.unit} aria-label={t('Unidad')} onChange={(e) => put({ unit: e.target.value as RecurUnit })}>
+              {UNITS.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {t(r.n === 1 ? u.one : u.many)}
+                </option>
+              ))}
+            </select>
+          </label>
+          {r.unit === 'week' && (
+            <div className="dp-wdays" role="group" aria-label={t('Días de la semana')}>
+              {WEEK.map((d) => {
+                const on = r.days.includes(d);
+                return (
+                  <button
+                    type="button"
+                    key={d}
+                    aria-pressed={on}
+                    className={`dp-wday${on ? ' is-on' : ''}`}
+                    title={cap(dateFmt({ weekday: 'long' }).format(new Date(2024, 0, 7 + d)))}
+                    onClick={() => put({ days: on ? r.days.filter((x) => x !== d) : [...r.days, d].sort((a, b) => a - b) })}
+                  >
+                    {dateFmt({ weekday: 'narrow' }).format(new Date(2024, 0, 7 + d))}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {r.unit === 'month' && (
+            <div className="dp-wdays" role="radiogroup" aria-label={t('Qué día del mes')}>
+              {[
+                { v: null, name: t('El mismo día') },
+                { v: -1, name: t('El último día') },
+              ].map((o) => (
+                <button type="button" key={String(o.v)} role="radio" aria-checked={r.monthDay === o.v} className={`dp-quick${r.monthDay === o.v ? ' is-on' : ''}`} onClick={() => put({ monthDay: o.v })}>
+                  {o.name}
+                </button>
+              ))}
+            </div>
+          )}
+          <label className="dp-whendone">
+            <input type="checkbox" checked={r.whenDone} onChange={(e) => put({ whenDone: e.target.checked })} />
+            {t('Contar desde que se hace')}
+          </label>
+        </div>
+      )}
+      {rule && <p className="dp-repeat-sum">{repeatLabel(rule)}</p>}
+    </div>
   );
 }

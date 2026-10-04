@@ -7,7 +7,8 @@ import { dateFmt, daysUntil, dueLabel, localToday } from './dates';
 import { t } from '../i18n';
 import { actionFor, keyParts, matches, keysBlocked, useKeymap, type ActionId } from '../keys';
 import { mergeTags } from './tags';
-import { listedTasks, type Task, type TaskChange } from './tasks';
+import { listedTasks, nextDate, parseRecur, type Task, type TaskChange } from './tasks';
+import { repeatLabel } from './repeat';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { Resizer, useSideWidth } from './Resizer';
 import { DatePicker } from './DatePicker';
@@ -744,6 +745,7 @@ export function TasksView(p: Props) {
                         </div>
                         {(where || r.dueAt || r.tags.length > 0) && (
                           <div className="tv-card-meta">
+                            {r.repeat && r.status !== 'done' && <Recur rule={r.repeat} />}
                             {r.dueAt && <span className={`tv-due${d! < 0 && r.status !== 'done' ? ' is-late' : d === 0 ? ' is-today' : ''}`}>{dueLabel(r.dueAt)}</span>}
                             {r.tags.map((x) => (
                               <span key={x} className="tv-tag">
@@ -815,6 +817,7 @@ export function TasksView(p: Props) {
                           </span>
                         ))}
                         {where && <span className="tv-where">{where}</span>}
+                        {r.repeat && r.status !== 'done' && <Recur rule={r.repeat} />}
                         {r.dueAt && <span className={`tv-due${d! < 0 && r.status !== 'done' ? ' is-late' : d === 0 ? ' is-today' : ''}`}>{dueLabel(r.dueAt)}</span>}
                       </div>
                     );
@@ -881,6 +884,16 @@ export function TasksView(p: Props) {
         />
       )}
     </div>
+  );
+}
+
+// Que se repite, con cada cuánto al pasar el ratón.
+function Recur({ rule }: { rule: string }) {
+  const label = repeatLabel(rule);
+  return (
+    <span className="tv-recur" title={label} aria-label={label}>
+      🔁
+    </span>
   );
 }
 
@@ -951,6 +964,9 @@ function Detail({
           label={t('Fecha')}
           value={row.dueAt?.slice(0, 10) ?? null}
           onChange={(v) => p.onChange(row, { dueAt: v })}
+          repeat={row.repeat}
+          // Lo que se repite cuenta desde su fecha: sin ninguna, desde hoy.
+          onRepeat={(repeat) => p.onChange(row, { repeat, ...(repeat && !row.dueAt ? { dueAt: isoDay(0) } : {}) })}
         />
         <div className="tv-prio" role="radiogroup" aria-label={t('Prioridad')}>
           {[1, 2, 3].map((n) => (
@@ -1156,18 +1172,29 @@ function matchNotes(options: SectionOption[], query: string) {
   return hits.slice(0, 8).map((h) => h.o);
 }
 
+/** Una tarea en un día del calendario; `of`, si es una de las próximas veces de una que se repite. */
+type CalItem = Task & { of?: Task };
+
 // Las tareas con fecha, por día; en cada uno, primero las pendientes y lo que más urge.
-function useByDay(tasks: Task[]) {
+// Entre `from` y `to` (sin incluirlo) salen también las próximas veces de las que
+// se repiten, a partir de hoy.
+function useByDay(tasks: Task[], from?: string, to?: string) {
   return useMemo(() => {
-    const out = new Map<string, Task[]>();
+    const out = new Map<string, CalItem[]>();
+    const add = (k: string, r: CalItem) => out.set(k, [...(out.get(k) ?? []), r]);
+    const today = isoDay(0);
     for (const r of tasks) {
       if (!r.dueAt) continue;
-      const k = r.dueAt.slice(0, 10);
-      out.set(k, [...(out.get(k) ?? []), r]);
+      add(r.dueAt.slice(0, 10), r);
+      const rule = r.repeat && r.status !== 'done' && from && to ? parseRecur(r.repeat) : null;
+      if (!rule) continue;
+      for (let d = nextDate(rule, r.dueAt.slice(0, 10)), n = 0; d < to! && n < 3000; d = nextDate(rule, d), n++) {
+        if (d >= from! && d >= today) add(d, { ...r, id: `${r.id}@${d}`, dueAt: d, of: r });
+      }
     }
-    for (const list of out.values()) list.sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done') || urgency(b) - urgency(a));
+    for (const list of out.values()) list.sort((a, b) => Number(!!a.of) - Number(!!b.of) || Number(a.status === 'done') - Number(b.status === 'done') || urgency(b) - urgency(a));
     return out;
-  }, [tasks]);
+  }, [tasks, from, to]);
 }
 
 type CalProps = {
@@ -1208,8 +1235,33 @@ function dropOn(iso: string, setOver: (f: (o: string | null) => string | null) =
 }
 
 // Una tarea en el calendario: se señala con un clic, se abre con doble clic y se arrastra a otro día.
-function CalTask({ r, iso, p, where }: { r: Task; iso: string; p: CalProps; where?: string }) {
+// Las próximas veces de una que se repite salen en tenue: llevan a la de verdad.
+function CalTask({ r, iso, p, where }: { r: CalItem; iso: string; p: CalProps; where?: string }) {
   const today = isoDay(0);
+  if (r.of) {
+    const of = r.of;
+    return (
+      <div
+        className={`tv-cal-task is-ghost${of.id === p.selected ? ' is-sel' : ''}`}
+        title={repeatLabel(of.repeat ?? '')}
+        onClick={(e) => {
+          e.stopPropagation();
+          p.onSelect(of);
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          p.onOpen(of);
+        }}
+        onContextMenu={(e) => p.onMenu(e, of)}
+      >
+        <span className="tv-recur" aria-hidden="true">
+          🔁
+        </span>
+        <span>{titleOf(of)}</span>
+        {where && <em className="tv-cal-where">{where}</em>}
+      </div>
+    );
+  }
   return (
     <div
       className={`tv-cal-task${r.status === 'done' ? ' is-done' : ''}${r.id === p.selected ? ' is-sel' : ''}${r.status !== 'done' && iso < today ? ' is-late' : ''}`}
@@ -1294,7 +1346,7 @@ function CalMonth(p: CalProps) {
   const start = new Date(y, m - 1, 1 - ((first.getDay() + 6) % 7));
   const days = Array.from({ length: 42 }, (_, k) => isoOf(new Date(start.getFullYear(), start.getMonth(), start.getDate() + k)));
   const weeks = days[35].slice(0, 7) === month ? 6 : 5;
-  const byDay = useByDay(p.tasks);
+  const byDay = useByDay(p.tasks, days[0], addDays(days[weeks * 7 - 1], 1));
 
   return (
     <div className="tv-cal" style={{ '--weeks': weeks } as React.CSSProperties}>
@@ -1336,7 +1388,7 @@ function CalMonth(p: CalProps) {
 function CalColumns(p: CalProps) {
   const [over, setOver] = useState<string | null>(null);
   const today = isoDay(0);
-  const byDay = useByDay(p.tasks);
+  const byDay = useByDay(p.tasks, p.days[0], addDays(p.days[p.days.length - 1], 1));
   const roomy = p.mode !== 'semana';
   return (
     <div className={`tv-cal-cols is-${p.mode}`} style={{ '--cols': p.days.length } as React.CSSProperties}>
@@ -1344,7 +1396,7 @@ function CalColumns(p: CalProps) {
         <button key={iso} className={`tv-cal-colhead${iso === today ? ' is-today' : ''}${iso === p.day ? ' is-on' : ''}`} onClick={() => p.onDay(iso)} {...dropOn(iso, setOver, p.onMove)}>
           <span className="tv-cal-coldow">{SHORT_DOW().format(dateOf(iso)).replace('.', '')}</span>
           <span className="tv-cal-num">{Number(iso.slice(8))}</span>
-          {!!byDay.get(iso)?.length && <span className="tv-count">{byDay.get(iso)!.filter((r) => r.status !== 'done').length || ''}</span>}
+          {!!byDay.get(iso)?.length && <span className="tv-count">{byDay.get(iso)!.filter((r) => r.status !== 'done' && !r.of).length || ''}</span>}
         </button>
       ))}
       {p.days.map((iso) => {
@@ -1371,7 +1423,8 @@ function CalColumns(p: CalProps) {
 function CalAgenda(p: CalProps) {
   const [over, setOver] = useState<string | null>(null);
   const today = isoDay(0);
-  const byDay = useByDay(p.tasks);
+  // Las próximas veces de lo que se repite, en los dos meses siguientes.
+  const byDay = useByDay(p.tasks, p.day, addDays(p.day, 60));
   const late = p.day <= today ? [...byDay.entries()].filter(([iso]) => iso < p.day).flatMap(([iso, list]) => list.filter((r) => r.status !== 'done').map((r) => [iso, r] as const)) : [];
   const days = [...new Set([...byDay.keys(), ...p.events.keys()])].filter((iso) => iso >= p.day).sort();
   if (!days.includes(p.day)) days.unshift(p.day);

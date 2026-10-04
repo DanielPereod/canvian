@@ -2,6 +2,7 @@ import { Extension, InputRule, Mark, Node, markInputRule, markPasteRule, mergeAt
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
+import { nextParagraph, stampDone } from './tasks';
 
 // El Markdown de Obsidian que no trae el editor de serie: [[enlaces]] entre
 // notas, ==resaltado==, casillas de tareas y [texto](url) al escribir.
@@ -115,6 +116,41 @@ const TaskInput = TaskItem.extend({
             if (node.type.name === 'taskItem' && node.attrs.checked && node.attrs.status) tr.setNodeMarkup(pos, undefined, { ...node.attrs, status: null });
           });
           return tr.docChanged ? tr.setMeta('addToHistory', false) : null;
+        },
+      }),
+      // Una casilla que se repite («🔁 every week»), al marcarla, se queda con
+      // su «✅ hoy» y encima aparece la siguiente vez, con la fecha que le toca.
+      // Solo cuenta lo que se marca aquí (no lo que se pega ya marcado).
+      new Plugin({
+        appendTransaction: (trs, old, state) => {
+          if (!trs.some((tr) => tr.docChanged) || trs.some((tr) => tr.getMeta('uiEvent') === 'paste')) return null;
+          const open: { pos: number; text: string }[] = [];
+          old.doc.descendants((node, pos) => {
+            if (node.type.name === 'taskItem' && !node.attrs.checked && node.textContent.includes('🔁')) open.push({ pos, text: node.firstChild?.textContent ?? '' });
+          });
+          if (!open.length) return null;
+          // La misma casilla, con el mismo texto, ahora marcada.
+          const hits: number[] = [];
+          for (const { pos, text } of open) {
+            const at = trs.reduce((p, tr) => tr.mapping.map(p, -1), pos);
+            const node = state.doc.nodeAt(at);
+            if (node?.type.name === 'taskItem' && node.attrs.checked && node.firstChild?.textContent === text) hits.push(at);
+          }
+          if (!hits.length) return null;
+          const tr = state.tr;
+          const { schema } = state;
+          // De abajo arriba, para que las posiciones de las de arriba sigan valiendo.
+          for (const pos of hits.sort((a, b) => b - a)) {
+            const item = state.doc.nodeAt(pos)!;
+            const para = item.firstChild;
+            if (para?.type.name !== 'paragraph') continue;
+            const next = nextParagraph(para.toJSON());
+            if (!next) continue;
+            tr.replaceWith(pos + 1, pos + 1 + para.nodeSize, schema.nodeFromJSON(stampDone(para.toJSON())));
+            const { checked: _c, status: _s, ...attrs } = item.attrs;
+            tr.insert(pos, schema.nodes.taskItem.create({ ...attrs, checked: false, status: null }, schema.nodeFromJSON(next)));
+          }
+          return tr.docChanged ? tr : null;
         },
       }),
     ];

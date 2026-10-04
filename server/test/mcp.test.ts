@@ -130,6 +130,20 @@ describe('mcp', () => {
     expect(activity.created.map((n: { title: string }) => n.title)).toEqual(['Tareas']);
   });
 
+  it('repeats tasks', async () => {
+    const client = await connect(token);
+    const today = localDay();
+    await expect(tool(client, 'add_task', { text: 'Nada', repeat: 'whenever' })).rejects.toThrow(/No entiendo/);
+    const added = (await tool(client, 'add_task', { text: 'Regar', repeat: 'every day' })).added;
+    expect(added).toMatchObject({ text: 'Regar', due: today, repeat: 'every day' });
+    const res = await tool(client, 'update_task', { task: added.id, status: 'done' });
+    expect(res.updated).toMatchObject({ status: 'done', done: today, repeat: 'every day' });
+    expect(res.next).toMatchObject({ text: 'Regar', status: 'todo', repeat: 'every day' });
+    expect(res.next.due > today).toBe(true);
+    const stop = (await tool(client, 'update_task', { task: res.next.id, repeat: null })).updated;
+    expect(stop.repeat).toBeUndefined();
+  });
+
   it('organises: move, archive, properties, profiles', async () => {
     const client = await connect(token);
     await tool(client, 'create_note', { title: 'Proyectos' });
