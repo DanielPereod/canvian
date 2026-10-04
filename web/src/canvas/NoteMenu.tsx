@@ -5,7 +5,7 @@ import { TextSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { useContextMenu } from './Biblioteca';
 import { promptLink } from './editor';
-import { KINDS, blockAt, canTurn, deleteBlock, duplicateBlock, ensureBlockId, moveBlock, turnBlock, type Block } from './blocks';
+import { KINDS, canTurnAll, deleteBlocks, duplicateBlocks, ensureBlockId, liveBlocks, moveBlocks, selectedBlocks, turnBlocks, type Block } from './blocks';
 import { TOUCH } from './touch';
 import { t } from '../i18n';
 
@@ -97,18 +97,15 @@ export function NoteMenu({ editor, x, y, linkItems, note, onNotice, onClose }: P
   const { view, state } = editor;
   const sel = state.selection;
   const text = sel instanceof TextSelection && !sel.empty;
-  const block = blockAt(state.doc, sel.from);
+  // Si lo seleccionado abarca varios bloques, lo de bloque va con todos.
+  const blocks = selectedBlocks(state);
+  const block = blocks.length === 1 ? blocks[0] : null;
   const keys = (k: string) => (TOUCH ? undefined : k);
 
-  // El bloque de cuando se abrió, si sigue ahí.
-  const live = (): Block | null => {
-    if (!block) return null;
-    const b = blockAt(editor.state.doc, block.pos);
-    return b && b.pos === block.pos && b.node.type === block.node.type ? b : null;
-  };
-  const withBlock = (fn: (b: Block) => unknown) => () => {
-    const b = live();
-    if (b) fn(b);
+  // Los bloques de cuando se abrió, si siguen ahí.
+  const withBlocks = (fn: (bs: Block[]) => unknown) => () => {
+    const bs = liveBlocks(editor.state.doc, blocks);
+    if (bs) fn(bs);
   };
   const run = (fn: () => unknown) => () => {
     onClose();
@@ -129,19 +126,19 @@ export function NoteMenu({ editor, x, y, linkItems, note, onNotice, onClose }: P
       ? [
           {
             label: t('Copiar enlace a este bloque'),
-            run: withBlock((b) => {
+            run: withBlocks(([b]) => {
               if (copyBlockLink(view, b, note)) onNotice?.(t('Enlace al bloque copiado: pégalo en otra nota'));
             }),
           },
         ]
       : []),
-    ...(block && canTurn(block) ? [{ label: t('Convertir en'), keys: '›', stay: true, run: () => setTurning(true) }] : []),
-    ...(block
+    ...(blocks.length && canTurnAll(blocks) ? [{ label: t('Convertir en'), keys: '›', stay: true, run: () => setTurning(true) }] : []),
+    ...(blocks.length
       ? [
-          { label: t('Duplicar'), keys: keys(`${MOD} D`), run: withBlock((b) => duplicateBlock(view, b)) },
-          { label: t('Mover arriba'), keys: keys(`${MOD} ⇧ ↑`), run: withBlock((b) => moveBlock(view, b, -1)) },
-          { label: t('Mover abajo'), keys: keys(`${MOD} ⇧ ↓`), run: withBlock((b) => moveBlock(view, b, 1)) },
-          { label: t('Eliminar'), danger: true, run: withBlock((b) => deleteBlock(view, b)) },
+          { label: blocks.length > 1 ? t('Duplicar {n} bloques', { n: blocks.length }) : t('Duplicar'), keys: keys(`${MOD} D`), run: withBlocks((bs) => duplicateBlocks(view, bs)) },
+          { label: t('Mover arriba'), keys: keys(`${MOD} ⇧ ↑`), run: withBlocks((bs) => moveBlocks(view, bs, -1)) },
+          { label: t('Mover abajo'), keys: keys(`${MOD} ⇧ ↓`), run: withBlocks((bs) => moveBlocks(view, bs, 1)) },
+          { label: blocks.length > 1 ? t('Eliminar {n} bloques', { n: blocks.length }) : t('Eliminar'), danger: true, run: withBlocks((bs) => deleteBlocks(view, bs)) },
         ]
       : []),
   ];
@@ -157,14 +154,14 @@ export function NoteMenu({ editor, x, y, linkItems, note, onNotice, onClose }: P
 
   return createPortal(
     <div ref={ref} className="bib-menu nmenu" role="menu" aria-label={t('Menú del texto')} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()}>
-      {turning && block ? (
+      {turning && blocks.length ? (
         <>
           <button className="bib-menu-it nmenu-back" onClick={() => setTurning(false)}>
             ‹ {t('Convertir en')}
           </button>
           <div className="bib-menu-sep" role="separator" />
           {KINDS.map((k) => (
-            <button key={k.kind} role="menuitem" className="bib-menu-it" onClick={run(withBlock((b) => turnBlock(editor, b, k.kind)))}>
+            <button key={k.kind} role="menuitem" className="bib-menu-it" onClick={run(withBlocks((bs) => turnBlocks(editor, bs, k.kind)))}>
               <span className="blk-kind-i" aria-hidden="true">
                 {k.icon}
               </span>

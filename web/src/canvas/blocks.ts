@@ -1,6 +1,7 @@
 import { Extension, Mark, Node, mergeAttributes, wrappingInputRule, type Editor } from '@tiptap/react';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
 import { NodeSelection, Plugin, PluginKey, Selection, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
+import { dropPoint } from '@tiptap/pm/transform';
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 import { t } from '../i18n';
 import { newBlockId } from '../../../server/src/doc/json';
@@ -375,59 +376,167 @@ export function blockAt(doc: PMNode, pos: number): Block | null {
   return null;
 }
 
-export const selectedBlock = (state: EditorState) => blockAt(state.doc, state.selection.from);
-
 // Pone el cursor dentro del bloque (en su primera línea de texto).
 function caretIn(tr: Transaction, pos: number) {
   const $p = tr.doc.resolve(Math.min(pos + 1, tr.doc.content.size));
   return tr.setSelection(Selection.near($p));
 }
 
-export function moveBlock(view: EditorView, block: Block, dir: -1 | 1) {
+// ── Varios bloques a la vez ───────────────────────────────────────────
+// Si lo seleccionado abarca varios bloques, el asa, las teclas y los menús
+// actúan sobre todos: son los bloques seguidos (hermanos) que toca, dentro
+// de lo que los contiene a todos (la nota, una columna, una lista…).
+const blockSelKey = new PluginKey<{ from: number; to: number } | null>('blockSel');
+export const blockSelOf = (state: EditorState) => blockSelKey.getState(state) ?? null;
+
+const endOf = (run: Block[]) => run[run.length - 1].pos + run[run.length - 1].node.nodeSize;
+
+// Los bloques hermanos que hay entre dos posiciones de su contenedor.
+function runIn(doc: PMNode, from: number, to: number): Block[] {
+  if (from < 0 || to > doc.content.size || from >= to) return [];
+  const $f = doc.resolve(from);
+  const parent = $f.parent;
+  const run: Block[] = [];
+  let pos = from;
+  for (let i = $f.index(); i < parent.childCount && pos < to; i++) {
+    const node = parent.child(i);
+    run.push({ pos, node });
+    pos += node.nodeSize;
+  }
+  return pos === to ? run : [];
+}
+
+export function selectedBlocks(state: EditorState): Block[] {
+  const bs = blockSelOf(state);
+  if (bs) {
+    const run = runIn(state.doc, bs.from, bs.to);
+    if (run.length) return run;
+  }
+  const { selection: sel, doc } = state;
+  if (sel.empty || sel instanceof NodeSelection) {
+    const one = blockAt(doc, sel.from);
+    return one ? [one] : [];
+  }
+  return blocksBetween(doc, sel.from, sel.to);
+}
+
+// Los bloques que toca lo que va de una posición a otra.
+function blocksBetween(doc: PMNode, from: number, to: number): Block[] {
+  const one = blockAt(doc, from);
+  if (!one || to <= from) return one ? [one] : [];
+  const $from = doc.resolve(from);
+  // Acabar al principio de una línea no la cuenta (al seleccionar con ⇧ ↓).
+  let $to = doc.resolve(to);
+  if ($to.parentOffset === 0 && $to.parent.inlineContent && $to.depth > 0) $to = doc.resolve($to.before());
+  for (let d = $from.sharedDepth($to.pos); d >= 0; d--) {
+    const parent = $from.node(d);
+    if (!CONTAINERS.has(parent.type.name)) continue;
+    const a = $from.index(d);
+    const b = $to.depth > d ? $to.index(d) : $to.index(d) - 1;
+    if (parent.type.name === 'toggle' && a === 0 && b > a) continue;
+    if (b <= a) return [one];
+    return runIn(doc, $from.posAtIndex(a, d), $from.posAtIndex(b + 1, d));
+  }
+  return [one];
+}
+
+// Deja señalados varios bloques: se resaltan enteros y lo de después va con todos.
+function selectRun(tr: Transaction, from: number, to: number) {
+  tr.setSelection(TextSelection.between(tr.doc.resolve(from), tr.doc.resolve(to)));
+  return tr.setMeta(blockSelKey, { from, to });
+}
+export const selectBlocks = (view: EditorView, run: Block[]) => {
+  if (!run.length) return;
+  if (run.length === 1) view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, run[0].pos)));
+  else view.dispatch(selectRun(view.state.tr, run[0].pos, endOf(run)));
+};
+
+// Lo que se quita al sacar unos bloques: si son todo lo de una columna o una
+// lista, se va la columna o la lista con ellos.
+const GOES_WITH = new Set(['column', 'bulletList', 'orderedList', 'taskList']);
+function outerRange(doc: PMNode, run: Block[]) {
+  let from = run[0].pos;
+  let to = endOf(run);
+  let $p = doc.resolve(from);
+  while ($p.depth > 0 && from === $p.start() && to === $p.end() && GOES_WITH.has($p.parent.type.name)) {
+    from = $p.before();
+    to = $p.after();
+    $p = doc.resolve(from);
+  }
+  return { from, to, whole: from === $p.start() && to === $p.end() };
+}
+
+export function moveBlocks(view: EditorView, run: Block[], dir: -1 | 1) {
+  if (!run.length) return false;
   const { state } = view;
-  const $p = state.doc.resolve(block.pos);
-  const index = $p.index();
+  const from = run[0].pos;
+  const to = endOf(run);
+  const $p = state.doc.resolve(from);
   const parent = $p.parent;
-  const other = dir < 0 ? index - 1 : index + 1;
+  const first = $p.index();
+  const other = dir < 0 ? first - 1 : first + run.length;
   if (other < 0 || other >= parent.childCount) return false;
-  const sibling = parent.child(other);
-  const offset = state.selection.from - block.pos;
-  const tr = state.tr.delete(block.pos, block.pos + block.node.nodeSize);
-  const at = dir < 0 ? block.pos - sibling.nodeSize : block.pos + sibling.nodeSize;
-  tr.insert(at, block.node);
-  const inside = Math.min(at + Math.max(offset, 1), at + block.node.nodeSize - 1);
-  tr.setSelection(Selection.near(tr.doc.resolve(inside)));
+  const delta = (dir < 0 ? -1 : 1) * parent.child(other).nodeSize;
+  const sel = state.selection;
+  const tr = state.tr.delete(from, to);
+  tr.insert(from + delta, Fragment.fromArray(run.map((b) => b.node)));
+  if (run.length > 1) selectRun(tr, from + delta, to + delta);
+  else if (sel instanceof NodeSelection && sel.from === from) tr.setSelection(NodeSelection.create(tr.doc, from + delta));
+  else {
+    const offset = sel.from - from;
+    const at = from + delta;
+    const inside = Math.min(at + Math.max(offset, 1), at + run[0].node.nodeSize - 1);
+    tr.setSelection(Selection.near(tr.doc.resolve(inside)));
+  }
   view.dispatch(tr.scrollIntoView());
   return true;
 }
 
-export function duplicateBlock(view: EditorView, block: Block) {
-  const end = block.pos + block.node.nodeSize;
-  const copy = block.node.type.create({ ...block.node.attrs, ...(block.node.attrs.blockId ? { blockId: null } : {}) }, block.node.content, block.node.marks);
-  const tr = view.state.tr.insert(end, copy);
-  view.dispatch(caretIn(tr, end).scrollIntoView());
+export function duplicateBlocks(view: EditorView, run: Block[]) {
+  if (!run.length) return false;
+  const end = endOf(run);
+  const copies = run.map(({ node }) => node.type.create({ ...node.attrs, ...(node.attrs.blockId ? { blockId: null } : {}) }, node.content, node.marks));
+  const tr = view.state.tr.insert(end, Fragment.fromArray(copies));
+  if (run.length > 1) selectRun(tr, end, end + (end - run[0].pos));
+  else caretIn(tr, end);
+  view.dispatch(tr.scrollIntoView());
   return true;
 }
 
-export function deleteBlock(view: EditorView, block: Block) {
+export function deleteBlocks(view: EditorView, run: Block[]) {
+  if (!run.length) return false;
   const { state } = view;
-  const $p = state.doc.resolve(block.pos);
+  const { from, to, whole } = outerRange(state.doc, run);
   const tr = state.tr;
-  // El único bloque de una columna se lleva la columna; el único de la nota
-  // (o de un aviso) deja una línea en blanco.
-  if ($p.parent.childCount === 1) {
-    if ($p.parent.type.name === 'column') tr.delete($p.before(), $p.after());
-    else tr.replaceWith(block.pos, block.pos + block.node.nodeSize, state.schema.nodes.paragraph.create());
-  } else tr.delete(block.pos, block.pos + block.node.nodeSize);
-  view.dispatch(caretIn(tr, Math.min(block.pos, tr.doc.content.size - 1)).scrollIntoView());
+  // Lo único de la nota (o de un aviso) deja una línea en blanco.
+  if (whole) tr.replaceWith(from, to, state.schema.nodes.paragraph.create());
+  else tr.delete(from, to);
+  view.dispatch(caretIn(tr, Math.min(from, tr.doc.content.size - 1)).scrollIntoView());
   view.focus();
   return true;
 }
 
-export function colorBlock(view: EditorView, block: Block, color: string | null) {
-  if (!COLORED.includes(block.node.type.name)) return false;
-  view.dispatch(view.state.tr.setNodeMarkup(block.pos, undefined, { ...block.node.attrs, color }));
+export function colorBlocks(view: EditorView, run: Block[], color: string | null) {
+  const tr = view.state.tr;
+  for (const b of run) if (COLORED.includes(b.node.type.name)) tr.setNodeMarkup(b.pos, undefined, { ...b.node.attrs, color });
+  if (!tr.docChanged) return false;
+  const bs = blockSelOf(view.state);
+  if (bs) tr.setMeta(blockSelKey, bs);
+  view.dispatch(tr);
   return true;
+}
+
+export const moveBlock = (view: EditorView, block: Block, dir: -1 | 1) => moveBlocks(view, [block], dir);
+export const duplicateBlock = (view: EditorView, block: Block) => duplicateBlocks(view, [block]);
+export const deleteBlock = (view: EditorView, block: Block) => deleteBlocks(view, [block]);
+export const colorBlock = (view: EditorView, block: Block, color: string | null) => colorBlocks(view, [block], color);
+
+// Los bloques del menú tal como están ahora (pudieron cambiar con él abierto).
+export function liveBlocks(doc: PMNode, run: Block[]): Block[] | null {
+  if (!run.length) return null;
+  const now = run.length === 1 ? [blockAt(doc, run[0].pos)] : runIn(doc, run[0].pos, endOf(run));
+  if (now.length !== run.length) return null;
+  return now.every((b, i) => b && b.pos === run[i].pos && b.node.type === run[i].node.type) ? (now as Block[]) : null;
 }
 
 // ── Convertir en ──────────────────────────────────────────────────────
@@ -514,6 +623,16 @@ export function turnBlock(editor: Editor, block: Block, kind: Kind) {
   return applyKind(editor, kind);
 }
 
+// Varias líneas a la vez: se seleccionan todas y se les da la forma juntas.
+export const canTurnAll = (run: Block[]) => (run.length === 1 ? canTurn(run[0]) : run.length > 1 && run.every((b) => b.node.isTextblock));
+export function turnBlocks(editor: Editor, run: Block[], kind: Kind) {
+  if (run.length === 1) return turnBlock(editor, run[0], kind);
+  const { view } = editor;
+  const { doc } = view.state;
+  view.dispatch(view.state.tr.setSelection(TextSelection.between(doc.resolve(run[0].pos), doc.resolve(endOf(run)))));
+  return applyKind(editor, kind);
+}
+
 // ── Insertar ──────────────────────────────────────────────────────────
 // Columnas vacías donde está el cursor (en la línea si está vacía, o debajo).
 export function insertColumns(editor: Editor, n: number) {
@@ -578,12 +697,12 @@ export function insertTable(editor: Editor) {
 // margen) los pone en dos columnas; junto a una columna, añade otra.
 export type SideDrop = { pos: number; kind: 'block' | 'column'; dir: 'left' | 'right'; rect: DOMRect };
 
-// El asa avisa de que el arrastre es suyo (y qué bloque lleva).
-export const dragState: { block: Block | null } = { block: null };
+// El asa avisa de que el arrastre es suyo (y qué bloques lleva).
+export const dragState: { blocks: Block[] | null } = { blocks: null };
 
 export function sideDropAt(view: EditorView, x: number, y: number): SideDrop | null {
-  const dragged = dragState.block;
-  if (!dragged || dragged.node.type.name === 'columns') return null;
+  const run = dragState.blocks;
+  if (!run?.length || run.some((b) => b.node.type.name === 'columns')) return null;
   const box = view.dom.getBoundingClientRect();
   const hit = view.posAtCoords({ left: Math.max(box.left + 4, Math.min(x, box.right - 4)), top: y });
   if (!hit) return null;
@@ -602,10 +721,9 @@ export function sideDropAt(view: EditorView, x: number, y: number): SideDrop | n
   if (!target) return null;
   if (target.kind === 'block' && target.node.type.name === 'columns') return null;
   // No junto a sí mismo, ni dentro de lo que se arrastra.
-  const from = dragged.pos;
-  const to = from + dragged.node.nodeSize;
+  const from = run[0].pos;
+  const to = endOf(run);
   if (target.pos >= from && target.pos < to) return null;
-  if (target.kind === 'block' && target.pos === from) return null;
   const dom = view.nodeDOM(target.pos);
   if (!(dom instanceof HTMLElement)) return null;
   const rect = dom.getBoundingClientRect();
@@ -617,32 +735,65 @@ export function sideDropAt(view: EditorView, x: number, y: number): SideDrop | n
 }
 
 function dropToSide(view: EditorView, drop: SideDrop) {
-  const dragged = dragState.block;
-  if (!dragged) return false;
+  const run = dragState.blocks;
+  if (!run?.length) return false;
   const { state } = view;
   const { schema } = state;
-  const $d = state.doc.resolve(dragged.pos);
-  // Un punto de una lista se lleva su lista alrededor.
-  let node = dragged.node;
-  if (!node.type.spec.group?.split(' ').includes('block')) node = $d.parent.type.create($d.parent.attrs, node);
+  const $d = state.doc.resolve(run[0].pos);
+  // Los puntos de una lista se llevan su lista alrededor.
+  let nodes = run.map((b) => b.node);
+  if (!nodes[0].type.spec.group?.split(' ').includes('block')) nodes = [$d.parent.type.create($d.parent.attrs, nodes)];
   const tr = state.tr;
-  if ($d.parent.type.name === 'column' && $d.parent.childCount === 1) tr.delete($d.before(), $d.after());
-  else tr.delete(dragged.pos, dragged.pos + dragged.node.nodeSize);
+  const out = outerRange(state.doc, run);
+  tr.delete(out.from, out.to);
   const at = tr.mapping.map(drop.pos, 1);
   const target = tr.doc.nodeAt(at);
   if (!target) return false;
-  const col = (n: PMNode) => schema.nodes.column.create(null, n);
+  const col = (n: PMNode[]) => schema.nodes.column.create(null, n);
+  let start: number;
   let caret: number;
   if (drop.kind === 'column') {
     if (target.type.name !== 'column') return false;
     caret = drop.dir === 'left' ? at : at + target.nodeSize;
-    tr.insert(caret, col(node));
+    tr.insert(caret, col(nodes));
+    start = caret + 1;
   } else {
-    const pair = drop.dir === 'left' ? [col(node), col(target)] : [col(target), col(node)];
+    const pair = drop.dir === 'left' ? [col(nodes), col([target])] : [col([target]), col(nodes)];
     tr.replaceWith(at, at + target.nodeSize, schema.nodes.columns.create(null, pair));
     caret = drop.dir === 'left' ? at + 1 : at + 1 + pair[0].nodeSize;
+    start = caret + 1;
   }
-  view.dispatch(caretIn(tr, caret + 1).setMeta('uiEvent', 'drop'));
+  if (nodes.length > 1) selectRun(tr, start, start + nodes.reduce((n, c) => n + c.nodeSize, 0));
+  else caretIn(tr, caret + 1);
+  view.dispatch(tr.setMeta('uiEvent', 'drop'));
+  return true;
+}
+
+// Varios bloques soltados entre otros: se quitan de donde estaban y se ponen
+// juntos donde cae la raya, como uno solo.
+function dropRun(view: EditorView, e: DragEvent) {
+  const run = dragState.blocks;
+  const hit = view.posAtCoords({ left: e.clientX, top: e.clientY });
+  if (!run || run.length < 2 || !hit) return false;
+  const { state } = view;
+  const from = run[0].pos;
+  const to = endOf(run);
+  const slice = state.doc.slice(from, to);
+  const at = dropPoint(state.doc, hit.pos, slice) ?? hit.pos;
+  if (at >= from && at <= to) return true;
+  const tr = state.tr;
+  const out = outerRange(state.doc, run);
+  tr.delete(out.from, out.to);
+  const pos = tr.mapping.map(at);
+  tr.replaceRange(pos, pos, slice);
+  let end = pos;
+  tr.mapping.maps[tr.mapping.maps.length - 1].forEach((_f, _t, _nf, newTo) => (end = newTo));
+  // Lo puesto, señalado.
+  const run2 = blocksBetween(tr.doc, pos, end);
+  if (run2.length > 1) selectRun(tr, run2[0].pos, endOf(run2));
+  else tr.setSelection(TextSelection.between(tr.doc.resolve(pos), tr.doc.resolve(end)));
+  view.focus();
+  view.dispatch(tr.setMeta('uiEvent', 'drop'));
   return true;
 }
 
@@ -690,14 +841,14 @@ const exitable = new Set(['callout', 'toggle']);
 export const BlockKit = Extension.create({
   name: 'blockKit',
   addKeyboardShortcuts() {
-    const run = (fn: (view: EditorView, b: Block) => boolean) => () => {
-      const b = selectedBlock(this.editor.state);
-      return !!b && fn(this.editor.view, b);
+    const run = (fn: (view: EditorView, run: Block[]) => boolean) => () => {
+      const bs = selectedBlocks(this.editor.state);
+      return !!bs.length && fn(this.editor.view, bs);
     };
     return {
-      'Mod-d': run(duplicateBlock),
-      'Mod-Shift-ArrowUp': run((v, b) => moveBlock(v, b, -1)),
-      'Mod-Shift-ArrowDown': run((v, b) => moveBlock(v, b, 1)),
+      'Mod-d': run(duplicateBlocks),
+      'Mod-Shift-ArrowUp': run((v, bs) => moveBlocks(v, bs, -1)),
+      'Mod-Shift-ArrowDown': run((v, bs) => moveBlocks(v, bs, 1)),
       // Intro en una línea vacía al final de un aviso o desplegable sale de él.
       Enter: () => {
         const { state, view } = this.editor;
@@ -737,7 +888,7 @@ export const BlockKit = Extension.create({
         props: {
           handleDOMEvents: {
             dragover: (view, e) => {
-              showIndicator(dragState.block ? sideDropAt(view, e.clientX, e.clientY) : null);
+              showIndicator(dragState.blocks ? sideDropAt(view, e.clientX, e.clientY) : null);
               return false;
             },
             dragleave: (view, e) => {
@@ -746,12 +897,12 @@ export const BlockKit = Extension.create({
             },
           },
           handleDrop: (view, e) => {
-            const drop = dragState.block ? sideDropAt(view, e.clientX, e.clientY) : null;
+            const drop = dragState.blocks ? sideDropAt(view, e.clientX, e.clientY) : null;
             showIndicator(null);
-            if (!drop) return false;
+            if (!drop && !((dragState.blocks?.length ?? 0) > 1)) return false;
             e.preventDefault();
             (view as unknown as { dragging: unknown }).dragging = null;
-            return dropToSide(view, drop);
+            return drop ? dropToSide(view, drop) : dropRun(view, e);
           },
         },
       }),
@@ -760,11 +911,61 @@ export const BlockKit = Extension.create({
 });
 
 export const endDrag = () => {
-  dragState.block = null;
+  dragState.blocks = null;
   showIndicator(null);
 };
 
-// Para quien lo necesite fuera (el asa): seleccionar un bloque entero.
-export const selectBlock = (view: EditorView, block: Block) => view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, block.pos)));
+// Los bloques señalados se resaltan enteros (sin el subrayado del texto), y
+// mientras lo están, borrar los quita y Esc los suelta. Cualquier otro
+// cambio de selección o de texto deja de señalarlos.
+export const BlockSelection = Extension.create({
+  name: 'blockSelection',
+  priority: 1000,
+  addProseMirrorPlugins() {
+    return [
+      new Plugin<{ from: number; to: number } | null>({
+        key: blockSelKey,
+        state: {
+          init: () => null,
+          apply: (tr, value) => {
+            const meta = tr.getMeta(blockSelKey) as { from: number; to: number } | null | undefined;
+            if (meta !== undefined) return meta;
+            if (!value) return null;
+            if (tr.getMeta('appendedTransaction') && tr.docChanged) {
+              const from = tr.mapping.map(value.from, 1);
+              const to = tr.mapping.map(value.to, -1);
+              return from < to ? { from, to } : null;
+            }
+            return tr.docChanged || tr.selectionSet ? null : value;
+          },
+        },
+        props: {
+          attributes: (state): Record<string, string> => (blockSelKey.getState(state) ? { class: 'has-block-sel' } : {}),
+          decorations: (state) => {
+            if (!blockSelKey.getState(state)) return null;
+            const run = selectedBlocks(state);
+            return DecorationSet.create(
+              state.doc,
+              run.map((b) => Decoration.node(b.pos, b.pos + b.node.nodeSize, { class: 'is-block-sel' })),
+            );
+          },
+          handleKeyDown: (view, e) => {
+            if (!blockSelKey.getState(view.state)) return false;
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+              e.preventDefault();
+              return deleteBlocks(view, selectedBlocks(view.state));
+            }
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              view.dispatch(view.state.tr.setMeta(blockSelKey, null));
+              return true;
+            }
+            return false;
+          },
+        },
+      }),
+    ];
+  },
+});
 
 export const blockNodes = [Columns, Column, Callout, Toggle, BlockColor, BlockId, TextColor];

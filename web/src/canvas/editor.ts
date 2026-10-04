@@ -11,7 +11,7 @@ import { embedNodes } from './embeds';
 import { getLang, t } from '../i18n';
 import { markdownToDoc } from './markdown';
 import { Highlight, MarkdownLinkInput, WikiLink, tasks } from './obsidian';
-import { BlockKit, blockNodes } from './blocks';
+import { BlockKit, BlockSelection, blockNodes } from './blocks';
 import { joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from '../../../server/src/doc/json';
 
 export { joinTitle, parseBody, splitTitle, titleBlock, titleFrom, type TitleSplit } from '../../../server/src/doc/json';
@@ -125,7 +125,7 @@ const MarkdownPaste = Extension.create({
 });
 
 // Solo en el editor de la hoja; las vistas previas usan `extensions` a secas.
-export const editingExtensions = [LinkKey, SelectAllKeys, MarkdownPaste, MarkdownLinkInput, BlockKit];
+export const editingExtensions = [LinkKey, SelectAllKeys, MarkdownPaste, MarkdownLinkInput, BlockKit, BlockSelection];
 
 // Pone al día el texto con la versión que llega de otro dispositivo cambiando
 // solo lo que difiere: la selección y el cursor se quedan donde estaban, y

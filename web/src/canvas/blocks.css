@@ -224,3 +224,8 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
 .nmenu-fmt { display: flex; flex-wrap: wrap; gap: 2px; padding: 2px 4px; }
 .nmenu-fmt mark { background: var(--accent-soft); color: inherit; padding: 0 2px; border-radius: 2px; }
 .nmenu .blk-kind-i { display: inline-block; width: 24px; color: var(--text-faint); }
+
+/* Varios bloques señalados a la vez: se resaltan enteros, sin el subrayado del texto. */
+.sheet-prose .is-block-sel { background: var(--accent-soft); border-radius: 4px; }
+.sheet-prose.has-block-sel ::selection { background: transparent; }
+.sheet-prose.has-block-sel { caret-color: transparent; }
