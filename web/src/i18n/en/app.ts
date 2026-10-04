@@ -242,6 +242,9 @@ export const EN_APP: Record<string, string> = {
   Abrir: 'Open',
   'Cambia de perfil, crea otros o cierra la sesión.': 'Switch profile, create others or sign out.',
   'Dónde se guarda': 'Where it’s stored',
+  Servidor: 'Server',
+  'La app del móvil abre Canvian desde': 'The mobile app opens Canvian from',
+  Cambiar: 'Change',
   'La configuración vive en tu servidor y es la misma en todos tus dispositivos.': 'Settings live on your server and are the same on all your devices.',
   Modo: 'Mode',
   'Automático sigue al sistema: claro de día, oscuro de noche. También con Ctrl Mayús L o desde la paleta de comandos.':

@@ -1,0 +1,17 @@
+{
+  "name": "@canvian/mobile",
+  "private": true,
+  "description": "App de Android de Canvian: un envoltorio que abre la web de tu servidor.",
+  "scripts": {
+    "sync": "cap sync android",
+    "apk": "cap sync android && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2"
+  }
+}

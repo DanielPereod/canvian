@@ -16,6 +16,21 @@ Para actualizar: en CasaOS, botón de actualizar la app (vuelve a descargar `lat
 
 Copia de seguridad: basta con copiar `canvian.db` (y los archivos `-wal`/`-shm` si existen) con la app parada.
 
+## En el móvil
+
+- **Android:** instala el APK de
+  [releases/download/android/canvian.apk](https://github.com/DanielPereod/canvian/releases/download/android/canvian.apk)
+  (se vuelve a publicar cada vez que cambia `mobile/` en main). Al abrirla
+  pide la dirección de tu servidor; para cambiarla, Configuración › General ›
+  Servidor.
+- **iPhone o cualquier móvil:** abre la web por HTTPS y «Añadir a pantalla de
+  inicio»; se instala como app (manifest en `web/public`).
+
+La app no lleva una copia de la web: abre la de tu servidor. Así web y móvil
+son siempre la misma versión y basta con desplegar el servidor; solo hay que
+reinstalar el APK si cambia `mobile/` (el envoltorio de Capacitor). Más en
+[mobile/README.md](mobile/README.md).
+
 ## Desarrollo
 
 ```sh

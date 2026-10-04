@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- El logo de Canvian (web/public/favicon.svg) centrado en la zona segura. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="1.4667"
+        android:scaleY="1.4667"
+        android:translateX="30.533"
+        android:translateY="30.533">
+        <path android:fillColor="#FFFFFF" android:pathData="M15 15H6.5A5.5 5.5 0 0 1 1 9.5V6.5A5.5 5.5 0 0 1 6.5 1h3A5.5 5.5 0 0 1 15 6.5Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M17 15h8.5A5.5 5.5 0 0 0 31 9.5V6.5A5.5 5.5 0 0 0 25.5 1h-3A5.5 5.5 0 0 0 17 6.5Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M15 17H6.5A5.5 5.5 0 0 0 1 22.5v3A5.5 5.5 0 0 0 6.5 31h3a5.5 5.5 0 0 0 5.5-5.5Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M17 17h8.5a5.5 5.5 0 0 1 5.5 5.5v3a5.5 5.5 0 0 1-5.5 5.5h-3a5.5 5.5 0 0 1-5.5-5.5Z" />
+    </group>
+</vector>

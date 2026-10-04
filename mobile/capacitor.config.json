@@ -1,0 +1,19 @@
+{
+  "appId": "org.daniyel.canvian",
+  "appName": "Canvian",
+  "webDir": "www",
+  "backgroundColor": "#030405",
+  "appendUserAgent": "CanvianApp",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK"
+    }
+  }
+}

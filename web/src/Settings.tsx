@@ -11,6 +11,7 @@ import { CalendarSettings } from './CalendarSettings';
 import { AiSettings } from './AiSettings';
 import { KoreaderSettings } from './KoreaderSettings';
 import { setZenFullscreen, useZenPrefs } from './canvas/zenPrefs';
+import { changeServer, inApp } from './native';
 
 // Configuración con la forma de Obsidian: a la izquierda las secciones, a la
 // derecha los ajustes de la elegida, cada uno con su nombre y explicación a la
@@ -208,6 +209,13 @@ export function Settings({ onClose, onProfiles }: Props) {
                   {t('Abrir')}
                 </button>
               </Row>
+              {inApp && (
+                <Row name={t('Servidor')} hint={`${t('La app del móvil abre Canvian desde')} ${location.host}.`}>
+                  <button className="set-button" onClick={changeServer}>
+                    {t('Cambiar')}
+                  </button>
+                </Row>
+              )}
               <Row name={t('Dónde se guarda')} hint={t('La configuración vive en tu servidor y es la misma en todos tus dispositivos.')} />
             </>
           )}
