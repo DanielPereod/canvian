@@ -22,6 +22,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/server/package.json ./server/
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/server/drizzle ./server/drizzle
+COPY --from=build /app/server/koreader ./server/koreader
 COPY --from=build /app/web/dist ./web/dist
 VOLUME /data
 EXPOSE 3210

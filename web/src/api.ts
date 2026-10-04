@@ -82,6 +82,7 @@ export type LayoutItem = {
   zoneId?: string | null;
 };
 
+export type KoreaderStatus = { token: string | null; publicUrl: string | null; folders: Record<string, string | null> };
 export type McpStatus = { enabled: boolean; fromEnv: boolean; token: string | null; publicUrl: string | null };
 
 export type SearchHit = { id: string; title: string | null; bodyText: string | null; kind: NoteKind };
@@ -198,6 +199,10 @@ export const api = {
   setMcpPublicUrl: (url: string | null) => request<McpStatus>('PUT', '/mcp/public-url', { url }),
   createMcpToken: () => request<{ token: string }>('POST', '/mcp/token'),
   revokeMcpToken: () => request('DELETE', '/mcp/token'),
+  koreaderStatus: () => request<KoreaderStatus>('GET', '/koreader'),
+  createKoreaderToken: () => request<{ token: string }>('POST', '/koreader/token'),
+  revokeKoreaderToken: () => request('DELETE', '/koreader/token'),
+  setKoreaderFolder: (profileId: string, noteId: string | null) => request<KoreaderStatus>('PUT', '/koreader/folder', { profileId, noteId }),
   search: (profileId: string, q: string) =>
     request<SearchHit[]>('GET', `/profiles/${profileId}/search?q=${encodeURIComponent(q)}`),
 };

@@ -197,6 +197,9 @@
 .ai-code { position: relative; margin-top: var(--space-2); }
 .ai-code pre { margin: 0; padding: var(--space-3) 88px var(--space-3) var(--space-3); background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text); white-space: pre-wrap; word-break: break-all; }
 .ai-copy { position: absolute; top: 8px; right: 8px; }
+.kor-folder { max-width: min(320px, 60vw); }
+.kor-steps { margin: var(--space-2) 0 0; padding-left: 1.4em; display: grid; gap: 4px; }
+a.set-button { text-decoration: none; display: inline-flex; align-items: center; }
 
 /* Muestra de las letras elegidas en Configuración › Aspecto */
 .set-row-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }

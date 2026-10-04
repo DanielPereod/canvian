@@ -78,7 +78,7 @@ const CLIENTS: Client[] = [
 
 const LAST = 'canvian:ai-client';
 
-function CopyBox({ text, label }: { text: string; label: string }) {
+export function CopyBox({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => setCopied(false), [text]);
   return (
