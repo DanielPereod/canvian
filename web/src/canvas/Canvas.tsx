@@ -27,7 +27,7 @@ import { Library } from './Collection';
 import { BibBar, BibMenu, BibSidebar, NewMenu, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 import { getLang, t } from '../i18n';
 import { zenPrefs } from './zenPrefs';
-import { useBackStep, useDrawerSwipe } from './swipe';
+import { useBackStep, useDrawerSwipe, usePullDown } from './swipe';
 
 // La vista de Canvian: la biblioteca. Aquí viven las notas, los enlaces y todo
 // lo que se guarda; la barra lateral, la colección, los nodos y el lector solo
@@ -58,7 +58,14 @@ function readPlace(profileId: string): Partial<Place> {
 }
 
 // Lo que la barra lateral abre y vive fuera del canvas.
-export type Shell = { onProfiles: () => void; onSettings: () => void; onCommands: () => void };
+export type Shell = {
+  onProfiles: () => void;
+  onSettings: () => void;
+  onCommands: () => void;
+  // Algo abierto por encima (paleta de comandos, ajustes…), para que atrás lo cierre.
+  overlay?: boolean;
+  closeOverlay?: () => void;
+};
 
 export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [allRows, setRows] = useState<NoteRow[]>([]);
@@ -967,10 +974,13 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           : center !== null
             ? () => setCenter(center === LOOSE ? null : (family.parent.get(center) ?? null))
             : null;
-  // Gestos del móvil: deslizar abre y cierra el cajón; atrás deshace un paso.
+  // Gestos del móvil: deslizar de lado abre y cierra el cajón, hacia abajo
+  // desde la barra abre la paleta de comandos; atrás deshace un paso.
   useDrawerSwipe(drawer, setDrawer, loaded && !zenOn);
+  usePullDown(shell.onCommands, loaded && !zenOn && !drawer && !shell.overlay);
   const closeOver = () => {
-    if (drawer) setDrawer(false);
+    if (shell.overlay) shell.closeOverlay?.();
+    else if (drawer) setDrawer(false);
     else if (paletteOpen) setPaletteOpen(false);
     else if (fabMenu) setFabMenu(null);
     else if (bibMenu) setBibMenu(null);
@@ -981,7 +991,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     else return false;
     return true;
   };
-  useBackStep(drawer || !!paletteOpen || !!fabMenu || !!bibMenu || !!inspectId || !!movingId || !!renaming || lamp !== null || !!bibUp, () => {
+  useBackStep(!!shell.overlay || drawer || !!paletteOpen || !!fabMenu || !!bibMenu || !!inspectId || !!movingId || !!renaming || lamp !== null || !!bibUp, () => {
     if (closeOver()) return true;
     if (peek && focused) closeFocused();
     else if (!bibUp) return false;

@@ -173,3 +173,64 @@ export function useBackStep(deep: boolean, back: () => boolean) {
     return () => removeEventListener('popstate', onPop);
   }, []);
 }
+
+// Deslizar hacia abajo desde la barra de arriba abre la paleta de comandos.
+// Solo desde la barra: en el resto de la pantalla, bajar el dedo es desplazarse.
+const PULL = 70;
+
+export function usePullDown(onPull: () => void, enabled: boolean) {
+  const state = useRef({ onPull, enabled });
+  state.current = { onPull, enabled };
+
+  useEffect(() => {
+    let g: { x: number; y: number; claimed: boolean } | null = null;
+
+    const end = () => {
+      g = null;
+      removeEventListener('touchmove', onMove);
+      removeEventListener('touchend', end);
+      removeEventListener('touchcancel', end);
+    };
+
+    const onStart = (e: TouchEvent) => {
+      if (!state.current.enabled || e.touches.length !== 1 || !TOUCHY()) return;
+      const target = e.target as Element;
+      if (!target.closest('.bib-bar') || target.closest('input, textarea, [contenteditable="true"]') || document.querySelector(OVER)) return;
+      const t = e.touches[0];
+      g = { x: t.clientX, y: t.clientY, claimed: false };
+      addEventListener('touchmove', onMove, { passive: false });
+      addEventListener('touchend', end);
+      addEventListener('touchcancel', end);
+    };
+
+    const onMove = (e: TouchEvent) => {
+      if (!g) return;
+      const t = e.touches[0];
+      if (!t || e.touches.length !== 1) return end();
+      const dx = t.clientX - g.x;
+      const dy = t.clientY - g.y;
+      if (!g.claimed) {
+        if (Math.hypot(dx, dy) < SLOP) return;
+        if (dy < 0 || dy < Math.abs(dx) * 1.5) return end();
+        g.claimed = true;
+      }
+      // Que el navegador no lo tome por «tirar para recargar».
+      if (e.cancelable) e.preventDefault();
+      if (dy > PULL) {
+        end();
+        navigator.vibrate?.(8);
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        state.current.onPull();
+      }
+    };
+
+    addEventListener('touchstart', onStart, { passive: true });
+    return () => {
+      removeEventListener('touchstart', onStart);
+      end();
+    };
+  }, []);
+}
+
+// Pantalla táctil (el cajón y la barra cambian con el ancho, esto no).
+const TOUCHY = () => matchMedia('(pointer: coarse)').matches;
