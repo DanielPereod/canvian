@@ -615,7 +615,8 @@
 .canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] .list-icon { color: var(--text-faint); }
 .canvas.is-bib #note-search { font-size: calc(22px * var(--type-scale, 1)); font-weight: 500; }
 
-@media (max-width: 760px) {
+/* El móvil, también tumbado (poca altura y dedos): la barra lateral va en un cajón. */
+@media (max-width: 760px), (pointer: coarse) and (max-height: 520px) {
   .canvas.is-bib { --bib-w: 0px; }
   .bib-side, .bib-resizer, .bib-hot, .bib-unfold { display: none; }
   .bib-bar { grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding: 0 10px 0 6px; }

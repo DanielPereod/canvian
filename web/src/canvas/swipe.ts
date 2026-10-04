@@ -6,7 +6,8 @@ import { useEffect, useRef } from 'react';
 // el canvas (mover y dibujar), el grafo, tablas que se desplazan de lado o
 // texto seleccionado.
 
-const NARROW = '(max-width: 760px)';
+// Igual que el cajón en biblioteca.css: estrecho, o un móvil tumbado.
+const NARROW = '(max-width: 760px), (pointer: coarse) and (max-height: 520px)';
 // Desde dónde vale empezar a abrir: el borde mismo es del sistema (atrás en
 // Android), así que basta con empezar en la parte izquierda de la pantalla.
 const START = 0.4;
