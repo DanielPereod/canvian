@@ -12,7 +12,12 @@ export type WikiAttrs = { id: string | null; target: string; alias: string | nul
 import { splitWiki } from '../../../server/src/doc/json';
 export { splitWiki };
 
-export const wikiLabel = (a: { target: string; alias: string | null }) => a.alias || a.target;
+// Sin alias: «Nota › Sección»; un enlace a un bloque (#^abc123) enseña solo la nota.
+export const wikiLabel = (a: { target: string; alias: string | null }) => {
+  if (a.alias) return a.alias;
+  const { note, section } = splitWiki(a.target);
+  return !section ? a.target : section.startsWith('^') ? note : `${note} › ${section}`;
+};
 
 // [[Nota]]: un enlace a otra nota. Guarda el id de la nota (si se sabe) y el
 // texto tal cual se escribió, para poder encontrarla por título si no.
@@ -30,7 +35,7 @@ export const WikiLink = Node.create({
   parseHTML: () => [{ tag: 'a[data-wikilink]' }],
   renderHTML: ({ node, HTMLAttributes }) => [
     'a',
-    mergeAttributes(HTMLAttributes, { 'data-wikilink': '', class: `wikilink${node.attrs.id ? '' : ' is-unresolved'}`, role: 'link' }),
+    mergeAttributes(HTMLAttributes, { 'data-wikilink': '', class: `wikilink${node.attrs.id ? '' : ' is-unresolved'}${splitWiki(String(node.attrs.target)).section?.startsWith('^') ? ' is-anchor' : ''}`, role: 'link' }),
     wikiLabel(node.attrs as WikiAttrs),
   ],
   renderText: ({ node }) => wikiLabel(node.attrs as WikiAttrs),

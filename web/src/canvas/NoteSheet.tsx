@@ -22,6 +22,12 @@ import { WikiMenu, type WikiItem } from './WikiMenu';
 import { SlashSuggest, type SlashQuery } from './slash';
 import { BlockHandle, FormatBar, MobileBar, SlashMenu } from './EditorMenus';
 import { TableControls } from './TableMenus';
+import { NoteMenu } from './NoteMenu';
+import { findAnchor, findText, flashAt } from './blocks';
+import { goToAnchor, onAnchor, takeAnchor } from './anchor';
+import { TOUCH } from './touch';
+import { TextSelection } from '@tiptap/pm/state';
+import { parseBody as parseDoc, sectionOf } from '../../../server/src/doc/json';
 import { actionFor, keyParts, keysBlocked, matches, useKeymap } from '../keys';
 import { toggleWide, useWide } from './widePrefs';
 import { t, tn } from '../i18n';
@@ -108,7 +114,7 @@ export type WikiHandlers = { rows: NoteRow[]; onOpen: (id: string) => void; onLi
 
 // `source`: en vez del texto con formato, su Markdown para verlo y editarlo.
 // `between`: lo que va entre el título y el texto (las propiedades).
-type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void; editorRef: { current: Editor | null }; wiki: WikiHandlers; source: boolean; between?: ReactNode };
+type EditorProps = { note: NoteRow; onSave: (id: string, content: NoteContent) => void; onError: (e: unknown) => void; editorRef: { current: Editor | null }; wiki: WikiHandlers; source: boolean; between?: ReactNode; onNotice?: (text: string) => void };
 
 const sameTitle = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
 
@@ -123,7 +129,7 @@ function withTitle(split: ReturnType<typeof splitTitle>, note: NoteRow): ReturnT
   return sameTitle(firstLine, saved) ? split : { ...split, title: saved };
 }
 
-function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between }: EditorProps) {
+function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between, onNotice }: EditorProps) {
   // Lo que se importó mal antes (tablas como texto con barras, direcciones con
   // _ hechas cursiva o sin enlace) se abre ya arreglado.
   const [initial] = useState(() => {
@@ -158,9 +164,17 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between }
         const row = (id && rows.find((r) => r.id === id)) || rows.find((r) => sameTitle(r.title ?? '', name));
         return row ? { id: row.id, title: row.title ?? '', bodyJson: row.bodyJson } : null;
       },
-      open: (id) => wikiRef.current.onOpen(id),
-      // Sin el título, que ya está en la cabecera.
-      html: (bodyJson) => bodyToHtml(JSON.stringify(splitTitle(parseBody(bodyJson)).body)),
+      open: (id, section) => {
+        if (section) goToAnchor(id, { section });
+        wikiRef.current.onOpen(id);
+      },
+      // Sin el título, que ya está en la cabecera; con «#…», solo ese trozo.
+      html: (bodyJson, section) => {
+        const body = splitTitle(parseBody(bodyJson)).body;
+        if (!section) return bodyToHtml(JSON.stringify(body));
+        const part = sectionOf(parseDoc(bodyJson), section);
+        return part ? bodyToHtml(JSON.stringify({ type: 'doc', content: part })) : `<p class="note-embed-empty">${t('Ese punto de la nota ya no existe')}</p>`;
+      },
     });
   }, [wiki.rows]);
   useEffect(() => () => setNoteSource(null), []);
@@ -169,8 +183,10 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between }
   const [suggest] = useState(() => WikiSuggest.configure({ onChange: setQuery, onKey: (e) => menuKeys.current(e) }));
   // El menú «/» de bloques, como en Notion.
   const [slash, setSlash] = useState<SlashQuery | null>(null);
-  // Clic derecho en un enlace: su menú.
-  const [linkMenu, setLinkMenu] = useState<{ x: number; y: number; hit: LinkHit } | null>(null);
+  // Clic derecho (o mantener pulsado) en el texto: su menú, con lo del enlace
+  // que haya debajo.
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; hit: LinkHit | null } | null>(null);
+  const menuAt = useRef(0);
   const slashKeys = useRef<(e: KeyboardEvent) => boolean>(() => false);
   const [slashExt] = useState(() => SlashSuggest.configure({ onChange: setSlash, onKey: (e) => slashKeys.current(e) }));
   // Las notas enlazadas con [[ ]] en el texto. Una que aparece nueva se une a
@@ -245,12 +261,8 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between }
       handleDOMEvents: {
         auxclick: (_view, e) => e.button === 1 && openLink(e, true),
         contextmenu: (view, e) => {
-          const at = view.posAtCoords({ left: e.clientX, top: e.clientY });
-          if (!at) return false;
-          const hit = [at.inside, at.pos, at.pos - 1].map((p) => (p >= 0 ? linkAt(view.state, p) : null)).find(Boolean);
-          if (!hit) return false;
           e.preventDefault();
-          setLinkMenu({ x: e.clientX, y: e.clientY, hit });
+          openMenuAt(view, e.clientX, e.clientY);
           return true;
         },
         // Pulsar dentro de un texto ya seleccionado empieza una selección nueva,
@@ -354,6 +366,75 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
+  // El menú del texto donde se pulsó. Si fue fuera de lo seleccionado, el
+  // cursor pasa ahí (y el menú es para ese bloque).
+  const openMenuAt = (view: Editor['view'], x: number, y: number) => {
+    // En Android mantener pulsado da también el clic derecho: un solo menú.
+    if (performance.now() - menuAt.current < 700) return;
+    menuAt.current = performance.now();
+    const at = view.posAtCoords({ left: x, top: y });
+    let hit: LinkHit | null = null;
+    if (at) {
+      hit = [at.inside, at.pos, at.pos - 1].map((p) => (p >= 0 ? linkAt(view.state, p) : null)).find(Boolean) ?? null;
+      const { from, to, empty } = view.state.selection;
+      if (empty || at.pos < from || at.pos > to) {
+        const $p = view.state.doc.resolve(at.pos);
+        if ($p.parent.inlineContent) view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at.pos)));
+      }
+    }
+    setCtxMenu({ x, y, hit });
+  };
+  // En el móvil (iPhone sobre todo, que no da clic derecho): mantener pulsado.
+  useEffect(() => {
+    if (!TOUCH || !editor) return;
+    const dom = editor.view.dom;
+    let timer = 0;
+    let start: { x: number; y: number } | null = null;
+    const down = (e: TouchEvent) => {
+      clearTimeout(timer);
+      if (e.touches.length !== 1) return;
+      start = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      timer = window.setTimeout(() => start && openMenuAt(editor.view, start.x, start.y), 520);
+    };
+    const move = (e: TouchEvent) => {
+      const p = e.touches[0];
+      if (start && p && Math.hypot(p.clientX - start.x, p.clientY - start.y) > 10) clearTimeout(timer);
+    };
+    const up = () => clearTimeout(timer);
+    dom.addEventListener('touchstart', down, { passive: true });
+    dom.addEventListener('touchmove', move, { passive: true });
+    dom.addEventListener('touchend', up);
+    dom.addEventListener('touchcancel', up);
+    return () => {
+      clearTimeout(timer);
+      dom.removeEventListener('touchstart', down);
+      dom.removeEventListener('touchmove', move);
+      dom.removeEventListener('touchend', up);
+      dom.removeEventListener('touchcancel', up);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
+  // Al abrir la nota por un punto ([[Nota#^abc123]], un resultado de la
+  // búsqueda), se va hasta él y se resalta.
+  const jump = (ed: Editor) => {
+    const anchor = takeAnchor(note.id);
+    if (!anchor) return;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (ed.isDestroyed) return;
+        const pos = 'section' in anchor ? findAnchor(ed.state.doc, anchor.section) : findText(ed.state.doc, anchor.text);
+        if (pos !== null) flashAt(ed.view, pos);
+      }),
+    );
+  };
+  useEffect(() => {
+    if (!editor) return;
+    jump(editor);
+    return onAnchor(() => jump(editor));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
   // Abre la nota de un [[enlace]]; si no existe, la crea (como Obsidian).
   const openWiki = (root: HTMLElement, e: MouseEvent) => {
     const el = (e.target as HTMLElement | null)?.closest('a[data-wikilink]') as HTMLElement | null;
@@ -361,7 +442,7 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between }
     if (!el || !root.contains(el) || !ed) return false;
     e.preventDefault();
     const { rows, onOpen, onCreate } = wikiRef.current;
-    const name = splitWiki(el.dataset.target ?? '').note;
+    const { note: name, section } = splitWiki(el.dataset.target ?? '');
     let id = el.dataset.id && rows.some((r) => r.id === el.dataset.id) ? el.dataset.id : undefined;
     id ??= rows.find((r) => r.id !== note.id && sameTitle(r.title ?? '', name))?.id;
     if (!id && !name) return true;
@@ -371,6 +452,7 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between }
       const node = ed.state.doc.nodeAt(pos);
       if (node?.type.name === 'wikilink') ed.view.dispatch(ed.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, id }));
     }
+    if (section) goToAnchor(id, { section });
     onOpen(id);
     return true;
   };
@@ -477,24 +559,23 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between }
       {!source && query && <WikiMenu query={query} rows={wiki.rows} exclude={note.id} onPick={pick} keys={menuKeys} />}
       {!source && slash && editor && <SlashMenu query={slash} editor={editor} onError={onError} keys={slashKeys} />}
       {/* Encima de todo, para que el panel lateral no lo tape. */}
-      {!source &&
-        editor &&
-        linkMenu &&
-        createPortal(
-          <SheetMenu
-            x={linkMenu.x}
-            y={linkMenu.y}
-            onClose={() => setLinkMenu(null)}
-            items={linkItems(editor, linkMenu.hit, (el) => openWiki(editor.view.dom, { target: el, preventDefault: () => {} } as unknown as MouseEvent))}
-          />,
-          document.body,
-        )}
+      {!source && editor && ctxMenu && (
+        <NoteMenu
+          editor={editor}
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          note={{ id: note.id, title }}
+          onNotice={onNotice}
+          onClose={() => setCtxMenu(null)}
+          linkItems={ctxMenu.hit ? linkItems(editor, ctxMenu.hit, (el) => openWiki(editor.view.dom, { target: el, preventDefault: () => {} } as unknown as MouseEvent)) : []}
+        />
+      )}
       {!source && editor && (
         <>
-          <BlockHandle editor={editor} />
+          <BlockHandle editor={editor} linkTo={{ note: { id: note.id, title }, onNotice }} />
           <FormatBar editor={editor} />
           <TableControls editor={editor} />
-          <MobileBar editor={editor} />
+          <MobileBar editor={editor} linkTo={{ note: { id: note.id, title }, onNotice }} />
         </>
       )}
     </>
@@ -561,9 +642,11 @@ type Props = {
   // Modo zen: sin nada alrededor, solo el texto.
   zen: boolean;
   onZen: (on: boolean) => void;
+  // Un aviso breve abajo (p. ej. «Enlace copiado»).
+  onNotice?: (text: string) => void;
 };
 
-export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onChange, onDefsChange, profileId, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen }: Props) {
+export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onChange, onDefsChange, profileId, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen, onNotice }: Props) {
   const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -789,6 +872,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
               editorRef={editorRef}
               wiki={wiki}
               source={source}
+              onNotice={onNotice}
               between={<NoteProps key={note.id} note={note} defs={defs} profileId={profileId} onChange={onChange} onDefsChange={onDefsChange} onError={onError} />}
             />
           </article>

@@ -199,3 +199,14 @@ button.note-callout-icon:hover { background: var(--surface-hover); }
   .tbl-add.is-row { height: 22px; }
 }
 .tbl-check { margin-left: auto; padding-left: 16px; color: var(--accent-ink); }
+
+/* El punto al que lleva un enlace [[Nota#^id]]: se resalta un momento. */
+.prose .is-flash-block { animation: block-flash 2.2s ease-out; border-radius: 4px; }
+@keyframes block-flash { 0%, 35% { background: var(--accent-soft); box-shadow: 0 0 0 4px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 4px transparent; } }
+.wikilink.is-anchor::after { content: '¶'; margin-left: 0.15em; font-size: 0.8em; opacity: 0.55; }
+
+/* El menú del clic derecho en el texto. */
+.nmenu { max-height: calc(100dvh - 16px); overflow-y: auto; }
+.nmenu-fmt { display: flex; flex-wrap: wrap; gap: 2px; padding: 2px 4px; }
+.nmenu-fmt mark { background: var(--accent-soft); color: inherit; padding: 0 2px; border-radius: 2px; }
+.nmenu .blk-kind-i { display: inline-block; width: 24px; color: var(--text-faint); }

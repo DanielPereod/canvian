@@ -7,6 +7,7 @@ import { attachFiles, youtubeId } from './media';
 import { TOUCH } from './touch';
 import type { SlashQuery } from './slash';
 import { promptLink } from './editor';
+import { copyBlockLink } from './NoteMenu';
 import {
   COLORS,
   KINDS,
@@ -245,9 +246,11 @@ export function SlashMenu({ query, editor, onError, keys }: SlashProps) {
 }
 
 // ── Menú del bloque (asa, o «Bloque» en el móvil) ─────────────────────
-type MenuProps = { editor: Editor; block: Block; at: { x: number; y: number }; onClose: () => void; above?: boolean };
+// La nota en la que se escribe, para copiar enlaces a sus bloques.
+export type LinkTo = { note: { id: string; title: string }; onNotice?: (text: string) => void };
+type MenuProps = { editor: Editor; block: Block; at: { x: number; y: number }; onClose: () => void; above?: boolean; linkTo?: LinkTo };
 
-export function BlockMenu({ editor, block, at, onClose, above }: MenuProps) {
+export function BlockMenu({ editor, block, at, onClose, above, linkTo }: MenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<CSSProperties>({ left: at.x, top: at.y, visibility: 'hidden' });
   useLayoutEffect(() => {
@@ -351,6 +354,9 @@ export function BlockMenu({ editor, block, at, onClose, above }: MenuProps) {
           <div className="bib-menu-sep" role="separator" />
         </>
       )}
+      {linkTo && 'blockId' in block.node.attrs && (
+        <MenuItem onClick={act((b) => copyBlockLink(view, b, linkTo.note) && linkTo.onNotice?.(t('Enlace al bloque copiado: pégalo en otra nota')))}>{t('Copiar enlace a este bloque')}</MenuItem>
+      )}
       <MenuItem onClick={act((b) => duplicateBlock(view, b))} keys={`${MOD} D`}>
         {t('Duplicar')}
       </MenuItem>
@@ -380,7 +386,7 @@ function MenuItem({ children, onClick, keys, danger }: { children: ReactNode; on
 // ── El asa de cada bloque (ordenador) ─────────────────────────────────
 type Spot = { block: Block; left: number; top: number; box: { top: number; bottom: number; left: number } };
 
-export function BlockHandle({ editor }: { editor: Editor }) {
+export function BlockHandle({ editor, linkTo }: { editor: Editor; linkTo?: LinkTo }) {
   const [spot, setSpot] = useState<Spot | null>(null);
   const [menu, setMenu] = useState<{ block: Block; at: { x: number; y: number } } | null>(null);
   const spotRef = useRef(spot);
@@ -526,7 +532,7 @@ export function BlockHandle({ editor }: { editor: Editor }) {
           </div>,
           document.body,
         )}
-      {menu && <BlockMenu editor={editor} block={menu.block} at={menu.at} onClose={() => setMenu(null)} />}
+      {menu && <BlockMenu editor={editor} block={menu.block} at={menu.at} linkTo={linkTo} onClose={() => setMenu(null)} />}
     </>
   );
 }
@@ -641,7 +647,7 @@ export function FormatBar({ editor }: { editor: Editor }) {
 }
 
 // ── Barra del móvil, encima del teclado ──────────────────────────────
-export function MobileBar({ editor }: { editor: Editor }) {
+export function MobileBar({ editor, linkTo }: { editor: Editor; linkTo?: LinkTo }) {
   useEditorTick(editor);
   const [menu, setMenu] = useState<{ block: Block; at: { x: number; y: number } } | null>(null);
   const [inset, setInset] = useState(0);
@@ -692,7 +698,7 @@ export function MobileBar({ editor }: { editor: Editor }) {
         {btn(t('Deshacer'), '↶', () => c().undo().run(), false, !editor.can().undo())}
         {btn(t('Cerrar el teclado'), '⌄', () => editor.commands.blur())}
       </div>
-      {menu && <BlockMenu editor={editor} block={menu.block} at={menu.at} above onClose={() => setMenu(null)} />}
+      {menu && <BlockMenu editor={editor} block={menu.block} at={menu.at} above linkTo={linkTo} onClose={() => setMenu(null)} />}
     </>,
     document.body,
   );

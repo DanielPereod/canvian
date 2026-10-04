@@ -103,4 +103,14 @@ export const EN_EDITOR: Record<string, string> = {
   'Eliminar tabla': 'Delete table',
   'Insertar arriba': 'Insert above',
   'Insertar abajo': 'Insert below',
+  // Menú del clic derecho en el texto y enlaces a un bloque.
+  'Cortar': 'Cut',
+  'Copiar': 'Copy',
+  'Pegar': 'Paste',
+  'Resaltar': 'Highlight',
+  'Menú del texto': 'Text menu',
+  'Copiar enlace a este bloque': 'Copy link to this block',
+  'Enlace al bloque copiado: pégalo en otra nota': 'Block link copied: paste it into another note',
+  'No se pudo leer el portapapeles: pega con {keys}': "Couldn't read the clipboard: paste with {keys}",
+  'Ese punto de la nota ya no existe': 'That part of the note no longer exists',
 };

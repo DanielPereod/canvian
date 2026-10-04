@@ -76,3 +76,51 @@ export function splitWiki(raw: string): { note: string; section: string | null; 
     alias,
   };
 }
+
+// ── Enlaces a un punto de una nota ───────────────────────────────────
+// [[Nota#^abc123]] lleva a un bloque concreto (como en Obsidian): el bloque
+// guarda ese id en `blockId` y en Markdown se escribe « ^abc123» al final de
+// su línea. [[Nota#Encabezado]] lleva a esa sección.
+
+export const BLOCK_ID = /^[A-Za-z0-9-]+$/;
+
+export function newBlockId(): string {
+  const abc = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  for (let i = 0; i < 6; i++) id += abc[Math.floor(Math.random() * abc.length)];
+  return id;
+}
+
+const fold = (s: string) => s.replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+
+export function textOf(n: JSONContent): string {
+  if (n.type === 'text') return n.text ?? '';
+  if (n.type === 'wikilink') return String(n.attrs?.alias || n.attrs?.target || '');
+  return (n.content ?? []).map(textOf).join(n.type === 'paragraph' || n.type === 'heading' ? '' : ' ');
+}
+
+// Los bloques a los que lleva «#sección» en el documento: el bloque con ese id
+// («^abc123»), o el encabezado con ese texto y lo que tiene debajo hasta el
+// siguiente del mismo nivel. null si no está.
+export function sectionOf(doc: JSONContent | null, section: string): JSONContent[] | null {
+  if (!doc) return null;
+  if (section.startsWith('^')) {
+    const id = section.slice(1);
+    let hit: JSONContent | null = null;
+    const walk = (n: JSONContent) => {
+      if (hit) return;
+      if (n.attrs?.blockId === id) hit = n;
+      else (n.content ?? []).forEach(walk);
+    };
+    walk(doc);
+    return hit ? [hit] : null;
+  }
+  const want = fold(section);
+  const top = doc.content ?? [];
+  const at = top.findIndex((b) => b.type === 'heading' && fold(textOf(b)) === want);
+  if (at < 0) return null;
+  const level = Number(top[at].attrs?.level ?? 1);
+  let end = at + 1;
+  while (end < top.length && !(top[end].type === 'heading' && Number(top[end].attrs?.level ?? 1) <= level)) end++;
+  return top.slice(at, end);
+}

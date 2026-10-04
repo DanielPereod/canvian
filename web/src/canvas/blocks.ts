@@ -1,8 +1,9 @@
 import { Extension, Mark, Node, mergeAttributes, wrappingInputRule, type Editor } from '@tiptap/react';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
 import { NodeSelection, Plugin, PluginKey, Selection, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
-import type { EditorView } from '@tiptap/pm/view';
+import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 import { t } from '../i18n';
+import { newBlockId } from '../../../server/src/doc/json';
 import './blocks.css';
 
 // Los bloques de Notion que no trae el editor de serie: columnas, avisos con
@@ -44,6 +45,135 @@ export const BlockColor = Extension.create({
     },
   ],
 });
+
+// ── Id de bloque: para enlazar a un punto exacto de la nota ──────────
+// Solo lo tienen los bloques a los que se ha copiado un enlace. No pasa al
+// partir la línea con Intro, y si un bloque se duplica o se pega otra vez, la
+// copia se queda sin él: el enlace sigue llevando al de antes.
+const WITH_ID = [...COLORED.filter((n) => !n.endsWith('List')), 'codeBlock', 'table', 'columns', 'horizontalRule', 'image', 'video', 'audio', 'youtube', 'bookmark', 'noteEmbed', 'file'];
+
+export const BlockId = Extension.create({
+  name: 'blockId',
+  addGlobalAttributes: () => [
+    {
+      types: WITH_ID,
+      attributes: {
+        blockId: {
+          default: null,
+          keepOnSplit: false,
+          parseHTML: (el) => el.getAttribute('data-block-id'),
+          renderHTML: (a) => (a.blockId ? { 'data-block-id': a.blockId } : {}),
+        },
+      },
+    },
+  ],
+  addProseMirrorPlugins() {
+    return [
+      // El resaltado del bloque al que lleva un enlace (una clase puesta a mano
+      // la quitaría el editor al repintar).
+      new Plugin({
+        key: flashKey,
+        state: {
+          init: () => DecorationSet.empty,
+          apply: (tr, set: DecorationSet) => {
+            const meta = tr.getMeta(flashKey) as number | null | undefined;
+            if (meta === null) return DecorationSet.empty;
+            if (typeof meta === 'number') {
+              const node = tr.doc.nodeAt(meta);
+              return node ? DecorationSet.create(tr.doc, [Decoration.node(meta, meta + node.nodeSize, { class: 'is-flash-block' })]) : set;
+            }
+            return set.map(tr.mapping, tr.doc);
+          },
+        },
+        props: { decorations: (state) => flashKey.getState(state) },
+      }),
+      new Plugin({
+        key: new PluginKey('blockIdUnique'),
+        appendTransaction: (trs, old, state) => {
+          if (!trs.some((tr) => tr.docChanged)) return null;
+          const seen = new Map<string, number[]>();
+          state.doc.descendants((node, pos) => {
+            const id = node.attrs.blockId as string | null | undefined;
+            if (id) seen.set(id, [...(seen.get(id) ?? []), pos]);
+          });
+          const twice = [...seen].filter(([, at]) => at.length > 1);
+          if (!twice.length) return null;
+          // Se queda con el id el bloque que ya lo tenía (donde haya ido a parar).
+          const before = new Map<string, number>();
+          old.doc.descendants((node, pos) => {
+            const id = node.attrs.blockId as string | null | undefined;
+            if (id && !before.has(id)) before.set(id, pos);
+          });
+          const tr = state.tr;
+          for (const [id, at] of twice) {
+            let keep = before.has(id) ? trs.reduce((p, x) => x.mapping.map(p), before.get(id)!) : at[0];
+            if (!at.includes(keep)) keep = at[0];
+            for (const pos of at) if (pos !== keep) tr.setNodeAttribute(pos, 'blockId', null);
+          }
+          return tr.setMeta('addToHistory', false);
+        },
+      }),
+    ];
+  },
+});
+
+const flashKey = new PluginKey<DecorationSet>('blockFlash');
+
+// El id del bloque, poniéndole uno si aún no tiene. null si ese bloque no puede llevarlo.
+export function ensureBlockId(view: EditorView, block: Block): string | null {
+  const node = view.state.doc.nodeAt(block.pos);
+  if (!node || !('blockId' in node.attrs)) return null;
+  const had = node.attrs.blockId as string | null;
+  if (had) return had;
+  const id = newBlockId();
+  view.dispatch(view.state.tr.setNodeAttribute(block.pos, 'blockId', id));
+  return id;
+}
+
+// Dónde está «#sección» en el documento: el bloque con ese id («^abc123») o el
+// encabezado con ese texto.
+export function findAnchor(doc: PMNode, section: string): number | null {
+  const fold = (s: string) => s.replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+  const id = section.startsWith('^') ? section.slice(1) : null;
+  const want = fold(section);
+  let at: number | null = null;
+  doc.descendants((node, pos) => {
+    if (at !== null) return false;
+    if (id ? node.attrs.blockId === id : node.type.name === 'heading' && fold(node.textContent) === want) at = pos;
+    return at === null;
+  });
+  return at;
+}
+
+// El primer bloque con texto en el que sale `query` (lo buscado en Ctrl P).
+export function findText(doc: PMNode, query: string): number | null {
+  const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  if (!words.length) return null;
+  // Mejor donde salen todas las palabras; si no, donde salga alguna.
+  let all: number | null = null;
+  let some: number | null = null;
+  doc.descendants((node, pos) => {
+    if (all !== null) return false;
+    if (!node.isTextblock) return true;
+    const text = fold(node.textContent);
+    if (words.every((w) => text.includes(w))) all = pos;
+    else if (some === null && words.some((w) => text.includes(w))) some = pos;
+    return false;
+  });
+  return all ?? some;
+}
+
+// Lleva hasta el bloque, deja el cursor en él y lo resalta un momento.
+export function flashAt(view: EditorView, pos: number) {
+  const dom = view.nodeDOM(pos);
+  if (!(dom instanceof HTMLElement)) return;
+  const $in = view.state.doc.resolve(Math.min(pos + 1, view.state.doc.content.size));
+  view.dispatch(view.state.tr.setSelection(Selection.near($in)).setMeta(flashKey, pos).setMeta('addToHistory', false));
+  view.focus();
+  dom.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  window.setTimeout(() => !view.isDestroyed && view.dispatch(view.state.tr.setMeta(flashKey, null).setMeta('addToHistory', false)), 2400);
+}
 
 export const TextColor = Mark.create({
   name: 'textColor',
@@ -244,7 +374,8 @@ export function moveBlock(view: EditorView, block: Block, dir: -1 | 1) {
 
 export function duplicateBlock(view: EditorView, block: Block) {
   const end = block.pos + block.node.nodeSize;
-  const tr = view.state.tr.insert(end, block.node.copy(block.node.content));
+  const copy = block.node.type.create({ ...block.node.attrs, ...(block.node.attrs.blockId ? { blockId: null } : {}) }, block.node.content, block.node.marks);
+  const tr = view.state.tr.insert(end, copy);
   view.dispatch(caretIn(tr, end).scrollIntoView());
   return true;
 }
@@ -607,4 +738,4 @@ export const endDrag = () => {
 // Para quien lo necesite fuera (el asa): seleccionar un bloque entero.
 export const selectBlock = (view: EditorView, block: Block) => view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, block.pos)));
 
-export const blockNodes = [Columns, Column, Callout, Toggle, BlockColor, TextColor];
+export const blockNodes = [Columns, Column, Callout, Toggle, BlockColor, BlockId, TextColor];
