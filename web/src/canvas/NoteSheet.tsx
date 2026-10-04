@@ -217,9 +217,11 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between, 
     content: initial.body.content?.length ? initial.body : '',
     // Abrir una nota es para escribir: el cursor ya está al final, pero la
     // nota se ve desde el principio (sin saltar hasta el cursor). Una nota
-    // nueva, sin nada, empieza por el título.
+    // nueva, sin nada, empieza por el título. En el móvil no: enfocar abre el
+    // teclado y tapa la nota; se escribe al tocar el texto.
     onCreate: ({ editor }) => {
       syncWiki(editor);
+      if (TOUCH) return;
       if (!initial.title && editor.isEmpty) titleBox.current?.focus({ preventScroll: true });
       else editor.commands.focus('end', { scrollIntoView: false });
     },
