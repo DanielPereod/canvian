@@ -5,7 +5,8 @@ import { t } from '../i18n';
 
 type Props = {
   profileId: string;
-  onPick: (id: string) => void;
+  // `found`: lo buscado, si sale en el texto de la nota y no en su título.
+  onPick: (id: string, found?: string) => void;
   onCreate: (text: string) => void;
   onClose: () => void;
   placeholder?: string;
@@ -75,7 +76,11 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
 
   const run = (item: Item | undefined) => {
     if (!item) return;
-    if (item.kind === 'note') onPick(item.hit.id);
+    if (item.kind === 'note') {
+      const words = norm(title).split(/\s+/).filter(Boolean);
+      const inTitle = words.every((w) => norm(item.hit.title ?? '').includes(w));
+      onPick(item.hit.id, words.length && !inTitle ? title : undefined);
+    }
     else if (item.kind === 'path' && route) onCreatePath!(route.zoneId, route.missing, title);
     else if (item.kind === 'create') onCreate(item.text);
   };

@@ -3,6 +3,7 @@ import { ulid } from 'ulidx';
 import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef } from '../api';
 import type { NoteContent } from './NoteSheet';
 import { CommandPalette } from './CommandPalette';
+import { goToAnchor } from './anchor';
 import { onLive } from '../live';
 import { NodeView, LOOSE, type MapAction } from './NodeView';
 import { bounds, parentMap, rectOf, visibleRows, type Rect } from './sections';
@@ -1161,11 +1162,15 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
                 }
               : undefined
           }
-          onPick={(id) => {
+          onPick={(id, found) => {
             setPaletteOpen(false);
             if (paletteOpen === 'card') pickCard.current?.(id);
             else if (paletteOpen === 'link' && focused) connect(focused.id, id);
-            else openNote(id);
+            else {
+              // Lo buscado estaba en el texto: la nota se abre por ahí.
+              if (found) goToAnchor(id, { text: found });
+              openNote(id);
+            }
           }}
           onCreate={(text) => {
             setPaletteOpen(false);
@@ -1215,6 +1220,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           note={focused}
           neighbors={focusNeighbors}
           defs={defs}
+          onNotice={setNotice}
           onNavigate={(id) => {
             flush(focused.id);
             setFocusId(id);

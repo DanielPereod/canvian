@@ -5,6 +5,8 @@ import type { Db } from '../db/index.js';
 import { notes } from '../db/schema.js';
 import { toFtsQuery } from '../routes/canvas.js';
 import { addTaskItem, allTasks, changeTask, listedTasks, newTaskItem, parseRecur, recurs, recurText, setToday, type Task, type TaskStatus } from '../doc/tasks.js';
+import { parseBody, sectionOf, splitTitle } from '../doc/json.js';
+import { docToMarkdown } from '../doc/markdown.js';
 import {
   INBOX,
   McpError,
@@ -52,11 +54,24 @@ const addDays = (day: string, n: number) => {
 const INSTRUCTIONS = `Canvian es la app de notas de Dani (en español). Cómo funciona:
 - Todo son notas. Una nota puede estar dentro de otra (su «madre»); las rutas se escriben «Casa > Reformas > Baño».
 - El texto de las notas se lee y escribe en Markdown (estilo Obsidian): [[Otra nota]] enlaza notas, ==resaltado==, > [!note] avisos.
+- Un bloque puede llevar un id al final de su línea («texto ^abc123»); [[Nota#^abc123]] enlaza ese punto exacto y [[Nota#Encabezado]] esa sección. get_note con «Nota#^abc123» lee solo ese trozo.
 - Las tareas no son notas: son las casillas «- [ ] texto» dentro de las notas. Detrás del texto llevan «📅 AAAA-MM-DD» (fecha), «⏫ 🔼 🔽» (prioridad alta/media/baja), «#etiqueta», «🔁 every week» si se repite (como en Obsidian Tasks) y, hechas, «✅ AAAA-MM-DD». Al hacer una que se repite se apunta encima la siguiente vez, con su fecha. «[/]» es en curso y «[!]» bloqueada. Una casilla sangrada bajo otra es su subtarea.
 - Lo que se apunta sin decir dónde va a la nota «${INBOX}».
 - Hay perfiles (por ejemplo Personal y Trabajo) que no se mezclan; sin indicar ninguno se usa el primero.
 - Archivar oculta una nota (y lo que tiene dentro) sin borrarla.
 Usa los ids que devuelven las herramientas para referirte a notas y tareas. Escribe en el idioma de las notas.`;
+
+// «Nota#^abc123» o «Nota#Encabezado»: la nota y el punto. Si el título
+// lleva «#» de verdad, manda el título entero.
+function noteAndSection(all: Note[], ref: string): { n: Note; section: string | null } {
+  try {
+    return { n: resolveNote(all, ref), section: null };
+  } catch (e) {
+    const hash = ref.indexOf('#');
+    if (hash < 1 || !(e instanceof McpError)) throw e;
+    return { n: resolveNote(all, ref.slice(0, hash)), section: ref.slice(hash + 1).trim() || null };
+  }
+}
 
 const profileArg = z.string().optional().describe('Perfil (nombre o id). Por defecto, el primero.');
 const noteArg = (what = 'La nota') => z.string().min(1).describe(`${what}: su id, su título o su ruta («Casa > Reformas»).`);
@@ -192,13 +207,15 @@ export function createMcpServer(db: Db, hub?: Hub) {
     'get_note',
     {
       title: 'Leer nota',
-      description: 'Lee una nota entera: su texto en Markdown, dónde está, sus notas hijas, propiedades, etiquetas, enlaces y tareas.',
+      description: 'Lee una nota entera: su texto en Markdown, dónde está, sus notas hijas, propiedades, etiquetas, enlaces y tareas. Con «Nota#^id» o «Nota#Encabezado» devuelve además ese trozo en «section».',
       inputSchema: { note: noteArg(), profile: profileArg },
       annotations: { readOnlyHint: true },
     },
     run(({ note, profile }) => {
       const { profile: p, all, byId } = ctx(profile);
-      const n = resolveNote(all, note);
+      const { n, section } = noteAndSection(all, note);
+      const part = section ? sectionOf(splitTitle(parseBody(n.bodyJson)).body, section) : null;
+      if (section && !part) throw new McpError(`La nota «${noteTitle(n)}» no tiene «#${section}».`);
       const defs = propertyDefsOf(db, p.id);
       const edgesOf = db.all<{ other: string }>(sql`SELECT CASE WHEN from_id = ${n.id} THEN to_id ELSE from_id END AS other FROM edges WHERE from_id = ${n.id} OR to_id = ${n.id}`);
       const linked = edgesOf.flatMap((e) => (byId.get(e.other) ? [brief(byId, byId.get(e.other)!)] : []));
@@ -213,6 +230,7 @@ export function createMcpServer(db: Db, hub?: Hub) {
         ...(linked.length ? { linkedNotes: linked.map(({ id, title, path }) => ({ id, title, path })) } : {}),
         ...(tasks.length ? { tasks } : {}),
         markdown: bodyMarkdown(n),
+        ...(part ? { section: docToMarkdown({ type: 'doc', content: part }) } : {}),
       });
     }),
   );

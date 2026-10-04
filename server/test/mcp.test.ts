@@ -101,6 +101,18 @@ describe('mcp', () => {
     expect(await tool(client, 'list_notes')).toContain('- Casa');
   });
 
+  it('reads and keeps links to one block of a note', async () => {
+    const client = await connect(token);
+    await tool(client, 'create_note', { title: 'Plan', markdown: 'Intro.\n\nUsar SQLite ^dec1\n\n## Riesgos\n\nPocos.\n\n## Otro\n\nNada.' });
+    const plan = await tool(client, 'get_note', { note: 'Plan#^dec1' });
+    expect(plan.section).toBe('Usar SQLite ^dec1');
+    expect(plan.markdown).toContain('Usar SQLite ^dec1');
+    expect((await tool(client, 'get_note', { note: 'Plan#Riesgos' })).section).toBe('## Riesgos\n\nPocos.');
+    await expect(tool(client, 'get_note', { note: 'Plan#^nada' })).rejects.toThrow(/no tiene/);
+    const other = await tool(client, 'create_note', { title: 'Diario', markdown: 'Ver [[Plan#^dec1]].' });
+    expect((await tool(client, 'get_note', { note: other.created.id })).markdown).toContain('[[Plan#^dec1]]');
+  });
+
   it('handles tasks: inbox, today, done', async () => {
     const client = await connect(token);
     const today = localDay();

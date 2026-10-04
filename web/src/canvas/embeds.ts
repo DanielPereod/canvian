@@ -11,7 +11,8 @@ import { splitWiki } from './obsidian';
 // La hoja dice cómo encontrar una nota, abrirla y pintar su texto; las notas
 // incrustadas que ya se ven se repintan cuando cambia algo.
 export type EmbeddedNote = { id: string; title: string; bodyJson: string | null };
-type NoteSource = { find: (id: string | null, target: string) => EmbeddedNote | null; open: (id: string) => void; html: (bodyJson: string | null) => string };
+// `section`: lo de detrás de «#» (![[Nota#^abc123]] incrusta solo ese bloque).
+type NoteSource = { find: (id: string | null, target: string) => EmbeddedNote | null; open: (id: string, section: string | null) => void; html: (bodyJson: string | null, section: string | null) => string };
 let source: NoteSource | null = null;
 const watchers = new Set<() => void>();
 export function setNoteSource(s: NoteSource | null) {
@@ -185,16 +186,17 @@ export const NoteEmbed = Node.create({
       let found: EmbeddedNote | null = null;
       const paint = () => {
         found = source?.find(node.attrs.id, node.attrs.target) ?? null;
-        head.textContent = `↳ ${found?.title || splitWiki(node.attrs.target).note}`;
-        body.innerHTML = found ? source!.html(found.bodyJson) || `<p class="note-embed-empty">${t('Nota vacía')}</p>` : `<p class="note-embed-empty">${t('Esta nota aún no existe')}</p>`;
+        const { note, section } = splitWiki(node.attrs.target);
+        head.textContent = `↳ ${found?.title || note}${section && !section.startsWith('^') ? ` › ${section}` : ''}`;
+        body.innerHTML = found ? source!.html(found.bodyJson, section) || `<p class="note-embed-empty">${t('Nota vacía')}</p>` : `<p class="note-embed-empty">${t('Esta nota aún no existe')}</p>`;
       };
       paint();
       watchers.add(paint);
       head.addEventListener('mousedown', (e) => e.preventDefault());
-      head.addEventListener('click', () => found && source?.open(found.id));
+      head.addEventListener('click', () => found && source?.open(found.id, splitWiki(node.attrs.target).section));
       if (editor.isEditable)
         dom.append(
-          embedBar(editor, getPos, node, (schema) => schema.nodes.wikilink.create({ id: node.attrs.id, target: node.attrs.target, alias: null }), [[t('Abrir'), () => found && source?.open(found.id)]]),
+          embedBar(editor, getPos, node, (schema) => schema.nodes.wikilink.create({ id: node.attrs.id, target: node.attrs.target, alias: null }), [[t('Abrir'), () => found && source?.open(found.id, splitWiki(node.attrs.target).section)]]),
         );
       return { dom, ignoreMutation: () => true, stopEvent: (e: Event) => inBar(e) || (e.target instanceof HTMLElement && !!e.target.closest('.note-embed-head')), destroy: () => watchers.delete(paint) };
     };

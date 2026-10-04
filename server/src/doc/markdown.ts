@@ -100,10 +100,30 @@ const wikiMd = (c: JSONContent) => `[[${String(c.attrs?.target ?? '')}${c.attrs?
 export const inlineToMd = (content: JSONContent[] | undefined): string =>
   (content ?? []).map((c) => (c.type === 'hardBreak' ? '\n' : c.type === 'wikilink' ? wikiMd(c) : marksToMd(c))).join('');
 
-const para = (text: string, links: string[]): JSONContent => {
+// « ^abc123» al final de una línea: el id del bloque, para enlazarlo desde
+// otra nota ([[Nota#^abc123]]), como en Obsidian.
+const REF_TAIL = /\s\^([A-Za-z0-9-]+)\s*$/;
+const REF_LINE = /^\s*\^([A-Za-z0-9-]+)\s*$/;
+function takeRef(text: string): [string, string | null] {
+  const m = REF_TAIL.exec(text);
+  return m ? [text.slice(0, m.index), m[1]] : [text, null];
+}
+const withId = (n: JSONContent, id: string | null): JSONContent => (id ? { ...n, attrs: { ...n.attrs, blockId: id } } : n);
+
+const para = (raw: string, links: string[]): JSONContent => {
+  const [text, id] = takeRef(raw);
   const content = inline(text, links);
-  return content.length ? { type: 'paragraph', content } : { type: 'paragraph' };
+  return withId(content.length ? { type: 'paragraph', content } : { type: 'paragraph' }, id);
 };
+
+// El primer párrafo de un punto de lista: su id es el del punto.
+function itemHead(text: string, links: string[]): [JSONContent, string | null] {
+  const p = para(text, links);
+  const id = (p.attrs?.blockId as string | undefined) ?? null;
+  if (!id) return [p, null];
+  const { blockId: _drop, ...rest } = p.attrs!;
+  return [Object.keys(rest).length ? { ...p, attrs: rest } : { type: p.type, ...(p.content ? { content: p.content } : {}) }, id];
+}
 
 // Una línea de lista: «- », «1. » o una casilla «- [ ] » (también «[x]», «[/]»
 // en curso y «[!]» bloqueada), con su sangría.
@@ -146,10 +166,11 @@ function parseList(lines: string[], start: number, ctx: Ctx): [JSONContent, numb
     const shift = Math.min(...inner.filter((s) => s.trim()).map(indentOf));
     const children = inner.length ? parseBlocks(inner.map((s) => dedent(s, shift)), ctx) : [];
     const status = BOX_STATUS[l.box ?? ''];
+    const [head, id] = itemHead(l.text, ctx.links);
     items.push(
       first.type === 'taskList'
-        ? { type: 'taskItem', attrs: { checked: /x/i.test(l.box ?? ''), ...(status ? { status } : {}) }, content: [para(l.text, ctx.links), ...children] }
-        : { type: 'listItem', content: [para(l.text, ctx.links), ...children] },
+        ? { type: 'taskItem', attrs: { checked: /x/i.test(l.box ?? ''), ...(status ? { status } : {}), ...(id ? { blockId: id } : {}) }, content: [head, ...children] }
+        : withId({ type: 'listItem', content: [head, ...children] }, id),
     );
     i = last + 1;
     // Tras líneas en blanco, la lista sigue si el siguiente es otro punto igual.
@@ -216,10 +237,18 @@ function parseBlocks(lines: string[], ctx: Ctx): JSONContent[] {
       i++;
       continue;
     }
+    // «^abc123» solo en su línea: el id del bloque de encima (un aviso, una tabla…).
+    const lone = REF_LINE.exec(line);
+    if (lone && content.length) {
+      content[content.length - 1] = withId(content[content.length - 1], lone[1]);
+      i++;
+      continue;
+    }
     const h = /^(#{1,6})\s+(.*)$/.exec(line);
     if (h) {
-      ctx.heading ??= h[2].trim();
-      content.push({ type: 'heading', attrs: { level: h[1].length }, content: inline(h[2], links) });
+      const [text, id] = takeRef(h[2]);
+      ctx.heading ??= text.trim();
+      content.push(withId({ type: 'heading', attrs: { level: h[1].length }, content: inline(text, links) }, id));
       i++;
       continue;
     }
@@ -332,6 +361,9 @@ function marksToMd(n: JSONContent): string {
   return t;
 }
 
+// Bloques cuyo id ya va en su propia línea (o en la de cada punto).
+const OWN_LINE_REF = new Set(['heading', 'paragraph', 'bulletList', 'orderedList', 'taskList']);
+
 export function docToMarkdown(doc: JSONContent | null): string {
   if (!doc) return '';
   const inl = (n: JSONContent) => inlineToMd(n.content);
@@ -343,19 +375,26 @@ export function docToMarkdown(doc: JSONContent | null): string {
       .split('\n')
       .filter((l, i, all) => all.length > 1 || l)
       .map((l) => (l ? `> ${l}` : '>'));
+  // El id de un bloque va al final de su línea; el de uno de varias líneas
+  // (un aviso, una tabla…), solo en la línea de debajo.
+  const ref = (n: JSONContent | undefined) => (n?.attrs?.blockId ? ` ^${String(n.attrs.blockId)}` : '');
   const block = (n: JSONContent, indent = ''): string => {
+    const md = blockMd(n, indent);
+    return n.attrs?.blockId && !OWN_LINE_REF.has(n.type ?? '') ? `${md}\n${indent}^${String(n.attrs.blockId)}` : md;
+  };
+  const blockMd = (n: JSONContent, indent: string): string => {
     switch (n.type) {
       case 'heading':
-        return `${'#'.repeat(Number(n.attrs?.level ?? 1))} ${inl(n)}`;
+        return `${'#'.repeat(Number(n.attrs?.level ?? 1))} ${inl(n)}${ref(n)}`;
       case 'paragraph':
-        return indent + inl(n);
+        return indent + inl(n) + ref(n);
       case 'bulletList':
       case 'orderedList':
         return (n.content ?? [])
           .map((li, i) => {
             const [first, ...rest] = li.content ?? [];
             const mark = n.type === 'orderedList' ? `${Number(n.attrs?.start ?? 1) + i}.` : '-';
-            const head = `${indent}${mark} ${first ? inl(first) : ''}`;
+            const head = `${indent}${mark} ${first ? inl(first) : ''}${ref(li) || ref(first)}`;
             return [head, ...rest.map((r) => block(r, indent + ' '.repeat(mark.length + 1)))].join('\n');
           })
           .join('\n');
@@ -364,7 +403,7 @@ export function docToMarkdown(doc: JSONContent | null): string {
           .map((li) => {
             const [first, ...rest] = li.content ?? [];
             const box = li.attrs?.checked ? 'x' : li.attrs?.status === 'doing' ? '/' : li.attrs?.status === 'blocked' ? '!' : ' ';
-            const head = `${indent}- [${box}] ${first ? inl(first) : ''}`;
+            const head = `${indent}- [${box}] ${first ? inl(first) : ''}${ref(li) || ref(first)}`;
             return [head, ...rest.map((r) => block(r, indent + '  '))].join('\n');
           })
           .join('\n');

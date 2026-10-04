@@ -34,6 +34,8 @@ import { DrawBar, DrawLayer, type Typing } from './Draw';
 import { BoardMenu, cardTint, type BoardMenuItem } from './BoardMenu';
 import { bodyToHtml, parseBody, splitTitle } from '../editor';
 import { markdownToDoc } from '../markdown';
+import { splitWiki } from '../obsidian';
+import { goToAnchor } from '../anchor';
 import { t } from '../../i18n';
 import './board.css';
 
@@ -460,8 +462,10 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     const wiki = el.closest<HTMLElement>('a[data-wikilink]');
     if (wiki) {
       e.preventDefault();
-      const name = (wiki.dataset.target ?? '').split(/[#|]/)[0].trim().toLowerCase();
+      const { note, section } = splitWiki(wiki.dataset.target ?? '');
+      const name = note.toLowerCase();
       const id = wiki.dataset.id || [...byId.values()].find((r) => (r.title ?? '').trim().toLowerCase() === name)?.id;
+      if (id && section) goToAnchor(id, { section });
       if (id) onOpenNote(id);
       return;
     }
