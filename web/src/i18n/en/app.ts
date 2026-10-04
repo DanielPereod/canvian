@@ -111,31 +111,47 @@ export const EN_APP: Record<string, string> = {
   'Configuración: Aspecto': 'Settings: Appearance',
   'Configuración: Atajos de teclado': 'Settings: Keyboard shortcuts',
   'Configuración: Calendarios': 'Settings: Calendars',
-  'Configuración: Claude': 'Settings: Claude',
   Recientes: 'Recent',
   'Escribe un comando': 'Type a command',
   Activo: 'Active',
   'Ningún comando se llama así': 'No command by that name',
 
-  // Configuración › Claude
-  'Conecta Canvian con Claude para que pueda buscar y leer tus notas, crear y editar notas, apuntar tareas y marcarlas como hechas, ordenar notas y resumir lo que has hecho. Usa el servidor MCP de Canvian.':
-    'Connect Canvian to Claude so it can search and read your notes, create and edit notes, add tasks and tick them off, organise notes and sum up what you’ve done. It uses Canvian’s MCP server.',
-  'Enlace para Claude': 'Link for Claude',
-  'La llave viene de la variable CANVIAN_MCP_TOKEN del servidor. El enlace es:': 'The key comes from the server’s CANVIAN_MCP_TOKEN variable. The link is:',
-  'Hay un enlace activo. Si lo has perdido, crea otro: el anterior deja de funcionar.': 'There’s an active link. If you’ve lost it, create another: the old one stops working.',
+  // Configuración › Asistentes IA
+  'Asistentes IA': 'AI assistants',
+  'Conecta Canvian con tu asistente (Claude, ChatGPT, Codex, OpenCode…) para que pueda buscar y leer tus notas, crear y editar notas, apuntar tareas y marcarlas como hechas, ordenar notas y resumir lo que has hecho. Usa el servidor MCP de Canvian.':
+    'Connect Canvian to your assistant (Claude, ChatGPT, Codex, OpenCode…) so it can search and read your notes, create and edit notes, add tasks and tick them off, organise notes and sum up what you’ve done. It uses Canvian’s MCP server.',
+  Enlace: 'Link',
+  'La llave viene de la variable CANVIAN_MCP_TOKEN del servidor.': 'The key comes from the server’s CANVIAN_MCP_TOKEN variable.',
+  'Quien tenga el enlace puede leer y cambiar tus notas: no lo compartas. Si se filtra, crea otro y el anterior deja de funcionar.':
+    'Anyone with the link can read and change your notes: don’t share it. If it leaks, create another and the old one stops working.',
+  'Hay un enlace de antes que no se puede enseñar. Crea otro para ver la configuración.': 'There’s an older link that can’t be shown. Create another to see the setup.',
   'Crear otro': 'Create another',
   'Crear enlace': 'Create link',
   Desactivar: 'Turn off',
   'El enlace de ahora dejará de funcionar. ¿Crear otro?': 'The current link will stop working. Create another?',
-  'Claude dejará de poder entrar en tus notas. ¿Desactivar?': 'Claude will no longer be able to reach your notes. Turn off?',
-  'Tu enlace': 'Your link',
-  'Cópialo ahora: por seguridad no se vuelve a enseñar. Quien lo tenga puede leer y cambiar tus notas.': 'Copy it now: for safety it isn’t shown again. Anyone who has it can read and change your notes.',
+  'Los asistentes dejarán de poder entrar en tus notas. ¿Desactivar?': 'Assistants will no longer be able to reach your notes. Turn off?',
+  'Dirección pública': 'Public address',
+  'Con la que se llega a Canvian desde internet, con https. Los asistentes en la nube (claude.ai, ChatGPT) no pueden entrar en tu red local.':
+    'The https address Canvian is reached at from the internet. Cloud assistants (claude.ai, ChatGPT) can’t get into your local network.',
+  'Ahora usas una dirección local: pon aquí la pública.': 'You’re on a local address right now: put the public one here.',
+  Asistente: 'Assistant',
+  Otro: 'Other',
   Copiado: 'Copied',
   Copiar: 'Copy',
-  'Cómo conectarlo': 'How to connect it',
-  'En claude.ai: Configuración › Conectores › Añadir conector personalizado. Ponle de nombre Canvian y pega el enlace. Claude tiene que poder llegar a tu servidor por internet con https: si abres Canvian por la red local, cambia el principio del enlace por tu dirección pública.':
-    'On claude.ai: Settings › Connectors › Add custom connector. Name it Canvian and paste the link. Claude has to reach your server over the internet with https: if you open Canvian on your local network, swap the start of the link for your public address.',
-  'En Claude Code: claude mcp add --transport http canvian <enlace>': 'In Claude Code: claude mcp add --transport http canvian <link>',
+  'Dirección no válida': 'Invalid address',
+  'Configuración: Asistentes IA': 'Settings: AI assistants',
+  'En claude.ai (o la app de escritorio): Configuración › Conectores › Añadir conector personalizado. Nombre: Canvian. Pega el enlace y deja vacíos los campos de OAuth. Desde ahí también sale en la app del móvil.':
+    'On claude.ai (or the desktop app): Settings › Connectors › Add custom connector. Name: Canvian. Paste the link and leave the OAuth fields empty. It then shows up in the mobile app too.',
+  'En la terminal:': 'In the terminal:',
+  'En chatgpt.com: Configuración › Aplicaciones y conectores › Configuración avanzada › activa el modo desarrollador. Luego, Crear: nombre Canvian, pega el enlace y elige «Sin autenticación».':
+    'On chatgpt.com: Settings › Apps & Connectors › Advanced settings › turn on developer mode. Then Create: name Canvian, paste the link and pick “No authentication”.',
+  'En ~/.codex/config.toml:': 'In ~/.codex/config.toml:',
+  'En opencode.json (o ~/.config/opencode/opencode.json para todos los proyectos):': 'In opencode.json (or ~/.config/opencode/opencode.json for every project):',
+  'En ~/.gemini/settings.json:': 'In ~/.gemini/settings.json:',
+  'En ~/.cursor/mcp.json:': 'In ~/.cursor/mcp.json:',
+  'En .vscode/mcp.json (o en tu configuración de usuario con «MCP: Open User Configuration»):': 'In .vscode/mcp.json (or your user configuration via “MCP: Open User Configuration”):',
+  'Cualquier cliente con MCP por HTTP (Streamable HTTP). Con el enlace basta; si el cliente deja poner cabeceras, también vale la dirección sin llave y esta cabecera:':
+    'Any client with MCP over HTTP (Streamable HTTP). The link is enough; if the client lets you set headers, the address without the key plus this header also works:',
   'Llave del MCP no válida': 'Invalid MCP key',
   'La llave viene de CANVIAN_MCP_TOKEN': 'The key comes from CANVIAN_MCP_TOKEN',
 

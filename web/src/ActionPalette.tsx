@@ -61,7 +61,7 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
     ...LANGS.map((l) => ({ key: `lang-${l.id}`, label: t('Idioma: {name}', { name: l.name }), hint: 'Language', group: 'Aspecto', run: () => void setLang(l.id).catch(() => {}), on: lang === l.id })),
     { key: 'set-aspecto', label: t('Configuración: Aspecto'), group: 'Aplicación', run: () => openSettingsAt('aspecto') },
     { key: 'set-calendarios', label: t('Configuración: Calendarios'), group: 'Aplicación', run: () => openSettingsAt('calendarios') },
-    { key: 'set-claude', label: t('Configuración: Claude'), group: 'Aplicación', run: () => openSettingsAt('claude') },
+    { key: 'set-asistentes', label: t('Configuración: Asistentes IA'), group: 'Aplicación', run: () => openSettingsAt('asistentes') },
     { key: 'set-atajos', label: t('Configuración: Atajos de teclado'), group: 'Aplicación', run: () => openSettingsAt('atajos') },
   ];
 

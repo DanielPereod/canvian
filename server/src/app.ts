@@ -26,7 +26,7 @@ import type { Fetcher } from './calendars.js';
 import { createHub, scopeOf } from './live.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { createMcpServer } from './mcp/server.js';
-import { createMcpToken, isMcpToken, mcpStatus, revokeMcpToken } from './mcp/token.js';
+import { createMcpToken, isMcpToken, mcpStatus, revokeMcpToken, setMcpPublicUrl } from './mcp/token.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -192,11 +192,18 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
     return c.body(null, 204);
   });
 
-  // La llave del MCP (Configuración › Claude): se enseña una sola vez al crearla.
+  // La llave del MCP (Configuración › Asistentes IA).
   api.get('/mcp', (c) => c.json(mcpStatus(db)));
   api.post('/mcp/token', (c) => {
     if (mcpStatus(db).fromEnv) return c.json({ error: 'La llave viene de CANVIAN_MCP_TOKEN' }, 409);
     return c.json({ token: createMcpToken(db) }, 201);
+  });
+  // La dirección con la que se llega desde fuera (https://…), para los enlaces.
+  api.put('/mcp/public-url', async (c) => {
+    const body = z.object({ url: z.string().trim().regex(/^https?:\/\/[^\s/]+(\/[^\s]*)?$/).max(300).nullable() }).safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: 'Dirección no válida' }, 400);
+    setMcpPublicUrl(db, body.data.url?.replace(/\/+$/, '') || null);
+    return c.json(mcpStatus(db));
   });
   api.delete('/mcp/token', (c) => {
     revokeMcpToken(db);
