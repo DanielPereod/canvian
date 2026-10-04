@@ -14,6 +14,12 @@ export const EN_APP: Record<string, string> = {
 
   // Comandos (keys.ts)
   'Buscar o abrir nota': 'Search or open note',
+  'Cambiar de nota': 'Switch note',
+  'Lo mismo que buscar, como en Obsidian': 'Same as search, like in Obsidian',
+  'Nota rápida': 'Quick note',
+  'Desde cualquier sitio; en Tareas, apunta una tarea. Ctrl Alt N también': 'From anywhere; in Tasks, jots down a task. Ctrl Alt N too',
+  'Nota de hoy': "Today's note",
+  'La abre, o la crea con la fecha de hoy': "Opens it, or creates it with today's date",
   'También crea notas; «a>b>c» crea en esa ruta': 'Also creates notes; “a>b>c” creates at that path',
   Comandos: 'Commands',
   'Todas las notas': 'All notes',

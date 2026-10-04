@@ -32,7 +32,7 @@ import { t, tn } from '../i18n';
 const MAX_LINKS = 24;
 
 // El panel de detalles plegado: el texto se queda solo y el panel vuelve con un
-// botón arriba a la derecha (o Ctrl Alt D). Vale para todas las notas.
+// botón arriba a la derecha (o Ctrl ⇧ V). Vale para todas las notas.
 const FOLD_KEY = 'canvian.readerFolded';
 function useReaderFolded() {
   const [folded, setFolded] = useState(() => {

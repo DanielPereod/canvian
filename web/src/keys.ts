@@ -8,11 +8,14 @@ import { t } from './i18n';
 
 export type ActionId =
   | 'search'
+  | 'switcher'
   | 'commands'
   | 'toRoot'
   | 'tasks'
   | 'organize'
   | 'newNote'
+  | 'quickNote'
+  | 'daily'
   | 'newSection'
   | 'newCanvas'
   | 'rename'
@@ -58,6 +61,7 @@ export type KeyAction = { id: ActionId; label: string; hint?: string; group: Gro
 // Los textos se escriben en español; `ACTIONS` los da ya en el idioma elegido.
 const RAW: KeyAction[] = [
   { id: 'search', label: 'Buscar o abrir nota', hint: 'También crea notas; «a>b>c» crea en esa ruta', group: 'Ir a', ctx: ['global'], key: 'mod+p' },
+  { id: 'switcher', label: 'Cambiar de nota', hint: 'Lo mismo que buscar, como en Obsidian', group: 'Ir a', ctx: ['global'], key: 'mod+o' },
   { id: 'commands', label: 'Comandos', group: 'Ir a', ctx: ['global'], key: 'mod+shift+p' },
   { id: 'toRoot', label: 'Todas las notas', group: 'Ir a', ctx: ['list'], key: '1' },
   { id: 'tasks', label: 'Tareas', hint: 'Abre o cierra la vista de tareas', group: 'Ir a', ctx: ['list', 'tasks'], key: 'a' },
@@ -65,6 +69,8 @@ const RAW: KeyAction[] = [
   { id: 'organize', label: 'Ordenar notas', hint: 'Meter las notas sueltas dentro de otras', group: 'Ir a', ctx: ['list', 'organize'], key: 'o' },
 
   { id: 'newNote', label: 'Nota nueva', hint: 'En Tareas, apunta una tarea', group: 'Crear', ctx: ['list', 'tasks', 'note'], key: 'n' },
+  { id: 'quickNote', label: 'Nota rápida', hint: 'Desde cualquier sitio; en Tareas, apunta una tarea. Ctrl Alt N también', group: 'Crear', ctx: ['global'], key: 'mod+n' },
+  { id: 'daily', label: 'Nota de hoy', hint: 'La abre, o la crea con la fecha de hoy', group: 'Crear', ctx: ['global'], key: 'mod+shift+d' },
   { id: 'newSection', label: 'Nota dentro', hint: 'Dentro de la señalada o de la abierta', group: 'Crear', ctx: ['list', 'organize', 'note'], key: 'shift+n' },
   { id: 'newCanvas', label: 'Canvas nuevo', hint: 'Tarjetas libres y flechas', group: 'Crear', ctx: ['list', 'note'], key: '' },
 
@@ -77,7 +83,7 @@ const RAW: KeyAction[] = [
   { id: 'markdownSource', label: 'Ver el Markdown', hint: 'O volver al texto normal', group: 'Nota', ctx: ['note'], key: 'mod+e' },
   { id: 'zen', label: 'Modo zen', hint: 'Solo el texto, sin interfaz', group: 'Nota', ctx: ['global'], key: 'mod+shift+f' },
   { id: 'wideNote', label: 'Texto ancho', group: 'Nota', ctx: ['note'], key: '' },
-  { id: 'details', label: 'Panel de detalles', hint: 'Plegarlo o mostrarlo', group: 'Nota', ctx: ['note'], key: 'mod+alt+d' },
+  { id: 'details', label: 'Panel de detalles', hint: 'Plegarlo o mostrarlo', group: 'Nota', ctx: ['note'], key: 'mod+shift+v' },
   { id: 'linkNote', label: 'Enlazar con…', hint: 'Unir esta nota con otra', group: 'Nota', ctx: ['note'], key: '' },
   { id: 'attach', label: 'Adjuntar archivos…', group: 'Nota', ctx: ['note'], key: '' },
 
@@ -92,7 +98,7 @@ const RAW: KeyAction[] = [
 
   { id: 'nodes', label: 'Ver en nodos', hint: 'La nota abierta o señalada en el centro', group: 'Ver', ctx: ['global'], key: 'mod+g' },
   { id: 'lantern', label: 'Filtrar', group: 'Ver', ctx: ['list'], key: 'f' },
-  { id: 'sidebar', label: 'Barra lateral', hint: 'Plegarla o fijarla', group: 'Ver', ctx: ['global'], key: 'mod+.' },
+  { id: 'sidebar', label: 'Barra lateral', hint: 'Plegarla o fijarla', group: 'Ver', ctx: ['global'], key: 'mod+shift+b' },
   { id: 'showArchived', label: 'Mostrar u ocultar archivadas', group: 'Ver', ctx: ['global'], key: '' },
   { id: 'toggleMode', label: 'Modo claro u oscuro', group: 'Ver', ctx: ['global'], key: 'mod+shift+l' },
 
@@ -266,19 +272,35 @@ export function comboOf(e: KeyLike): string | null {
   return [...parts, key].join('+');
 }
 
+// A pantalla completa, Chrome deja a la página quedarse con Ctrl N (Keyboard Lock).
+if (typeof document !== 'undefined') {
+  type Kb = { lock?: (codes: string[]) => Promise<void>; unlock?: () => void };
+  document.addEventListener('fullscreenchange', () => {
+    const kb = (navigator as { keyboard?: Kb }).keyboard;
+    if (document.fullscreenElement) kb?.lock?.(['KeyN']).catch(() => {});
+    else kb?.unlock?.();
+  });
+}
+
 // Lo que se elige en la paleta llega como una pulsación marcada con su comando,
 // así cada vista lo atiende igual que su tecla, aunque no tenga ninguna.
 const tagOf = (e: KeyLike) => (e as { canvianAction?: ActionId }).canvianAction;
 
+// Segundas teclas de fábrica, mientras ninguna acción use esa combinación. Ctrl N
+// se lo queda el navegador en una pestaña normal (solo llega con la app a
+// pantalla completa), así que la nota rápida tiene también Ctrl Alt N.
+const ALIASES: Partial<Record<ActionId, string>> = { quickNote: 'mod+alt+n' };
+const hit = (id: ActionId, c: string | null) => !!c && ((!!current[id] && current[id] === c) || (ALIASES[id] === c && !isBound(c)));
+
 export const matches = (e: KeyLike, id: ActionId) => {
   const tag = tagOf(e);
-  return tag ? tag === id : !!current[id] && comboOf(e) === current[id];
+  return tag ? tag === id : hit(id, comboOf(e));
 };
 export const actionFor = (e: KeyLike, ids: ActionId[]) => {
   const tag = tagOf(e);
   if (tag) return ids.includes(tag) ? tag : null;
   const c = comboOf(e);
-  return ids.find((id) => current[id] && current[id] === c) ?? null;
+  return ids.find((id) => hit(id, c)) ?? null;
 };
 
 // Ejecuta un comando como si se hubiera pulsado su tecla.

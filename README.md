@@ -78,13 +78,16 @@ Todos los comandos viven en un solo registro (`web/src/keys.ts`), agrupados en I
 | Barra lateral | El árbol de notas, como el explorador de archivos de Obsidian: las notas madre hacen de carpetas (su contenido son sus hijas) y cualquier nota puede estar arriba del todo o dentro de otra. Primero las madres y luego las demás, por orden alfabético (o como las dejes arrastrando). Clic en una nota la abre; en una madre, además la despliega (otro clic la pliega). Arrastrar una nota sobre otra la mete dentro, entre dos la coloca ahí, y al hueco del árbol o a «Mi biblioteca» la saca arriba del todo. Junto a «Mi biblioteca», `＋` crea una nota arriba del todo y el otro botón pliega todo |
 | Vista de nodos | Un grafo como el de Obsidian: todas las notas como puntos que se colocan solos, unidos por sus enlaces y por la línea madre → hija; el tamaño dice cuántas relaciones tiene. Al pasar por encima se encienden la nota y sus vecinas; los nombres aparecen al acercarse. Arrastra los puntos o el fondo, rueda (o dos dedos) para acercar, clic abre la nota. `+`/`-` acercan, `0` encuadra todo, `Esc` suelta la nota del centro. El botón de ajustes permite ver solo lo que rodea a la nota (con profundidad), quitar las líneas madre → hija o las notas sin relaciones y poner flechas en los enlaces |
 | `⌘/Ctrl G` | Modo nodo: la vista de nodos se centra en la nota abierta y la resalta (también con el botón «Nodos»); sin nota abierta, abre la del centro |
-| `⌘/Ctrl .` | Plegar la barra lateral (sale flotando al acercar el ratón al borde) o fijarla |
+| `⌘/Ctrl ⇧ B` | Plegar la barra lateral (sale flotando al acercar el ratón al borde) o fijarla |
 | Clic en una nota con hijas (o `Enter`) | Entrar en ella: la colección muestra lo que tiene dentro |
 | Clic en una nota sin hijas (o `Enter`) | Abrirla en el lector, con su panel de detalles a la derecha |
 | `Esc` / `Retroceso` | Salir: cierra el lector o sube un nivel |
 | Clic en una miga de pan | Volver a ese nivel |
 | `1` | Volver a todas las notas |
 | `N` | Nota nueva en la nota con hijas señalada o en la que estás |
+| `⌘/Ctrl N` | Nota rápida desde cualquier sitio (en Tareas, apunta una tarea). En una pestaña normal el navegador se queda `Ctrl N` para abrir otra ventana, así que también vale `⌘/Ctrl Alt N`; a pantalla completa (modo zen a pantalla completa) Chrome deja usar `Ctrl N` |
+| `⌘/Ctrl ⇧ D` | La nota de hoy: abre la titulada con la fecha (AAAA-MM-DD) o la crea arriba del todo |
+| `⌘/Ctrl O` | Cambiar de nota (igual que `⌘/Ctrl P`, como el selector de Obsidian) |
 | «Canvas nuevo» (paleta) | Canvas nuevo: una nota que es un lienzo libre, como los de Obsidian. Doble clic en el vacío crea una tarjeta; desde los bordes de una tarjeta se tiran flechas a otra; abajo se añaden tarjetas, notas existentes (doble clic las abre), grupos y archivos de cualquier tipo (también pegando o soltando; un PDF o un documento se abre con doble clic). `Supr` borra lo seleccionado. Se guarda en formato JSON Canvas |
 | `⇧N` | Nota nueva dentro de la señalada (así se anidan) |
 | `R` | Renombrar la nota señalada (cambia su primera línea) |

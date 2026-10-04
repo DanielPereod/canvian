@@ -5,7 +5,7 @@ import { longPress, TOUCH } from './touch';
 import type { NoteRow, TaskStatus } from '../api';
 import { dateFmt, daysUntil, dueLabel, localToday } from './dates';
 import { t } from '../i18n';
-import { actionFor, keyParts, keysBlocked, useKeymap, type ActionId } from '../keys';
+import { actionFor, keyParts, matches, keysBlocked, useKeymap, type ActionId } from '../keys';
 import { mergeTags } from './tags';
 import { listedTasks, type Task, type TaskChange } from './tasks';
 import { SectionPicker, type SectionOption } from './SectionPicker';
@@ -466,6 +466,12 @@ export function TasksView(p: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (paused || moving || menu || keysBlocked()) return;
+      // La nota rápida, aquí, apunta una tarea (también escribiendo en otro sitio).
+      if (matches(e, 'quickNote')) {
+        e.preventDefault();
+        addRef.current?.focus();
+        return;
+      }
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       const action = actionFor(e, ['tasks', 'cycleStatus', 'blockTask', 'newNote', 'deleteCell', 'taskDone', 'taskEdit', 'taskLayout', 'move', 'calendar']);
