@@ -24,7 +24,7 @@
 .prose strong { font-weight: var(--weight-semibold); }
 .prose em { font-family: var(--font-serif); font-size: 1.1em; }
 .prose code { font: 0.86em var(--font-mono); background: var(--surface-sunken); border: 1px solid var(--line); padding: 0 var(--space-1); border-radius: var(--radius-xs); }
-.prose pre { background: var(--surface-sunken); border: 1px solid var(--line); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); overflow-x: auto; }
+.prose pre { background: var(--surface-sunken); border: 1px solid var(--line); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.88em; line-height: 1.55; }
 .prose pre code { background: none; border: 0; padding: 0; }
 /* Colores del código según su lenguaje: los tonos de perfil mezclados con el
    texto, así se leen igual en los temas oscuros que en los claros. */
@@ -40,7 +40,7 @@
 .prose pre .hljs-punctuation, .prose pre .hljs-operator { color: var(--text-muted); }
 .prose pre .hljs-emphasis { font-style: italic; }
 .prose pre .hljs-strong { font-weight: var(--weight-semibold); }
-.prose blockquote { margin: 0 0 0.45em; padding-left: var(--space-3); border-left: 1px solid var(--accent-line); font-family: var(--font-serif); font-style: italic; font-size: 1.12em; color: var(--text-muted); }
+.prose blockquote { margin: 0 0 0.45em; padding-left: var(--space-3); border-left: 1px solid var(--accent-line); font-family: var(--font-serif); font-style: italic; color: var(--text-muted); }
 .prose hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-2) 0; }
 /* Lo de Obsidian: ==resaltado==, [[enlaces]] entre notas y casillas */
 .prose mark { background: color-mix(in oklab, var(--hue-amber) var(--code-hue, 75%), transparent); color: inherit; border-radius: 2px; padding: 0 1px; }

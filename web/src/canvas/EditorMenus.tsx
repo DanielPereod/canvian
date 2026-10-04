@@ -402,14 +402,28 @@ export function BlockHandle({ editor }: { editor: Editor }) {
       const box = view.dom.getBoundingClientRect();
       if (x < box.left - 72 || x > box.right + 24 || y < box.top - 4 || y > box.bottom + 4) return setSpot(null);
       const hit = view.posAtCoords({ left: Math.max(box.left + 2, Math.min(x, box.right - 2)), top: y });
-      const b = hit && blockAt(view.state.doc, hit.inside >= 0 ? hit.inside : hit.pos);
+      let b = hit && blockAt(view.state.doc, hit.inside >= 0 ? hit.inside : hit.pos);
+      // Dentro de un aviso, el asa es la del aviso: a su izquierda no cabe
+      // otra sin pisar el icono.
+      if (b) {
+        const $b = view.state.doc.resolve(b.pos);
+        for (let d = 1; d <= $b.depth; d++) {
+          if ($b.node(d).type.name === 'callout') {
+            b = { pos: $b.before(d), node: $b.node(d) };
+            break;
+          }
+        }
+      }
       const dom = b && view.nodeDOM(b.pos);
       if (!b || !(dom instanceof HTMLElement)) return setSpot(null);
       const r = dom.getBoundingClientRect();
+      // Un punto de una lista lleva el asa a la izquierda de su viñeta o casilla.
+      const list = (b.node.type.name === 'listItem' || b.node.type.name === 'taskItem') && dom.parentElement;
+      const edge = list ? Math.min(r.left, list.getBoundingClientRect().left) : r.left;
       const style = getComputedStyle(dom);
       const line = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5 || 24;
       const top = r.top + Math.min(r.height, line) / 2 - 12 + (b.node.type.name === 'callout' ? 10 : 0);
-      const left = r.left - 50;
+      const left = edge - 50;
       const now = spotRef.current;
       if (now && now.block.pos === b.pos && now.block.node === b.node && Math.abs(now.top - top) < 1 && Math.abs(now.left - left) < 1) return;
       setSpot({ block: b, left, top, box: { top: r.top, bottom: r.bottom, left: r.left } });
