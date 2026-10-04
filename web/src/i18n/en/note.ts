@@ -100,6 +100,10 @@ export const EN_NOTE: Record<string, string> = {
   // Portada y propiedades bajo el título
   'Añadir portada': 'Add cover',
   'Quitar portada': 'Remove cover',
+  'Incluir en Tareas': 'Include in Tasks',
+  'Excluir de Tareas': 'Exclude from Tasks',
+  'Sus tareas vuelven a salir en Tareas y en el calendario': 'Its tasks show up again in Tasks and the calendar',
+  'Sus tareas dejan de salir en Tareas y en el calendario (las notas de dentro no cambian)': 'Its tasks stop showing in Tasks and the calendar (notes inside it are unchanged)',
   'Cambiar portada': 'Change cover',
   'Recolocar': 'Reposition',
   'Guardar posición': 'Save position',

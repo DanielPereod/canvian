@@ -122,6 +122,20 @@ export function tasksOf(row: NoteRow): Task[] {
 
 export const allTasks = (rows: NoteRow[]) => rows.flatMap(tasksOf);
 
+// Clave reservada en `props` (las propiedades personalizadas usan ids ULID):
+// la nota se queda con sus casillas, pero no las aporta a Tareas ni al calendario.
+export const NO_TASKS = 'noTasks';
+export function tasksExcluded(row: { props?: string | null }) {
+  try {
+    return JSON.parse(row.props || '{}')?.[NO_TASKS] === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Las tareas que salen en las listas: las de las notas no excluidas. */
+export const listedTasks = <R extends NoteRow & { props?: string | null }>(rows: R[]) => allTasks(rows.filter((r) => !tasksExcluded(r)));
+
 // ── Cambiar ───────────────────────────────────────────────────────────
 const clone = (doc: JSONContent): JSONContent => JSON.parse(JSON.stringify(doc)) as JSONContent;
 const emptyDoc = (): JSONContent => ({ type: 'doc', content: [] });
