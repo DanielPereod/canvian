@@ -1,15 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { COLORS, ROOT_KEY, setColor, setOrder, sortByOrder, useSidebarPrefs } from './sidebarPrefs';
+import { COLORS, setColor, setOrder, sortByOrder, useSidebarPrefs } from './sidebarPrefs';
 import type { NoteRow } from '../api';
-import { actionFor, keyParts, keysBlocked, useKeymap, type ActionId } from '../keys';
+import { keyParts, useKeymap, type ActionId } from '../keys';
 
-import { importanceOf, parentMap } from './sections';
-import { taskCount } from './tasks';
-import { LOOSE, type MapAction } from './NodeView';
+import { parentMap } from './sections';
 import { Resizer, type SideWidth } from './Resizer';
 import { longPress, TOUCH } from './touch';
 import { locale, t, tn } from '../i18n';
-import { coverStyle, parseCover } from './cover';
 
 // La tecla de un comando como texto («Ctrl G»), o vacío si no tiene.
 function useKeyText() {
@@ -22,10 +19,11 @@ const withKey = (text: string, keys: string) => (keys ? `${text} (${keys})` : te
 // Diseño «Biblioteca»: la app como una biblioteca de investigación. A la
 // izquierda, la barra con el perfil, las vistas y el árbol de colecciones;
 // arriba, la ruta y el buscador; en el centro, las notas de la colección en
-// lista o en portadas (o los nodos de siempre).
+// sus vistas (Collection.tsx) o los nodos de siempre.
 
 export type BibView = 'library' | 'note' | 'tasks' | 'organize';
-export type BibLayout = 'lista' | 'portadas' | 'nodos';
+// La colección (con sus vistas) o los nodos.
+export type BibLayout = 'lista' | 'nodos';
 
 const LAYOUT_KEY = 'canvian.bibLayout';
 const OPEN_KEY = 'canvian.bibOpen';
@@ -57,11 +55,11 @@ export function useBibFolded() {
 }
 
 export function useBibLayout() {
-  const [layout, setLayout] = useState<BibLayout>(() => {
-    const v = read(LAYOUT_KEY);
-    return v === 'portadas' || v === 'nodos' ? v : 'lista';
-  });
-  return [layout, (l: BibLayout) => (setLayout(l), write(LAYOUT_KEY, l))] as const;
+  // Antes se elegía aquí entre lista y portadas; quien tenía portadas empieza
+  // sus colecciones en galería.
+  const [gallery] = useState(() => read(LAYOUT_KEY) === 'portadas');
+  const [layout, setLayout] = useState<BibLayout>(() => (read(LAYOUT_KEY) === 'nodos' ? 'nodos' : 'lista'));
+  return [layout, (l: BibLayout) => (setLayout(l), write(LAYOUT_KEY, l === 'nodos' ? l : gallery ? 'portadas' : l)), gallery] as const;
 }
 
 // Madre, hijas y cuentas de todas las notas, una vez por cambio.
@@ -85,7 +83,7 @@ export function useFamily(rows: NoteRow[]) {
     return { parent, kids, byId, count, pathTo };
   }, [rows]);
 }
-type Family = ReturnType<typeof useFamily>;
+export type Family = ReturnType<typeof useFamily>;
 
 export const titleOf = (r: NoteRow | null | undefined) => (r?.kind === 'canvas' ? r.title || t('Canvas sin título') : r?.title || t('Nota sin título'));
 
@@ -123,7 +121,7 @@ export function editedLabel(at: string | null) {
 }
 
 // Cada colección tiene su tapa de un color suave y estable.
-const hueOf = (id: string) => {
+export const hueOf = (id: string) => {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 360;
   return h;
@@ -667,14 +665,6 @@ function CrumbRename({ r, label }: { r: NonNullable<BarProps['rename']>; label: 
 
 const LAYOUT_ICONS: Record<BibLayout, ReactNode> = {
   lista: <path d="M5 7h14M5 12h14M5 17h14" />,
-  portadas: (
-    <>
-      <rect x="4.5" y="4.5" width="6.5" height="6.5" rx="1.2" />
-      <rect x="13" y="4.5" width="6.5" height="6.5" rx="1.2" />
-      <rect x="4.5" y="13" width="6.5" height="6.5" rx="1.2" />
-      <rect x="13" y="13" width="6.5" height="6.5" rx="1.2" />
-    </>
-  ),
   nodos: (
     <>
       <circle cx="7" cy="12" r="2.6" />
@@ -733,9 +723,9 @@ export function BibBar(p: BarProps) {
         </button>
         {p.view === 'library' && (
           <div className="bib-seg" role="group" aria-label={t('Cómo ver la colección')}>
-            {(['lista', 'portadas', 'nodos'] as const).map((l) => (
-              <button key={l} className={p.layout === l ? 'is-on' : ''} onClick={() => p.onLayout(l)} aria-pressed={p.layout === l} aria-label={l === 'lista' ? t('Lista') : l === 'portadas' ? t('Portadas') : t('Nodos')}>
-                <span className="bib-seg-t">{l === 'lista' ? t('Lista') : l === 'portadas' ? t('Portadas') : t('Nodos')}</span>
+            {(['lista', 'nodos'] as const).map((l) => (
+              <button key={l} className={p.layout === l ? 'is-on' : ''} onClick={() => p.onLayout(l)} aria-pressed={p.layout === l} aria-label={l === 'lista' ? t('Colección') : t('Nodos')}>
+                <span className="bib-seg-t">{l === 'lista' ? t('Colección') : t('Nodos')}</span>
                 <svg className="bib-seg-i" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
                   {LAYOUT_ICONS[l]}
                 </svg>
@@ -747,222 +737,5 @@ export function BibBar(p: BarProps) {
         <div className="bib-bar-tools" id="bib-bar-tools" />
       </div>
     </header>
-  );
-}
-
-// ── La colección: lista o portadas ────────────────────────────────────
-
-type LibProps = {
-  rows: NoteRow[];
-  family: Family;
-  links: { source: string; target: string }[];
-  center: string | null;
-  layout: 'lista' | 'portadas';
-  paused: boolean;
-  lit: Set<string> | null;
-  hide: boolean;
-  onCenter: (id: string | null) => void;
-  onOpen: (id: string) => void;
-  onAction: (action: MapAction, noteId: string | null, parentId: string | null) => void;
-  onMenu: (id: string, x: number, y: number) => void;
-};
-
-const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive', move: 'move' };
-const LIB_ACTIONS: ActionId[] = ['properties', 'deleteCell', 'rename', 'move', 'archive', 'toRoot', 'newNote', 'newCanvas', 'newSection'];
-
-export function Library(p: LibProps) {
-  const { kids, count, byId, parent } = p.family;
-  const prefs = useSidebarPrefs();
-  const degree = useMemo(() => {
-    const d = new Map<string, number>();
-    for (const l of p.links) {
-      d.set(l.source, (d.get(l.source) ?? 0) + 1);
-      d.set(l.target, (d.get(l.target) ?? 0) + 1);
-    }
-    return d;
-  }, [p.links]);
-
-  const here = p.center && p.center !== LOOSE ? (byId.get(p.center) ?? null) : null;
-  const items = useMemo(() => {
-    let list: NoteRow[];
-    if (p.center === LOOSE) list = (kids.get(null) ?? []).filter((r) => !count(r.id));
-    else list = kids.get(here?.id ?? null) ?? [];
-    list = list.filter((r) => !p.hide || !p.lit || p.lit.has(r.id));
-    const weight = (r: NoteRow) => importanceOf(r, degree.get(r.id) ?? 0) + Math.min(8, count(r.id)) * 0.6;
-    // Arriba, las colecciones; después, las más activas: enlaces, tareas abiertas,
-    // cambios recientes y largo (o como las ordenaste en la barra).
-    const auto = (a: NoteRow, b: NoteRow) => Number(!!count(b.id)) - Number(!!count(a.id)) || weight(b) - weight(a);
-    return p.center === LOOSE ? [...list].sort(auto) : sortByOrder(here?.id ?? null, list, auto, prefs);
-  }, [p.center, p.hide, p.lit, kids, count, here, degree, prefs]);
-  // Lo común a filas y portadas: color, arrastrar a la barra y menú con clic derecho.
-  const itemProps = (r: NoteRow, i: number) => ({
-    style: { '--i': Math.min(i, 20), '--h': hueOf(r.id), ...(prefs.colors[r.id] ? { '--tint': prefs.colors[r.id] } : {}) } as CSSProperties,
-    draggable: !TOUCH,
-    onDragStart: (e: React.DragEvent) => {
-      e.dataTransfer.setData(DRAG_TYPE, r.id);
-      e.dataTransfer.effectAllowed = 'move';
-    },
-    ...longPress((x, y) => {
-      setSel(i);
-      p.onMenu(r.id, x, y);
-    }),
-    onContextMenu: (e: React.MouseEvent) => {
-      e.preventDefault();
-      setSel(i);
-      p.onMenu(r.id, e.clientX, e.clientY);
-    },
-  });
-
-  const [sel, setSel] = useState(0);
-  useEffect(() => setSel(0), [p.center]);
-  const at = Math.min(sel, Math.max(0, items.length - 1));
-  const list = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    list.current?.querySelector('.is-sel')?.scrollIntoView({ block: 'nearest' });
-  }, [at, p.layout]);
-
-  const enter = (r: NoteRow) => (count(r.id) ? p.onCenter(r.id) : p.onOpen(r.id));
-  const up = () => (p.center === LOOSE || !here ? p.onCenter(null) : p.onCenter(parent.get(here.id) ?? null));
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (p.paused || keysBlocked()) return;
-      const el = e.target as HTMLElement | null;
-      if (el?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName ?? '')) return;
-      const plain = !(e.metaKey || e.ctrlKey || e.altKey || e.shiftKey);
-      const cols = p.layout === 'portadas' ? Math.max(1, Math.round((list.current?.clientWidth ?? 1000) / 200)) : 1;
-      const cur = items[at];
-      const action = actionFor(e, LIB_ACTIONS);
-      if (action && KEYS[action]) {
-        if (cur) p.onAction(KEYS[action]!, cur.id, null);
-        else if (here) p.onAction(KEYS[action]!, here.id, null);
-      } else if (action === 'toRoot') p.onCenter(null);
-      else if (action === 'newNote') p.onAction('create', null, here?.id ?? null);
-      else if (action === 'newCanvas') p.onAction('createCanvas', null, here?.id ?? null);
-      else if (action === 'newSection') p.onAction('section', null, cur?.id ?? here?.id ?? null);
-      else if (plain && e.key === 'ArrowDown') setSel(Math.min(items.length - 1, at + cols));
-      else if (plain && e.key === 'ArrowUp') setSel(Math.max(0, at - cols));
-      else if (plain && e.key === 'ArrowRight' && cols > 1) setSel(Math.min(items.length - 1, at + 1));
-      else if (plain && e.key === 'ArrowLeft' && cols > 1) setSel(Math.max(0, at - 1));
-      else if (plain && e.key === 'Enter' && cur) enter(cur);
-      else if (plain && (e.key === 'Backspace' || e.key === 'Escape') && p.center !== null) up();
-      else return;
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  });
-
-  const title = p.center === LOOSE ? t('Sueltas') : here ? titleOf(here) : t('Todas las notas');
-  const upTitle = here ? p.family.pathTo(parent.get(here.id) ?? null).map(titleOf).join(' / ') || t('Biblioteca') : t('Biblioteca');
-
-  return (
-    <div className="bib-lib">
-      <div className="bib-lib-head">
-        <div className="bib-lib-title">
-          <span className="bib-muted bib-small">{upTitle}</span>
-          <h1>{title}</h1>
-        </div>
-        <span className="bib-muted bib-lib-count">
-          {tn(items.length, '{n} nota', '{n} notas')} · {p.center !== LOOSE && prefs.order[here?.id ?? ROOT_KEY]?.length ? t('en tu orden') : t('las más activas primero')}
-        </span>
-        {here && (
-          <button className="bib-link" onClick={() => p.onOpen(here.id)}>
-            {t('Abrir «{name}» ↗', { name: titleOf(here) })}
-          </button>
-        )}
-      </div>
-      {items.length === 0 && (
-        <p className="bib-empty">
-          {t('Aquí no hay nada todavía.')}<span className="bib-keys"> <kbd>N</kbd> {t('para la primera nota.')}</span>
-        </p>
-      )}
-      {p.layout === 'lista' ? (
-        <div className="bib-table" ref={list} role="list">
-          {items.length > 0 && (
-            <div className="bib-thead" aria-hidden="true">
-              <span />
-              <span>{t('Título')}</span>
-              <span>{t('Tipo')}</span>
-              <span>{t('Dentro')}</span>
-              <span className="bib-right">{t('Editada')}</span>
-            </div>
-          )}
-          {items.map((r, i) => {
-            const n = count(r.id);
-            const kind = kindOf(r, n);
-            const dim = p.lit && !p.lit.has(r.id);
-            return (
-              <button
-                key={r.id}
-                role="listitem"
-                className={`bib-row${i === at ? ' is-sel' : ''}${dim ? ' is-dim' : ''}${prefs.colors[r.id] ? ' has-tint' : ''}`}
-                {...itemProps(r, i)}
-                onMouseEnter={() => setSel(i)}
-                onClick={() => enter(r)}
-              >
-                <Spine row={r} kids={n} />
-                <span className="bib-row-main">
-                  <span className="bib-row-t">{titleOf(r)}</span>
-                  <span className="bib-row-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : t('Sin texto todavía.'))}</span>
-                </span>
-                <span>
-                  <span className="bib-pill">{kind}</span>
-                </span>
-                <span className="bib-muted">{n ? tn(n, '{n} nota', '{n} notas') : '—'}</span>
-                <span className="bib-muted bib-right">{editedLabel(r.updatedAt)}</span>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="bib-covers" ref={list} role="list">
-          {items.map((r, i) => {
-            const n = count(r.id);
-            const kind = kindOf(r, n);
-            const dim = p.lit && !p.lit.has(r.id);
-            return (
-              <button
-                key={r.id}
-                role="listitem"
-                className={`bib-cover-it${i === at ? ' is-sel' : ''}${dim ? ' is-dim' : ''}${prefs.colors[r.id] ? ' has-tint' : ''}`}
-                {...itemProps(r, i)}
-                onMouseEnter={() => setSel(i)}
-                onClick={() => enter(r)}
-              >
-                <span className={`bib-cover${n ? ' is-branch' : ''}${r.cover ? ' has-cover' : ''}`}>
-                  {parseCover(r.cover) && <span className="bib-cover-img" style={coverStyle(parseCover(r.cover)!)} aria-hidden="true" />}
-                  <span className="bib-cover-k">{kind.toLocaleUpperCase(locale())}</span>
-                  <span className="bib-cover-t">{titleOf(r)}</span>
-                  <span className="bib-cover-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : '')}</span>
-                  <span className="bib-cover-lines" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                </span>
-                <span className="bib-cover-name">{titleOf(r)}</span>
-                <span className="bib-muted bib-small">
-                  {n ? tn(n, '{n} nota', '{n} notas') : kind} · {editedLabel(r.updatedAt)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// El lomo de cada fila: la cuenta de una colección o, si tiene tareas, una
-// casilla (llena cuando están todas hechas).
-function Spine({ row, kids }: { row: NoteRow; kids: number }) {
-  const tasks = taskCount(row);
-  const glyph = kids ? String(kids) : tasks.total ? (tasks.open.length ? '□' : '■') : '';
-  return (
-    <span className={`bib-spine${kids ? ' is-branch' : ''}`} aria-hidden="true">
-      {glyph}
-    </span>
   );
 }

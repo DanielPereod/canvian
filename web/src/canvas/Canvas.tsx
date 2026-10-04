@@ -23,7 +23,8 @@ import { mergeTags, splitTags } from './tags';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keyParts, keysBlocked, setView, useKeymap } from '../keys';
 import { useSideWidth } from './Resizer';
-import { BibBar, BibMenu, BibSidebar, Library, NewMenu, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
+import { Library } from './Collection';
+import { BibBar, BibMenu, BibSidebar, NewMenu, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 import { getLang, t } from '../i18n';
 import { zenPrefs } from './zenPrefs';
 
@@ -86,7 +87,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const [dropping, setDropping] = useState(false);
-  const [bibLayout, setBibLayout] = useBibLayout();
+  const [bibLayout, setBibLayout, bibGallery] = useBibLayout();
   const [bibFolded, toggleBibFolded] = useBibFolded();
   const bibWidth = useSideWidth('canvian.bibWidth', 240, 180, 440);
   // Menú con clic derecho sobre una nota, y «Mover a…» desde él.
@@ -1096,7 +1097,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           family={family}
           links={links}
           center={center}
-          layout={bibLayout}
+          profileId={profile.id}
+          defs={defs}
+          gallery={bibGallery}
           paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen || !!inspectId}
           lit={lit}
           hide={mode === 'hide'}
@@ -1104,6 +1107,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           onOpen={(id) => openNote(id)}
           onAction={act}
           onMenu={(id, x, y) => setBibMenu({ id, x, y })}
+          onPatch={updateNote}
+          onDefsChange={setDefs}
+          onError={report}
         />
       )}
       {loaded && bibLayout === 'nodos' && (
