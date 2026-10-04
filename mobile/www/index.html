@@ -3,62 +3,97 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#030405" />
+    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
     <title>Canvian</title>
     <style>
+      /* Los mismos colores, letra y medidas que la pantalla de entrada de la
+         web con el tema Mínimo, claro u oscuro según el sistema. */
       :root {
-        color-scheme: dark;
-        --bg: #030405;
+        color-scheme: dark light;
+        --bg: #0a0a0a;
         --fg: #f2f2f2;
-        --dim: #8a8d91;
-        --line: #26282b;
+        --muted: #b4b4b4;
+        --faint: #7c7c7c;
+        --ghost: #555555;
+        --line: rgba(255, 255, 255, 0.16);
         --bad: #ff8a80;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #fafafa;
+          --fg: #111111;
+          --muted: #4a4a4a;
+          --faint: #7a7a7a;
+          --ghost: #a3a3a3;
+          --line: rgba(0, 0, 0, 0.16);
+          --bad: #c62828;
+        }
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
       body {
-        font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        font: 14px/1.5 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
         display: grid;
         place-items: center;
         padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+        -webkit-font-smoothing: antialiased;
       }
-      main { width: 100%; max-width: 360px; display: grid; gap: 20px; }
-      img { width: 44px; height: 44px; }
-      h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
-      p { margin: 0; color: var(--dim); font-size: 14px; }
+      main { width: 100%; max-width: 340px; display: grid; gap: 24px; animation: in 520ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+      @keyframes in { from { opacity: 0; transform: translateY(6px); } }
+      .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
+      .brand svg { width: 22px; height: 22px; }
+      .copy { display: grid; gap: 8px; }
+      h1 { margin: 0; font-size: 24px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; }
+      p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
       form { display: grid; gap: 12px; }
       input {
         width: 100%;
+        min-height: 44px;
         font: inherit;
         color: var(--fg);
         background: transparent;
         border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 12px 14px;
+        border-radius: 10px;
+        padding: 0 16px;
         outline: none;
+        transition: border-color 160ms;
       }
-      input:focus { border-color: var(--dim); }
+      input::placeholder { color: var(--ghost); }
+      input:focus { border-color: var(--faint); }
       button {
+        min-height: 44px;
         font: inherit;
-        font-weight: 600;
+        font-weight: 500;
         border: 0;
         border-radius: 999px;
-        padding: 12px 18px;
-        background: #fff;
-        color: #000;
+        background: var(--fg);
+        color: var(--bg);
+        transition: opacity 160ms, transform 160ms;
       }
-      button:disabled { opacity: 0.5; }
+      button:active:not(:disabled) { transform: scale(0.98); }
+      button:disabled { opacity: 0.35; }
       .error { color: var(--bad); min-height: 1.5em; }
       [hidden] { display: none !important; }
     </style>
   </head>
   <body>
     <main>
-      <img src="icon.svg" alt="" />
+      <div class="brand">
+        <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+          <path d="M15 15H6.5A5.5 5.5 0 0 1 1 9.5V6.5A5.5 5.5 0 0 1 6.5 1h3A5.5 5.5 0 0 1 15 6.5Z" />
+          <path d="M17 15h8.5A5.5 5.5 0 0 0 31 9.5V6.5A5.5 5.5 0 0 0 25.5 1h-3A5.5 5.5 0 0 0 17 6.5Z" />
+          <path d="M15 17H6.5A5.5 5.5 0 0 0 1 22.5v3A5.5 5.5 0 0 0 6.5 31h3a5.5 5.5 0 0 0 5.5-5.5Z" />
+          <path d="M17 17h8.5a5.5 5.5 0 0 1 5.5 5.5v3a5.5 5.5 0 0 1-5.5 5.5h-3a5.5 5.5 0 0 1-5.5-5.5Z" />
+        </svg>
+        <span>Canvian</span>
+      </div>
       <div id="busy" hidden><p id="busy-text"></p></div>
-      <form id="form" hidden>
+      <div class="copy" id="copy" hidden>
         <h1 id="title"></h1>
         <p id="hint"></p>
+      </div>
+      <form id="form" hidden>
         <input id="url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" required />
         <button id="go" type="submit"></button>
         <p class="error" id="error" role="alert"></p>
@@ -140,6 +175,7 @@
       function showForm(url, error) {
         $('busy').hidden = true;
         $('form').hidden = false;
+        $('copy').hidden = false;
         $('go').disabled = false;
         if (url) $('url').value = url;
         $('error').textContent = error || '';
@@ -147,6 +183,7 @@
 
       async function open(url) {
         $('form').hidden = true;
+        $('copy').hidden = true;
         $('busy').hidden = false;
         $('busy-text').textContent = T.connecting + ' ' + new URL(url).host + '…';
         if (!(await reachable(url))) return showForm(url, T.down);

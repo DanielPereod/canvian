@@ -320,14 +320,11 @@ export const EN_APP: Record<string, string> = {
   elegida: 'selected',
 
   // Entrada y perfiles
-  Sin: 'No',
-  señal: 'signal',
+  'Sin conexión': 'No connection',
   'No encuentro el servidor de Canvian. Comprueba que está en marcha y recarga la página.': 'Can’t find the Canvian server. Check that it’s running and reload the page.',
   'No se pudo conectar con el servidor': 'Couldn’t connect to the server',
-  'Planta tu': 'Plant your',
-  jardín: 'garden',
-  'Hola de': 'Welcome',
-  nuevo: 'back',
+  'Crea tu contraseña': 'Create your password',
+  'Entra en Canvian': 'Sign in to Canvian',
   'Elige una contraseña. Es la única cuenta de esta instalación y empezarás con los perfiles Personal y Trabajo.':
     'Choose a password. It’s the only account on this install and you’ll start with the Personal and Work profiles.',
   'Escribe tu contraseña para volver a tus notas.': 'Enter your password to get back to your notes.',
