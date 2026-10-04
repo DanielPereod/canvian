@@ -8,6 +8,7 @@ import { loadTheme, toggleMode } from './theme';
 import { loadLang } from './i18n';
 import { loadTypography } from './typography';
 import { loadSidebarPrefs } from './canvas/sidebarPrefs';
+import { loadViews } from './canvas/views';
 import { loadWide } from './canvas/widePrefs';
 import { loadZenPrefs } from './canvas/zenPrefs';
 import { loadCalendars } from './calendars';
@@ -39,6 +40,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     void loadLang();
     void loadTypography();
     void loadSidebarPrefs();
+    void loadViews();
     void loadWide();
     void loadZenPrefs();
     void loadCalendars();
@@ -58,6 +60,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           void loadLang();
           void loadTypography();
           void loadSidebarPrefs();
+          void loadViews();
           void loadWide();
           void loadZenPrefs();
     void loadZenPrefs();

@@ -4,12 +4,12 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { settings } from '../db/schema.js';
 
-// Preferencias de la interfaz: los atajos de teclado, el aspecto (modo, temas y letra), la barra lateral las notas en modo ancho, el idioma, los calendarios de fuera y el modo zen. Viven en la
+// Preferencias de la interfaz: los atajos de teclado, el aspecto (modo, temas y letra), la barra lateral las notas en modo ancho, el idioma, los calendarios de fuera, el modo zen y las vistas de cada colección. Viven en la
 // tabla de ajustes con el prefijo `pref:`, que nunca deja ver lo demás (la
 // contraseña está en la misma tabla).
 
 const PREFIX = 'pref:';
-const KEYS = ['keymap', 'theme', 'appearance', 'type', 'sidebar', 'wide', 'lang', 'calendars', 'zen'] as const;
+const KEYS = ['keymap', 'theme', 'appearance', 'type', 'sidebar', 'wide', 'lang', 'calendars', 'zen', 'views'] as const;
 const keymap = z.record(z.string().regex(/^[a-z][a-zA-Z]{1,30}$/), z.string().max(40)).refine((m) => Object.keys(m).length <= 100);
 const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano', 'minimo', 'minimo-claro', 'biblioteca', 'biblioteca-noche']);
 // Modo claro, oscuro o automático, y el tema de cada tono.
@@ -42,7 +42,26 @@ const calendars = z
   .max(30);
 // Modo zen: si pone la pantalla completa.
 const zen = z.object({ fullscreen: z.boolean() });
-const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme, appearance, type, sidebar, wide, lang, calendars, zen };
+// Vistas de cada colección, como las de una base de datos de Notion: su tipo,
+// filtros, orden, columnas a la vista y cómo se agrupan. Por colección
+// («perfil:nota», «perfil:root» o «perfil:loose»), la lista y la que está abierta.
+const field = z.string().min(1).max(40);
+const filterValue = z.union([z.string().max(200), z.number(), z.boolean(), z.null(), z.array(z.string().max(200)).max(50)]);
+const view = z.object({
+  id,
+  name: z.string().trim().min(1).max(60),
+  type: z.enum(['table', 'list', 'gallery', 'board', 'calendar']),
+  filters: z.array(z.object({ id, field, op: z.string().min(1).max(20), value: filterValue })).max(20),
+  match: z.enum(['and', 'or']),
+  sorts: z.array(z.object({ field, dir: z.enum(['asc', 'desc']) })).max(6),
+  fields: z.array(field).max(60),
+  group: field.nullable(),
+  date: field.nullable(),
+});
+const views = z
+  .record(z.string().min(1).max(100), z.object({ active: id, views: z.array(view).min(1).max(30) }))
+  .refine((m) => Object.keys(m).length <= 2000);
+const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme, appearance, type, sidebar, wide, lang, calendars, zen, views };
 
 export function prefRoutes(db: Db) {
   const r = new Hono();

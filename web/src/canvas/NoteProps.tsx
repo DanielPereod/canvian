@@ -232,7 +232,7 @@ function Field({ value, type, autoFocus, onChange }: { value: string; type: 'tex
   );
 }
 
-function Value({ def, value, autoFocus, onChange, onAddOption }: { def: PropertyDef; value: PropValue; autoFocus: boolean; onChange: (v: PropValue) => void; onAddOption: (o: string) => void }) {
+export function Value({ def, value, autoFocus, onChange, onAddOption }: { def: PropertyDef; value: PropValue; autoFocus: boolean; onChange: (v: PropValue) => void; onAddOption: (o: string) => void }) {
   switch (def.type) {
     case 'checkbox':
       return (

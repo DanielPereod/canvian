@@ -58,6 +58,25 @@ describe('prefs', () => {
     expect((await call('PUT', '/api/prefs/lang', 'fr')).status).toBe(400);
   });
 
+  it('saves the views of each collection', async () => {
+    const view = {
+      id: 'v1',
+      name: 'Pendientes',
+      type: 'board',
+      filters: [{ id: 'f1', field: 'kind', op: 'isNot', value: 'canvas' }],
+      match: 'and',
+      sorts: [{ field: 'updated', dir: 'desc' }],
+      fields: ['title', 'updated'],
+      group: '01HZPROP',
+      date: null,
+    };
+    const views = { 'p1:root': { active: 'v1', views: [view] } };
+    expect((await call('PUT', '/api/prefs/views', views)).status).toBe(204);
+    expect(await (await call('GET', '/api/prefs')).json()).toEqual({ views });
+    expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [{ ...view, type: 'timeline' }] } })).status).toBe(400);
+    expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [] } })).status).toBe(400);
+  });
+
   it('rejects unknown prefs and bad values', async () => {
     expect((await call('PUT', '/api/prefs/password_hash', {})).status).toBe(404);
     // El laboratorio ya no existe: sus experimentos no se guardan.
