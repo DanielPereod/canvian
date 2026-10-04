@@ -13,18 +13,22 @@ import {
   KINDS,
   applyKind,
   blockAt,
-  canTurn,
-  colorBlock,
+  blockSelOf,
+  canTurnAll,
+  colorBlocks,
   colorName,
-  deleteBlock,
+  deleteBlocks,
   dragState,
-  duplicateBlock,
+  duplicateBlocks,
   endDrag,
   insertColumns,
   insertTable,
   kindOf,
-  moveBlock,
-  turnBlock,
+  liveBlocks,
+  moveBlocks,
+  selectBlocks,
+  selectedBlocks,
+  turnBlocks,
   type Block,
   type Kind,
 } from './blocks';
@@ -248,9 +252,9 @@ export function SlashMenu({ query, editor, onError, keys }: SlashProps) {
 // ── Menú del bloque (asa, o «Bloque» en el móvil) ─────────────────────
 // La nota en la que se escribe, para copiar enlaces a sus bloques.
 export type LinkTo = { note: { id: string; title: string }; onNotice?: (text: string) => void };
-type MenuProps = { editor: Editor; block: Block; at: { x: number; y: number }; onClose: () => void; above?: boolean; linkTo?: LinkTo };
+type MenuProps = { editor: Editor; blocks: Block[]; at: { x: number; y: number }; onClose: () => void; above?: boolean; linkTo?: LinkTo };
 
-export function BlockMenu({ editor, block, at, onClose, above, linkTo }: MenuProps) {
+export function BlockMenu({ editor, blocks, at, onClose, above, linkTo }: MenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<CSSProperties>({ left: at.x, top: at.y, visibility: 'hidden' });
   useLayoutEffect(() => {
@@ -282,21 +286,20 @@ export function BlockMenu({ editor, block, at, onClose, above, linkTo }: MenuPro
     };
   }, [editor, onClose]);
 
-  // El bloque tal como está ahora (pudo cambiar mientras el menú estaba abierto).
-  const live = () => {
-    const b = blockAt(editor.state.doc, block.pos);
-    return b && b.pos === block.pos && b.node.type === block.node.type ? b : null;
-  };
-  const act = (fn: (b: Block) => unknown) => () => {
-    const b = live();
+  // Los bloques tal como están ahora (pudieron cambiar con el menú abierto).
+  const act = (fn: (bs: Block[]) => unknown) => () => {
+    const bs = liveBlocks(editor.state.doc, blocks);
     onClose();
-    if (b) fn(b);
+    if (bs) fn(bs);
   };
   const view = editor.view;
+  const block = blocks[0];
+  const many = blocks.length > 1;
   const color = (block.node.attrs.color as string | null) ?? null;
-  const colorable = ['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList', 'taskList', 'listItem', 'taskItem', 'callout', 'toggle'].includes(block.node.type.name);
+  const colorable = blocks.some((b) => ['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList', 'taskList', 'listItem', 'taskItem', 'callout', 'toggle'].includes(b.node.type.name));
+  const turnable = canTurnAll(blocks);
   const current = (() => {
-    if (!canTurn(block)) return null;
+    if (!turnable || many) return null;
     const name = block.node.type.name;
     if (name === 'callout') return 'callout';
     if (name === 'toggle') return 'toggle';
@@ -310,12 +313,13 @@ export function BlockMenu({ editor, block, at, onClose, above, linkTo }: MenuPro
 
   return createPortal(
     <div ref={ref} className="bib-menu blk-menu" style={pos} role="menu" aria-label={t('Bloque')} onMouseDown={keep} onContextMenu={keep}>
-      {canTurn(block) && (
+      {many && <div className="bib-menu-head">{t('{n} bloques', { n: blocks.length })}</div>}
+      {turnable && (
         <>
           <div className="bib-menu-head">{t('Convertir en')}</div>
           <div className="blk-kinds">
             {KINDS.map((k) => (
-              <button key={k.kind} role="menuitemradio" aria-checked={current === k.kind} className={`blk-kind${current === k.kind ? ' is-on' : ''}`} onClick={act((b) => current !== k.kind && turnBlock(editor, b, k.kind))}>
+              <button key={k.kind} role="menuitemradio" aria-checked={current === k.kind} className={`blk-kind${current === k.kind ? ' is-on' : ''}`} onClick={act((bs) => current !== k.kind && turnBlocks(editor, bs, k.kind))}>
                 <span className="blk-kind-i" aria-hidden="true">
                   {k.icon}
                 </span>
@@ -330,11 +334,11 @@ export function BlockMenu({ editor, block, at, onClose, above, linkTo }: MenuPro
         <>
           <div className="bib-menu-head">{t('Color')}</div>
           <div className="blk-colors">
-            <button className={`blk-color is-default${!color ? ' is-on' : ''}`} title={t('Por defecto')} aria-label={t('Por defecto')} onClick={act((b) => colorBlock(view, b, null))}>
+            <button className={`blk-color is-default${!color ? ' is-on' : ''}`} title={t('Por defecto')} aria-label={t('Por defecto')} onClick={act((bs) => colorBlocks(view, bs, null))}>
               A
             </button>
             {COLORS.map((c) => (
-              <button key={c} className={`blk-color${color === c ? ' is-on' : ''}`} data-swatch={c} title={colorName(c)} aria-label={colorName(c)} onClick={act((b) => colorBlock(view, b, c))}>
+              <button key={c} className={`blk-color${color === c ? ' is-on' : ''}`} data-swatch={c} title={colorName(c)} aria-label={colorName(c)} onClick={act((bs) => colorBlocks(view, bs, c))}>
                 A
               </button>
             ))}
@@ -347,26 +351,26 @@ export function BlockMenu({ editor, block, at, onClose, above, linkTo }: MenuPro
                 data-swatch={`${c}-bg`}
                 title={t('Fondo {color}', { color: colorName(c).toLowerCase() })}
                 aria-label={t('Fondo {color}', { color: colorName(c).toLowerCase() })}
-                onClick={act((b) => colorBlock(view, b, `${c}-bg`))}
+                onClick={act((bs) => colorBlocks(view, bs, `${c}-bg`))}
               />
             ))}
           </div>
           <div className="bib-menu-sep" role="separator" />
         </>
       )}
-      {linkTo && 'blockId' in block.node.attrs && (
-        <MenuItem onClick={act((b) => copyBlockLink(view, b, linkTo.note) && linkTo.onNotice?.(t('Enlace al bloque copiado: pégalo en otra nota')))}>{t('Copiar enlace a este bloque')}</MenuItem>
+      {linkTo && !many && 'blockId' in block.node.attrs && (
+        <MenuItem onClick={act(([b]) => copyBlockLink(view, b, linkTo.note) && linkTo.onNotice?.(t('Enlace al bloque copiado: pégalo en otra nota')))}>{t('Copiar enlace a este bloque')}</MenuItem>
       )}
-      <MenuItem onClick={act((b) => duplicateBlock(view, b))} keys={`${MOD} D`}>
+      <MenuItem onClick={act((bs) => duplicateBlocks(view, bs))} keys={`${MOD} D`}>
         {t('Duplicar')}
       </MenuItem>
-      <MenuItem onClick={act((b) => moveBlock(view, b, -1))} keys={`${MOD} ⇧ ↑`}>
+      <MenuItem onClick={act((bs) => moveBlocks(view, bs, -1))} keys={`${MOD} ⇧ ↑`}>
         {t('Mover arriba')}
       </MenuItem>
-      <MenuItem onClick={act((b) => moveBlock(view, b, 1))} keys={`${MOD} ⇧ ↓`}>
+      <MenuItem onClick={act((bs) => moveBlocks(view, bs, 1))} keys={`${MOD} ⇧ ↓`}>
         {t('Mover abajo')}
       </MenuItem>
-      <MenuItem danger onClick={act((b) => deleteBlock(view, b))} keys={TOUCH ? undefined : t('Supr')}>
+      <MenuItem danger onClick={act((bs) => deleteBlocks(view, bs))} keys={TOUCH ? undefined : t('Supr')}>
         {t('Eliminar')}
       </MenuItem>
     </div>,
@@ -383,12 +387,35 @@ function MenuItem({ children, onClick, keys, danger }: { children: ReactNode; on
   );
 }
 
+// La imagen que acompaña al ratón al arrastrar varios bloques: todos juntos.
+function dragGhost(view: Editor['view'], run: Block[]): HTMLElement | null {
+  if (run.length < 2) return null;
+  const first = view.nodeDOM(run[0].pos);
+  if (!(first instanceof HTMLElement)) return null;
+  const ghost = document.createElement('div');
+  ghost.className = `${view.dom.className} blk-ghost`;
+  Object.assign(ghost.style, { position: 'fixed', top: '-10000px', left: '0', width: `${first.getBoundingClientRect().width}px`, pointerEvents: 'none' });
+  for (const b of run) {
+    const el = view.nodeDOM(b.pos);
+    if (el instanceof HTMLElement) ghost.appendChild(el.cloneNode(true));
+  }
+  // Los puntos de una lista, dentro de su lista, para que no pierdan la viñeta.
+  const parent = first.parentElement;
+  if (parent && /^(UL|OL)$/.test(parent.tagName)) {
+    const list = parent.cloneNode(false) as HTMLElement;
+    list.append(...ghost.childNodes);
+    ghost.appendChild(list);
+  }
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
 // ── El asa de cada bloque (ordenador) ─────────────────────────────────
 type Spot = { block: Block; left: number; top: number; box: { top: number; bottom: number; left: number } };
 
 export function BlockHandle({ editor, linkTo }: { editor: Editor; linkTo?: LinkTo }) {
   const [spot, setSpot] = useState<Spot | null>(null);
-  const [menu, setMenu] = useState<{ block: Block; at: { x: number; y: number } } | null>(null);
+  const [menu, setMenu] = useState<{ blocks: Block[]; at: { x: number; y: number } } | null>(null);
   const spotRef = useRef(spot);
   spotRef.current = spot;
 
@@ -400,7 +427,7 @@ export function BlockHandle({ editor, linkTo }: { editor: Editor; linkTo?: LinkT
     const update = () => {
       raf = 0;
       const view = editor.view;
-      if (!editor.isEditable || dragState.block || !view.dom.isConnected) return;
+      if (!editor.isEditable || dragState.blocks || !view.dom.isConnected) return;
       // Yendo del bloque hacia su asa (a la izquierda, a su altura) no se
       // cambia de bloque, aunque se pase por encima de la columna de al lado.
       const now0 = spotRef.current;
@@ -454,22 +481,36 @@ export function BlockHandle({ editor, linkTo }: { editor: Editor; linkTo?: LinkT
 
   if (TOUCH) return null;
 
+  // Con varios bloques seleccionados, el asa de uno de ellos lleva todos.
+  const runOf = (b: Block) => {
+    const run = selectedBlocks(editor.state);
+    return run.length > 1 && b.pos >= run[0].pos && b.pos < run[run.length - 1].pos + run[run.length - 1].node.nodeSize ? run : [b];
+  };
   const dragStart = (e: DragEvent) => {
     const s = spotRef.current;
     if (!s) return;
     const view = editor.view;
-    const sel = NodeSelection.create(view.state.doc, s.block.pos);
-    view.dispatch(view.state.tr.setSelection(sel));
-    const slice = sel.content();
+    const run = runOf(s.block);
+    selectBlocks(view, run);
+    const from = run[0].pos;
+    const to = run[run.length - 1].pos + run[run.length - 1].node.nodeSize;
+    const sel = run.length === 1 ? NodeSelection.create(view.state.doc, from) : null;
+    const slice = sel ? sel.content() : view.state.doc.slice(from, to);
     const { dom, text } = view.serializeForClipboard(slice);
     e.dataTransfer.clearData();
     e.dataTransfer.setData('text/html', dom.innerHTML);
     e.dataTransfer.setData('text/plain', text);
     e.dataTransfer.effectAllowed = 'copyMove';
-    const el = view.nodeDOM(s.block.pos);
-    if (el instanceof HTMLElement) e.dataTransfer.setDragImage(el, 0, 0);
-    (view as unknown as { dragging: unknown }).dragging = { slice, move: true, node: sel };
-    dragState.block = s.block;
+    const ghost = dragGhost(view, run);
+    if (ghost) {
+      e.dataTransfer.setDragImage(ghost, 0, 0);
+      setTimeout(() => ghost.remove());
+    } else {
+      const el = view.nodeDOM(from);
+      if (el instanceof HTMLElement) e.dataTransfer.setDragImage(el, 0, 0);
+    }
+    (view as unknown as { dragging: unknown }).dragging = sel ? { slice, move: true, node: sel } : { slice, move: true };
+    dragState.blocks = run;
     setMenu(null);
   };
   const dragEnd = () => {
@@ -482,10 +523,11 @@ export function BlockHandle({ editor, linkTo }: { editor: Editor; linkTo?: LinkT
     const s = spotRef.current;
     if (!s) return;
     const view = editor.view;
-    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, s.block.pos)));
+    const run = runOf(s.block);
+    selectBlocks(view, run);
     view.focus();
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setMenu({ block: s.block, at: { x: r.left, y: r.bottom + 4 } });
+    setMenu({ blocks: run, at: { x: r.left, y: r.bottom + 4 } });
   };
   // «+»: una línea nueva debajo, con el menú «/» ya abierto.
   const addBelow = () => {
@@ -532,7 +574,7 @@ export function BlockHandle({ editor, linkTo }: { editor: Editor; linkTo?: LinkT
           </div>,
           document.body,
         )}
-      {menu && <BlockMenu editor={editor} block={menu.block} at={menu.at} linkTo={linkTo} onClose={() => setMenu(null)} />}
+      {menu && <BlockMenu editor={editor} blocks={menu.blocks} at={menu.at} linkTo={linkTo} onClose={() => setMenu(null)} />}
     </>
   );
 }
@@ -555,7 +597,7 @@ export function FormatBar({ editor }: { editor: Editor }) {
   }, [editor]);
   const { state, view } = editor;
   const sel = state.selection;
-  const show = !TOUCH && !pressed && editor.isFocused && sel instanceof TextSelection && !sel.empty && !sel.$from.parent.type.spec.code;
+  const show = !TOUCH && !pressed && editor.isFocused && sel instanceof TextSelection && !sel.empty && !sel.$from.parent.type.spec.code && !blockSelOf(state);
   useEffect(() => {
     if (!show) setOpen(null);
   }, [show]);
@@ -649,7 +691,7 @@ export function FormatBar({ editor }: { editor: Editor }) {
 // ── Barra del móvil, encima del teclado ──────────────────────────────
 export function MobileBar({ editor, linkTo }: { editor: Editor; linkTo?: LinkTo }) {
   useEditorTick(editor);
-  const [menu, setMenu] = useState<{ block: Block; at: { x: number; y: number } } | null>(null);
+  const [menu, setMenu] = useState<{ blocks: Block[]; at: { x: number; y: number } } | null>(null);
   const [inset, setInset] = useState(0);
   useEffect(() => {
     const vv = window.visualViewport;
@@ -675,9 +717,9 @@ export function MobileBar({ editor, linkTo }: { editor: Editor; linkTo?: LinkTo 
     c().insertContent(before && !/\s/.test(before) ? ' /' : '/').run();
   };
   const blockMenu = () => {
-    const b = blockAt(editor.state.doc, editor.state.selection.from);
+    const bs = selectedBlocks(editor.state);
     const r = bar.current?.getBoundingClientRect();
-    if (b && r) setMenu({ block: b, at: { x: 8, y: r.top } });
+    if (bs.length && r) setMenu({ blocks: bs, at: { x: 8, y: r.top } });
   };
   const btn = (label: string, glyph: ReactNode, run: () => unknown, on = false, disabled = false) => (
     <button className={`mbar-btn${on ? ' is-on' : ''}`} onMouseDown={keep} onClick={() => void run()} aria-label={label} title={label} aria-pressed={on} disabled={disabled}>
@@ -698,7 +740,7 @@ export function MobileBar({ editor, linkTo }: { editor: Editor; linkTo?: LinkTo 
         {btn(t('Deshacer'), '↶', () => c().undo().run(), false, !editor.can().undo())}
         {btn(t('Cerrar el teclado'), '⌄', () => editor.commands.blur())}
       </div>
-      {menu && <BlockMenu editor={editor} block={menu.block} at={menu.at} above linkTo={linkTo} onClose={() => setMenu(null)} />}
+      {menu && <BlockMenu editor={editor} blocks={menu.blocks} at={menu.at} above linkTo={linkTo} onClose={() => setMenu(null)} />}
     </>,
     document.body,
   );
