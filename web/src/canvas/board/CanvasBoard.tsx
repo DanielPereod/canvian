@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -31,6 +31,9 @@ import { fileExt, fileSize, openFile, uploadMedia } from '../media';
 import { boardText, parseBoard, type Board, type BoardNode } from './board';
 import { constrain, fontSize, tidy, translate, type DrawColor, type DrawSize, type Drawing, type ShapeKind, type Tool } from './draw';
 import { DrawBar, DrawLayer, type Typing } from './Draw';
+import { BoardMenu, cardTint, type BoardMenuItem } from './BoardMenu';
+import { bodyToHtml, parseBody, splitTitle } from '../editor';
+import { markdownToDoc } from '../markdown';
 import { t } from '../../i18n';
 import './board.css';
 
@@ -46,6 +49,8 @@ type Data = {
   file?: string;
   // Nombre original de un archivo que no es imagen, vídeo ni audio.
   name?: string;
+  // Color de JSON Canvas: «1» a «6» o #rrggbb (ver BoardMenu.tsx).
+  color?: string;
   editing?: boolean;
 };
 
@@ -53,6 +58,23 @@ type Ctx = {
   rows: Map<string, NoteRow>;
   onOpenNote: (id: string) => void;
   setData: (id: string, data: Partial<Data>) => void;
+  // Clic dentro del texto de una tarjeta: enlaces y casillas.
+  onBodyClick: (e: ReactMouseEvent<HTMLElement>, cardId?: string) => void;
+};
+
+// Las tarjetas se leen como el resto de notas: su texto es Markdown.
+const mdHtml = (md: string) => bodyToHtml(JSON.stringify(markdownToDoc(md, false).doc));
+
+// Marca o desmarca la casilla número `n` («- [ ]») de un texto en Markdown.
+function toggleTask(md: string, n: number): string {
+  let i = -1;
+  return md.replace(/^(\s*(?:[-*+]|\d+[.)])\s+\[)([^\]])(\])/gm, (m, a: string, c: string, b: string) => (++i === n ? a + (c === ' ' ? 'x' : ' ') + b : m));
+}
+
+// La clase y el tinte de una tarjeta con color.
+const tinted = (color: string | undefined) => {
+  const c = cardTint(color);
+  return c ? { cls: ' has-color', style: { '--card-c': c } as CSSProperties } : { cls: '', style: undefined };
 };
 
 const SIZE = { text: { w: 260, h: 120 }, note: { w: 280, h: 140 }, file: { w: 320, h: 220 }, group: { w: 560, h: 380 } };
@@ -72,6 +94,8 @@ const handles = (
 function TextCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ctx }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const editing = !!data.editing;
+  const html = useMemo(() => (data.text?.trim() ? mdHtml(data.text) : ''), [data.text]);
+  const tint = tinted(data.color);
   useEffect(() => {
     if (editing) {
       const el = ref.current!;
@@ -80,7 +104,7 @@ function TextCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ct
     }
   }, [editing]);
   return (
-    <div className={`board-card board-text${selected ? ' is-selected' : ''}`} onDoubleClick={() => ctx.setData(id, { editing: true })}>
+    <div className={`board-card board-text${selected ? ' is-selected' : ''}${tint.cls}`} style={tint.style} onDoubleClick={() => ctx.setData(id, { editing: true })}>
       <NodeResizer isVisible={selected} minWidth={120} minHeight={48} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
       {handles}
       {editing ? (
@@ -97,8 +121,12 @@ function TextCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ct
             }
           }}
         />
+      ) : html ? (
+        <div className="board-text-body prose" onClick={(e) => ctx.onBodyClick(e, id)} dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
-        <div className="board-text-body">{data.text?.trim() ? data.text : <span className="faint">{t('Doble clic para escribir')}</span>}</div>
+        <div className="board-text-body">
+          <span className="faint">{t('Doble clic para escribir')}</span>
+        </div>
       )}
     </div>
   );
@@ -106,14 +134,27 @@ function TextCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ct
 
 function NoteCard({ data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ctx }) {
   const row = data.noteId ? ctx.rows.get(data.noteId) : undefined;
-  const body = row?.bodyText?.split('\n').slice(row.kind === 'canvas' ? 0 : 1).join(' ').trim();
+  // Una nota de texto se ve como en su hoja (sin el título, que va arriba);
+  // un canvas, con lo escrito en sus tarjetas.
+  const isText = !!row && row.kind !== 'canvas';
+  const html = useMemo(() => (isText ? bodyToHtml(JSON.stringify(splitTitle(parseBody(row!.bodyJson)).body)) : ''), [isText, row?.bodyJson]); // eslint-disable-line react-hooks/exhaustive-deps
+  const body = isText ? '' : row?.bodyText?.split('\n').join(' ').trim();
+  const tint = tinted(data.color);
   return (
-    <div className={`board-card board-note${selected ? ' is-selected' : ''}${row ? '' : ' is-missing'}`} onDoubleClick={() => row && ctx.onOpenNote(row.id)}>
+    <div
+      className={`board-card board-note${selected ? ' is-selected' : ''}${row ? '' : ' is-missing'}${tint.cls}`}
+      style={tint.style}
+      onDoubleClick={() => row && ctx.onOpenNote(row.id)}
+    >
       <NodeResizer isVisible={selected} minWidth={160} minHeight={60} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
       {handles}
       <span className="board-note-kind meta">{row?.kind === 'canvas' ? t('Canvas') : t('Nota')}</span>
       <strong className="board-note-title">{row ? row.title || t('Nota sin título') : t('Nota borrada')}</strong>
-      {body && <p className="board-note-body">{body}</p>}
+      {html ? (
+        <div className="board-note-body prose" onClick={(e) => ctx.onBodyClick(e)} dangerouslySetInnerHTML={{ __html: html }} />
+      ) : (
+        body && <p className="board-note-body is-plain">{body}</p>
+      )}
       {row && <span className="board-note-open meta">{t('Doble clic para abrir')}</span>}
     </div>
   );
@@ -121,6 +162,7 @@ function NoteCard({ data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ctx })
 
 function FileCard({ data, selected }: NodeProps<Node<Data>>) {
   const src = data.file ?? '';
+  const tint = tinted(data.color);
   const kind = /\.(mp4|webm|mov)$/i.test(src)
     ? 'video'
     : /\.(mp3|ogg|wav|weba|m4a|aac|flac)$/i.test(src)
@@ -131,7 +173,7 @@ function FileCard({ data, selected }: NodeProps<Node<Data>>) {
   if (kind === 'doc') {
     const name = data.name || src.split('/').pop() || t('Archivo');
     return (
-      <div className={`board-card board-doc${selected ? ' is-selected' : ''}`} onDoubleClick={() => openFile(src, name)} title={t('Doble clic para abrir')}>
+      <div className={`board-card board-doc${selected ? ' is-selected' : ''}${tint.cls}`} style={tint.style} onDoubleClick={() => openFile(src, name)} title={t('Doble clic para abrir')}>
         <NodeResizer isVisible={selected} minWidth={160} minHeight={56} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
         {handles}
         <span className="note-file-ext">{fileExt(name)}</span>
@@ -140,7 +182,7 @@ function FileCard({ data, selected }: NodeProps<Node<Data>>) {
     );
   }
   return (
-    <div className={`board-card board-file${selected ? ' is-selected' : ''}`}>
+    <div className={`board-card board-file${selected ? ' is-selected' : ''}${tint.cls}`} style={tint.style}>
       <NodeResizer isVisible={selected} minWidth={80} minHeight={48} keepAspectRatio={kind === 'image'} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
       {handles}
       {kind === 'image' ? (
@@ -155,8 +197,9 @@ function FileCard({ data, selected }: NodeProps<Node<Data>>) {
 }
 
 function GroupCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ctx }) {
+  const tint = tinted(data.color);
   return (
-    <div className={`board-group${selected ? ' is-selected' : ''}`}>
+    <div className={`board-group${selected ? ' is-selected' : ''}${tint.cls}`} style={tint.style}>
       <NodeResizer isVisible={selected} minWidth={160} minHeight={100} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
       <input
         className="board-group-label nodrag"
@@ -223,7 +266,10 @@ const toFlow = (b: Board) => {
     height: n.height,
     // Los grupos, detrás de todo.
     zIndex: n.type === 'group' ? -1 : 0,
-    data: n.type === 'text' ? { text: n.text } : n.type === 'note' ? { noteId: n.noteId } : n.type === 'file' ? { file: n.file, name: n.name } : { label: n.label },
+    data: {
+      ...(n.type === 'text' ? { text: n.text } : n.type === 'note' ? { noteId: n.noteId } : n.type === 'file' ? { file: n.file, name: n.name } : { label: n.label }),
+      ...(n.color ? { color: n.color } : {}),
+    },
   }));
   const edges: Edge[] = b.edges.map((e) => ({ id: e.id, source: e.fromNode, target: e.toNode, type: 'arrow', markerEnd: e.toEnd === 'none' ? undefined : ARROW }));
   return { nodes, edges };
@@ -232,7 +278,14 @@ const toFlow = (b: Board) => {
 const fromFlow = (nodes: Node<Data>[], edges: Edge[], drawings: Drawing[]): Board => ({
   type: 'canvas',
   nodes: nodes.map((n): BoardNode => {
-    const base = { id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y), width: Math.round(n.width ?? n.measured?.width ?? 200), height: Math.round(n.height ?? n.measured?.height ?? 100) };
+    const base = {
+      id: n.id,
+      x: Math.round(n.position.x),
+      y: Math.round(n.position.y),
+      width: Math.round(n.width ?? n.measured?.width ?? 200),
+      height: Math.round(n.height ?? n.measured?.height ?? 100),
+      ...(n.data.color ? { color: n.data.color } : {}),
+    };
     if (n.type === 'note') return { ...base, type: 'note', noteId: n.data.noteId! };
     if (n.type === 'file') return { ...base, type: 'file', file: n.data.file!, ...(n.data.name ? { name: n.data.name } : {}) };
     if (n.type === 'group') return { ...base, type: 'group', label: n.data.label ?? '' };
@@ -260,6 +313,53 @@ const isTyping = (el: EventTarget | null) => {
 };
 
 const ARROW = { type: MarkerType.ArrowClosed, width: 16, height: 16, color: 'var(--board-edge)' };
+
+// ── Orden: lo que va después en la lista se pinta encima ────────────
+
+type Order = 'front' | 'forward' | 'backward' | 'back';
+
+// Al frente o al fondo, del todo; adelante o atrás, un paso: justo encima (o
+// debajo) de lo siguiente que se le cruza, que es lo que se nota al mirar.
+function reorder<T extends { id: string }>(list: T[], ids: Set<string>, how: Order, near: (a: T, b: T) => boolean = () => true): T[] {
+  if (how === 'front') return [...list.filter((x) => !ids.has(x.id)), ...list.filter((x) => ids.has(x.id))];
+  if (how === 'back') return [...list.filter((x) => ids.has(x.id)), ...list.filter((x) => !ids.has(x.id))];
+  const out = list.slice();
+  if (how === 'forward') {
+    for (let i = out.length - 1; i >= 0; i--) {
+      const x = out[i];
+      if (!ids.has(x.id)) continue;
+      const j = out.findIndex((y, k) => k > i && !ids.has(y.id) && near(x, y));
+      if (j < 0) continue;
+      out.splice(i, 1);
+      out.splice(j, 0, x);
+    }
+  } else {
+    for (let i = 0; i < out.length; i++) {
+      const x = out[i];
+      if (!ids.has(x.id)) continue;
+      let j = -1;
+      for (let k = i - 1; k >= 0 && j < 0; k--) if (!ids.has(out[k].id) && near(x, out[k])) j = k;
+      if (j < 0) continue;
+      out.splice(i, 1);
+      out.splice(j, 0, x);
+    }
+  }
+  return out;
+}
+
+const rectOf = (n: Node) => ({ x: n.position.x, y: n.position.y, w: n.width ?? n.measured?.width ?? 0, h: n.height ?? n.measured?.height ?? 0 });
+// Dos tarjetas se tapan si se cruzan y están en la misma capa (los grupos van siempre detrás).
+const overlaps = (a: Node, b: Node) => {
+  if ((a.type === 'group') !== (b.type === 'group')) return false;
+  const r = rectOf(a);
+  const o = rectOf(b);
+  return r.x < o.x + o.w && o.x < r.x + r.w && r.y < o.y + o.h && o.y < r.y + r.h;
+};
+
+const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+const MOD = MAC ? '⌘' : 'Ctrl';
+
+type Menu = { x: number; y: number } & ({ kind: 'pane'; at: { x: number; y: number } } | { kind: 'nodes'; ids: string[] } | { kind: 'edge'; id: string } | { kind: 'shape'; id: string });
 
 // ── El lienzo ────────────────────────────────────────────────────────
 
@@ -353,6 +453,74 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const setData = useCallback((id: string, data: Partial<Data>) => {
     setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...data } } : n)));
   }, []);
+
+  // Enlaces y casillas dentro del texto de las tarjetas.
+  const onBodyClick = (e: ReactMouseEvent<HTMLElement>, cardId?: string) => {
+    const el = e.target as HTMLElement;
+    const wiki = el.closest<HTMLElement>('a[data-wikilink]');
+    if (wiki) {
+      e.preventDefault();
+      const name = (wiki.dataset.target ?? '').split(/[#|]/)[0].trim().toLowerCase();
+      const id = wiki.dataset.id || [...byId.values()].find((r) => (r.title ?? '').trim().toLowerCase() === name)?.id;
+      if (id) onOpenNote(id);
+      return;
+    }
+    const a = el.closest<HTMLAnchorElement>('a[href]');
+    if (a) {
+      e.preventDefault();
+      window.open(a.href, '_blank', 'noopener');
+      return;
+    }
+    if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+      // Las casillas de una nota enlazada se marcan en su hoja; las de una tarjeta, aquí.
+      if (!cardId) return e.preventDefault();
+      const n = [...e.currentTarget.querySelectorAll('input[type=checkbox]')].indexOf(el);
+      const text = (flow.getNode(cardId)?.data as Data | undefined)?.text;
+      if (n >= 0 && text != null) setData(cardId, { text: toggleTask(text, n) });
+    }
+  };
+
+  // ── Lo que hace el menú del clic derecho (y sus teclas) ─────────────
+  const [menu, setMenu] = useState<Menu | null>(null);
+  const selectedIds = () => new Set(flow.getNodes().filter((n) => n.selected).map((n) => n.id));
+  const selectAll = () => {
+    setSel(null);
+    setNodes((ns) => ns.map((n) => (n.selected ? n : { ...n, selected: true })));
+  };
+  // Sin tarjetas elegidas, lo que se ordena o duplica es el dibujo elegido.
+  const order = (ids: Set<string>, how: Order) => {
+    if (ids.size) setNodes((ns) => reorder(ns, ids, how, overlaps));
+    else if (sel) setDrawings((ds) => reorder(ds, new Set([sel]), how));
+  };
+  const duplicate = (ids: Set<string>) => {
+    if (!ids.size) {
+      const d = sel && drawingsRef.current.find((x) => x.id === sel);
+      if (!d) return;
+      const copy = { ...translate(d, 24, 24), id: ulid() };
+      setDrawings((ds) => [...ds, copy]);
+      setSel(copy.id);
+      return;
+    }
+    const twin = new Map<string, string>();
+    const copies = (flow.getNodes() as Node<Data>[])
+      .filter((n) => ids.has(n.id))
+      .map((n): Node<Data> => {
+        const id = ulid();
+        twin.set(n.id, id);
+        const { x, y, w, h } = rectOf(n);
+        return { id, type: n.type, position: { x: x + 32, y: y + 32 }, width: w, height: h, zIndex: n.zIndex, selected: true, data: { ...n.data, editing: false } };
+      });
+    // Las flechas entre lo duplicado se duplican con ello.
+    const arrows = flow
+      .getEdges()
+      .filter((e) => twin.has(e.source) && twin.has(e.target))
+      .map((e) => ({ ...e, id: ulid(), source: twin.get(e.source)!, target: twin.get(e.target)!, selected: false }));
+    setNodes((ns) => [...ns.map((n) => (n.selected ? { ...n, selected: false } : n)), ...copies]);
+    if (arrows.length) setEdges((es) => [...es, ...arrows]);
+  };
+  const paint = (ids: Set<string>, color: string | null) =>
+    setNodes((ns) => ns.map((n) => (ids.has(n.id) ? { ...n, data: { ...n.data, color: color ?? undefined } } : n)));
+  const remove = (ids: Set<string>) => void flow.deleteElements({ nodes: [...ids].map((id) => ({ id })) });
 
   // ── Dibujo ─────────────────────────────────────────────────────────
   const [tool, setTool] = useState<Tool>('select');
@@ -587,8 +755,13 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target) || document.querySelector('.inspector, .overlay')) return;
       const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+      const picked = selectedIds();
       if (mod && e.code === 'KeyZ') e.shiftKey ? redo() : undo();
       else if (mod && !e.shiftKey && e.code === 'KeyY') redo();
+      else if (mod && !e.shiftKey && e.code === 'KeyD' && (picked.size || sel)) duplicate(picked);
+      else if (mod && !e.shiftKey && e.code === 'KeyA') selectAll();
+      else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft') && (picked.size || sel))
+        order(picked, e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward');
       else if (e.key === 'Escape' && (sel || tool !== 'select')) sel ? setSel(null) : pickTool('select');
       else if ((e.key === 'Delete' || e.key === 'Backspace') && sel) {
         setDrawings((ds) => ds.filter((d) => d.id !== sel));
@@ -601,7 +774,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const ctx: Ctx = { rows: byId, onOpenNote, setData };
+  const ctx: Ctx = { rows: byId, onOpenNote, setData, onBodyClick };
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
   const nodeTypes = useMemo(
@@ -664,6 +837,72 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     return () => window.removeEventListener('paste', onPaste);
   });
 
+  const orderItems = (ids: Set<string>): BoardMenuItem[] => [
+    { label: t('Traer al frente'), key: `${MOD} ⇧ ]`, run: () => order(ids, 'front') },
+    { label: t('Traer adelante'), key: `${MOD} ]`, run: () => order(ids, 'forward') },
+    { label: t('Enviar atrás'), key: `${MOD} [`, run: () => order(ids, 'backward') },
+    { label: t('Enviar al fondo'), key: `${MOD} ⇧ [`, run: () => order(ids, 'back') },
+  ];
+  const menuItems = (m: Menu): BoardMenuItem[] => {
+    if (m.kind === 'pane')
+      return [
+        { label: t('Tarjeta aquí'), run: () => add('text', m.at, { editing: true }) },
+        { label: t('Nota aquí…'), run: () => onPickNote((id) => add('note', m.at, { noteId: id })) },
+        { label: t('Grupo aquí'), run: () => add('group', m.at, { label: '' }) },
+        null,
+        { label: t('Seleccionar todo'), key: `${MOD} A`, run: selectAll },
+        { label: t('Encuadrar'), run: () => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 }) },
+      ];
+    if (m.kind === 'edge') {
+      const e = edges.find((x) => x.id === m.id);
+      if (!e) return [];
+      return [
+        { label: t('Invertir dirección'), run: () => setEdges((es) => es.map((x) => (x.id === m.id ? { ...x, source: x.target, target: x.source } : x))) },
+        { label: e.markerEnd ? t('Quitar la punta') : t('Poner la punta'), run: () => setEdges((es) => es.map((x) => (x.id === m.id ? { ...x, markerEnd: x.markerEnd ? undefined : ARROW } : x))) },
+        null,
+        { label: t('Borrar'), key: t('Supr'), danger: true, run: () => void flow.deleteElements({ edges: [{ id: m.id }] }) },
+      ];
+    }
+    if (m.kind === 'shape') {
+      const none = new Set<string>();
+      return [
+        { label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(none) },
+        null,
+        ...orderItems(none),
+        null,
+        {
+          label: t('Borrar'),
+          key: t('Supr'),
+          danger: true,
+          run: () => {
+            setDrawings((ds) => ds.filter((d) => d.id !== m.id));
+            setSel(null);
+          },
+        },
+      ];
+    }
+    const ids = new Set(m.ids);
+    const one = m.ids.length === 1 ? nodes.find((n) => n.id === m.ids[0]) : undefined;
+    const doc = one?.type === 'file' && !/\.(png|jpe?g|gif|webp|avif|mp4|webm|mov|mp3|ogg|wav|weba|m4a|aac|flac)$/i.test(one.data.file ?? '');
+    return [
+      one?.type === 'text' ? { label: t('Editar'), run: () => setData(one.id, { editing: true }) } : null,
+      one?.type === 'note' && one.data.noteId && byId.has(one.data.noteId) ? { label: t('Abrir nota'), run: () => onOpenNote(one.data.noteId!) } : null,
+      one && doc ? { label: t('Abrir archivo'), run: () => openFile(one.data.file!, one.data.name || one.data.file!.split('/').pop() || '') } : null,
+      { label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(ids) },
+      null,
+      ...orderItems(ids),
+      null,
+      { label: t('Borrar'), key: t('Supr'), danger: true, run: () => remove(ids) },
+    ];
+  };
+  const menuColor = (m: Menu) => {
+    if (m.kind !== 'nodes') return undefined;
+    const ids = new Set(m.ids);
+    const picked = nodes.filter((n) => ids.has(n.id));
+    const value = picked.every((n) => n.data.color === picked[0]?.data.color) ? (picked[0]?.data.color ?? null) : null;
+    return { value, onPick: (c: string | null) => paint(ids, c) };
+  };
+
   return (
     <div
       ref={host}
@@ -675,6 +914,18 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
       onPointerMove={onDrawMove}
       onPointerUp={onDrawUp}
       onPointerCancel={onDrawUp}
+      // Clic derecho en un dibujo: su menú (las tarjetas, flechas y el vacío
+      // los lleva React Flow).
+      onContextMenuCapture={(e) => {
+        const id = (e.target as Element).closest?.('[data-draw-id]')?.getAttribute('data-draw-id');
+        if (!id || drawing) return;
+        e.preventDefault();
+        e.stopPropagation();
+        commitTyping();
+        deselectNodes();
+        setSel(id);
+        setMenu({ kind: 'shape', id, x: e.clientX, y: e.clientY });
+      }}
       onDragOver={(e) => {
         if ([...e.dataTransfer.types].includes('Files')) e.preventDefault();
       }}
@@ -703,6 +954,31 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
           if (e.detail === 2) add('text', flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }), { editing: true });
         }}
         onNodeClick={() => setSel(null)}
+        onNodeContextMenu={(e, n) => {
+          e.preventDefault();
+          setSel(null);
+          // Sobre algo no elegido, el menú es solo para eso.
+          const ids = n.selected ? nodes.filter((x) => x.selected).map((x) => x.id) : [n.id];
+          if (!n.selected) setNodes((ns) => ns.map((x) => (x.selected === (x.id === n.id) ? x : { ...x, selected: x.id === n.id })));
+          setMenu({ kind: 'nodes', ids, x: e.clientX, y: e.clientY });
+        }}
+        onSelectionContextMenu={(e, ns) => {
+          e.preventDefault();
+          setMenu({ kind: 'nodes', ids: ns.map((n) => n.id), x: e.clientX, y: e.clientY });
+        }}
+        onEdgeContextMenu={(e, edge) => {
+          e.preventDefault();
+          setEdges((es) => es.map((x) => (x.selected === (x.id === edge.id) ? x : { ...x, selected: x.id === edge.id })));
+          setMenu({ kind: 'edge', id: edge.id, x: e.clientX, y: e.clientY });
+        }}
+        onPaneContextMenu={(e) => {
+          e.preventDefault();
+          setSel(null);
+          setMenu({ kind: 'pane', at: flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }), x: e.clientX, y: e.clientY });
+        }}
+        // El orden de la lista manda: lo elegido no salta encima de lo demás.
+        elevateNodesOnSelect={false}
+        elevateEdgesOnSelect={false}
         // Dibujando, las tarjetas se quedan quietas y un dedo solo dibuja; el
         // lienzo se mueve con la rueda, con dos dedos o con el botón central
         // (eso lo lleva la capa de dibujo, no React Flow).
@@ -774,6 +1050,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         <span className="board-tools-sep" />
         <button onClick={() => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 })}>{t('Encuadrar')}</button>
       </nav>
+      {menu && <BoardMenu x={menu.x} y={menu.y} items={menuItems(menu)} color={menuColor(menu)} onClose={() => setMenu(null)} />}
     </div>
   );
 }
