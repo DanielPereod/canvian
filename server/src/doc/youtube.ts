@@ -1,5 +1,7 @@
 // Enlaces de YouTube: qué vídeo es, y si un texto pide verlo incrustado.
 
+import { splitAlt, splitSrc } from './image.js';
+
 export function youtubeId(url: string): { id: string; start: number } | null {
   let u: URL;
   try {
@@ -49,7 +51,11 @@ export type EmbedJson = { type: string; attrs: Record<string, unknown> };
 export function embedJson(ref: EmbedRef, id: string | null = null): EmbedJson | null {
   if ('note' in ref) return ref.note ? { type: 'noteEmbed', attrs: { id, target: ref.note } } : null;
   if (youtubeId(ref.url)) return { type: 'youtube', attrs: { src: ref.url } };
-  if (IMAGE_URL.test(ref.url) || ref.url.startsWith('/api/media/')) return { type: 'image', attrs: { src: ref.url, alt: ref.alt || null } };
+  const img = splitSrc(ref.url);
+  if (IMAGE_URL.test(img.src) || img.src.startsWith('/api/media/')) {
+    const { alt, width } = splitAlt(ref.alt);
+    return { type: 'image', attrs: { src: img.src, alt: alt || null, ...(width ? { width } : {}), ...(img.crop ? { crop: img.crop } : {}) } };
+  }
   if (isUrl(ref.url)) return { type: 'bookmark', attrs: { href: ref.url, title: ref.alt || null } };
   return null;
 }

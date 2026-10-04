@@ -1,5 +1,6 @@
 import { splitWiki, type JSONContent } from './json.js';
 import { embedJson, parseEmbed, youtubeMarkdown } from './youtube.js';
+import { imageMarkdown } from './image.js';
 
 // Markdown ↔ documento de Tiptap, lo justo para importar notas sueltas (o de
 // Obsidian) y exportar el lienzo a JSON Canvas. No pretende cubrir todo Markdown.
@@ -433,7 +434,7 @@ export function docToMarkdown(doc: JSONContent | null): string {
         return [line(rows[0]), line(rows[0].map(() => '---')), ...rows.slice(1).map(line)].join('\n');
       }
       case 'image':
-        return `![](${String(n.attrs?.src ?? '')})`;
+        return imageMarkdown(n.attrs);
       case 'video':
       case 'audio':
         return `[${n.type === 'video' ? 'Vídeo' : 'Audio'}](${String(n.attrs?.src ?? '')})`;

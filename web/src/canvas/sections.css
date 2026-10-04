@@ -113,6 +113,43 @@
 .prose audio.note-media { width: 100%; }
 .prose .note-media.ProseMirror-selectednode { outline: 2px solid var(--accent-line); outline-offset: 3px; }
 
+/* Imágenes con tamaño y recorte (image.ts): asas a los lados y un marco para recortar. */
+.prose .note-image { position: relative; width: fit-content; max-width: 100%; margin: 0.6em 0; }
+.prose .note-image-frame { position: relative; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-sunken); }
+.prose .note-image img { display: block; max-width: 100%; max-height: 70vh; object-fit: contain; margin: 0; border-radius: 0; }
+.prose .note-image.has-width img, .prose .note-image.is-cropping img { width: 100%; height: auto; max-height: none; }
+.prose .note-image.is-cropped img { position: absolute; max-width: none; max-height: none; height: auto; }
+.prose .note-image.ProseMirror-selectednode .note-image-frame { outline: 2px solid var(--accent-line); outline-offset: 3px; }
+.prose .note-image.is-cropping .note-image-frame { overflow: visible; outline: 0; }
+.note-image-handle {
+  position: absolute; top: 50%; width: 14px; height: 48px; max-height: 60%; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center; cursor: ew-resize; touch-action: none;
+  opacity: 0; transition: opacity var(--dur-fast); z-index: 1;
+}
+.note-image-handle::after { content: ''; width: 5px; height: 100%; border-radius: 999px; background: rgb(0 0 0 / 0.6); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.85); }
+.note-image-handle-l { left: 4px; }
+.note-image-handle-r { right: 4px; }
+.ProseMirror[contenteditable='true'] .note-image:hover > .note-image-handle,
+.ProseMirror[contenteditable='true'] .note-image.ProseMirror-selectednode > .note-image-handle,
+.note-image.is-busy > .note-image-handle { opacity: 1; }
+.note-image.is-cropping > .note-image-handle { display: none; }
+.prose .note-image .note-image-bar { opacity: 0; z-index: 2; }
+.prose .note-image:hover .note-image-bar, .prose .note-image.ProseMirror-selectednode .note-image-bar, .prose .note-image.is-cropping .note-image-bar { opacity: 1; }
+.note-image-bar button[hidden] { display: none; }
+.note-image-crop { position: absolute; inset: 0; touch-action: none; }
+.note-image-crop-shade { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.note-image-crop-shade > div { position: absolute; box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.55); }
+.note-image-crop-box { position: absolute; outline: 1px solid rgb(255 255 255 / 0.9); cursor: move; touch-action: none; }
+.note-image-crop-grip { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35); touch-action: none; }
+.grip-nw { left: 0; top: 0; cursor: nwse-resize; } .grip-n { left: 50%; top: 0; cursor: ns-resize; } .grip-ne { left: 100%; top: 0; cursor: nesw-resize; }
+.grip-w { left: 0; top: 50%; cursor: ew-resize; } .grip-e { left: 100%; top: 50%; cursor: ew-resize; }
+.grip-sw { left: 0; top: 100%; cursor: nesw-resize; } .grip-s { left: 50%; top: 100%; cursor: ns-resize; } .grip-se { left: 100%; top: 100%; cursor: nwse-resize; }
+@media (hover: none) {
+  .note-image-handle { width: 28px; }
+  .note-image-crop-grip { width: 24px; height: 24px; margin: -12px 0 0 -12px; }
+  .prose .note-image:not(.ProseMirror-selectednode):not(.is-cropping) .note-image-bar { opacity: 0; pointer-events: none; }
+}
+
 /* Vídeos de YouTube: en la nota, el reproductor; en las vistas previas, su miniatura. */
 .prose .note-youtube { position: relative; max-width: 720px; margin: 0.6em 0; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-sunken); }
 .prose .note-youtube iframe, .prose .note-youtube img { display: block; width: 100%; height: 100%; border: 0; object-fit: cover; }

@@ -1,5 +1,4 @@
 import { Extension, InputRule, Node, mergeAttributes } from '@tiptap/react';
-import Image from '@tiptap/extension-image';
 import { Fragment, Slice, type Node as PMNode, type Schema } from '@tiptap/pm/model';
 import { closeHistory } from '@tiptap/pm/history';
 import { Plugin, type Transaction } from '@tiptap/pm/state';
@@ -8,6 +7,7 @@ import { api } from '../api';
 import { locale, t } from '../i18n';
 import { caretBelow, placeBlock } from './links';
 import { embedJson, parseEmbed, youtubeId } from './youtube';
+import { NoteImage } from './image';
 
 export { youtubeId };
 
@@ -242,8 +242,8 @@ export const YouTubePaste = Extension.create({
 
 export const mediaNodes = [
   // Sin su regla de escribir ![](…): esa sintaxis la decide YouTubePaste (vídeo,
-  // imagen, ficha de la web o nota).
-  Image.extend({ addInputRules: () => [] }).configure({ allowBase64: false, HTMLAttributes: { class: 'note-media', loading: 'lazy' } }),
+  // imagen, ficha de la web o nota). Con tamaño y recorte (image.ts).
+  NoteImage.configure({ allowBase64: false }),
   player('video'),
   player('audio'),
   FileNode,

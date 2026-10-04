@@ -92,6 +92,11 @@ export const EN_NOTE: Record<string, string> = {
   'Descargar': 'Download',
   'Archivo': 'File',
   'Ver como enlace': 'Show as link',
+  // Imágenes: tamaño y recorte
+  'Recortar': 'Crop',
+  'Restablecer': 'Reset',
+  'Aplicar': 'Apply',
+  'Arrastra para cambiar el tamaño': 'Drag to resize',
   'Editar': 'Edit',
   'Ver incrustado': 'Embed',
   'Copiar enlace': 'Copy link',
