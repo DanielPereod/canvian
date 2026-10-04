@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { notes } from '../db/schema.js';
 import { toFtsQuery } from '../routes/canvas.js';
-import { addTaskItem, allTasks, changeTask, newTaskItem, setToday, type Task, type TaskStatus } from '../doc/tasks.js';
+import { addTaskItem, allTasks, changeTask, listedTasks, newTaskItem, setToday, type Task, type TaskStatus } from '../doc/tasks.js';
 import {
   INBOX,
   McpError,
@@ -411,7 +411,7 @@ export function createMcpServer(db: Db, hub?: Hub) {
       }
       const today = localDay();
       const until = addDays(today, days);
-      const tasks = allTasks(scope).filter((t) => {
+      const tasks = (note ? allTasks(scope) : listedTasks(scope)).filter((t) => {
         if (status === 'open' ? t.status === 'done' : status !== 'any' && t.status !== status) return false;
         if (tag && !t.tags.some((x) => x.toLowerCase() === tag.replace(/^#/, '').toLowerCase())) return false;
         if (when === 'today') return !!t.dueAt && t.dueAt <= today;
@@ -538,7 +538,7 @@ export function createMcpServer(db: Db, hub?: Hub) {
       const edited = visible
         .filter((n) => n.updatedAt >= sinceIso && n.createdAt < sinceIso)
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-      const tasks = allTasks(visible);
+      const tasks = listedTasks(visible);
       const done = tasks.filter((t) => t.status === 'done' && t.doneAt && t.doneAt >= since);
       const overdue = tasks.filter((t) => t.status !== 'done' && t.dueAt && t.dueAt < today);
       const dueSoon = tasks.filter((t) => t.status !== 'done' && t.dueAt && t.dueAt >= today && t.dueAt <= addDays(today, 7));

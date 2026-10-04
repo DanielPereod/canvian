@@ -7,7 +7,7 @@ import { dateFmt, daysUntil, dueLabel, localToday } from './dates';
 import { t } from '../i18n';
 import { actionFor, keyParts, keysBlocked, useKeymap, type ActionId } from '../keys';
 import { mergeTags } from './tags';
-import { allTasks, type Task, type TaskChange } from './tasks';
+import { listedTasks, type Task, type TaskChange } from './tasks';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { Resizer, useSideWidth } from './Resizer';
 import { DatePicker } from './DatePicker';
@@ -186,7 +186,7 @@ export function TasksView(p: Props) {
   };
   const homeOf = (r: Task) => byId.get(r.noteId);
 
-  const all = useMemo(() => allTasks(rows), [rows]);
+  const all = useMemo(() => listedTasks(rows), [rows]);
   const taskById = useMemo(() => new Map(all.map((t) => [t.id, t])), [all]);
   const active = useMemo(() => all.filter((r) => r.status !== 'done'), [all]);
   const done = useMemo(() => all.filter((r) => r.status === 'done'), [all]);

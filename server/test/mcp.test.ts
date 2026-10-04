@@ -118,6 +118,13 @@ describe('mcp', () => {
     const open = await tool(client, 'list_tasks');
     expect(open.tasks.map((t: { text: string }) => t.text)).toEqual(['Otra cosa']);
 
+    // Una nota excluida de Tareas no aporta sus casillas a la lista general.
+    const inbox = (await tool(client, 'get_note', { note: 'Tareas' })).id;
+    expect((await call('PATCH', `/api/notes/${inbox}`, { props: { noTasks: true } })).status).toBe(200);
+    expect((await tool(client, 'list_tasks')).tasks).toEqual([]);
+    expect((await tool(client, 'list_tasks', { note: 'Tareas' })).tasks).toHaveLength(1);
+    await call('PATCH', `/api/notes/${inbox}`, { props: {} });
+
     const activity = await tool(client, 'recent_activity');
     expect(activity.tasksDone).toHaveLength(2);
     expect(activity.created.map((n: { title: string }) => n.title)).toEqual(['Tareas']);

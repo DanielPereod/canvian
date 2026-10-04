@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
-import type { NoteInput, NoteRow, PropertyDef } from '../api';
+import { parseProps, type NoteInput, type NoteRow, type PropertyDef } from '../api';
 import { applyRemote, bodyToHtml, editingExtensions, extensions, joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from './editor';
 import { repairDoc, sourceOf, sourceToDoc } from './markdown';
 import { NoteProps } from './NoteProps';
 import { NoteCover } from './NoteCover';
 import { randomCover } from './cover';
-import { taskCount } from './tasks';
+import { NO_TASKS, taskCount, tasksExcluded } from './tasks';
 import { MediaUpload, YouTubePaste, attachFiles } from './media';
 import { editLink, embedLink, embedOf, linkAt, unlink, type LinkHit } from './links';
 import { setNoteSource } from './embeds';
@@ -726,6 +726,11 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     const words = (note.bodyText ?? '').split(/\s+/).filter(Boolean).length;
     const tasks = taskCount(note);
     const setCover = (cover: string | null) => onChange(note.id, { cover });
+    const noTasks = tasksExcluded(note);
+    const flipNoTasks = () => {
+      const { [NO_TASKS]: _old, ...rest } = parseProps(note.props);
+      onChange(note.id, { props: noTasks ? rest : { ...rest, [NO_TASKS]: true } });
+    };
     const items: SheetItem[] = [
       { label: t('Adjuntar archivos…'), title: t('PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto'), run: () => filePick.current?.click() },
       { label: t('Ver en nodos'), title: t('Esta nota en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
@@ -736,6 +741,11 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       null,
       { label: note.cover ? t('Quitar portada') : t('Añadir portada'), run: () => setCover(note.cover ? null : randomCover()) },
       { label: t('Propiedades'), run: () => onProps(note.id) },
+      {
+        label: noTasks ? t('Incluir en Tareas') : t('Excluir de Tareas'),
+        title: noTasks ? t('Sus tareas vuelven a salir en Tareas y en el calendario') : t('Sus tareas dejan de salir en Tareas y en el calendario (las notas de dentro no cambian)'),
+        run: flipNoTasks,
+      },
       { label: t('Mover a…'), title: t('Meterla dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
       { label: t('Enlazar con…'), run: onLink },
       { label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de ella'), keys: keysOf(keymap.archive), run: onArchive },

@@ -17,7 +17,7 @@ import { hasMedia, uploadMedia } from './media';
 import { emptyBoard, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
 import { INBOX, TasksView, rememberTasksView } from './TasksView';
-import { addTaskItem, allTasks, changeTask, contentOf, newTaskItem, removeTask, takeTask, type Task, type TaskChange } from './tasks';
+import { addTaskItem, changeTask, listedTasks, contentOf, newTaskItem, removeTask, takeTask, type Task, type TaskChange } from './tasks';
 import { mergeTags, splitTags } from './tags';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keyParts, keysBlocked, setView, useKeymap } from '../keys';
@@ -942,7 +942,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           : center !== null
             ? () => setCenter(center === LOOSE ? null : (family.parent.get(center) ?? null))
             : null;
-  const openTasksCount = useMemo(() => allTasks(rows).filter((t) => t.status !== 'done').length, [rows]);
+  const openTasksCount = useMemo(() => listedTasks(rows).filter((t) => t.status !== 'done').length, [rows]);
 
   return (
     <div
