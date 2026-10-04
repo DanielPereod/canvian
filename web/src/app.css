@@ -187,6 +187,17 @@
 .cal-set-fields .cal-set-urlfield { flex: 3 1 260px; }
 .cal-set-fields .set-button:disabled { opacity: 0.5; cursor: default; }
 
+/* Configuración › Asistentes IA */
+.ai-public { width: min(320px, 60vw); }
+.ai-clients { display: flex; flex-wrap: wrap; gap: 4px; margin-top: var(--space-3); }
+.ai-clients button { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: var(--text-sm); color: var(--text-faint); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
+.ai-clients button:hover { color: var(--text); }
+.ai-clients button.is-on { background: var(--surface-sunken); border-color: var(--line-strong); color: var(--text); }
+.ai-where { margin-top: var(--space-3); }
+.ai-code { position: relative; margin-top: var(--space-2); }
+.ai-code pre { margin: 0; padding: var(--space-3) 88px var(--space-3) var(--space-3); background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text); white-space: pre-wrap; word-break: break-all; }
+.ai-copy { position: absolute; top: 8px; right: 8px; }
+
 /* Muestra de las letras elegidas en Configuración › Aspecto */
 .set-row-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .type-sample { margin-top: var(--space-3); padding: var(--space-4) var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-sunken); display: flex; flex-direction: column; gap: var(--space-3); }

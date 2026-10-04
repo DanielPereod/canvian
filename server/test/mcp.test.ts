@@ -51,7 +51,9 @@ describe('mcp', () => {
   it('needs the token', async () => {
     const res = await app.request('/mcp/otra', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
     expect(res.status).toBe(401);
-    expect(await (await call('GET', '/api/mcp')).json()).toEqual({ enabled: true, fromEnv: false });
+    expect(await (await call('GET', '/api/mcp')).json()).toEqual({ enabled: true, fromEnv: false, token, publicUrl: null });
+    expect((await call('PUT', '/api/mcp/public-url', { url: 'ftp://x' })).status).toBe(400);
+    expect((await (await call('PUT', '/api/mcp/public-url', { url: 'https://notas.example.org/' })).json()).publicUrl).toBe('https://notas.example.org');
     await call('DELETE', '/api/mcp/token');
     await expect(connect(token)).rejects.toThrow();
   });

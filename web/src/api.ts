@@ -82,6 +82,8 @@ export type LayoutItem = {
   zoneId?: string | null;
 };
 
+export type McpStatus = { enabled: boolean; fromEnv: boolean; token: string | null; publicUrl: string | null };
+
 export type SearchHit = { id: string; title: string | null; bodyText: string | null; kind: NoteKind };
 
 // Lo que se envía al servidor: igual que una fila pero con `props` como objeto.
@@ -192,7 +194,8 @@ export const api = {
   deleteLens: (id: string) => request('DELETE', `/lenses/${id}`),
   calendarEvents: (from: string, to: string, fresh = false) =>
     request<{ events: CalEvent[]; errors: Record<string, string> }>('GET', `/calendars/events?from=${from}&to=${to}${fresh ? '&fresh=1' : ''}`),
-  mcpStatus: () => request<{ enabled: boolean; fromEnv: boolean }>('GET', '/mcp'),
+  mcpStatus: () => request<McpStatus>('GET', '/mcp'),
+  setMcpPublicUrl: (url: string | null) => request<McpStatus>('PUT', '/mcp/public-url', { url }),
   createMcpToken: () => request<{ token: string }>('POST', '/mcp/token'),
   revokeMcpToken: () => request('DELETE', '/mcp/token'),
   search: (profileId: string, q: string) =>

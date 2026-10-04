@@ -31,7 +31,7 @@ npm start        # sirve todo desde :3210
 | `server/` | Hono + better-sqlite3 + Drizzle. Esquema en `src/db/schema.ts`, migraciones en `drizzle/` (se generan con `npm run db:generate -w server`) y se aplican al arrancar. |
 | `web/`    | React 19 + Vite. La interfaz es una biblioteca (`web/src/canvas/Biblioteca.tsx`): barra lateral con el árbol de notas, la colección en lista, portadas o nodos, y un lector con su panel de detalles. |
 
-Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (los archivos adjuntos a las notas: imágenes, vídeo, audio, PDF, documentos…; por defecto `media/` junto a la base, así que en Docker también quedan en el volumen `/data`), `CANVIAN_WEB_DIR` (por defecto `web/dist`), `CANVIAN_MCP_TOKEN` (llave fija para el MCP, en vez de crearla en Configuración › Claude) y `TZ` (la zona horaria: decide qué es «hoy» para las tareas que pide Claude).
+Variables: `PORT` (3210), `CANVIAN_DB` (`./data/canvian.db`), `CANVIAN_MEDIA` (los archivos adjuntos a las notas: imágenes, vídeo, audio, PDF, documentos…; por defecto `media/` junto a la base, así que en Docker también quedan en el volumen `/data`), `CANVIAN_WEB_DIR` (por defecto `web/dist`), `CANVIAN_MCP_TOKEN` (llave fija para el MCP, en vez de crearla en Configuración › Asistentes IA) y `TZ` (la zona horaria: decide qué es «hoy» para las tareas que pide Claude).
 
 ## Datos de ejemplo
 
@@ -61,9 +61,7 @@ Al actualizar desde una versión en la que las tareas eran notas, el servidor la
 
 Canvian lleva un servidor MCP en `/mcp` para que Claude lea y escriba tus notas: buscar y leer notas, crearlas y editarlas en Markdown (con `[[enlaces]]`), listar, añadir y completar tareas, mover, archivar y poner propiedades, y un resumen de la actividad reciente. Respeta los perfiles.
 
-1. En Configuración › Claude, pulsa «Crear enlace» y cópialo (solo se enseña una vez).
-2. En claude.ai: Configuración › Conectores › Añadir conector personalizado, y pega el enlace con tu dirección pública (por ejemplo `https://canvian.example.org/mcp/<llave>`). Claude tiene que llegar al servidor por internet con https.
-3. En Claude Code: `claude mcp add --transport http canvian https://…/mcp/<llave>`.
+En Configuración › Asistentes IA, pulsa «Crear enlace», pon tu dirección pública (los asistentes en la nube tienen que llegar al servidor por internet con https) y copia la configuración del cliente que uses: Claude (claude.ai y Claude Code), ChatGPT, Codex, OpenCode, Gemini CLI, Cursor, VS Code u otro.
 
 La llave también vale como cabecera `Authorization: Bearer <llave>` en `/mcp`. Crear otra invalida la anterior.
 
