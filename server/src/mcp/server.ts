@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { notes } from '../db/schema.js';
 import { toFtsQuery } from '../routes/canvas.js';
-import { addTaskItem, allTasks, changeTask, listedTasks, newTaskItem, setToday, type Task, type TaskStatus } from '../doc/tasks.js';
+import { addTaskItem, allTasks, changeTask, listedTasks, newTaskItem, parseRecur, recurs, recurText, setToday, type Task, type TaskStatus } from '../doc/tasks.js';
 import {
   INBOX,
   McpError,
@@ -52,7 +52,7 @@ const addDays = (day: string, n: number) => {
 const INSTRUCTIONS = `Canvian es la app de notas de Dani (en español). Cómo funciona:
 - Todo son notas. Una nota puede estar dentro de otra (su «madre»); las rutas se escriben «Casa > Reformas > Baño».
 - El texto de las notas se lee y escribe en Markdown (estilo Obsidian): [[Otra nota]] enlaza notas, ==resaltado==, > [!note] avisos.
-- Las tareas no son notas: son las casillas «- [ ] texto» dentro de las notas. Detrás del texto llevan «📅 AAAA-MM-DD» (fecha), «⏫ 🔼 🔽» (prioridad alta/media/baja), «#etiqueta» y, hechas, «✅ AAAA-MM-DD». «[/]» es en curso y «[!]» bloqueada. Una casilla sangrada bajo otra es su subtarea.
+- Las tareas no son notas: son las casillas «- [ ] texto» dentro de las notas. Detrás del texto llevan «📅 AAAA-MM-DD» (fecha), «⏫ 🔼 🔽» (prioridad alta/media/baja), «#etiqueta», «🔁 every week» si se repite (como en Obsidian Tasks) y, hechas, «✅ AAAA-MM-DD». Al hacer una que se repite se apunta encima la siguiente vez, con su fecha. «[/]» es en curso y «[!]» bloqueada. Una casilla sangrada bajo otra es su subtarea.
 - Lo que se apunta sin decir dónde va a la nota «${INBOX}».
 - Hay perfiles (por ejemplo Personal y Trabajo) que no se mezclan; sin indicar ninguno se usa el primero.
 - Archivar oculta una nota (y lo que tiene dentro) sin borrarla.
@@ -64,6 +64,17 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha AAAA-MM-DD');
 const STATUS = ['todo', 'doing', 'blocked', 'done'] as const;
 const PRIORITY = { none: 0, low: 1, medium: 2, high: 3 } as const;
 const priorityArg = z.enum(['none', 'low', 'medium', 'high']);
+// «every week» y compañía (Obsidian Tasks); se guarda escrita como la entiende Obsidian.
+const repeatArg = z
+  .string()
+  .trim()
+  .max(80)
+  .describe('Cada cuánto se repite, en inglés como en Obsidian Tasks: every day, every 2 weeks, every week on Monday, Friday, every weekday, every month on the 15th, every month on the last, every year; «when done» al final cuenta desde que se hace.');
+function recurArg(rule: string): string {
+  const r = parseRecur(rule);
+  if (!r) throw new McpError(`No entiendo «${rule}» como repetición. Prueba «every week» o «every 2 days».`);
+  return recurText(r);
+}
 const priorityName = (p: number) => (['none', 'low', 'medium', 'high'] as const)[p] ?? 'none';
 
 type Hub = { publish: (e: { scope: 'canvas'; client: string | null }) => void };
@@ -108,6 +119,7 @@ export function createMcpServer(db: Db, hub?: Hub) {
     ...(t.dueAt ? { due: t.dueAt } : {}),
     ...(t.priority ? { priority: priorityName(t.priority) } : {}),
     ...(t.tags.length ? { tags: t.tags } : {}),
+    ...(t.repeat ? { repeat: t.repeat } : {}),
     ...(t.doneAt ? { done: t.doneAt } : {}),
     ...(t.parentId ? { subtaskOf: t.parentId } : {}),
     note: byId.get(t.noteId) ? pathOf(byId, byId.get(t.noteId)!) : t.noteId,
@@ -434,14 +446,17 @@ export function createMcpServer(db: Db, hub?: Hub) {
         text: z.string().trim().min(1).max(1000).describe('El texto (Markdown en línea; puede llevar [[enlaces]] y #etiquetas).'),
         due: day.optional(),
         priority: priorityArg.optional(),
+        repeat: repeatArg.optional(),
         note: z.string().optional().describe(`La nota donde va (id, título o ruta). Por defecto «${INBOX}».`),
         subtask_of: z.string().optional().describe('Id de la tarea de la que es subtarea (de list_tasks).'),
         profile: profileArg,
       },
     },
-    run(({ text: source, due, priority, note, subtask_of, profile }) => {
+    run(({ text: source, due, priority, repeat, note, subtask_of, profile }) => {
       const { profile: p, all, byId } = ctx(profile);
-      const item = newTaskItem(source, { dueAt: due ?? null, priority: priority ? PRIORITY[priority] : 0 });
+      const rule = repeat ? recurArg(repeat) : null;
+      // Lo que se repite necesita una fecha desde la que contar: hoy, si no se da otra.
+      const item = newTaskItem(source, { dueAt: due ?? (rule ? localDay() : null), priority: priority ? PRIORITY[priority] : 0, repeat: rule });
       let host: Note | undefined;
       let under: Task | undefined;
       if (subtask_of) {
@@ -482,35 +497,43 @@ export function createMcpServer(db: Db, hub?: Hub) {
     'update_task',
     {
       title: 'Cambiar tarea',
-      description: 'Marca una tarea como hecha (o en curso, bloqueada, pendiente), le cambia la fecha, la prioridad, las etiquetas o el texto. Hecha una tarea, se hacen sus subtareas.',
+      description:
+        'Marca una tarea como hecha (o en curso, bloqueada, pendiente), le cambia la fecha, la prioridad, la repetición, las etiquetas o el texto. Hecha una tarea, se hacen sus subtareas; si se repite, se apunta la siguiente vez (sale en `next`).',
       inputSchema: {
         task: z.string().min(3).describe('Id de la tarea (de list_tasks o get_note).'),
         status: z.enum(STATUS).optional(),
         due: day.nullable().optional().describe('null quita la fecha.'),
         priority: priorityArg.optional(),
+        repeat: repeatArg.nullable().optional().describe('null (o "") deja de repetirla.'),
         tags: z.array(z.string()).optional().describe('Las etiquetas que debe tener (sustituye las que tenía).'),
         text: z.string().trim().min(1).max(1000).optional().describe('Texto nuevo (sin fecha ni prioridad).'),
         profile: profileArg,
       },
     },
-    run(({ task, status, due, priority, tags, text: source, profile }) => {
+    run(({ task, status, due, priority, repeat, tags, text: source, profile }) => {
       const { profile: p, all, byId } = ctx(profile);
       const t = findTask(all, task);
       const row = byId.get(t.noteId)!;
-      const doc = changeTask(row, t, {
+      const rule = repeat === undefined ? undefined : repeat ? recurArg(repeat) : null;
+      const change = {
         ...(status ? { status: status as TaskStatus } : {}),
-        ...(due !== undefined ? { dueAt: due } : {}),
+        ...(due !== undefined ? { dueAt: due } : rule && !t.dueAt ? { dueAt: localDay() } : {}),
+        ...(rule !== undefined ? { repeat: rule } : {}),
         ...(priority ? { priority: PRIORITY[priority] } : {}),
         ...(tags ? { tags: tags.map((x) => x.replace(/^#/, '')) } : {}),
         ...(source !== undefined ? { source } : {}),
-      });
+      };
+      const again = recurs(t, change);
+      const doc = changeTask(row, t, change);
       if (!doc) throw new McpError('Esa tarea ya no está en su nota.');
       linkWikis(db, p.id, row.id, doc);
       const saved = saveNote(db, row.id, contentOf(doc));
       byId.set(saved.id, saved);
       changed();
-      const now = allTasks([saved])[t.n];
-      return data({ updated: taskOut(byId, now) });
+      const after = allTasks([saved]);
+      // La siguiente vez queda encima: con su número, y la hecha en el siguiente.
+      if (again) return data({ updated: taskOut(byId, after[t.n + 1]), next: taskOut(byId, after[t.n]) });
+      return data({ updated: taskOut(byId, after[t.n]) });
     }),
   );
 

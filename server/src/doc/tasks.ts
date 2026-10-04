@@ -1,5 +1,8 @@
 import { parseBody, titleFrom, type JSONContent } from './json.js';
 import { docText, inlineFromMd, inlineToMd } from './markdown.js';
+import { nextDue, parseRecur } from './recur.js';
+
+export * from './recur.js';
 
 // Las tareas no son notas: son las casillas «- [ ]» que hay dentro de las
 // notas, y una casilla sangrada bajo otra es su subtarea. Aquí se leen del
@@ -9,6 +12,8 @@ import { docText, inlineFromMd, inlineToMd } from './markdown.js';
 //   - [ ] Llamar al banco #casa 📅 2026-10-02 ⏫ ✅ 2026-10-01
 // «📅» es la fecha, «⏫ 🔼 🔽» la prioridad (alta, media, baja), «✅» cuándo se
 // hizo y «#palabra» una etiqueta. «[/]» es en curso y «[!]» bloqueada.
+// «🔁 every week» la repite (ver recur.ts): al hacerla, se apunta encima otra
+// igual con la fecha siguiente.
 
 export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
 /** Lo que hace falta de una nota para leer y cambiar sus tareas. */
@@ -27,6 +32,8 @@ export type Task = {
   priority: number;
   dueAt: string | null;
   doneAt: string | null;
+  /** La regla de repetición, tal cual («every week»), o null. */
+  repeat: string | null;
   tags: string[];
   /** La tarea de la que es subtarea (o null). */
   parentId: string | null;
@@ -39,6 +46,8 @@ export type TaskChange = {
   status?: TaskStatus;
   priority?: number;
   dueAt?: string | null;
+  /** «every week»; null deja de repetirla. */
+  repeat?: string | null;
   tags?: string[];
   /** Texto nuevo, en Markdown (sin fecha ni prioridad). */
   source?: string;
@@ -50,6 +59,8 @@ const DUE = new RegExp(String.raw`\s*📅️?\s*${DATE}`, 'gu');
 const DONE = new RegExp(String.raw`\s*✅️?\s*${DATE}`, 'gu');
 const PRIO = /\s*(🔺|⏫|🔼|🔽|⏬)️?/gu;
 const TAG = /(^|\s)#([\p{L}\p{N}_-]+)/gu;
+// «🔁 every week»: la regla llega hasta la siguiente marca, etiqueta o el final.
+const RECUR = /\s*🔁️?\s*((?:[^📅✅⏫🔼🔽⏬🔺🛫⏳➕#\n]*[^📅✅⏫🔼🔽⏬🔺🛫⏳➕#\s])?)/gu;
 const PRIO_OF: Record<string, number> = { '🔺': 3, '⏫': 3, '🔼': 2, '🔽': 1, '⏬': 1 };
 export const PRIO_MARK = ['', '🔽', '🔼', '⏫'];
 
@@ -59,7 +70,7 @@ const first = (re: RegExp, text: string) => {
 };
 const tidy = (text: string) => text.replace(/\s+/g, ' ').trim();
 // El texto sin fecha, prioridad, etiquetas ni «hecha el».
-const bare = (text: string) => tidy(text.replace(DUE, '').replace(DONE, '').replace(PRIO, '').replace(TAG, '$1'));
+const bare = (text: string) => tidy(text.replace(RECUR, '').replace(DUE, '').replace(DONE, '').replace(PRIO, '').replace(TAG, '$1'));
 
 function tagsIn(text: string) {
   const out: string[] = [];
@@ -103,6 +114,7 @@ export function tasksOf(row: NoteRow): Task[] {
         priority: PRIO_OF[first(PRIO, text)?.[1] ?? ''] ?? 0,
         dueAt: first(DUE, text)?.[1] ?? null,
         doneAt: checked ? (first(DONE, text)?.[1] ?? null) : null,
+        repeat: first(RECUR, text)?.[1] || null,
         tags,
         parentId: parent?.id ?? null,
         depth,
@@ -180,8 +192,8 @@ export function setToday(fn: () => string) {
 }
 
 // «#a #b 📅 … ⏫ ✅ …»: lo que va detrás del texto al escribir una tarea entera.
-function tail(t: { tags: string[]; dueAt?: string | null; priority?: number; doneAt?: string | null }) {
-  return [...t.tags.map((x) => `#${x}`), t.dueAt ? `📅 ${t.dueAt}` : '', PRIO_MARK[t.priority ?? 0], t.doneAt ? `✅ ${t.doneAt}` : ''].filter(Boolean).join(' ');
+function tail(t: { tags: string[]; repeat?: string | null; dueAt?: string | null; priority?: number; doneAt?: string | null }) {
+  return [...t.tags.map((x) => `#${x}`), t.repeat ? `🔁 ${t.repeat}` : '', t.dueAt ? `📅 ${t.dueAt}` : '', PRIO_MARK[t.priority ?? 0], t.doneAt ? `✅ ${t.doneAt}` : ''].filter(Boolean).join(' ');
 }
 
 function paragraphOf(source: string, meta: Parameters<typeof tail>[0]): JSONContent {
@@ -204,7 +216,49 @@ function finishKids(nodes: JSONContent[]) {
   }
 }
 
-function changeItem(item: JSONContent, task: Task, change: TaskChange) {
+// La casilla de la siguiente vez de una tarea que se repite: la misma línea,
+// sin hacer y con la fecha que le toca (null si no se repite o no se entiende).
+function nextItem(item: JSONContent): JSONContent | null {
+  const para = item.content?.[0];
+  if (para?.type !== 'paragraph') return null;
+  const next = nextParagraph(para);
+  if (!next) return null;
+  const { status: _s, checked: _c, ...attrs } = item.attrs ?? {};
+  return { type: 'taskItem', attrs: { ...attrs, checked: false }, content: [next] };
+}
+
+/** El párrafo de la siguiente vez de una tarea que se repite (sin «✅» y con la fecha nueva), o null. */
+export function nextParagraph(para: JSONContent): JSONContent | null {
+  const text = plain(para.content);
+  const rule = parseRecur(first(RECUR, text)?.[1] ?? '');
+  if (!rule) return null;
+  const due = first(DUE, text)?.[1] ?? null;
+  const when = nextDue(rule, due, today());
+  let content = stripNodes(clone({ content: para.content ?? [] }).content ?? [], DONE);
+  let put = false;
+  // La fecha se cambia donde estaba; si no tenía, va al final.
+  content = content.map((c) => {
+    if (put || c.type !== 'text' || !c.text) return c;
+    const r = new RegExp(DUE.source, 'u');
+    if (!r.test(c.text)) return c;
+    put = true;
+    return { ...c, text: c.text.replace(r, (m) => m.replace(/\d{4}-\d{2}-\d{2}/, when)) };
+  });
+  if (!put) content = appendText(content, ` 📅 ${when}`);
+  content = content.filter((c) => c.type !== 'text' || c.text);
+  return { ...para, content };
+}
+
+/** El párrafo con «✅ hoy» al final (en vez del que tuviera). */
+export function stampDone(para: JSONContent): JSONContent {
+  return { ...para, content: appendText(stripNodes(para.content ?? [], DONE), ` ✅ ${today()}`) };
+}
+
+/** Si, con este cambio, la tarea se hace y se repite (y entonces sale otra). */
+export const recurs = (task: Task, change: TaskChange) =>
+  change.status === 'done' && task.status !== 'done' && !!parseRecur(change.repeat !== undefined ? (change.repeat ?? '') : (task.repeat ?? ''));
+
+function changeItem(item: JSONContent, task: Task, change: TaskChange): JSONContent | null {
   const rest = (item.content ?? []).slice(1);
   if (change.status === 'done' && task.status !== 'done') finishKids(rest);
   if (change.status) {
@@ -217,12 +271,13 @@ function changeItem(item: JSONContent, task: Task, change: TaskChange) {
     const typed = new Set(tagsIn(change.source).map((t) => t.toLowerCase()));
     const meta = {
       tags: (change.tags ?? task.tags).filter((t) => !typed.has(t.toLowerCase())),
+      repeat: change.repeat !== undefined ? change.repeat : task.repeat,
       dueAt: change.dueAt !== undefined ? change.dueAt : task.dueAt,
       priority: change.priority ?? task.priority,
       doneAt: done ? (task.doneAt ?? today()) : null,
     };
     item.content = [paragraphOf(change.source, meta), ...rest];
-    return;
+    return recurs(task, change) ? nextItem(item) : null;
   }
   // Si no, solo se toca lo que cambia, sin mover el resto de la línea.
   const para = item.content?.[0]?.type === 'paragraph' ? item.content[0] : { type: 'paragraph' };
@@ -234,6 +289,10 @@ function changeItem(item: JSONContent, task: Task, change: TaskChange) {
   if (change.dueAt !== undefined) {
     content = stripNodes(content, DUE);
     if (change.dueAt) content = appendText(content, ` 📅 ${change.dueAt.slice(0, 10)}`);
+  }
+  if (change.repeat !== undefined) {
+    content = stripNodes(content, RECUR);
+    if (change.repeat?.trim()) content = appendText(content, ` 🔁 ${change.repeat.trim()}`);
   }
   if (change.priority !== undefined) {
     content = stripNodes(content, PRIO);
@@ -255,16 +314,22 @@ function changeItem(item: JSONContent, task: Task, change: TaskChange) {
   if (content[0]?.type === 'text') content[0] = { ...content[0], text: (content[0].text ?? '').trimStart() };
   content = content.filter((c) => c.type !== 'text' || c.text);
   item.content = [content.length ? { ...para, content } : { type: 'paragraph' }, ...rest];
+  return recurs(task, change) ? nextItem(item) : null;
 }
 
-/** El documento con la tarea cambiada (o null si ya no está). */
+/**
+ * El documento con la tarea cambiada (o null si ya no está). Si se hace una
+ * tarea que se repite, encima queda la siguiente vez: esa ocupa su número
+ * y la hecha pasa al siguiente.
+ */
 export function changeTask(row: NoteRow, task: Task, change: TaskChange): JSONContent | null {
   const doc = parseBody(row.bodyJson);
   if (!doc) return null;
   const next = clone(doc);
   const at = locate(next, task.n);
   if (!at) return null;
-  changeItem(at.item, task, change);
+  const again = changeItem(at.item, task, change);
+  if (again) at.list.content!.splice(at.index, 0, again);
   return next;
 }
 
@@ -302,7 +367,7 @@ export function takeTask(row: NoteRow, task: Task): { doc: JSONContent; item: JS
 }
 
 /** Una casilla nueva a partir de lo que se escribe («Llamar #casa»). */
-export function newTaskItem(source: string, meta: { dueAt?: string | null; priority?: number } = {}): JSONContent {
+export function newTaskItem(source: string, meta: { dueAt?: string | null; priority?: number; repeat?: string | null } = {}): JSONContent {
   return { type: 'taskItem', attrs: { checked: false }, content: [paragraphOf(source, { tags: [], ...meta })] };
 }
 
