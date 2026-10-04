@@ -162,6 +162,40 @@ export const EN_APP: Record<string, string> = {
   'Llave del MCP no válida': 'Invalid MCP key',
   'La llave viene de CANVIAN_MCP_TOKEN': 'The key comes from CANVIAN_MCP_TOKEN',
 
+  // Configuración › KOReader
+  'Configuración: KOReader': 'Settings: KOReader',
+  'Manda a Canvian los subrayados y notas de los libros que lees en KOReader. Cada libro es una nota, dentro de la carpeta que elijas. Volver a sincronizar actualiza la nota del libro, no la duplica; lo que escribas encima de «Subrayados» se conserva.':
+    'Sends the highlights and notes from the books you read in KOReader to Canvian. Each book is a note, inside the folder you choose. Syncing again updates the book’s note instead of duplicating it; whatever you write above “Subrayados” is kept.',
+  Perfil: 'Profile',
+  'El que se usa al descargar el plugin y cuya carpeta eliges aquí. En KOReader se puede cambiar desde el menú del plugin.':
+    'The one used when downloading the plugin and whose folder you choose here. In KOReader you can change it from the plugin’s menu.',
+  Carpeta: 'Folder',
+  'La nota en la que se guardan los libros. Sin elegir ninguna, se crea la nota «KOReader».': 'The note books are saved in. If you don’t pick one, a “KOReader” note is created.',
+  '«KOReader» (automática)': '“KOReader” (automatic)',
+  'Nota archivada o borrada': 'Archived or deleted note',
+  'Con la que KOReader llega a Canvian (la misma que usan los asistentes IA). Si solo lees en casa, también vale la dirección local.':
+    'The address KOReader reaches Canvian at (the same one the AI assistants use). If you only read at home, the local address works too.',
+  'Ahora usas una dirección local: pon aquí la pública si quieres sincronizar fuera de casa.': 'You’re on a local address right now: put the public one here if you want to sync away from home.',
+  Plugin: 'Plugin',
+  'Ya lleva puestos la dirección, la llave y el perfil.': 'It comes with the address, key and profile already set.',
+  'Descargar plugin': 'Download plugin',
+  'Cómo instalarlo': 'How to install it',
+  'Descomprime el .zip: sale la carpeta canvian.koplugin.': 'Unzip the .zip: you get a canvian.koplugin folder.',
+  'Cópiala dentro de la carpeta koreader/plugins del lector (en Kobo, .adds/koreader/plugins; en Android, koreader/plugins en la memoria interna).':
+    'Copy it into the reader’s koreader/plugins folder (on Kobo, .adds/koreader/plugins; on Android, koreader/plugins in internal storage).',
+  'Reinicia KOReader. En el menú de herramientas (la llave inglesa) aparece Canvian.': 'Restart KOReader. Canvian shows up in the tools menu (the wrench).',
+  'Elige «Sincronizar este libro» con un libro abierto, o «Sincronizar todos los libros» para mandar los del historial. También puede sincronizar sola al cerrar cada libro.':
+    'Choose “Sync this book” with a book open, or “Sync all books” to send everything in your history. It can also sync on its own when you close each book.',
+  Llave: 'Key',
+  'Quien la tenga puede añadir notas a tus perfiles. Si se filtra, crea otra y vuelve a descargar el plugin.': 'Anyone with it can add notes to your profiles. If it leaks, create another and download the plugin again.',
+  'Aún no hay ninguna: se crea al descargar el plugin.': 'None yet: it’s created when you download the plugin.',
+  'Crear llave': 'Create key',
+  'KOReader dejará de poder sincronizar hasta que pongas la llave nueva en el plugin (o lo vuelvas a descargar). ¿Crear otra?':
+    'KOReader won’t be able to sync until you put the new key in the plugin (or download it again). Create another?',
+  'KOReader dejará de poder mandar subrayados. ¿Desactivar?': 'KOReader will no longer be able to send highlights. Turn off?',
+  'Llave de KOReader no válida': 'Invalid KOReader key',
+  'Datos del libro no válidos': 'Invalid book data',
+
   // Configuración › Calendarios
   Calendarios: 'Calendars',
   'Los eventos de tus otros calendarios salen en el calendario de tareas, con su color. Solo se leen: para cambiarlos, hazlo en su aplicación. Se actualizan cada 15 minutos.':

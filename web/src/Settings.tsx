@@ -9,6 +9,7 @@ import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
 import { CalendarSettings } from './CalendarSettings';
 import { AiSettings } from './AiSettings';
+import { KoreaderSettings } from './KoreaderSettings';
 import { setZenFullscreen, useZenPrefs } from './canvas/zenPrefs';
 
 // Configuración con la forma de Obsidian: a la izquierda las secciones, a la
@@ -20,13 +21,14 @@ type Props = {
   onProfiles: () => void;
 };
 
-type SectionId = 'general' | 'aspecto' | 'calendarios' | 'asistentes' | 'atajos';
+type SectionId = 'general' | 'aspecto' | 'calendarios' | 'asistentes' | 'koreader' | 'atajos';
 
 const SECTIONS: { id: SectionId; name: string }[] = [
   { id: 'general', name: 'General' },
   { id: 'aspecto', name: 'Aspecto' },
   { id: 'calendarios', name: 'Calendarios' },
   { id: 'asistentes', name: 'Asistentes IA' },
+  { id: 'koreader', name: 'KOReader' },
   { id: 'atajos', name: 'Atajos de teclado' },
 ];
 
@@ -273,6 +275,8 @@ export function Settings({ onClose, onProfiles }: Props) {
           {section === 'calendarios' && <CalendarSettings report={report} />}
 
           {section === 'asistentes' && <AiSettings report={report} />}
+
+          {section === 'koreader' && <KoreaderSettings report={report} />}
 
           {section === 'atajos' && (
             <>

@@ -26,7 +26,7 @@ export function createHub() {
 export function scopeOf(method: string, path: string): LiveScope | null {
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return null;
   const p = path.replace(/^\/api/, '');
-  if (p.startsWith('/auth') || p.startsWith('/media') || p.startsWith('/mcp') || p.endsWith('/viewport')) return null;
+  if (p.startsWith('/auth') || p.startsWith('/media') || p.startsWith('/mcp') || p.startsWith('/koreader') || p.endsWith('/viewport')) return null;
   if (p.startsWith('/prefs')) return 'prefs';
   if (/^\/profiles(\/[^/]+)?$/.test(p)) return 'profiles';
   return 'canvas';

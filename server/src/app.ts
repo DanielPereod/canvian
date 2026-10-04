@@ -27,6 +27,7 @@ import { createHub, scopeOf } from './live.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { createMcpServer } from './mcp/server.js';
 import { createMcpToken, isMcpToken, mcpStatus, revokeMcpToken, setMcpPublicUrl } from './mcp/token.js';
+import { koreaderRoutes, koreaderSettingsRoutes } from './koreader/routes.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -210,6 +211,7 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
     return c.body(null, 204);
   });
 
+  api.route('/', koreaderSettingsRoutes(db));
   api.route('/', canvasRoutes(db));
   api.route('/', propertyRoutes(db));
   api.route('/', lensRoutes(db));
@@ -237,6 +239,8 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
   app.all('/.well-known/*', (c) => c.json({ error: 'No encontrado' }, 404));
   app.all('/mcp', (c) => mcp(c, /^Bearer\s+(.+)$/i.exec(c.req.header('authorization') ?? '')?.[1]?.trim()));
   app.all('/mcp/:token', (c) => mcp(c, c.req.param('token')));
+  // KOReader manda aquí los subrayados (con su propia llave, ver koreader/).
+  app.route('/koreader', koreaderRoutes(db, hub));
   app.route('/api', api);
   app.all('/api/*', (c) => c.json({ error: 'No encontrado' }, 404));
   return app;
