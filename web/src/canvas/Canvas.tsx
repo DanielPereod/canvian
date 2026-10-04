@@ -27,6 +27,7 @@ import { Library } from './Collection';
 import { BibBar, BibMenu, BibSidebar, NewMenu, type MenuAction, titleOf as bibTitle, useBibFolded, useBibLayout, useFamily, type BibView } from './Biblioteca';
 import { getLang, t } from '../i18n';
 import { zenPrefs } from './zenPrefs';
+import { useBackStep, useDrawerSwipe } from './swipe';
 
 // La vista de Canvian: la biblioteca. Aquí viven las notas, los enlaces y todo
 // lo que se guarda; la barra lateral, la colección, los nodos y el lector solo
@@ -966,6 +967,27 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           : center !== null
             ? () => setCenter(center === LOOSE ? null : (family.parent.get(center) ?? null))
             : null;
+  // Gestos del móvil: deslizar abre y cierra el cajón; atrás deshace un paso.
+  useDrawerSwipe(drawer, setDrawer, loaded && !zenOn);
+  const closeOver = () => {
+    if (drawer) setDrawer(false);
+    else if (paletteOpen) setPaletteOpen(false);
+    else if (fabMenu) setFabMenu(null);
+    else if (bibMenu) setBibMenu(null);
+    else if (inspectId) setInspectId(null);
+    else if (movingId) setMovingId(null);
+    else if (renaming) setRenaming(null);
+    else if (lamp !== null) clearLamp();
+    else return false;
+    return true;
+  };
+  useBackStep(drawer || !!paletteOpen || !!fabMenu || !!bibMenu || !!inspectId || !!movingId || !!renaming || lamp !== null || !!bibUp, () => {
+    if (closeOver()) return true;
+    if (peek && focused) closeFocused();
+    else if (!bibUp) return false;
+    else bibUp();
+    return true;
+  });
   const openTasksCount = useMemo(() => listedTasks(rows).filter((t) => t.status !== 'done').length, [rows]);
 
   return (

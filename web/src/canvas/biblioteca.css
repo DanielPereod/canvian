@@ -672,6 +672,12 @@
   .bib-lib { padding: 20px 16px 80px; }
 }
 
+/* El cajón siguiendo al dedo (swipe.ts) y, al soltar, acabando de abrirse o cerrarse. */
+.drawer-drag .bib-dock.is-drawer .bib-side { animation: none; transform: translateX(var(--drawer-x, 0px)); }
+.drawer-drag .bib-scrim { animation: none; opacity: var(--drawer-p, 1); }
+.drawer-settle .bib-dock.is-drawer .bib-side { transition: transform 200ms var(--ease-out); }
+.drawer-settle .bib-scrim { transition: opacity 200ms var(--ease-out); }
+
 @keyframes bib-drawer-in { from { transform: translateX(-100%); } }
 @keyframes bib-fade { from { opacity: 0; } }
 
