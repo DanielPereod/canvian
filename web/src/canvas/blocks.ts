@@ -203,8 +203,24 @@ export const Columns = Node.create({
   renderHTML: ({ HTMLAttributes }) => ['div', mergeAttributes(HTMLAttributes, { 'data-columns': '', class: 'note-columns' }), 0],
 });
 
-// ── Aviso: un recuadro con un icono ──────────────────────────────────
+// ── Aviso: un recuadro con cabecera (icono + tipo), como en Obsidian ──
+// El tipo sale del icono guardado: así las notas de siempre no cambian.
 export const CALLOUT_ICONS = ['💡', '📌', '⚠️', '✅', '❗', '❓', '📝', '🔥', '💬', '⭐'];
+
+const SVG = (d: string) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const CALLOUT_KINDS: Record<string, { kind: string; label: string; svg: string }> = {
+  '💡': { kind: 'note', label: 'Nota', svg: SVG('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>') },
+  '📌': { kind: 'example', label: 'Ejemplo', svg: SVG('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>') },
+  '⚠️': { kind: 'warning', label: 'Atención', svg: SVG('<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>') },
+  '✅': { kind: 'success', label: 'Hecho', svg: SVG('<path d="M20 6 9 17l-5-5"/>') },
+  '❗': { kind: 'danger', label: 'Peligro', svg: SVG('<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/>') },
+  '❓': { kind: 'question', label: 'Pregunta', svg: SVG('<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/>') },
+  '📝': { kind: 'abstract', label: 'Resumen', svg: SVG('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M12 11h4M12 16h4M8 11h.01M8 16h.01"/>') },
+  '🔥': { kind: 'tip', label: 'Consejo', svg: SVG('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3.4.3 1.6 1.4 2.9 2.5 2.9Z"/>') },
+  '💬': { kind: 'quote', label: 'Cita', svg: SVG('<path d="M3 21c3 0 7-1 7-8V5c0-1.3-.8-2-2-2H4c-1.3 0-2 .8-2 2v6c0 1.3.8 2 2 2h1c0 2.5-.5 4-2 5M15 21c3 0 7-1 7-8V5c0-1.3-.8-2-2-2h-4c-1.3 0-2 .8-2 2v6c0 1.3.8 2 2 2h1c0 2.5-.5 4-2 5"/>') },
+  '⭐': { kind: 'star', label: 'Destacado', svg: SVG('<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2L5.8 21 7 14.2 2 9.3l6.9-1Z"/>') },
+};
+const calloutKind = (icon: unknown) => CALLOUT_KINDS[String(icon)];
 
 export const Callout = Node.create({
   name: 'callout',
@@ -215,35 +231,48 @@ export const Callout = Node.create({
     icon: { default: '💡', parseHTML: (el) => el.getAttribute('data-icon') || '💡', renderHTML: (a) => ({ 'data-icon': a.icon }) },
   }),
   parseHTML: () => [{ tag: 'div[data-callout]' }],
-  renderHTML: ({ node, HTMLAttributes }) => [
-    'div',
-    mergeAttributes(HTMLAttributes, { 'data-callout': '', class: 'note-callout' }),
-    ['span', { class: 'note-callout-icon', contenteditable: 'false' }, String(node.attrs.icon)],
-    ['div', { class: 'note-callout-body' }, 0],
-  ],
+  renderHTML: ({ node, HTMLAttributes }) => {
+    const k = calloutKind(node.attrs.icon);
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, { 'data-callout': '', class: 'note-callout', 'data-kind': k?.kind ?? 'custom' }),
+      ['span', { class: 'note-callout-head', contenteditable: 'false' }, k ? t(k.label) : String(node.attrs.icon)],
+      ['div', { class: 'note-callout-body' }, 0],
+    ];
+  },
   addNodeView() {
     return ({ node, getPos, editor }) => {
       let current = node;
       const dom = document.createElement('div');
       dom.className = 'note-callout';
       dom.dataset.callout = '';
-      const icon = document.createElement('button');
-      icon.type = 'button';
+      const head = document.createElement('button');
+      head.type = 'button';
+      head.className = 'note-callout-head';
+      head.contentEditable = 'false';
+      head.title = t('Cambiar el tipo');
+      const icon = document.createElement('span');
       icon.className = 'note-callout-icon';
-      icon.contentEditable = 'false';
-      icon.title = t('Cambiar el icono');
+      const label = document.createElement('span');
+      label.className = 'note-callout-label';
+      head.append(icon, label);
       const body = document.createElement('div');
       body.className = 'note-callout-body';
-      dom.append(icon, body);
+      dom.append(head, body);
       const paint = (n: PMNode) => {
-        icon.textContent = String(n.attrs.icon);
+        const k = calloutKind(n.attrs.icon);
+        dom.dataset.kind = k?.kind ?? 'custom';
+        // Un icono que no es de la lista (de un aviso importado) se ve tal cual.
+        if (k) icon.innerHTML = k.svg;
+        else icon.textContent = String(n.attrs.icon);
+        label.textContent = k ? t(k.label) : t('Aviso');
         if (n.attrs.color) dom.dataset.color = String(n.attrs.color);
         else delete dom.dataset.color;
       };
       paint(node);
-      // Un toque cambia al siguiente icono de la lista.
-      icon.addEventListener('mousedown', (e) => e.preventDefault());
-      icon.addEventListener('click', () => {
+      // Un toque en la cabecera pasa al siguiente tipo.
+      head.addEventListener('mousedown', (e) => e.preventDefault());
+      head.addEventListener('click', () => {
         const pos = getPos();
         if (typeof pos !== 'number' || !editor.isEditable) return;
         const i = CALLOUT_ICONS.indexOf(String(current.attrs.icon));
@@ -259,8 +288,8 @@ export const Callout = Node.create({
           paint(n);
           return true;
         },
-        stopEvent: (e) => e.target === icon,
-        ignoreMutation: (m) => m.target === icon || (m.type !== 'selection' && !body.contains(m.target)),
+        stopEvent: (e) => head.contains(e.target as globalThis.Node),
+        ignoreMutation: (m) => head.contains(m.target) || (m.type !== 'selection' && !body.contains(m.target)),
       };
     };
   },
