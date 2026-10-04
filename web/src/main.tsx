@@ -1,10 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/instrument-sans';
+import '@fontsource-variable/instrument-sans/wght-italic.css';
 import '@fontsource/instrument-serif/400.css';
 import '@fontsource/instrument-serif/400-italic.css';
 import '@fontsource/silkscreen/400.css';
 import '@fontsource-variable/jetbrains-mono';
+import '@fontsource-variable/jetbrains-mono/wght-italic.css';
 // Letras de los temas: el navegador solo las descarga si el tema las usa.
 import '@fontsource-variable/fraunces';
 import '@fontsource/cormorant-garamond/400.css';
@@ -12,10 +14,14 @@ import '@fontsource/cormorant-garamond/400-italic.css';
 import '@fontsource/cormorant-garamond/500.css';
 import '@fontsource/cormorant-garamond/500-italic.css';
 import '@fontsource-variable/archivo/wdth.css';
+import '@fontsource-variable/archivo/wght-italic.css';
 import '@fontsource/space-mono/400.css';
+import '@fontsource/space-mono/400-italic.css';
 import '@fontsource/young-serif/400.css';
 import '@fontsource-variable/inter';
+import '@fontsource-variable/inter/wght-italic.css';
 import '@fontsource-variable/jost';
+import '@fontsource-variable/jost/wght-italic.css';
 import '@fontsource-variable/newsreader';
 import './fonts';
 import './design/tokens.css';
