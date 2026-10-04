@@ -677,6 +677,7 @@
 .drawer-drag .bib-scrim { animation: none; opacity: var(--drawer-p, 1); }
 .drawer-settle .bib-dock.is-drawer .bib-side { transition: transform 200ms var(--ease-out); }
 .drawer-settle .bib-scrim { transition: opacity 200ms var(--ease-out); }
+.drawer-still .bib-dock.is-drawer .bib-side, .drawer-still .bib-scrim { animation: none; }
 
 @keyframes bib-drawer-in { from { transform: translateX(-100%); } }
 @keyframes bib-fade { from { opacity: 0; } }

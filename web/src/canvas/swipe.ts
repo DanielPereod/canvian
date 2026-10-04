@@ -124,7 +124,9 @@ export function useDrawerSwipe(open: boolean, setOpen: (open: boolean) => void, 
       place(stay ? 0 : -cur.w, cur.w);
       settle = window.setTimeout(() => {
         root().classList.remove('drawer-drag', 'drawer-settle');
-        if (!stay) state.current.setOpen(false);
+        // Ya está abierto: sin esto, la animación de entrada volvería a empezar.
+        if (stay) root().classList.add('drawer-still');
+        else state.current.setOpen(false);
       }, 200);
       // El clic que sigue al gesto no debe elegir nada del cajón.
       const swallow = (ev: Event) => {
@@ -140,9 +142,14 @@ export function useDrawerSwipe(open: boolean, setOpen: (open: boolean) => void, 
       removeEventListener('touchstart', onStart);
       end();
       clearTimeout(settle);
-      root().classList.remove('drawer-drag', 'drawer-settle');
+      root().classList.remove('drawer-drag', 'drawer-settle', 'drawer-still');
     };
   }, []);
+
+  // Cerrado (por lo que sea), la próxima vez que se abra con el botón sí se anima.
+  useEffect(() => {
+    if (!open) root().classList.remove('drawer-still');
+  }, [open]);
 }
 
 // Atrás (el gesto o el botón de Android, o el del navegador) deshace el
