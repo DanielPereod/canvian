@@ -31,7 +31,7 @@
 
 /* ── Aviso ── */
 .prose .note-callout { display: flex; gap: 0.6em; margin: 0.2em 0 0.6em; padding: 0.8em 1em; border-radius: var(--radius-sm); background: var(--surface-sunken); border: 1px solid var(--line); }
-.prose .note-callout[data-color$='-bg'] { padding: 0.8em 1em; border-color: transparent; border-radius: var(--radius-sm); }
+.prose .note-callout[data-color$='-bg'] { padding: 0.8em 1em; border-color: transparent; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--tone) 17%, transparent); }
 .prose .note-callout-icon { flex: none; width: 1.5em; padding: 0; border: 0; background: none; font: inherit; font-size: 1.1em; line-height: 1.55; text-align: center; color: inherit; cursor: pointer; border-radius: 4px; user-select: none; }
 button.note-callout-icon:hover { background: var(--surface-hover); }
 .prose .note-callout-body { flex: 1; min-width: 0; }
