@@ -18,6 +18,7 @@ export const EN_APP: Record<string, string> = {
   Comandos: 'Commands',
   'Todas las notas': 'All notes',
   'Abre o cierra la vista de tareas': 'Opens or closes the tasks view',
+  'Las tareas por fechas, junto a tus otros calendarios': 'Tasks by date, alongside your other calendars',
   'Ordenar notas': 'Organize notes',
   'Meter las notas sueltas dentro de otras': 'Put loose notes inside others',
   'Nota nueva': 'New note',

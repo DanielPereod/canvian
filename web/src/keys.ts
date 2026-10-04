@@ -61,6 +61,7 @@ const RAW: KeyAction[] = [
   { id: 'commands', label: 'Comandos', group: 'Ir a', ctx: ['global'], key: 'mod+shift+p' },
   { id: 'toRoot', label: 'Todas las notas', group: 'Ir a', ctx: ['list'], key: '1' },
   { id: 'tasks', label: 'Tareas', hint: 'Abre o cierra la vista de tareas', group: 'Ir a', ctx: ['list', 'tasks'], key: 'a' },
+  { id: 'calendar', label: 'Calendario', hint: 'Las tareas por fechas, junto a tus otros calendarios', group: 'Ir a', ctx: ['global'], key: '' },
   { id: 'organize', label: 'Ordenar notas', hint: 'Meter las notas sueltas dentro de otras', group: 'Ir a', ctx: ['list', 'organize'], key: 'o' },
 
   { id: 'newNote', label: 'Nota nueva', hint: 'En Tareas, apunta una tarea', group: 'Crear', ctx: ['list', 'tasks', 'note'], key: 'n' },
@@ -85,7 +86,6 @@ const RAW: KeyAction[] = [
   { id: 'taskDone', label: 'Marcar como hecha', group: 'Tareas', ctx: ['tasks'], key: 'space' },
   { id: 'taskEdit', label: 'Editar el título', group: 'Tareas', ctx: ['tasks'], key: 'e' },
   { id: 'taskLayout', label: 'Lista o tablero', group: 'Tareas', ctx: ['tasks'], key: 'v' },
-  { id: 'calendar', label: 'Calendario', group: 'Tareas', ctx: ['tasks'], key: '' },
 
   { id: 'acceptHints', label: 'Aceptar las sugerencias', group: 'Ordenar', ctx: ['organize'], key: 's' },
   { id: 'undo', label: 'Deshacer el último movimiento', group: 'Ordenar', ctx: ['organize'], key: 'mod+z' },

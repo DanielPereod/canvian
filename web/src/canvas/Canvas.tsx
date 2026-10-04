@@ -16,7 +16,7 @@ import { parseBody, retitle } from './editor';
 import { hasMedia, uploadMedia } from './media';
 import { emptyBoard, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
-import { INBOX, TasksView } from './TasksView';
+import { INBOX, TasksView, rememberTasksView } from './TasksView';
 import { addTaskItem, allTasks, changeTask, contentOf, newTaskItem, removeTask, takeTask, type Task, type TaskChange } from './tasks';
 import { mergeTags, splitTags } from './tags';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
@@ -76,6 +76,8 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [focusId, setFocusId] = useState<string | null>(null);
   // La otra vista: las tareas (las casillas de todas las notas) en una lista.
   const [tasksOpen, setTasksOpen] = useState(false);
+  // Cambia para volver a montar las tareas (y que lean la lista recordada).
+  const [tasksKey, setTasksKey] = useState(0);
   // Y la de ordenar: el árbol de secciones y sus notas, para mover en bloque.
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [fabMenu, setFabMenu] = useState<{ x: number; y: number } | null>(null);
@@ -588,7 +590,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
-      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar', 'zen', 'wideNote', 'newNote', 'newCanvas', 'newSection']);
+      const action = actionFor(e, ['exportCanvas', 'search', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar', 'zen', 'wideNote', 'newNote', 'newCanvas', 'newSection', 'calendar']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
       // Con una nota abierta los atiende ella; aquí solo llegan sin nota.
       if ((action === 'zen' || action === 'wideNote') && (chord || !isTyping(e.target))) {
@@ -624,6 +626,17 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       if (action === 'nodes' && (chord || !isTyping(e.target))) {
         e.preventDefault();
         toggleNodes();
+        return;
+      }
+      // Desde cualquier sitio: la vista de tareas, en el calendario. Con las
+      // tareas ya delante y sin nota encima, cambia de lista ella misma.
+      if (action === 'calendar' && (chord || !isTyping(e.target)) && !(tasksOpen && !focused)) {
+        e.preventDefault();
+        if (focused) closeFocused();
+        setOrganizeOpen(false);
+        rememberTasksView('cal');
+        setTasksKey((k) => k + 1);
+        setTasksOpen(true);
         return;
       }
       if (action === 'search' && (chord || !isTyping(e.target))) {
@@ -1163,6 +1176,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       )}
       {tasksOpen && (
         <TasksView
+          key={tasksKey}
           rows={rows}
           paused={!!focusId || !!inspectId || !!paletteOpen}
           onOpen={openTask}
