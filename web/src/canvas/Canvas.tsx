@@ -17,7 +17,7 @@ import { parseBody, retitle } from './editor';
 import { hasMedia, uploadMedia } from './media';
 import { emptyBoard, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
-import { INBOX, TasksView, rememberTasksView } from './TasksView';
+import { INBOX, TasksView, rememberTasksView, type TaskWhen } from './TasksView';
 import { addTaskItem, changeTask, listedTasks, contentOf, newTaskItem, removeTask, takeTask, type Task, type TaskChange } from './tasks';
 import { mergeTags, splitTags } from './tags';
 import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
@@ -435,7 +435,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   };
   // Lo que se apunta sin decir en qué nota va a «Tareas», arriba del todo (se crea si no está).
   const inbox = () => rowsRef.current.find((r) => !r.zoneId && r.kind !== 'canvas' && !r.archivedAt && r.title?.trim().toLocaleLowerCase('es') === INBOX.toLocaleLowerCase('es'));
-  const addTask = (source: string, noteId: string | null, extra: { dueAt?: string } = {}, under?: Task) => {
+  const addTask = (source: string, noteId: string | null, extra: TaskWhen = {}, under?: Task) => {
     if (!source.trim()) return;
     const item = newTaskItem(source, extra);
     const row = noteId ? rowNow(noteId) : inbox() && rowNow(inbox()!.id);

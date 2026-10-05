@@ -76,6 +76,15 @@ function noteAndSection(all: Note[], ref: string): { n: Note; section: string | 
 const profileArg = z.string().optional().describe('Perfil (nombre o id). Por defecto, el primero.');
 const noteArg = (what = 'La nota') => z.string().min(1).describe(`${what}: su id, su título o su ruta («Casa > Reformas»).`);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha AAAA-MM-DD');
+// «09:30» o «09:30-11:00»: la hora de empezar (el día de `start` o `due`) y la de acabar (el de `due`).
+const timeArg = z
+  .string()
+  .regex(/^\d{1,2}:\d{2}(\s*-\s*\d{1,2}:\d{2})?$/, 'Hora HH:MM o HH:MM-HH:MM')
+  .describe('Horas, «09:30» o «09:30-11:00» (como un bloque en el calendario). Necesita `due`.');
+const timesOf = (time: string) => {
+  const [a, b] = time.split('-').map((x) => x.trim());
+  return { startTime: a, endTime: b ?? null };
+};
 const STATUS = ['todo', 'doing', 'blocked', 'done'] as const;
 const PRIORITY = { none: 0, low: 1, medium: 2, high: 3 } as const;
 const priorityArg = z.enum(['none', 'low', 'medium', 'high']);
@@ -131,7 +140,9 @@ export function createMcpServer(db: Db, hub?: Hub) {
     id: t.id,
     text: t.title,
     status: t.status,
+    ...(t.startAt ? { start: t.startAt } : {}),
     ...(t.dueAt ? { due: t.dueAt } : {}),
+    ...(t.startTime ? { time: t.endTime ? `${t.startTime}-${t.endTime}` : t.startTime } : {}),
     ...(t.priority ? { priority: priorityName(t.priority) } : {}),
     ...(t.tags.length ? { tags: t.tags } : {}),
     ...(t.repeat ? { repeat: t.repeat } : {}),
@@ -420,7 +431,7 @@ export function createMcpServer(db: Db, hub?: Hub) {
         when: z
           .enum(['all', 'today', 'overdue', 'upcoming', 'no_date'])
           .optional()
-          .describe('today: para hoy o atrasadas; overdue: solo atrasadas; upcoming: los próximos `days` días; no_date: sin fecha.'),
+          .describe('today: para hoy, atrasadas o de varios días que ya empezaron; overdue: solo atrasadas; upcoming: los próximos `days` días; no_date: sin fecha.'),
         days: z.number().int().min(1).max(365).optional().describe('Para upcoming. Por defecto 7.'),
         status: z.enum(['open', 'done', 'any', ...STATUS]).optional().describe('open (por defecto) = sin hacer.'),
         note: z.string().optional().describe('Solo las de esta nota y las que tiene dentro.'),
@@ -444,9 +455,10 @@ export function createMcpServer(db: Db, hub?: Hub) {
       const tasks = (note ? allTasks(scope) : listedTasks(scope)).filter((t) => {
         if (status === 'open' ? t.status === 'done' : status !== 'any' && t.status !== status) return false;
         if (tag && !t.tags.some((x) => x.toLowerCase() === tag.replace(/^#/, '').toLowerCase())) return false;
-        if (when === 'today') return !!t.dueAt && t.dueAt <= today;
+        // Las de varios días cuentan desde que empiezan.
+        if (when === 'today') return !!t.dueAt && (t.dueAt <= today || (!!t.startAt && t.startAt <= today));
         if (when === 'overdue') return !!t.dueAt && t.dueAt < today;
-        if (when === 'upcoming') return !!t.dueAt && t.dueAt >= today && t.dueAt <= until;
+        if (when === 'upcoming') return !!t.dueAt && t.dueAt >= today && (t.startAt && t.startAt < t.dueAt ? t.startAt : t.dueAt) <= until;
         if (when === 'no_date') return !t.dueAt;
         return true;
       });
@@ -463,6 +475,8 @@ export function createMcpServer(db: Db, hub?: Hub) {
       inputSchema: {
         text: z.string().trim().min(1).max(1000).describe('El texto (Markdown en línea; puede llevar [[enlaces]] y #etiquetas).'),
         due: day.optional(),
+        start: day.optional().describe('Si dura varios días, el día en que empieza (hasta `due`).'),
+        time: timeArg.optional(),
         priority: priorityArg.optional(),
         repeat: repeatArg.optional(),
         note: z.string().optional().describe(`La nota donde va (id, título o ruta). Por defecto «${INBOX}».`),
@@ -470,11 +484,13 @@ export function createMcpServer(db: Db, hub?: Hub) {
         profile: profileArg,
       },
     },
-    run(({ text: source, due, priority, repeat, note, subtask_of, profile }) => {
+    run(({ text: source, due, start, time, priority, repeat, note, subtask_of, profile }) => {
       const { profile: p, all, byId } = ctx(profile);
       const rule = repeat ? recurArg(repeat) : null;
+      if (start && (!due || start > due)) throw new McpError('`start` necesita `due` y no puede ser después.');
+      if (time && !due) throw new McpError('`time` necesita `due`.');
       // Lo que se repite necesita una fecha desde la que contar: hoy, si no se da otra.
-      const item = newTaskItem(source, { dueAt: due ?? (rule ? localDay() : null), priority: priority ? PRIORITY[priority] : 0, repeat: rule });
+      const item = newTaskItem(source, { startAt: start ?? null, ...(time ? timesOf(time) : {}), dueAt: due ?? (rule ? localDay() : null), priority: priority ? PRIORITY[priority] : 0, repeat: rule });
       let host: Note | undefined;
       let under: Task | undefined;
       if (subtask_of) {
@@ -521,6 +537,8 @@ export function createMcpServer(db: Db, hub?: Hub) {
         task: z.string().min(3).describe('Id de la tarea (de list_tasks o get_note).'),
         status: z.enum(STATUS).optional(),
         due: day.nullable().optional().describe('null quita la fecha.'),
+        start: day.nullable().optional().describe('Si dura varios días, el día en que empieza (hasta `due`); null lo quita.'),
+        time: timeArg.nullable().optional().describe('«09:30» o «09:30-11:00»; null la deja de todo el día.'),
         priority: priorityArg.optional(),
         repeat: repeatArg.nullable().optional().describe('null (o "") deja de repetirla.'),
         tags: z.array(z.string()).optional().describe('Las etiquetas que debe tener (sustituye las que tenía).'),
@@ -528,7 +546,7 @@ export function createMcpServer(db: Db, hub?: Hub) {
         profile: profileArg,
       },
     },
-    run(({ task, status, due, priority, repeat, tags, text: source, profile }) => {
+    run(({ task, status, due, start, time, priority, repeat, tags, text: source, profile }) => {
       const { profile: p, all, byId } = ctx(profile);
       const t = findTask(all, task);
       const row = byId.get(t.noteId)!;
@@ -536,11 +554,16 @@ export function createMcpServer(db: Db, hub?: Hub) {
       const change = {
         ...(status ? { status: status as TaskStatus } : {}),
         ...(due !== undefined ? { dueAt: due } : rule && !t.dueAt ? { dueAt: localDay() } : {}),
+        ...(start !== undefined ? { startAt: start } : due === null && t.startAt ? { startAt: null } : {}),
+        ...(time !== undefined ? (time ? timesOf(time) : { startTime: null }) : due === null && t.startTime ? { startTime: null } : {}),
         ...(rule !== undefined ? { repeat: rule } : {}),
         ...(priority ? { priority: PRIORITY[priority] } : {}),
         ...(tags ? { tags: tags.map((x) => x.replace(/^#/, '')) } : {}),
         ...(source !== undefined ? { source } : {}),
       };
+      const s0 = 'startAt' in change ? change.startAt : t.startAt;
+      const d0 = 'dueAt' in change ? change.dueAt : t.dueAt;
+      if (s0 && (!d0 || s0 > d0)) throw new McpError('`start` necesita `due` y no puede ser después.');
       const again = recurs(t, change);
       const doc = changeTask(row, t, change);
       if (!doc) throw new McpError('Esa tarea ya no está en su nota.');

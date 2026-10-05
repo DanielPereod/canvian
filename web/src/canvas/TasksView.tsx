@@ -7,13 +7,14 @@ import { dateFmt, daysUntil, dueLabel, localToday } from './dates';
 import { t } from '../i18n';
 import { actionFor, keyParts, matches, keysBlocked, useKeymap, type ActionId } from '../keys';
 import { mergeTags } from './tags';
-import { listedTasks, nextDate, parseRecur, type Task, type TaskChange } from './tasks';
+import { listedTasks, spans, type Task, type TaskChange } from './tasks';
 import { repeatLabel } from './repeat';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { Resizer, useSideWidth } from './Resizer';
 import { DatePicker } from './DatePicker';
 import { useContextMenu } from './Biblioteca';
-import { useCalendarEvents, useCalendars, type CalEvent, type ExternalCalendar } from '../calendars';
+import { useCalendarEvents, useCalendars } from '../calendars';
+import { byDayOf, shapeLabel, TaskCalendar, timeLabel, type Shape } from './TaskCalendar';
 
 // Vista de tareas, fuera del mapa, en tres columnas: a la izquierda las
 // listas (Hoy, 7 días, por nota y por etiqueta), en el centro las tareas de la
@@ -63,7 +64,7 @@ const save = (k: string, v: string) => {
 export const rememberTasksView = (v: string) => save(VIEW_KEY, v);
 
 // Lo que más urge arriba: en curso, vencida o cerca, prioridad, lo último tocado.
-const urgency = (r: Task) =>
+export const urgency = (r: Task) =>
   (r.status === 'doing' ? 1000 : r.status === 'blocked' ? -1000 : 0) +
   (r.dueAt ? 400 - Math.max(-30, Math.min(60, daysUntil(r.dueAt))) * 5 : 0) +
   r.priority * 60 +
@@ -80,26 +81,25 @@ function whenGroup(r: Task): [number, string] {
   if (d <= 31) return [4, t('Este mes')];
   return [5, t('Más adelante')];
 }
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const isoDay = (offset: number) => {
+export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+export const isoDay = (offset: number) => {
   const t = new Date(localToday());
   return isoOf(new Date(t.getFullYear(), t.getMonth(), t.getDate() + offset));
 };
-const titleOf = (r: Task) => r.title || t('Tarea sin título');
+/** «mañana», «5 oct – 8 oct», «hoy · 10:00–11:30». */
+const whenOf = (r: Task) => [spans(r) ? `${dueLabel(r.startAt!)} – ${dueLabel(r.dueAt!)}` : dueLabel(r.dueAt!), timeLabel(r)].filter(Boolean).join(' · ');
+export const titleOf = (r: Task) => r.title || t('Tarea sin título');
 const noteTitle = (r: NoteRow) => r.title || t('Nota sin título');
-const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 // Formatos de fecha en el idioma de la interfaz (se crean al usarlos).
 const MONTH = () => dateFmt({ month: 'long', year: 'numeric' });
-const MONTH_NAME = () => dateFmt({ month: 'long' });
-const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 const LONG_DAY = () => dateFmt({ weekday: 'long', day: 'numeric', month: 'long' });
-const SHORT_DOW = () => dateFmt({ weekday: 'short' });
 const RANGE = () => dateFmt({ day: 'numeric', month: 'short', year: 'numeric' });
-const dateOf = (iso: string) => {
+export const dateOf = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, m - 1, d);
 };
-const addDays = (iso: string, n: number) => {
+export const addDays = (iso: string, n: number) => {
   const d = dateOf(iso);
   return isoOf(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n));
 };
@@ -116,6 +116,9 @@ const CAL_MODES: { id: CalMode; label: string }[] = [
   { id: 'mes', label: 'Mes' },
 ];
 
+/** Cuándo va una tarea nueva: su fecha y, si las tiene, el día en que empieza y las horas. */
+export type TaskWhen = { dueAt?: string; startAt?: string; startTime?: string | null; endTime?: string | null };
+
 type Props = {
   /** Las notas: sus casillas son las tareas. */
   rows: NoteRow[];
@@ -123,7 +126,7 @@ type Props = {
   onOpen: (task: Task) => void;
   onChange: (task: Task, change: TaskChange) => void;
   /** Apunta una tarea en la nota `noteId` (o en «Tareas»), o como subtarea de `under`. */
-  onAdd: (source: string, noteId: string | null, extra?: { dueAt?: string }, under?: Task) => void;
+  onAdd: (source: string, noteId: string | null, extra?: TaskWhen, under?: Task) => void;
   /** Notas en las que puede ir una tarea, con su ruta. */
   sections: SectionOption[];
   onMoveTask: (task: Task, noteId: string) => void;
@@ -289,6 +292,8 @@ export function TasksView(p: Props) {
   // En «3 días», el primero de los tres: no se mueve mientras el día elegido siga dentro.
   const [threeFrom, setThreeFrom] = useState(() => isoDay(0));
   const [calSel, setCalSel] = useState<string | null>(null);
+  // Días (o un hueco de horas) elegidos arrastrando: ahí va la próxima tarea que se apunte.
+  const [calPick, setCalPick] = useState<Shape | null>(null);
   const pickMode = (m: CalMode) => {
     setCalMode(m);
     save(CAL_KEY, m);
@@ -443,15 +448,25 @@ export function TasksView(p: Props) {
     const raw = adding.trim();
     if (!raw) return;
     const text = view.startsWith('tag:') ? `${raw} #${view.slice(4)}` : raw;
-    const extra = view === 'today' ? { dueAt: isoDay(0) } : cal ? { dueAt: calDay } : {};
+    const pick = cal ? calPick : null;
+    const extra = pick
+      ? { dueAt: pick.last, ...(pick.first < pick.last ? { startAt: pick.first } : {}), ...(pick.startTime ? { startTime: pick.startTime, endTime: pick.endTime } : {}) }
+      : view === 'today'
+        ? { dueAt: isoDay(0) }
+        : cal
+          ? { dueAt: calDay }
+          : {};
     const zone = (intoPath && into) || (view.startsWith('sec:') ? view.slice(4) : null);
     p.onAdd(text, zone, extra);
     setAdding('');
+    setCalPick(null);
     setInto(null);
     setIntoShut(-1);
   };
   const addHint = cal
-    ? calDay === isoDay(0)
+    ? calPick
+      ? t('Añadir tarea: {when}…', { when: shapeLabel(calPick) })
+      : calDay === isoDay(0)
       ? t('Añadir tarea para hoy…')
       : t('Añadir tarea para {day}…', { day: dueLabel(calDay) })
     : view.startsWith('sec:')
@@ -477,7 +492,8 @@ export function TasksView(p: Props) {
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       const action = actionFor(e, ['tasks', 'cycleStatus', 'blockTask', 'newNote', 'deleteCell', 'taskDone', 'taskEdit', 'taskLayout', 'move', 'calendar']);
       const k = e.metaKey || e.ctrlKey || e.altKey ? '' : e.key.toLowerCase();
-      if (k === 'escape' || action === 'tasks') p.onClose();
+      if (k === 'escape' && cal && calPick) setCalPick(null);
+      else if (k === 'escape' || action === 'tasks') p.onClose();
       else if (action === 'cycleStatus') cur && cycle(cur);
       else if (action === 'blockTask') cur && block(cur);
       else if (action === 'newNote') addRef.current?.focus();
@@ -640,6 +656,7 @@ export function TasksView(p: Props) {
                 } else if (menu && e.key === 'Escape') setIntoShut(gt);
                 else if (e.key === 'Backspace' && into && e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) setInto(null);
                 else if (e.key === 'Enter') add();
+                else if (e.key === 'Escape' && calPick) setCalPick(null);
                 else if (e.key === 'Escape') e.currentTarget.blur();
                 else return;
                 e.preventDefault();
@@ -679,8 +696,12 @@ export function TasksView(p: Props) {
             events={eventsByDay}
             calendars={calendars}
             selected={calSel}
+            range={calPick}
             whereOf={(r) => whereOf(r)}
-            onDay={pickDay}
+            onDay={(iso) => {
+              pickDay(iso);
+              setCalPick(null);
+            }}
             onSelect={(r) => {
               setCalSel(r.id);
               // En la agenda, el día elegido es desde dónde empieza: señalar no la mueve.
@@ -688,13 +709,15 @@ export function TasksView(p: Props) {
             }}
             onOpen={p.onOpen}
             onToggle={toggleDone}
-            onMove={(id, iso) => {
-              const r = find(id);
-              if (r) p.onChange(r, { dueAt: iso });
+            onPlace={(r, change) => p.onChange(r, change)}
+            onRange={(s) => {
+              setCalPick(s);
+              if (calMode !== 'agenda') (calMode === 'mes' ? setCalDay : pickDay)(s.first);
+              addRef.current?.focus();
             }}
-            onMenu={(e, r) => {
+            onMenu={(x, y, r) => {
               setCalSel(r.id);
-              openMenu(e, r);
+              setMenu({ id: r.id, x, y });
             }}
           />
         )}
@@ -746,7 +769,7 @@ export function TasksView(p: Props) {
                         {(where || r.dueAt || r.tags.length > 0) && (
                           <div className="tv-card-meta">
                             {r.repeat && r.status !== 'done' && <Recur rule={r.repeat} />}
-                            {r.dueAt && <span className={`tv-due${d! < 0 && r.status !== 'done' ? ' is-late' : d === 0 ? ' is-today' : ''}`}>{dueLabel(r.dueAt)}</span>}
+                            {r.dueAt && <span className={`tv-due${d! < 0 && r.status !== 'done' ? ' is-late' : d === 0 ? ' is-today' : ''}`}>{whenOf(r)}</span>}
                             {r.tags.map((x) => (
                               <span key={x} className="tv-tag">
                                 #{x}
@@ -818,7 +841,7 @@ export function TasksView(p: Props) {
                         ))}
                         {where && <span className="tv-where">{where}</span>}
                         {r.repeat && r.status !== 'done' && <Recur rule={r.repeat} />}
-                        {r.dueAt && <span className={`tv-due${d! < 0 && r.status !== 'done' ? ' is-late' : d === 0 ? ' is-today' : ''}`}>{dueLabel(r.dueAt)}</span>}
+                        {r.dueAt && <span className={`tv-due${d! < 0 && r.status !== 'done' ? ' is-late' : d === 0 ? ' is-today' : ''}`}>{whenOf(r)}</span>}
                       </div>
                     );
                   })}
@@ -830,7 +853,7 @@ export function TasksView(p: Props) {
           {[
             ...(cal
               ? [
-                  t('1–5 vista · ←→{arrows} día · [ ] {period} · T hoy · arrastra una tarea para cambiar su fecha', {
+                  t('1–5 vista · ←→{arrows} día · [ ] {period} · T hoy · arrastra por los días (o las horas) para apuntar algo que los ocupe; una tarea, para moverla o, por su borde, estirarla', {
                     arrows: calMode === 'mes' || calMode === 'semana' ? '↑↓' : '',
                     period: calMode === 'mes' ? t('mes') : calMode === 'dia' ? t('día') : calMode === 'tres' ? t('3 días') : t('semana'),
                   }),
@@ -898,7 +921,7 @@ function Recur({ rule }: { rule: string }) {
 }
 
 // La casilla: vacía, con punto (en curso), con raya (bloqueada) o marcada.
-function Check({ row, onToggle }: { row: Task; onToggle: () => void }) {
+export function Check({ row, onToggle }: { row: Task; onToggle: () => void }) {
   const s = row.status;
   return (
     <button
@@ -984,6 +1007,26 @@ function Detail({
         </div>
       </div>
 
+      {row.dueAt && (
+        // Con fecha, puede empezar antes (dura varios días) y tener horas.
+        <div className="tv-detail-when">
+          <DatePicker
+            className="tv-date"
+            label={t('Empieza')}
+            placeholder={t('Empieza…')}
+            value={row.startAt?.slice(0, 10) ?? null}
+            onChange={(v) => p.onChange(row, { startAt: v && v < row.dueAt!.slice(0, 10) ? v : null })}
+          />
+          <span className="tv-detail-sep">→ {dueLabel(row.dueAt)}</span>
+          <input type="time" className="tv-time" aria-label={t('Hora de empezar')} title={t('Hora de empezar')} value={row.startTime ?? ''} onChange={(e) => p.onChange(row, { startTime: e.target.value || null })} />
+          {row.startTime && (
+            <>
+              <span className="tv-detail-sep">–</span>
+              <input type="time" className="tv-time" aria-label={t('Hora de acabar')} title={t('Hora de acabar')} value={row.endTime ?? ''} onChange={(e) => p.onChange(row, { endTime: e.target.value || null })} />
+            </>
+          )}
+        </div>
+      )}
       {up && (
         <button className="tv-detail-up" onClick={() => onPick(up)} title={t('Ir a la tarea madre')}>
           ↳ {t('Subtarea de')} <span>{titleOf(up)}</span>
@@ -1170,306 +1213,4 @@ function matchNotes(options: SectionOption[], query: string) {
   }
   hits.sort((a, b) => a.score - b.score || a.o.path.length - b.o.path.length);
   return hits.slice(0, 8).map((h) => h.o);
-}
-
-/** Una tarea en un día del calendario; `of`, si es una de las próximas veces de una que se repite. */
-type CalItem = Task & { of?: Task };
-
-// Las tareas con fecha, por día; en cada uno, primero las pendientes y lo que más urge.
-// Entre `from` y `to` (sin incluirlo) salen también las próximas veces de las que
-// se repiten, a partir de hoy.
-function useByDay(tasks: Task[], from?: string, to?: string) {
-  return useMemo(() => {
-    const out = new Map<string, CalItem[]>();
-    const add = (k: string, r: CalItem) => out.set(k, [...(out.get(k) ?? []), r]);
-    const today = isoDay(0);
-    for (const r of tasks) {
-      if (!r.dueAt) continue;
-      add(r.dueAt.slice(0, 10), r);
-      const rule = r.repeat && r.status !== 'done' && from && to ? parseRecur(r.repeat) : null;
-      if (!rule) continue;
-      for (let d = nextDate(rule, r.dueAt.slice(0, 10)), n = 0; d < to! && n < 3000; d = nextDate(rule, d), n++) {
-        if (d >= from! && d >= today) add(d, { ...r, id: `${r.id}@${d}`, dueAt: d, of: r });
-      }
-    }
-    for (const list of out.values()) list.sort((a, b) => Number(!!a.of) - Number(!!b.of) || Number(a.status === 'done') - Number(b.status === 'done') || urgency(b) - urgency(a));
-    return out;
-  }, [tasks, from, to]);
-}
-
-type CalProps = {
-  mode: CalMode;
-  month: string;
-  // Los días a la vista en «Día», «3 días» y «Semana».
-  days: string[];
-  day: string;
-  tasks: Task[];
-  /** Eventos de los calendarios de fuera, por día. */
-  events: Map<string, DayEvent[]>;
-  calendars: ExternalCalendar[];
-  selected: string | null;
-  whereOf: (r: Task) => string;
-  onDay: (iso: string) => void;
-  onSelect: (r: Task) => void;
-  onOpen: (r: Task) => void;
-  onToggle: (r: Task) => void;
-  onMove: (id: string, iso: string) => void;
-  onMenu: (e: React.MouseEvent, r: Task) => void;
-};
-
-// Un sitio donde soltar una tarea para darle ese día.
-function dropOn(iso: string, setOver: (f: (o: string | null) => string | null) => void, onMove: CalProps['onMove']) {
-  return {
-    onDragOver: (e: React.DragEvent) => {
-      e.preventDefault();
-      setOver(() => iso);
-    },
-    onDragLeave: (e: React.DragEvent) => !e.currentTarget.contains(e.relatedTarget as Node) && setOver((o) => (o === iso ? null : o)),
-    onDrop: (e: React.DragEvent) => {
-      e.preventDefault();
-      setOver(() => null);
-      const id = e.dataTransfer.getData('text/canvian-task');
-      if (id) onMove(id, iso);
-    },
-  };
-}
-
-// Una tarea en el calendario: se señala con un clic, se abre con doble clic y se arrastra a otro día.
-// Las próximas veces de una que se repite salen en tenue: llevan a la de verdad.
-function CalTask({ r, iso, p, where }: { r: CalItem; iso: string; p: CalProps; where?: string }) {
-  const today = isoDay(0);
-  if (r.of) {
-    const of = r.of;
-    return (
-      <div
-        className={`tv-cal-task is-ghost${of.id === p.selected ? ' is-sel' : ''}`}
-        title={repeatLabel(of.repeat ?? '')}
-        onClick={(e) => {
-          e.stopPropagation();
-          p.onSelect(of);
-        }}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          p.onOpen(of);
-        }}
-        onContextMenu={(e) => p.onMenu(e, of)}
-      >
-        <span className="tv-recur" aria-hidden="true">
-          🔁
-        </span>
-        <span>{titleOf(of)}</span>
-        {where && <em className="tv-cal-where">{where}</em>}
-      </div>
-    );
-  }
-  return (
-    <div
-      className={`tv-cal-task${r.status === 'done' ? ' is-done' : ''}${r.id === p.selected ? ' is-sel' : ''}${r.status !== 'done' && iso < today ? ' is-late' : ''}`}
-      draggable={!TOUCH}
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/canvian-task', r.id);
-        e.dataTransfer.effectAllowed = 'move';
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        p.onSelect(r);
-      }}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        p.onOpen(r);
-      }}
-      onContextMenu={(e) => p.onMenu(e, r)}
-    >
-      <Check row={r} onToggle={() => p.onToggle(r)} />
-      <span>{titleOf(r)}</span>
-      {where && <em className="tv-cal-where">{where}</em>}
-    </div>
-  );
-}
-
-// Un evento de un calendario de fuera en un día: los de varios días salen en cada uno.
-type DayEvent = CalEvent & { time: string | null };
-
-const TIME = () => dateFmt({ hour: '2-digit', minute: '2-digit' });
-
-/** Los eventos por día local entre `from` y `to`; en cada día, primero los de día completo y luego por hora. */
-function byDayOf(events: CalEvent[], from: string, to: string) {
-  const out = new Map<string, DayEvent[]>();
-  const add = (iso: string, e: DayEvent) => {
-    if (iso >= from && iso < to) out.set(iso, [...(out.get(iso) ?? []), e]);
-  };
-  for (const e of events) {
-    if (e.allDay) {
-      for (let d = e.start, n = 0; d < e.end && n < 400; d = addDays(d, 1), n++) add(d, { ...e, time: null });
-      continue;
-    }
-    const start = new Date(e.start);
-    const end = new Date(e.end);
-    const first = isoOf(start);
-    // Lo que acaba justo a medianoche no ocupa el día siguiente.
-    const last = end > start ? isoOf(new Date(end.getTime() - 1)) : first;
-    for (let d = first, n = 0; d <= last && n < 400; d = addDays(d, 1), n++) add(d, { ...e, time: d === first ? TIME().format(start) : null });
-  }
-  for (const list of out.values()) list.sort((a, b) => Number(!!a.time) - Number(!!b.time) || a.start.localeCompare(b.start));
-  return out;
-}
-
-// Un evento de un calendario de fuera: solo se mira, con el color de su calendario.
-function CalEventItem({ e, p, where }: { e: DayEvent; p: CalProps; where?: boolean }) {
-  const c = p.calendars.find((k) => k.id === e.cal);
-  const span = e.allDay ? t('Todo el día') : `${TIME().format(new Date(e.start))}–${TIME().format(new Date(e.end))}`;
-  const tip = [e.title, span, e.location, c?.name].filter(Boolean).join(' · ');
-  return (
-    <div className={`tv-cal-ev${e.allDay ? ' is-allday' : ''}`} style={{ '--ev': c?.color ?? 'var(--text-ghost)' } as CSSProperties} title={tip}>
-      <i aria-hidden="true" />
-      {e.time && <time>{e.time}</time>}
-      <span>{e.title === '(sin título)' ? t('(sin título)') : e.title}</span>
-      {where && c && <em className="tv-cal-where">{c.name}</em>}
-    </div>
-  );
-}
-
-function TaskCalendar(p: CalProps) {
-  if (p.mode === 'agenda') return <CalAgenda {...p} />;
-  if (p.mode === 'mes') return <CalMonth {...p} />;
-  return <CalColumns {...p} />;
-}
-
-// Mes en cuadrícula, de lunes a domingo. Las tareas con fecha van en su día;
-// se arrastran a otro para cambiarla, y el día elegido es donde se apunta.
-function CalMonth(p: CalProps) {
-  const { month, day } = p;
-  const [over, setOver] = useState<string | null>(null);
-  const today = isoDay(0);
-  const [y, m] = month.split('-').map(Number);
-  const first = new Date(y, m - 1, 1);
-  const start = new Date(y, m - 1, 1 - ((first.getDay() + 6) % 7));
-  const days = Array.from({ length: 42 }, (_, k) => isoOf(new Date(start.getFullYear(), start.getMonth(), start.getDate() + k)));
-  const weeks = days[35].slice(0, 7) === month ? 6 : 5;
-  const byDay = useByDay(p.tasks, days[0], addDays(days[weeks * 7 - 1], 1));
-
-  return (
-    <div className="tv-cal" style={{ '--weeks': weeks } as React.CSSProperties}>
-      {DOW.map((d) => (
-        <div key={d} className="tv-cal-dow">
-          {t(d)}
-        </div>
-      ))}
-      {days.slice(0, weeks * 7).map((iso) => {
-        const list = byDay.get(iso) ?? [];
-        const evs = p.events.get(iso) ?? [];
-        const room = Math.max(0, 4 - list.length);
-        const evShown = evs.slice(0, Math.max(room, Math.min(evs.length, 1)));
-        const shown = list.slice(0, 4 - evShown.length);
-        const hidden = list.length - shown.length + evs.length - evShown.length;
-        return (
-          <div
-            key={iso}
-            className={`tv-cal-day${iso.slice(0, 7) !== month ? ' is-other' : ''}${iso === today ? ' is-today' : ''}${iso === day ? ' is-on' : ''}${over === iso ? ' is-over' : ''}`}
-            onClick={() => p.onDay(iso)}
-            {...dropOn(iso, setOver, p.onMove)}
-          >
-            <span className="tv-cal-num">{Number(iso.slice(8))}</span>
-            {evShown.map((e) => (
-              <CalEventItem key={e.cal + e.id} e={e} p={p} />
-            ))}
-            {shown.map((r) => (
-              <CalTask key={r.id} r={r} iso={iso} p={p} />
-            ))}
-            {hidden > 0 && <span className="tv-cal-more">{t('+{n} más', { n: hidden })}</span>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// Día, 3 días y semana: una columna por día, con todas sus tareas (se desplaza si no caben).
-function CalColumns(p: CalProps) {
-  const [over, setOver] = useState<string | null>(null);
-  const today = isoDay(0);
-  const byDay = useByDay(p.tasks, p.days[0], addDays(p.days[p.days.length - 1], 1));
-  const roomy = p.mode !== 'semana';
-  return (
-    <div className={`tv-cal-cols is-${p.mode}`} style={{ '--cols': p.days.length } as React.CSSProperties}>
-      {p.days.map((iso) => (
-        <button key={iso} className={`tv-cal-colhead${iso === today ? ' is-today' : ''}${iso === p.day ? ' is-on' : ''}`} onClick={() => p.onDay(iso)} {...dropOn(iso, setOver, p.onMove)}>
-          <span className="tv-cal-coldow">{SHORT_DOW().format(dateOf(iso)).replace('.', '')}</span>
-          <span className="tv-cal-num">{Number(iso.slice(8))}</span>
-          {!!byDay.get(iso)?.length && <span className="tv-count">{byDay.get(iso)!.filter((r) => r.status !== 'done' && !r.of).length || ''}</span>}
-        </button>
-      ))}
-      {p.days.map((iso) => {
-        const list = byDay.get(iso) ?? [];
-        const evs = p.events.get(iso) ?? [];
-        return (
-          <div key={iso} className={`tv-cal-col${iso === p.day ? ' is-on' : ''}${over === iso ? ' is-over' : ''}${iso < today ? ' is-past' : ''}`} onClick={() => p.onDay(iso)} {...dropOn(iso, setOver, p.onMove)}>
-            {evs.map((e) => (
-              <CalEventItem key={e.cal + e.id} e={e} p={p} where={roomy} />
-            ))}
-            {list.map((r) => (
-              <CalTask key={r.id} r={r} iso={iso} p={p} where={roomy ? p.whereOf(r) : undefined} />
-            ))}
-            {!list.length && !evs.length && p.mode === 'dia' && <p className="tv-cal-empty">{t('Nada para este día. N para apuntar algo.')}</p>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// Agenda: lo que viene, día a día, solo los días con algo. Si empieza hoy (o antes),
-// arriba van las pendientes que ya vencieron.
-function CalAgenda(p: CalProps) {
-  const [over, setOver] = useState<string | null>(null);
-  const today = isoDay(0);
-  // Las próximas veces de lo que se repite, en los dos meses siguientes.
-  const byDay = useByDay(p.tasks, p.day, addDays(p.day, 60));
-  const late = p.day <= today ? [...byDay.entries()].filter(([iso]) => iso < p.day).flatMap(([iso, list]) => list.filter((r) => r.status !== 'done').map((r) => [iso, r] as const)) : [];
-  const days = [...new Set([...byDay.keys(), ...p.events.keys()])].filter((iso) => iso >= p.day).sort();
-  if (!days.includes(p.day)) days.unshift(p.day);
-  const label = (iso: string) => {
-    const n = daysUntil(iso);
-    return n === 0 ? t('Hoy') : n === 1 ? t('Mañana') : n === -1 ? t('Ayer') : cap(SHORT_DOW().format(dateOf(iso)).replace('.', ''));
-  };
-  return (
-    <div className="tv-agenda">
-      {late.length > 0 && (
-        <section className="tv-agenda-day is-late">
-          <div className="tv-agenda-date">
-            <span className="tv-agenda-dow">{t('Vencidas')}</span>
-          </div>
-          <div className="tv-agenda-list">
-            {late.map(([iso, r]) => (
-              <CalTask key={r.id} r={r} iso={iso} p={p} where={[dueLabel(iso), p.whereOf(r)].filter(Boolean).join(' · ')} />
-            ))}
-          </div>
-        </section>
-      )}
-      {days.map((iso) => {
-        const list = byDay.get(iso) ?? [];
-        return (
-          <section key={iso} className={`tv-agenda-day${iso === today ? ' is-today' : ''}${iso === p.day ? ' is-on' : ''}${over === iso ? ' is-over' : ''}`} {...dropOn(iso, setOver, p.onMove)}>
-            <button className="tv-agenda-date" onClick={() => p.onDay(iso)} title={t('Apuntar en este día')}>
-              <span className="tv-cal-num">{Number(iso.slice(8))}</span>
-              <span className="tv-agenda-dow">
-                {label(iso)}
-                <span className="tv-agenda-month">{MONTH_NAME().format(dateOf(iso))}</span>
-              </span>
-            </button>
-            <div className="tv-agenda-list">
-              {(p.events.get(iso) ?? []).map((e) => (
-                <CalEventItem key={e.cal + e.id} e={e} p={p} where />
-              ))}
-              {list.map((r) => (
-                <CalTask key={r.id} r={r} iso={iso} p={p} where={p.whereOf(r)} />
-              ))}
-              {!list.length && !p.events.get(iso)?.length && <p className="tv-cal-empty">{t('Nada este día.')}</p>}
-            </div>
-          </section>
-        );
-      })}
-      {days.length === 1 && !byDay.get(p.day)?.length && !p.events.get(p.day)?.length && <p className="tv-cal-empty tv-agenda-end">{t('No hay nada con fecha a partir de aquí.')}</p>}
-    </div>
-  );
 }

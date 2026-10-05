@@ -10,8 +10,8 @@ export * from './recur.js';
 //
 // Lo que no es la casilla va escrito en la propia línea, como en Obsidian:
 //   - [ ] Llamar al banco #casa 📅 2026-10-02 ⏫ ✅ 2026-10-01
-// «📅» es la fecha, «⏫ 🔼 🔽» la prioridad (alta, media, baja), «✅» cuándo se
-// hizo y «#palabra» una etiqueta. «[/]» es en curso y «[!]» bloqueada.
+// «📅» es la fecha, «🛫» el día en que empieza (si dura varios días), «⏰ 10:00-11:30»
+// las horas, «⏫ 🔼 🔽» la prioridad (alta, media, baja), «✅» cuándo se hizo y «#palabra» una etiqueta. «[/]» es en curso y «[!]» bloqueada.
 // «🔁 every week» la repite (ver recur.ts): al hacerla, se apunta encima otra
 // igual con la fecha siguiente.
 
@@ -31,6 +31,12 @@ export type Task = {
   status: TaskStatus;
   priority: number;
   dueAt: string | null;
+  /** El día en que empieza, si dura varios (hasta `dueAt`), o null. */
+  startAt: string | null;
+  /** La hora a la que empieza («09:30»), el día `startAt` (o `dueAt`), o null si es de todo el día. */
+  startTime: string | null;
+  /** La hora a la que acaba, el día `dueAt`, o null. */
+  endTime: string | null;
   doneAt: string | null;
   /** La regla de repetición, tal cual («every week»), o null. */
   repeat: string | null;
@@ -46,6 +52,11 @@ export type TaskChange = {
   status?: TaskStatus;
   priority?: number;
   dueAt?: string | null;
+  /** El día en que empieza (si dura varios días); null lo quita. */
+  startAt?: string | null;
+  /** «09:30»; null la deja sin hora (y sin hora de fin). */
+  startTime?: string | null;
+  endTime?: string | null;
   /** «every week»; null deja de repetirla. */
   repeat?: string | null;
   tags?: string[];
@@ -56,11 +67,14 @@ export type TaskChange = {
 // ── Lo escrito en la línea ────────────────────────────────────────────
 const DATE = String.raw`(\d{4}-\d{2}-\d{2})`;
 const DUE = new RegExp(String.raw`\s*📅️?\s*${DATE}`, 'gu');
+const START = new RegExp(String.raw`\s*🛫️?\s*${DATE}`, 'gu');
+const CLOCK = String.raw`(\d{1,2}:\d{2})`;
+const TIME = new RegExp(String.raw`\s*⏰️?\s*${CLOCK}(?:\s*[-–]\s*${CLOCK})?`, 'gu');
 const DONE = new RegExp(String.raw`\s*✅️?\s*${DATE}`, 'gu');
 const PRIO = /\s*(🔺|⏫|🔼|🔽|⏬)️?/gu;
 const TAG = /(^|\s)#([\p{L}\p{N}_-]+)/gu;
 // «🔁 every week»: la regla llega hasta la siguiente marca, etiqueta o el final.
-const RECUR = /\s*🔁️?\s*((?:[^📅✅⏫🔼🔽⏬🔺🛫⏳➕#\n]*[^📅✅⏫🔼🔽⏬🔺🛫⏳➕#\s])?)/gu;
+const RECUR = /\s*🔁️?\s*((?:[^📅✅⏫🔼🔽⏬🔺🛫⏳➕⏰#\n]*[^📅✅⏫🔼🔽⏬🔺🛫⏳➕⏰#\s])?)/gu;
 const PRIO_OF: Record<string, number> = { '🔺': 3, '⏫': 3, '🔼': 2, '🔽': 1, '⏬': 1 };
 export const PRIO_MARK = ['', '🔽', '🔼', '⏫'];
 
@@ -68,9 +82,16 @@ const first = (re: RegExp, text: string) => {
   re.lastIndex = 0;
   return re.exec(text);
 };
+// «9:5» no vale; «9:30» se escribe «09:30».
+const clock = (s: string | undefined) => {
+  const m = s?.match(/^(\d{1,2}):(\d{2})$/);
+  return m && Number(m[1]) < 24 && Number(m[2]) < 60 ? `${m[1].padStart(2, '0')}:${m[2]}` : null;
+};
+/** «⏰ 09:30-11:00» (o solo la de empezar), o '' sin hora. */
+export const timeMark = (start: string | null | undefined, end: string | null | undefined) => (start ? `⏰ ${start}${end ? `-${end}` : ''}` : '');
 const tidy = (text: string) => text.replace(/\s+/g, ' ').trim();
 // El texto sin fecha, prioridad, etiquetas ni «hecha el».
-const bare = (text: string) => tidy(text.replace(RECUR, '').replace(DUE, '').replace(DONE, '').replace(PRIO, '').replace(TAG, '$1'));
+const bare = (text: string) => tidy(text.replace(RECUR, '').replace(START, '').replace(DUE, '').replace(TIME, '').replace(DONE, '').replace(PRIO, '').replace(TAG, '$1'));
 
 function tagsIn(text: string) {
   const out: string[] = [];
@@ -113,6 +134,9 @@ export function tasksOf(row: NoteRow): Task[] {
         status,
         priority: PRIO_OF[first(PRIO, text)?.[1] ?? ''] ?? 0,
         dueAt: first(DUE, text)?.[1] ?? null,
+        startAt: first(START, text)?.[1] ?? null,
+        startTime: clock(first(TIME, text)?.[1]),
+        endTime: clock(first(TIME, text)?.[2]),
         doneAt: checked ? (first(DONE, text)?.[1] ?? null) : null,
         repeat: first(RECUR, text)?.[1] || null,
         tags,
@@ -191,9 +215,17 @@ export function setToday(fn: () => string) {
   today = fn;
 }
 
+// Días entre dos fechas «aaaa-mm-dd» (de b menos a), y la fecha n días después.
+const utc = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+export const dayDiff = (a: string, b: string) => Math.round((utc(b) - utc(a)) / 86400000);
+export const shiftDay = (iso: string, n: number) => new Date(utc(iso) + n * 86400000).toISOString().slice(0, 10);
+
+/** Si la tarea dura varios días: desde `startAt` hasta `dueAt`. */
+export const spans = (t: { startAt: string | null; dueAt: string | null }) => !!t.startAt && !!t.dueAt && t.startAt.slice(0, 10) < t.dueAt.slice(0, 10);
+
 // «#a #b 📅 … ⏫ ✅ …»: lo que va detrás del texto al escribir una tarea entera.
-function tail(t: { tags: string[]; repeat?: string | null; dueAt?: string | null; priority?: number; doneAt?: string | null }) {
-  return [...t.tags.map((x) => `#${x}`), t.repeat ? `🔁 ${t.repeat}` : '', t.dueAt ? `📅 ${t.dueAt}` : '', PRIO_MARK[t.priority ?? 0], t.doneAt ? `✅ ${t.doneAt}` : ''].filter(Boolean).join(' ');
+function tail(t: { tags: string[]; repeat?: string | null; startAt?: string | null; dueAt?: string | null; startTime?: string | null; endTime?: string | null; priority?: number; doneAt?: string | null }) {
+  return [...t.tags.map((x) => `#${x}`), t.repeat ? `🔁 ${t.repeat}` : '', t.startAt ? `🛫 ${t.startAt}` : '', t.dueAt ? `📅 ${t.dueAt}` : '', timeMark(t.startTime, t.endTime), PRIO_MARK[t.priority ?? 0], t.doneAt ? `✅ ${t.doneAt}` : ''].filter(Boolean).join(' ');
 }
 
 function paragraphOf(source: string, meta: Parameters<typeof tail>[0]): JSONContent {
@@ -233,18 +265,24 @@ export function nextParagraph(para: JSONContent): JSONContent | null {
   const rule = parseRecur(first(RECUR, text)?.[1] ?? '');
   if (!rule) return null;
   const due = first(DUE, text)?.[1] ?? null;
+  const start = first(START, text)?.[1] ?? null;
   const when = nextDue(rule, due, today());
   let content = stripNodes(clone({ content: para.content ?? [] }).content ?? [], DONE);
-  let put = false;
-  // La fecha se cambia donde estaba; si no tenía, va al final.
-  content = content.map((c) => {
-    if (put || c.type !== 'text' || !c.text) return c;
-    const r = new RegExp(DUE.source, 'u');
-    if (!r.test(c.text)) return c;
-    put = true;
-    return { ...c, text: c.text.replace(r, (m) => m.replace(/\d{4}-\d{2}-\d{2}/, when)) };
-  });
-  if (!put) content = appendText(content, ` 📅 ${when}`);
+  // Las fechas se cambian donde estaban; si no tenía, va al final. Si dura
+  // varios días, empieza los mismos días antes de la fecha nueva.
+  const swap = (re: RegExp, iso: string) => {
+    let put = false;
+    content = content.map((c) => {
+      if (put || c.type !== 'text' || !c.text) return c;
+      const r = new RegExp(re.source, 'u');
+      if (!r.test(c.text)) return c;
+      put = true;
+      return { ...c, text: c.text.replace(r, (m) => m.replace(/\d{4}-\d{2}-\d{2}/, iso)) };
+    });
+    return put;
+  };
+  if (!swap(DUE, when)) content = appendText(content, ` 📅 ${when}`);
+  if (start && due) swap(START, shiftDay(start, dayDiff(due, when)));
   content = content.filter((c) => c.type !== 'text' || c.text);
   return { ...para, content };
 }
@@ -257,6 +295,13 @@ export function stampDone(para: JSONContent): JSONContent {
 /** Si, con este cambio, la tarea se hace y se repite (y entonces sale otra). */
 export const recurs = (task: Task, change: TaskChange) =>
   change.status === 'done' && task.status !== 'done' && !!parseRecur(change.repeat !== undefined ? (change.repeat ?? '') : (task.repeat ?? ''));
+
+// Las horas tras el cambio: sin la de empezar, tampoco hay de acabar.
+function times(task: Task, change: TaskChange) {
+  const startTime = change.startTime !== undefined ? clock(change.startTime ?? undefined) : task.startTime;
+  const endTime = change.endTime !== undefined ? clock(change.endTime ?? undefined) : task.endTime;
+  return { startTime, endTime: startTime ? endTime : null };
+}
 
 function changeItem(item: JSONContent, task: Task, change: TaskChange): JSONContent | null {
   const rest = (item.content ?? []).slice(1);
@@ -272,6 +317,8 @@ function changeItem(item: JSONContent, task: Task, change: TaskChange): JSONCont
     const meta = {
       tags: (change.tags ?? task.tags).filter((t) => !typed.has(t.toLowerCase())),
       repeat: change.repeat !== undefined ? change.repeat : task.repeat,
+      startAt: change.startAt !== undefined ? change.startAt : task.startAt,
+      ...times(task, change),
       dueAt: change.dueAt !== undefined ? change.dueAt : task.dueAt,
       priority: change.priority ?? task.priority,
       doneAt: done ? (task.doneAt ?? today()) : null,
@@ -286,9 +333,18 @@ function changeItem(item: JSONContent, task: Task, change: TaskChange): JSONCont
     content = stripNodes(content, DONE);
     if (done) content = appendText(content, ` ✅ ${today()}`);
   }
+  if (change.startAt !== undefined) {
+    content = stripNodes(content, START);
+    if (change.startAt) content = appendText(content, ` 🛫 ${change.startAt.slice(0, 10)}`);
+  }
   if (change.dueAt !== undefined) {
     content = stripNodes(content, DUE);
     if (change.dueAt) content = appendText(content, ` 📅 ${change.dueAt.slice(0, 10)}`);
+  }
+  if (change.startTime !== undefined || change.endTime !== undefined) {
+    const { startTime, endTime } = times(task, change);
+    content = stripNodes(content, TIME);
+    if (startTime) content = appendText(content, ` ${timeMark(startTime, endTime)}`);
   }
   if (change.repeat !== undefined) {
     content = stripNodes(content, RECUR);
@@ -367,7 +423,7 @@ export function takeTask(row: NoteRow, task: Task): { doc: JSONContent; item: JS
 }
 
 /** Una casilla nueva a partir de lo que se escribe («Llamar #casa»). */
-export function newTaskItem(source: string, meta: { dueAt?: string | null; priority?: number; repeat?: string | null } = {}): JSONContent {
+export function newTaskItem(source: string, meta: { startAt?: string | null; dueAt?: string | null; startTime?: string | null; endTime?: string | null; priority?: number; repeat?: string | null } = {}): JSONContent {
   return { type: 'taskItem', attrs: { checked: false }, content: [paragraphOf(source, { tags: [], ...meta })] };
 }
 
