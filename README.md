@@ -68,7 +68,7 @@ Las tareas no son notas aparte: son las casillas que escribes dentro de cualquie
 - [!] Llamar al fontanero
 ```
 
-`[ ]` pendiente, `[/]` en curso, `[!]` bloqueada y `[x]` hecha. Lo demás va en la propia línea: `📅 AAAA-MM-DD` es la fecha, `⏫` `🔼` `🔽` la prioridad (alta, media, baja), `#palabra` una etiqueta y `✅ AAAA-MM-DD` cuándo se hizo. No hace falta escribirlo a mano: la vista de tareas (`A`) lo pone al cambiar la fecha, la prioridad o el estado, y lo escribe en la nota.
+`[ ]` pendiente, `[/]` en curso, `[!]` bloqueada y `[x]` hecha. Lo demás va en la propia línea: `📅 AAAA-MM-DD` es la fecha, `🛫 AAAA-MM-DD` el día en que empieza si dura varios, `⏰ 10:00-11:30` las horas, `⏫` `🔼` `🔽` la prioridad (alta, media, baja), `#palabra` una etiqueta y `✅ AAAA-MM-DD` cuándo se hizo. No hace falta escribirlo a mano: la vista de tareas (`A`) lo pone al cambiar la fecha, la prioridad o el estado, y lo escribe en la nota.
 
 Al actualizar desde una versión en la que las tareas eran notas, el servidor las pasa solo, una vez, a casillas dentro de su nota madre (con su estado, fecha, prioridad y etiquetas). Una tarea que tenía más texto, notas dentro o enlaces se queda como nota y su casilla la enlaza (`- [ ] [[Título]]`); las tareas rápidas y las que no estaban dentro de ninguna nota van a una nota «Tareas».
 

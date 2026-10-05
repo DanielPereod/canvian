@@ -112,6 +112,11 @@ export const EN_TASKS: Record<string, string> = {
   // Añadir
   'Añadir tarea para hoy…': 'Add a task for today…',
   'Añadir tarea para {day}…': 'Add a task for {day}…',
+  'Añadir tarea: {when}…': 'Add a task: {when}…',
+  Empieza: 'Starts',
+  'Empieza…': 'Starts…',
+  'Hora de empezar': 'Start time',
+  'Hora de acabar': 'End time',
   'Añadir tarea en {note}…': 'Add a task to {note}…',
   'Añadir tarea en «{inbox}»… (#etiqueta, > otra nota)': 'Add a task to “{inbox}”… (#tag, > another note)',
   'Quitar la nota': 'Remove note',
@@ -132,8 +137,8 @@ export const EN_TASKS: Record<string, string> = {
   'Subtareas hechas': 'Subtasks done',
 
   // Pie con atajos
-  '1–5 vista · ←→{arrows} día · [ ] {period} · T hoy · arrastra una tarea para cambiar su fecha':
-    '1–5 view · ←→{arrows} day · [ ] {period} · T today · drag a task to change its date',
+  '1–5 vista · ←→{arrows} día · [ ] {period} · T hoy · arrastra por los días (o las horas) para apuntar algo que los ocupe; una tarea, para moverla o, por su borde, estirarla':
+    '1–5 view · ←→{arrows} day · [ ] {period} · T today · drag across days (or hours) to add something spanning them; drag a task to move it, or its edge to stretch it',
   mes: 'month',
   día: 'day',
   semana: 'week',

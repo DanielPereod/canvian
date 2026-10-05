@@ -489,6 +489,10 @@
 .tv-tag.is-chip span { color: var(--text-ghost); margin-left: 2px; }
 .tv-tag-add { width: 110px; background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: var(--text-xs); }
 .tv-tag-add::placeholder { color: var(--text-ghost); }
+.tv-detail-when { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; padding: var(--space-2) 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); color: var(--text-muted); }
+.tv-detail-sep { color: var(--text-ghost); }
+.tv-time { padding: 2px 4px; border: 0; border-radius: 6px; background: none; color: var(--text-muted); font: inherit; font-size: var(--text-sm); color-scheme: inherit; font-variant-numeric: tabular-nums; }
+.tv-time:hover, .tv-time:focus { background: var(--surface-sunken); outline: none; }
 .tv-detail-up { align-self: flex-start; max-width: 100%; margin: var(--space-1) 0 -10px; padding: 0; background: none; border: 0; color: var(--text-ghost); font: inherit; font-size: var(--text-xs); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-detail-up span { color: var(--text-faint); }
 .tv-detail-up:hover span, .tv-detail-up:focus-visible span { color: var(--accent-ink); }
@@ -526,66 +530,113 @@
   .tv-where { display: none; }
 }
 
-/* Calendario de tareas: el mes en cuadrícula. */
+/* Calendario de tareas: el mes en cuadrícula, una fila por semana. */
+.tv-cal, .tv-cal-cols, .tv-agenda { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .tv-cal { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(var(--weeks), minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); margin-bottom: var(--space-3); }
+.tv-cal-week { grid-column: 1 / -1; position: relative; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .tv-cal-dow { padding: 6px 8px; font-size: var(--text-xs); color: var(--text-ghost); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-transform: capitalize; }
 .tv-cal-day { position: relative; display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow: hidden; padding: 4px 4px 6px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: default; transition: background var(--dur-fast); }
 .tv-cal-day:hover { background: color-mix(in oklab, var(--surface-sunken) 50%, transparent); }
 .tv-cal-day.is-on { background: var(--surface-sunken); }
-.tv-cal-day.is-over { background: var(--accent-soft); }
+.tv-cal-day.is-range, .tv-cal-allcell.is-range { background: var(--accent-soft); }
 .tv-cal-day.is-other .tv-cal-num { color: var(--text-ghost); }
+.tv-cal-lanes { flex: none; display: block; }
 .tv-cal-num { align-self: flex-end; min-width: 22px; height: 22px; display: grid; place-items: center; border-radius: 999px; font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .tv-cal-day.is-today .tv-cal-num { background: var(--accent-ink); color: var(--bg); font-weight: 600; }
-.tv-cal-task { display: flex; align-items: center; gap: 6px; padding: 2px 6px; border-radius: 6px; font-size: var(--text-xs); color: var(--text); cursor: grab; }
+
+/* Una tarea en el calendario: suelta en su día, barra si dura varios, bloque si tiene horas. */
+.tv-cal-task { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 2px 6px; border-radius: 6px; font-size: var(--text-xs); color: var(--text); cursor: grab; touch-action: manipulation; }
 .tv-cal-task span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-cal-task time { flex: none; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .tv-cal-task:hover { background: var(--surface-sunken); }
 .tv-cal-task.is-sel { background: var(--surface-sunken); box-shadow: inset 0 0 0 1px var(--line-strong); }
-.tv-cal-task.is-late span { color: var(--danger); }
-.tv-cal-task.is-done span { color: var(--text-faint); text-decoration: line-through; }
-.tv-cal-task .tv-check { width: 12px; height: 12px; border-radius: 3px; }
+.tv-cal-task.is-late .tv-cal-title { color: var(--danger); }
+.tv-cal-task.is-done .tv-cal-title { color: var(--text-faint); text-decoration: line-through; }
+.tv-cal-task .tv-check { flex: none; width: 12px; height: 12px; border-radius: 3px; }
 .tv-cal-task .tv-check svg { width: 9px; height: 9px; }
 .tv-cal-task.is-ghost { cursor: pointer; opacity: 0.55; }
 .tv-cal-task.is-ghost span { color: var(--text-muted); }
 .tv-cal-task.is-ghost .tv-recur { width: 12px; text-align: center; flex: none; }
+.tv-cal-task.is-moving { opacity: 0.35; pointer-events: none; }
+html.cal-gesture, html.cal-gesture * { cursor: grabbing !important; }
+
+.tv-cal-task.is-bar, .tv-cal-task.is-block { background: color-mix(in oklab, var(--accent) 20%, var(--bg)); }
+.tv-cal-task.is-bar:hover, .tv-cal-task.is-block:hover { background: color-mix(in oklab, var(--accent) 28%, var(--bg)); }
+.tv-cal-task.is-bar.is-sel, .tv-cal-task.is-block.is-sel { background: color-mix(in oklab, var(--accent) 32%, var(--bg)); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.tv-cal-task.is-done.is-bar, .tv-cal-task.is-done.is-block { background: color-mix(in oklab, var(--accent) 8%, var(--bg)); }
+.tv-cal-week > .tv-cal-task.is-bar { position: absolute; z-index: 1; height: var(--bar); }
+.tv-cal-task.is-cont-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.tv-cal-task.is-cont-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.tv-cal-task.is-block { position: absolute; z-index: 1; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 0 6px; padding: 3px 6px; overflow: hidden; border-left: 3px solid var(--accent); }
+.tv-cal-task.is-block .tv-check { margin-top: 2px; }
+.tv-cal-task.is-block .tv-cal-title { flex: 1 1 60%; white-space: normal; overflow-wrap: break-word; }
+.tv-cal-cols.is-semana .tv-cal-task.is-block { padding: 2px 4px; }
+.tv-cal-cols.is-semana .tv-cal-task.is-block .tv-check { display: none; }
+.tv-cal-cols.is-semana .tv-cal-task.is-block .tv-cal-title { overflow-wrap: normal; }
+/* En el mes, el título manda: la hora cede sitio si no cabe. */
+.tv-cal .tv-cal-task { gap: 4px; }
+.tv-cal .tv-cal-task .tv-cal-title { flex: 1 1 auto; min-width: 2.5em; }
+.tv-cal .tv-cal-task time { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: clip; white-space: nowrap; }
+.tv-cal-task.is-block time { order: 3; flex-basis: 100%; font-size: calc(11px * var(--type-scale, 1)); }
+.tv-cal-task.is-block .tv-cal-where { order: 4; flex-basis: 100%; max-width: none; margin: 0; }
+
+/* Bordes para estirar: los lados de una barra (o de una tarea suelta) y el pie de un bloque. */
+.tv-cal-grip { position: absolute; z-index: 2; touch-action: none; }
+.tv-cal-grip.is-first, .tv-cal-grip.is-last { top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.tv-cal-grip.is-first { left: 0; }
+.tv-cal-grip.is-last { right: 0; }
+.tv-cal-grip.is-end { left: 0; right: 0; bottom: 0; height: 8px; cursor: ns-resize; }
+.tv-cal-grip::after { content: ''; position: absolute; border-radius: 2px; background: var(--text-muted); opacity: 0; transition: opacity var(--dur-fast); }
+.tv-cal-grip.is-first::after, .tv-cal-grip.is-last::after { top: 25%; bottom: 25%; left: 3px; width: 2px; }
+.tv-cal-grip.is-end::after { left: calc(50% - 10px); width: 20px; bottom: 3px; height: 2px; }
+.tv-cal-task:hover .tv-cal-grip::after, .tv-cal-task.is-sel .tv-cal-grip::after { opacity: 0.6; }
+@media (pointer: coarse) {
+  .tv-cal-grip { display: none; }
+  .tv-cal-task.is-sel .tv-cal-grip { display: block; }
+  .tv-cal-grip.is-first, .tv-cal-grip.is-last { width: 18px; }
+  .tv-cal-grip.is-end { height: 18px; }
+  .tv-cal-grip.is-first::after, .tv-cal-grip.is-last::after { left: 7px; width: 3px; }
+  .tv-cal-grip.is-end::after { height: 3px; bottom: 6px; }
+}
+
 .tv-cal-ev { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 2px 6px; border-radius: 6px; font-size: var(--text-xs); color: var(--text-muted); cursor: default; }
 .tv-cal-ev i { flex: none; width: 3px; align-self: stretch; min-height: 10px; border-radius: 2px; background: var(--ev); }
 .tv-cal-ev time { flex: none; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .tv-cal-ev span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-cal-ev.is-allday { background: color-mix(in oklab, var(--ev) 16%, transparent); color: var(--text); }
 .tv-cal .tv-cal-ev time { display: none; }
-.tv-cal-cols .tv-cal-ev { display: grid; grid-template-columns: 3px minmax(0, 1fr); column-gap: 8px; row-gap: 1px; align-items: start; }
-.tv-cal-cols .tv-cal-ev i { grid-row: span 3; height: 100%; }
-.tv-cal-cols .tv-cal-ev > :not(i) { grid-column: 2; }
-.tv-cal-cols .tv-cal-ev span { white-space: normal; overflow-wrap: break-word; }
-.tv-cal-cols.is-semana .tv-cal-ev span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-.tv-cal-cols .tv-cal-ev .tv-cal-where { max-width: none; margin: 0; }
-.tv-cal-cols:not(.is-semana) .tv-cal-ev, .tv-agenda .tv-cal-ev { padding: 5px 8px; font-size: var(--text-sm); }
-.tv-cal-cols.is-dia .tv-cal-ev { font-size: var(--text-md); padding: 8px 10px; }
+.tv-cal-ev.is-block { position: absolute; z-index: 1; display: block; overflow: hidden; padding: 3px 6px 3px 9px; background: color-mix(in oklab, var(--ev) 16%, var(--bg)); color: var(--text); }
+.tv-cal-ev.is-block i { position: absolute; left: 0; top: 0; bottom: 0; }
+.tv-cal-ev.is-block span { display: block; white-space: normal; overflow-wrap: anywhere; }
+.tv-cal-ev.is-block time { display: block; font-size: calc(11px * var(--type-scale, 1)); }
 .tv-cal-more { padding: 0 6px; font-size: calc(11px * var(--type-scale, 1)); color: var(--text-ghost); }
 .tv-cal-where { flex: none; max-width: 40%; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-size: var(--text-xs); color: var(--text-ghost); }
 
-/* Día, 3 días y semana: una columna por día. */
-.tv-cal-cols { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-template-rows: auto minmax(0, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); margin-bottom: var(--space-3); }
+/* Día, 3 días y semana: arriba lo de todo el día y, debajo, las horas (todo se desplaza junto). */
+.tv-cal-cols { --gut: 46px; flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--line); margin-bottom: var(--space-3); scrollbar-width: thin; }
+.tv-cal-top { position: sticky; top: 0; z-index: 4; display: grid; grid-template-columns: var(--gut) repeat(var(--cols), minmax(0, 1fr)); background: var(--bg); border-bottom: 1px solid var(--line-strong, var(--line)); }
+.tv-cal-gut { border-right: 1px solid var(--line); }
+.tv-cal-gut-day { display: flex; align-items: center; justify-content: flex-end; padding: 0 6px; font-size: calc(10px * var(--type-scale, 1)); line-height: 1.1; text-align: right; color: var(--text-ghost); }
 .tv-cal-colhead { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; padding: 6px 8px; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: none; font: inherit; color: var(--text-muted); text-align: left; cursor: pointer; transition: background var(--dur-fast); }
 .tv-cal-colhead:hover { background: color-mix(in oklab, var(--surface-sunken) 50%, transparent); }
 .tv-cal-colhead.is-on { background: var(--surface-sunken); }
-.tv-cal-colhead .tv-count { margin-left: auto; }
-.tv-cal-cols.is-semana .tv-cal-colhead .tv-count { display: none; }
 .tv-cal-coldow { font-size: var(--text-xs); color: var(--text-ghost); text-transform: capitalize; }
 .tv-cal-colhead.is-today .tv-cal-num { background: var(--accent-ink); color: var(--bg); font-weight: 600; }
-.tv-cal-col { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 6px 4px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); scrollbar-width: thin; transition: background var(--dur-fast); }
-.tv-cal-col.is-on { background: color-mix(in oklab, var(--surface-sunken) 55%, transparent); }
-.tv-cal-col.is-over, .tv-cal-colhead.is-over { background: var(--accent-soft); }
-.tv-cal-col.is-past .tv-cal-task:not(.is-late) span { color: var(--text-faint); }
-/* En columnas, el título en varias líneas (en la semana, hasta tres); con sitio, un poco más grande. */
-.tv-cal-cols .tv-cal-task { align-items: flex-start; }
-.tv-cal-cols .tv-cal-task .tv-check { margin-top: 2px; }
-.tv-cal-cols .tv-cal-task span { white-space: normal; overflow-wrap: break-word; hyphens: auto; }
-.tv-cal-cols.is-semana .tv-cal-task { gap: 4px; padding: 4px; }
-.tv-cal-cols.is-semana .tv-cal-task span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-.tv-cal-cols:not(.is-semana) .tv-cal-task { padding: 5px 8px; font-size: var(--text-sm); }
-.tv-cal-cols.is-dia .tv-cal-col { padding: 8px 10%; }
-.tv-cal-cols.is-dia .tv-cal-task { font-size: var(--text-md); padding: 8px 10px; }
+.tv-cal-allday { grid-column: 2 / -1; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); row-gap: 2px; min-height: 28px; max-height: 30vh; overflow-y: auto; padding: 3px 0; scrollbar-width: thin; }
+.tv-cal-allcell { margin: -3px 0; border-right: 1px solid var(--line); transition: background var(--dur-fast); }
+.tv-cal-allcell.is-on { background: color-mix(in oklab, var(--surface-sunken) 55%, transparent); }
+.tv-cal-allday > .tv-cal-task, .tv-cal-allday > .tv-cal-ev { z-index: 1; margin: 0 3px; }
+.tv-cal-cols:not(.is-semana) .tv-cal-allday > * { font-size: var(--text-sm); padding: 3px 8px; }
+.tv-cal-hours { display: grid; grid-template-columns: var(--gut) repeat(var(--cols), minmax(0, 1fr)); height: calc(24 * var(--hour)); }
+.tv-cal-ticks { position: relative; border-right: 1px solid var(--line); }
+.tv-cal-ticks span { position: absolute; right: 6px; transform: translateY(-50%); font-size: calc(10px * var(--type-scale, 1)); color: var(--text-ghost); font-variant-numeric: tabular-nums; }
+.tv-cal-col { position: relative; border-right: 1px solid var(--line); background-image: linear-gradient(to bottom, var(--line) 1px, transparent 1px); background-size: 100% var(--hour); transition: background-color var(--dur-fast); }
+.tv-cal-col.is-on { background-color: color-mix(in oklab, var(--surface-sunken) 55%, transparent); }
+.tv-cal-col.is-past .tv-cal-task:not(.is-late) .tv-cal-title { color: var(--text-muted); }
+.tv-cal-cols:not(.is-semana) .tv-cal-task.is-block { font-size: var(--text-sm); }
+.tv-cal-pv { position: absolute; z-index: 2; left: 1px; right: 3px; padding: 2px 6px; border-radius: 6px; background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); font-size: calc(11px * var(--type-scale, 1)); color: var(--accent-ink); font-variant-numeric: tabular-nums; pointer-events: none; }
+.tv-cal-now { position: absolute; z-index: 3; left: 0; right: 0; height: 2px; margin-top: -1px; background: var(--danger); pointer-events: none; }
+.tv-cal-now::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
 .tv-cal-empty { margin: var(--space-3) 8px; color: var(--text-ghost); font-size: var(--text-sm); }
 
 /* Agenda: una fila por día con algo, la fecha a la izquierda. */
@@ -605,9 +656,15 @@ button.tv-agenda-date:hover { background: var(--surface-sunken); }
 .tv-agenda-end { padding: var(--space-3) 0; }
 
 @media (max-width: 760px) {
-  .tv-cal .tv-cal-task span, .tv-cal-cols.is-semana .tv-cal-task span, .tv-cal .tv-cal-ev span, .tv-cal .tv-cal-ev time { display: none; }
+  .tv-cal .tv-cal-task:not(.is-bar) span, .tv-cal .tv-cal-task time, .tv-cal .tv-cal-ev span, .tv-cal .tv-cal-ev time { display: none; }
   .tv-cal .tv-cal-ev { padding: 2px; }
-  .tv-cal .tv-cal-task, .tv-cal-cols.is-semana .tv-cal-task { padding: 2px; }
+  .tv-cal .tv-cal-task { padding: 2px; }
+  .tv-cal .tv-cal-task.is-bar .tv-check { display: none; }
+  .tv-cal-cols { --gut: 34px; flex: none; height: 72dvh; }
+  .tv-cal-cols.is-semana .tv-cal-colhead { flex-direction: column; gap: 0; padding: 4px 0; text-align: center; }
+  .tv-cal-cols.is-semana .tv-cal-task { padding: 2px 3px; gap: 0 3px; }
+  .tv-cal-cols.is-semana .tv-cal-task .tv-check, .tv-cal-cols.is-semana .tv-cal-task time { display: none; }
+  .tv-cal-gut-day { visibility: hidden; }
   .tv-cal-where { display: none; }
   .tv-agenda-day { grid-template-columns: 96px minmax(0, 1fr); }
 }

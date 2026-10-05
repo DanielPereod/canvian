@@ -83,6 +83,11 @@ export function useDrawerSwipe(open: boolean, setOpen: (open: boolean) => void, 
       const dx = t.clientX - g.x;
       const dy = t.clientY - g.y;
       if (!g.claimed) {
+        // Arrastrando algo en el calendario (tras mantener pulsado), el cajón no se abre.
+        if (root().classList.contains('cal-gesture')) {
+          g = null;
+          return end();
+        }
         if (Math.hypot(dx, dy) < SLOP) return;
         // Solo un gesto claramente de lado y en la dirección que toca.
         if (Math.abs(dx) < Math.abs(dy) * 1.5 || (g.opening ? dx < 0 : dx > 0) || (g.opening && selecting())) {
