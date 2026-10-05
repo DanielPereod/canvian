@@ -795,7 +795,8 @@ button.tv-agenda-date:hover { background: var(--surface-sunken); }
 .diary-compose .diary-input:focus-visible { box-shadow: none; }
 .diary-compose .diary-input > :first-child { margin-top: 0; }
 .diary-compose .diary-input > :last-child { margin-bottom: 0; }
-.diary-placeholder { position: absolute; top: 14px; left: 16px; color: var(--text-ghost); pointer-events: none; font-size: var(--text-md); }
+/* El aviso va dentro de la primera línea, a la altura exacta del cursor. */
+.diary-compose.is-blank .diary-input > p.is-empty:first-child::before { content: var(--diary-ph); float: left; height: 0; pointer-events: none; color: var(--text-ghost); font: inherit; font-style: normal; }
 .diary-compose-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: 8px; cursor: default; }
 .diary-hint { color: var(--text-ghost); }
 .diary-post { border: 0; border-radius: 999px; padding: 6px 16px; background: var(--text); color: var(--bg); font: inherit; font-size: var(--text-sm); font-weight: 500; cursor: pointer; transition: opacity var(--dur-fast); }

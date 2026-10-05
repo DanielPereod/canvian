@@ -507,7 +507,15 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     }
     const title = entryTitle(new Date());
     const doc = joinTitle(titleBlock(title, null), body);
-    createNote(spotFor(diary.id), 'text', { zoneId: diary.id, title, bodyJson: JSON.stringify(doc), bodyText: `${title}\n${text}`.trim() });
+    const entry = createNote(spotFor(diary.id), 'text', { zoneId: diary.id, title, bodyJson: JSON.stringify(doc), bodyText: `${title}\n${text}`.trim() });
+    // Las notas enlazadas con [[ ]] quedan unidas a la entrada, como en el resto de notas.
+    const linked = new Set<string>();
+    const walk = (n: JSONContent) => {
+      if (n.type === 'wikilink' && typeof n.attrs?.id === 'string') linked.add(n.attrs.id);
+      n.content?.forEach(walk);
+    };
+    walk(body);
+    for (const id of linked) connect(entry.id, id);
   };
   const openDiary = () => {
     if (focused) closeFocused();
@@ -1330,6 +1338,11 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           onOpen={(id) => {
             setPeek(true);
             openNote(id);
+          }}
+          onCreateLinked={(title) => {
+            // Un [[enlace]] a una nota que aún no existe: se crea arriba del todo.
+            const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: title }] }] });
+            return createNote(spotFor(null), 'text', { zoneId: null, title: title.slice(0, 120), bodyJson, bodyText: title }).id;
           }}
           onError={report}
           onClose={() => setDiaryOpen(false)}

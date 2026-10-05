@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { EditorContent, useEditor, type JSONContent } from '@tiptap/react';
 import { decodeTime } from 'ulidx';
 import type { NoteRow } from '../api';
 import { bodyToHtml, editingExtensions, extensions, parseBody, splitTitle } from './editor';
 import { MediaUpload, YouTubePaste } from './media';
-import { FormatBar } from './EditorMenus';
+import { FormatBar, MobileBar, SlashMenu } from './EditorMenus';
+import { WikiSuggest, splitWiki, type WikiQuery } from './obsidian';
+import { WikiMenu, type WikiItem } from './WikiMenu';
+import { SlashSuggest, type SlashQuery } from './slash';
 import { TOUCH } from './touch';
 import { keysBlocked } from '../keys';
 import { locale, t } from '../i18n';
@@ -58,15 +61,34 @@ type Props = {
   paused: boolean;
   onPost: (body: JSONContent, text: string) => void;
   onOpen: (id: string) => void;
+  // Un [[enlace]] a una nota que aún no existe: se crea y devuelve su id.
+  onCreateLinked: (title: string) => string;
   onError: (e: unknown) => void;
   onClose: () => void;
 };
 
+// La nota de un [[enlace]]: por su id o, escrito a mano, por su nombre.
+const sameTitle = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
+function linkTarget(el: HTMLElement, rows: NoteRow[]) {
+  if (el.dataset.id && rows.some((r) => r.id === el.dataset.id)) return el.dataset.id;
+  const name = splitWiki(el.dataset.target ?? '').note;
+  return name ? rows.find((r) => sameTitle(r.title ?? '', name))?.id : undefined;
+}
+
 export function DiaryView(p: Props) {
   const [empty, setEmpty] = useState(true);
   const post = useRef<() => void>(() => {});
+  // Como en las notas: [[ busca notas para enlazar y / abre el menú de bloques.
+  const [query, setQuery] = useState<WikiQuery | null>(null);
+  const menuKeys = useRef<(e: KeyboardEvent) => boolean>(() => false);
+  const [suggest] = useState(() => WikiSuggest.configure({ onChange: setQuery, onKey: (e) => menuKeys.current(e) }));
+  const [slash, setSlash] = useState<SlashQuery | null>(null);
+  const slashKeys = useRef<(e: KeyboardEvent) => boolean>(() => false);
+  const [slashExt] = useState(() => SlashSuggest.configure({ onChange: setSlash, onKey: (e) => slashKeys.current(e) }));
+  const rowsRef = useRef(p.rows);
+  rowsRef.current = p.rows;
   const editor = useEditor({
-    extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError: p.onError }), YouTubePaste],
+    extensions: [...extensions, ...editingExtensions, MediaUpload.configure({ onError: p.onError }), YouTubePaste, suggest, slashExt],
     content: '',
     onCreate: ({ editor }) => {
       if (!TOUCH) editor.commands.focus();
@@ -74,6 +96,15 @@ export function DiaryView(p: Props) {
     onUpdate: ({ editor }) => setEmpty(editor.isEmpty),
     editorProps: {
       attributes: { class: 'note-body prose diary-input', 'aria-label': t('¿Qué tal el día?') },
+      // Clic en un [[enlace]] abre esa nota.
+      handleClick: (_view, _pos, e) => {
+        const el = (e.target as HTMLElement | null)?.closest<HTMLElement>('a[data-wikilink]');
+        const id = el && linkTarget(el, rowsRef.current);
+        if (!id) return false;
+        e.preventDefault();
+        p.onOpen(id);
+        return true;
+      },
       // Ctrl/⌘ Intro publica; Esc deja de escribir.
       handleKeyDown: (view, e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -96,6 +127,21 @@ export function DiaryView(p: Props) {
     editor.commands.clearContent(true);
     setEmpty(true);
     if (!TOUCH) editor.commands.focus();
+  };
+
+  const pick = (item: WikiItem) => {
+    if (!editor || !query) return;
+    const { section, alias } = splitWiki(query.query);
+    const title = item.kind === 'note' ? item.row.title || 'Nota sin título' : item.title;
+    const id = item.kind === 'note' ? item.row.id : p.onCreateLinked(item.title);
+    // Si ya estaban los «]]» de cierre, también se los lleva.
+    const { doc } = editor.state;
+    const to = doc.textBetween(query.to, Math.min(query.to + 2, doc.content.size), '') === ']]' ? query.to + 2 : query.to;
+    editor
+      .chain()
+      .focus()
+      .insertContentAt({ from: query.from, to }, { type: 'wikilink', attrs: { id, target: section ? `${title}#${section}` : title, alias } })
+      .run();
   };
 
   // Las entradas: lo que cuelga de «Diario», lo nuevo primero, agrupado por días.
@@ -130,10 +176,16 @@ export function DiaryView(p: Props) {
   return (
     <div className="tasks-view diary-view">
       <div className="diary-col">
-        <div className="diary-compose" onClick={(e) => e.target === e.currentTarget && editor?.commands.focus()}>
-          {editor && empty && <div className="diary-placeholder" aria-hidden="true">{t('¿Qué tal el día?')}</div>}
+        <div
+          className={`diary-compose${empty ? ' is-blank' : ''}`}
+          style={{ '--diary-ph': JSON.stringify(t('¿Qué tal el día?')) } as CSSProperties}
+          onClick={(e) => e.target === e.currentTarget && editor?.commands.focus()}
+        >
           <EditorContent editor={editor} />
-          {editor && !TOUCH && <FormatBar editor={editor} />}
+          {query && <WikiMenu query={query} rows={p.rows} exclude={p.diaryId ?? ''} onPick={pick} keys={menuKeys} />}
+          {slash && editor && <SlashMenu query={slash} editor={editor} onError={p.onError} keys={slashKeys} />}
+          {editor && <FormatBar editor={editor} />}
+          {editor && <MobileBar editor={editor} />}
           <div className="diary-compose-foot">
             <span className="meta diary-hint">{TOUCH ? '' : t('Ctrl Intro para publicar')}</span>
             <button className="diary-post" disabled={empty} onClick={() => post.current()}>
@@ -153,6 +205,14 @@ export function DiaryView(p: Props) {
                 className="diary-entry"
                 tabIndex={0}
                 onClick={(e) => {
+                  // Un [[enlace]] abre su nota.
+                  const wiki = (e.target as HTMLElement).closest<HTMLElement>('a[data-wikilink]');
+                  const linked = wiki && linkTarget(wiki, p.rows);
+                  if (linked) {
+                    e.preventDefault();
+                    p.onOpen(linked);
+                    return;
+                  }
                   // Los enlaces web se abren aparte; lo demás abre la entrada para editarla.
                   const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href]');
                   if (a && /^https?:/i.test(a.href)) {
