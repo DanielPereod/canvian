@@ -43,4 +43,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # La caché es una ayuda: si GitHub no deja escribirla (pasa en los PR),
+          # la imagen se construye igual y el paso no falla.
+          cache-to: type=gha,mode=max,ignore-error=true
