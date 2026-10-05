@@ -372,4 +372,14 @@ export const EN_APP: Record<string, string> = {
   'Valor no válido': 'Invalid value',
   'Vista no válida': 'Invalid view',
   'Ya hay una propiedad con ese nombre': 'There’s already a property with that name',
+  // Diario
+  Diario: 'Journal',
+  'El feed para apuntar el día a día (actívalo en Configuración › General)': 'A feed to jot down your days (turn it on in Settings › General)',
+  'Un feed para apuntar el día a día, con lo nuevo arriba. Elige en qué perfiles está.': 'A feed to jot down your days, newest first. Choose which profiles have it.',
+  'Activa el Diario para este perfil en Configuración › General': 'Turn on the Journal for this profile in Settings › General',
+  '¿Qué tal el día?': 'How’s your day going?',
+  'Ctrl Intro para publicar': 'Ctrl Enter to post',
+  Publicar: 'Post',
+  'Aún no hay nada. Lo primero que escribas aparecerá aquí.': 'Nothing yet. What you write first will show up here.',
+  'Abrir para editar': 'Open to edit',
 };

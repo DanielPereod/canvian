@@ -11,6 +11,7 @@ import { loadSidebarPrefs } from './canvas/sidebarPrefs';
 import { loadViews } from './canvas/views';
 import { loadWide } from './canvas/widePrefs';
 import { loadZenPrefs } from './canvas/zenPrefs';
+import { loadDiaryPrefs } from './canvas/diaryPrefs';
 import { loadCalendars } from './calendars';
 import { Settings } from './Settings';
 import { Help } from './Help';
@@ -43,6 +44,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     void loadViews();
     void loadWide();
     void loadZenPrefs();
+    void loadDiaryPrefs();
     void loadCalendars();
   }, []);
 
@@ -63,6 +65,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           void loadViews();
           void loadWide();
           void loadZenPrefs();
+          void loadDiaryPrefs();
           void loadCalendars();
         } else if (scope === 'profiles') api.profiles().then(setProfiles, () => {});
       }),
@@ -151,6 +154,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       {settingsOpen && (
         <Settings
           profile={active}
+          profiles={profiles}
           onClose={() => setSettingsOpen(false)}
           onProfiles={() => {
             setSettingsOpen(false);

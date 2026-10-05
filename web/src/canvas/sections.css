@@ -785,3 +785,35 @@ button.tv-agenda-date:hover { background: var(--surface-sunken); }
 .graph-hint-meta { color: var(--text-faint); }
 .graph-depth-n { width: 1ch; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .graph-count { color: var(--text-faint); }
+
+/* ── Diario: un feed, lo nuevo arriba ─────────────────────────────── */
+.tasks-view.diary-view { overflow-y: auto; background: var(--bg); }
+.diary-col { width: 100%; max-width: 640px; margin: 0 auto; padding: var(--space-6) var(--space-5) 96px; box-sizing: border-box; }
+.diary-compose { position: relative; padding: 14px 16px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-sunken); cursor: text; transition: border-color var(--dur-fast); }
+.diary-compose:focus-within { border-color: var(--line-strong); }
+.diary-compose .diary-input { min-height: 3.2em; max-height: 50vh; overflow-y: auto; outline: none; }
+.diary-compose .diary-input:focus-visible { box-shadow: none; }
+.diary-compose .diary-input > :first-child { margin-top: 0; }
+.diary-compose .diary-input > :last-child { margin-bottom: 0; }
+.diary-placeholder { position: absolute; top: 14px; left: 16px; color: var(--text-ghost); pointer-events: none; font-size: var(--text-md); }
+.diary-compose-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: 8px; cursor: default; }
+.diary-hint { color: var(--text-ghost); }
+.diary-post { border: 0; border-radius: 999px; padding: 6px 16px; background: var(--text); color: var(--bg); font: inherit; font-size: var(--text-sm); font-weight: 500; cursor: pointer; transition: opacity var(--dur-fast); }
+.diary-post:disabled { opacity: 0.3; cursor: default; }
+.diary-empty { margin: var(--space-6) 0; color: var(--text-faint); text-align: center; }
+.diary-day { margin-top: var(--space-6); }
+.diary-day-title { margin: 0 0 var(--space-2); font-size: var(--text-xs); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
+.diary-day-title::first-letter { text-transform: uppercase; }
+.diary-entry { display: grid; grid-template-columns: 52px 1fr; gap: var(--space-3); padding: 14px 10px; margin: 0 -10px; border-top: 1px solid var(--line); cursor: pointer; outline: none; transition: background var(--dur-fast); animation: tasks-row-in 260ms var(--ease-out) both; }
+.diary-day-title + .diary-entry { border-top-color: transparent; }
+.diary-entry:hover, .diary-entry:focus-visible { background: var(--surface-sunken); border-radius: 10px; border-top-color: transparent; }
+.diary-entry:hover + .diary-entry, .diary-entry:focus-visible + .diary-entry { border-top-color: transparent; }
+.diary-time { padding-top: 2px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.diary-body { min-width: 0; overflow-wrap: anywhere; }
+.diary-body > :first-child { margin-top: 0; }
+.diary-body > :last-child { margin-bottom: 0; }
+.diary-body img, .diary-body video { max-width: 100%; height: auto; border-radius: 8px; }
+@media (max-width: 640px) {
+  .diary-col { padding: var(--space-4) var(--space-4) 96px; }
+  .diary-entry { grid-template-columns: 1fr; gap: 4px; }
+}

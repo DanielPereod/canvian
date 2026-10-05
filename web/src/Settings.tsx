@@ -11,8 +11,9 @@ import { CalendarSettings } from './CalendarSettings';
 import { AiSettings } from './AiSettings';
 import { KoreaderSettings } from './KoreaderSettings';
 import { setZenFullscreen, useZenPrefs } from './canvas/zenPrefs';
-import { changeServer, inApp } from './native';
+import { setDiaryOn, useDiaryPrefs } from './canvas/diaryPrefs';
 import type { Profile } from './api';
+import { changeServer, inApp } from './native';
 
 // Configuración con la forma de Obsidian: a la izquierda las secciones, a la
 // derecha los ajustes de la elegida, cada uno con su nombre y explicación a la
@@ -20,6 +21,7 @@ import type { Profile } from './api';
 
 type Props = {
   profile: Profile;
+  profiles: Profile[];
   onClose: () => void;
   onProfiles: () => void;
 };
@@ -51,12 +53,13 @@ function Row({ name, hint, children }: { name: string; hint?: string; children?:
   );
 }
 
-export function Settings({ profile, onClose, onProfiles }: Props) {
+export function Settings({ profile, profiles, onClose, onProfiles }: Props) {
   const keymap = useKeymap();
   const look = useAppearance();
   const type = useTypography();
   const lang = useLang();
   const zen = useZenPrefs();
+  const diary = useDiaryPrefs();
   const [section, setSection] = useState<SectionId>(() => {
     try {
       const saved = localStorage.getItem(LAST);
@@ -193,6 +196,18 @@ export function Settings({ profile, onClose, onProfiles }: Props) {
                       {o.label}
                     </button>
                   ))}
+                </div>
+              </Row>
+              <Row name={t('Diario')} hint={t('Un feed para apuntar el día a día, con lo nuevo arriba. Elige en qué perfiles está.')}>
+                <div className="set-segmented" role="group" aria-label={t('Diario')}>
+                  {profiles.map((pr) => {
+                    const on = diary.profiles.includes(pr.id);
+                    return (
+                      <button key={pr.id} aria-pressed={on} className={on ? 'is-on' : ''} onClick={() => report(setDiaryOn(pr.id, !on))}>
+                        {pr.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </Row>
               <Row name={t('Ordenar notas')} hint={t('Revisa las notas sueltas y mételas dentro de otras.')}>

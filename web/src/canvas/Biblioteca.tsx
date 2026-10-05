@@ -21,7 +21,7 @@ const withKey = (text: string, keys: string) => (keys ? `${text} (${keys})` : te
 // arriba, la ruta y el buscador; en el centro, las notas de la colección en
 // sus vistas (Collection.tsx) o los nodos de siempre.
 
-export type BibView = 'library' | 'note' | 'tasks' | 'organize';
+export type BibView = 'library' | 'note' | 'tasks' | 'diary' | 'organize';
 // La colección (con sus vistas) o los nodos.
 export type BibLayout = 'lista' | 'nodos';
 
@@ -145,6 +145,8 @@ type SideProps = {
   // Lo que se ve: la colección de la biblioteca o la nota abierta (nada en tareas).
   here: string | null | undefined;
   tasks: number;
+  // El Diario, si está en este perfil.
+  diary: boolean;
   showArchived: boolean;
   folded: boolean;
   width: SideWidth;
@@ -159,6 +161,7 @@ type SideProps = {
   onLibrary: (id: string | null) => void;
   onOpen: (id: string) => void;
   onTasks: () => void;
+  onDiary: () => void;
   onOrganize: () => void;
   onArchived: () => void;
   onNewNote: (kind: NewKind) => void;
@@ -376,6 +379,11 @@ export function BibSidebar(p: SideProps) {
           <button className={`bib-it${libraryOn && p.here === null ? ' is-on' : ''}`} onClick={() => p.onLibrary(null)} title={key('toRoot') || undefined}>
             {t('Todas las notas')}
           </button>
+          {p.diary && (
+            <button className={`bib-it${p.view === 'diary' ? ' is-on' : ''}`} onClick={p.onDiary} title={key('diary') || undefined}>
+              {t('Diario')}
+            </button>
+          )}
           <button className={`bib-it${p.view === 'tasks' ? ' is-on' : ''}`} onClick={p.onTasks} title={key('tasks') || undefined}>
             {t('Tareas')}<span className="bib-count">{p.tasks || ''}</span>
           </button>
