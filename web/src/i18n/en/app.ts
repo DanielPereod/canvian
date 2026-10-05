@@ -247,6 +247,10 @@ export const EN_APP: Record<string, string> = {
   Cambiar: 'Change',
   'La configuración vive en tu servidor y es la misma en todos tus dispositivos.': 'Settings live on your server and are the same on all your devices.',
   Modo: 'Mode',
+  'Tema del perfil {name}': 'Theme for profile {name}',
+  'Este perfil tiene su propio modo y temas; los cambios de aquí abajo solo valen para él.': 'This profile has its own mode and themes; the changes below only apply to it.',
+  'Usa el modo y los temas generales, como los demás perfiles sin tema propio.': 'Uses the general mode and themes, like the other profiles without their own.',
+  Propio: 'Own',
   'Automático sigue al sistema: claro de día, oscuro de noche. También con Ctrl Mayús L o desde la paleta de comandos.':
     'Automatic follows the system: light by day, dark by night. Also with Ctrl Shift L or from the command palette.',
   Muestra: 'Preview',

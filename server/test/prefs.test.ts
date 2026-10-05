@@ -37,6 +37,13 @@ describe('prefs', () => {
     expect((await call('DELETE', '/api/prefs/appearance')).status).toBe(204);
   });
 
+  it('saves an appearance per profile', async () => {
+    const mine = { p1: { mode: 'dark', dark: 'observatorio', light: 'papel' } };
+    expect((await call('PUT', '/api/prefs/profileThemes', mine)).status).toBe(204);
+    expect(await (await call('GET', '/api/prefs')).json()).toEqual({ profileThemes: mine });
+    expect((await call('PUT', '/api/prefs/profileThemes', { p1: { mode: 'dark', dark: 'nada', light: 'papel' } })).status).toBe(400);
+  });
+
   it('saves the type: a font per role and the size', async () => {
     const type = { ui: 'geist', titles: 'tema', text: 'literata', code: 'fira-code', size: 15 };
     expect((await call('PUT', '/api/prefs/type', type)).status).toBe(204);

@@ -4,7 +4,8 @@ import { api } from './api';
 // Aspecto de la interfaz: un modo (claro, oscuro o automático, que sigue al
 // sistema) y un tema para cada tono. Solo cambia colores, letras y celdas del
 // mapa. Se guarda en el servidor para todos los dispositivos, y en este
-// navegador para pintarlo bien desde el primer fotograma.
+// navegador para pintarlo bien desde el primer fotograma. Cada perfil puede
+// tener el suyo; los que no, usan el general.
 
 export type ThemeId = 'jardin' | 'papel' | 'observatorio' | 'bloques' | 'piedras' | 'plano' | 'minimo' | 'minimo-claro' | 'biblioteca' | 'biblioteca-noche';
 export type Tone = 'dark' | 'light';
@@ -54,10 +55,15 @@ function clean(v: unknown): Appearance | null {
 }
 
 const system = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+let general: Appearance = DEFAULT;
+let byProfile: Record<string, Appearance> = {};
+let profile: string | null = null;
 let current: Appearance = DEFAULT;
 let active = 'jardin' as ThemeId;
-let snapshot: Appearance & { active: ThemeId } = { ...current, active };
+let snapshot: Appearance & { active: ThemeId; own: boolean } = { ...current, active, own: false };
 const listeners = new Set<() => void>();
+
+const own = () => !!profile && !!byProfile[profile];
 
 const resolve = (a: Appearance): ThemeId => {
   const tone: Tone = a.mode === 'auto' ? (system?.matches === false ? 'light' : 'dark') : a.mode;
@@ -68,15 +74,16 @@ function paint() {
   active = resolve(current);
   if (active === 'jardin') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = active;
-  snapshot = { ...current, active };
+  snapshot = { ...current, active, own: own() };
   listeners.forEach((l) => l());
 }
 
-function apply(a: Appearance) {
-  current = a;
+// El que toca ahora: el del perfil abierto si tiene uno, si no el general.
+function refresh() {
+  current = (profile && byProfile[profile]) || general;
   paint();
   try {
-    localStorage.setItem(LOCAL, JSON.stringify(a));
+    localStorage.setItem(LOCAL, JSON.stringify(current));
   } catch {
     // Sin almacenamiento local, el aspecto llega igual desde el servidor.
   }
@@ -95,8 +102,19 @@ export function startTheme() {
   } catch {
     saved = null;
   }
-  if (saved) apply(saved);
-  else paint();
+  if (saved) current = saved;
+  paint();
+}
+
+function cleanMap(v: unknown): Record<string, Appearance> {
+  const out: Record<string, Appearance> = {};
+  if (v && typeof v === 'object') {
+    for (const [id, a] of Object.entries(v)) {
+      const ok = clean(a);
+      if (ok) out[id] = ok;
+    }
+  }
+  return out;
 }
 
 // Tras entrar: lo que diga el servidor (o el tema de antes, si aún no hay aspecto).
@@ -105,17 +123,52 @@ export function loadTheme() {
     .prefs()
     .then((p) => {
       const saved = clean(p.appearance);
-      if (saved) apply(saved);
-      else if (p.theme) apply(fromLegacy(p.theme));
+      if (saved) general = saved;
+      else if (p.theme) general = fromLegacy(p.theme);
+      byProfile = cleanMap(p.profileThemes);
+      refresh();
     })
     .catch(() => {});
 }
 
+// El perfil abierto: al cambiar de perfil cambia también su aspecto.
+export function setThemeProfile(id: string) {
+  if (profile === id) return;
+  profile = id;
+  refresh();
+}
+
 function save(next: Appearance) {
-  const before = current;
-  apply(next);
-  return api.savePref('appearance', next).catch((e) => {
-    apply(before);
+  const before = { general, byProfile };
+  let done: Promise<unknown>;
+  if (own()) {
+    byProfile = { ...byProfile, [profile!]: next };
+    done = api.savePref('profileThemes', byProfile);
+  } else {
+    general = next;
+    done = api.savePref('appearance', next);
+  }
+  refresh();
+  return done.catch((e) => {
+    ({ general, byProfile } = before);
+    refresh();
+    throw e;
+  });
+}
+
+// Que el perfil abierto tenga su propio aspecto (empieza siendo el que se ve
+// ahora) o vuelva a usar el general.
+export function setOwnTheme(on: boolean) {
+  if (!profile || on === own()) return Promise.resolve();
+  const before = byProfile;
+  const next = { ...byProfile };
+  if (on) next[profile] = current;
+  else delete next[profile];
+  byProfile = next;
+  refresh();
+  return api.savePref('profileThemes', next).catch((e) => {
+    byProfile = before;
+    refresh();
     throw e;
   });
 }

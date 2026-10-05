@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { LANGS, setLang, t, useLang } from './i18n';
 import { ACTIONS, bind, comboOf, groupName, isDefault, keyParts, reserved, resetAll, resetKey, useKeymap, type ActionId } from './keys';
 import { Keys } from './Kbd';
-import { MODES, setMode, setTheme, THEMES, useAppearance, type Tone } from './theme';
+import { MODES, setMode, setOwnTheme, setTheme, THEMES, useAppearance, type Tone } from './theme';
 import { SIZES, SLOTS, THEME, setTypography, useTypography } from './typography';
 import { FontPicker } from './FontPicker';
 import { openOrganize } from './canvas/OrganizeView';
@@ -20,6 +20,7 @@ import { changeServer, inApp } from './native';
 // izquierda y el control a la derecha. Todo se guarda en el servidor.
 
 type Props = {
+  profile: Profile;
   profiles: Profile[];
   onClose: () => void;
   onProfiles: () => void;
@@ -52,7 +53,7 @@ function Row({ name, hint, children }: { name: string; hint?: string; children?:
   );
 }
 
-export function Settings({ profiles, onClose, onProfiles }: Props) {
+export function Settings({ profile, profiles, onClose, onProfiles }: Props) {
   const keymap = useKeymap();
   const look = useAppearance();
   const type = useTypography();
@@ -238,6 +239,19 @@ export function Settings({ profiles, onClose, onProfiles }: Props) {
 
           {section === 'aspecto' && (
             <>
+              <Row
+                name={t('Tema del perfil {name}', { name: profile.name })}
+                hint={look.own ? t('Este perfil tiene su propio modo y temas; los cambios de aquí abajo solo valen para él.') : t('Usa el modo y los temas generales, como los demás perfiles sin tema propio.')}
+              >
+                <div className="set-segmented" role="radiogroup" aria-label={t('Tema del perfil {name}', { name: profile.name })}>
+                  <button role="radio" aria-checked={!look.own} className={!look.own ? 'is-on' : ''} onClick={() => report(setOwnTheme(false))}>
+                    {t('General')}
+                  </button>
+                  <button role="radio" aria-checked={look.own} className={look.own ? 'is-on' : ''} onClick={() => report(setOwnTheme(true))}>
+                    {t('Propio')}
+                  </button>
+                </div>
+              </Row>
               <Row name={t('Modo')} hint={t('Automático sigue al sistema: claro de día, oscuro de noche. También con Ctrl Mayús L o desde la paleta de comandos.')}>
                 <div className="set-segmented" role="radiogroup" aria-label={t('Modo')}>
                   {MODES.map((m) => (
