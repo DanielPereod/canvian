@@ -4,7 +4,7 @@ import { api, type Profile } from './api';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { Canvas } from './canvas/Canvas';
 import { actionFor, comboOf, isBound, keysBlocked, loadKeymap } from './keys';
-import { loadTheme, toggleMode } from './theme';
+import { loadTheme, setThemeProfile, toggleMode } from './theme';
 import { loadLang } from './i18n';
 import { loadTypography } from './typography';
 import { loadSidebarPrefs } from './canvas/sidebarPrefs';
@@ -63,7 +63,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           void loadViews();
           void loadWide();
           void loadZenPrefs();
-    void loadZenPrefs();
           void loadCalendars();
         } else if (scope === 'profiles') api.profiles().then(setProfiles, () => {});
       }),
@@ -71,6 +70,11 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   );
 
   const active = profiles.find((p) => p.id === activeId) ?? profiles[0];
+
+  // Cada perfil puede tener su propio tema.
+  useEffect(() => {
+    if (active) setThemeProfile(active.id);
+  }, [active?.id]);
 
   const selectProfile = (id: string) => {
     setActiveId(id);
@@ -146,6 +150,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
       )}
       {settingsOpen && (
         <Settings
+          profile={active}
           onClose={() => setSettingsOpen(false)}
           onProfiles={() => {
             setSettingsOpen(false);
