@@ -89,7 +89,8 @@
   --radius-md: 14px;
   --radius-lg: 18px;
   --radius-xl: 26px;
-  --radius-pill: 999px;
+  --radius-pill: 999px; /* cápsulas y chips; los temas rectos la cambian */
+  --radius-btn: var(--radius-lg); /* botones: cada tema decide si son bloque o píldora */
 
   /* Movimiento: casi todo con muelle; nada lineal */
   --dur-instant: 90ms;

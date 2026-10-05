@@ -48,7 +48,7 @@
   gap: var(--space-2);
   min-height: 44px;
   padding: 0 var(--space-5);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-btn);
   font-weight: var(--weight-medium);
   transition: transform var(--dur-fast) var(--ease-spring), box-shadow var(--dur-base) var(--ease-out), opacity var(--dur-fast), background-position var(--dur-slow) var(--ease-out);
 }
@@ -64,6 +64,8 @@
 }
 .btn-primary:hover:not(:disabled) { background-position: 100% 0; }
 .btn-ghost { border: 1px solid var(--line-strong); color: var(--text); }
+/* Botón pequeño, para barras y pies de tarjeta. */
+.btn-sm { min-height: 30px; padding: 0 var(--space-4); font-size: var(--text-sm); }
 .btn-ghost:hover:not(:disabled) { background: var(--surface-hover); }
 
 /* ── Campo ───────────────────────────────────────────── */
@@ -92,7 +94,7 @@ kbd, .kbd {
   border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
   background: var(--surface-sunken);
-  font: 500 calc(10.5px * var(--type-scale, 1))/1 var(--font-mono);
+  font: 500 var(--text-2xs)/1 var(--font-mono);
   color: var(--text-muted);
 }
 
