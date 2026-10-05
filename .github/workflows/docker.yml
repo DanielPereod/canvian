@@ -10,8 +10,10 @@ permissions:
   packages: write
 # Una imagen de main detrás de otra: si dos se construyen a la vez, la más
 # antigua puede terminar la última y dejar «latest» apuntando a ella.
+# Los PR van en su propio grupo: si un PR se fusiona nada más abrirlo, su
+# ejecución llega con la ref de main y cancelaba la construcción de main.
 concurrency:
-  group: docker-${{ github.ref }}
+  group: docker-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   image:
