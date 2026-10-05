@@ -4,12 +4,12 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { settings } from '../db/schema.js';
 
-// Preferencias de la interfaz: los atajos de teclado, el aspecto (modo, temas y letra), la barra lateral las notas en modo ancho, el idioma, los calendarios de fuera, el modo zen y las vistas de cada colección. Viven en la
+// Preferencias de la interfaz: los atajos de teclado, el aspecto (modo, temas y letra), la barra lateral las notas en modo ancho, el idioma, los calendarios de fuera, el modo zen, las vistas de cada colección y en qué perfiles está el Diario. Viven en la
 // tabla de ajustes con el prefijo `pref:`, que nunca deja ver lo demás (la
 // contraseña está en la misma tabla).
 
 const PREFIX = 'pref:';
-const KEYS = ['keymap', 'theme', 'appearance', 'type', 'sidebar', 'wide', 'lang', 'calendars', 'zen', 'views'] as const;
+const KEYS = ['keymap', 'theme', 'appearance', 'type', 'sidebar', 'wide', 'lang', 'calendars', 'zen', 'views', 'diary'] as const;
 const keymap = z.record(z.string().regex(/^[a-z][a-zA-Z]{1,30}$/), z.string().max(40)).refine((m) => Object.keys(m).length <= 100);
 const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano', 'minimo', 'minimo-claro', 'biblioteca', 'biblioteca-noche']);
 // Modo claro, oscuro o automático, y el tema de cada tono.
@@ -61,7 +61,9 @@ const view = z.object({
 const views = z
   .record(z.string().min(1).max(100), z.object({ active: id, views: z.array(view).min(1).max(30) }))
   .refine((m) => Object.keys(m).length <= 2000);
-const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme, appearance, type, sidebar, wide, lang, calendars, zen, views };
+// Los perfiles en los que está el Diario (el feed de entradas, lo nuevo arriba).
+const diary = z.object({ profiles: z.array(id).max(100) });
+const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme, appearance, type, sidebar, wide, lang, calendars, zen, views, diary };
 
 export function prefRoutes(db: Db) {
   const r = new Hono();

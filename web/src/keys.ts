@@ -12,6 +12,7 @@ export type ActionId =
   | 'commands'
   | 'toRoot'
   | 'tasks'
+  | 'diary'
   | 'organize'
   | 'newNote'
   | 'quickNote'
@@ -65,6 +66,7 @@ const RAW: KeyAction[] = [
   { id: 'commands', label: 'Comandos', group: 'Ir a', ctx: ['global'], key: 'mod+shift+p' },
   { id: 'toRoot', label: 'Todas las notas', group: 'Ir a', ctx: ['list'], key: '1' },
   { id: 'tasks', label: 'Tareas', hint: 'Abre o cierra la vista de tareas', group: 'Ir a', ctx: ['list', 'tasks'], key: 'a' },
+  { id: 'diary', label: 'Diario', hint: 'El feed para apuntar el día a día (actívalo en Configuración › General)', group: 'Ir a', ctx: ['global'], key: '' },
   { id: 'calendar', label: 'Calendario', hint: 'Las tareas por fechas, junto a tus otros calendarios', group: 'Ir a', ctx: ['global'], key: '' },
   { id: 'organize', label: 'Ordenar notas', hint: 'Meter las notas sueltas dentro de otras', group: 'Ir a', ctx: ['list', 'organize'], key: 'o' },
 
