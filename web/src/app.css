@@ -179,6 +179,12 @@
 .theme-swatch.t-minimo-claro { --c-bg: #fafafa; --c-side: #f3f3f3; --c-cell: #f0f0f0; --c-line: rgba(0, 0, 0, 0.14); --c-text: #111111; --c-r: 4px; --sw-font: 'Inter Variable', sans-serif; --sw-style: normal; --sw-weight: 500; }
 .theme-swatch.t-biblioteca { --c-bg: #ffffff; --c-side: #f6f5f3; --c-cell: #d9ecf7; --c-cell-2: #dcefdc; --c-cell-3: #f7e2d2; --c-line: rgba(0, 0, 0, 0.07); --c-text: #1b1a18; --c-r: 3px; --sw-font: 'Jost Variable', sans-serif; --sw-style: normal; --sw-weight: 600; }
 .theme-swatch.t-biblioteca-noche { --c-bg: #1c1c1e; --c-side: #141415; --c-cell: #26323a; --c-cell-2: #283428; --c-cell-3: #3a2e27; --c-line: rgba(255, 255, 255, 0.07); --c-text: #ecebe8; --c-r: 3px; --sw-font: 'Jost Variable', sans-serif; --sw-style: normal; --sw-weight: 600; }
+.theme-swatch.t-ateneo { --c-bg: #e9e4d8; --c-side: #161613; --c-cell: #f2eee4; --c-cell-2: #dcd6c8; --c-line: rgba(26, 25, 21, 0.55); --c-text: #1a1915; --c-r: 1px; --sw-font: 'Archivo Variable', sans-serif; --sw-style: normal; --sw-weight: 700; }
+.theme-swatch.t-ateneo-noche { --c-bg: #161613; --c-side: #0e0e0c; --c-cell: #1e1e1a; --c-cell-2: #2a2924; --c-line: rgba(233, 228, 216, 0.45); --c-text: #e9e4d8; --c-r: 1px; --sw-font: 'Archivo Variable', sans-serif; --sw-style: normal; --sw-weight: 700; }
+.theme-swatch.t-ateneo b,
+.theme-swatch.t-ateneo-noche b { font-size: 17px; font-stretch: 125%; text-transform: uppercase; letter-spacing: 0.02em; }
+.theme-swatch.t-ateneo::after,
+.theme-swatch.t-ateneo-noche::after { content: ''; position: absolute; left: 8%; top: 14%; width: 6px; height: 6px; border-radius: 50%; background: #5c9a5f; }
 .theme-swatch.t-jardin { --c-cell: #13262a; --c-cell-2: #1c1a30; --c-cell-3: #2c1f16; }
 
 /* ── Configuración: secciones a la izquierda, ajustes a la derecha ── */

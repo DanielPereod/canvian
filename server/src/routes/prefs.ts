@@ -11,7 +11,7 @@ import { settings } from '../db/schema.js';
 const PREFIX = 'pref:';
 const KEYS = ['keymap', 'theme', 'appearance', 'type', 'sidebar', 'wide', 'lang', 'calendars', 'zen', 'views', 'diary', 'profileThemes'] as const;
 const keymap = z.record(z.string().regex(/^[a-z][a-zA-Z]{1,30}$/), z.string().max(40)).refine((m) => Object.keys(m).length <= 100);
-const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano', 'minimo', 'minimo-claro', 'biblioteca', 'biblioteca-noche']);
+const theme = z.enum(['jardin', 'papel', 'observatorio', 'bloques', 'piedras', 'plano', 'minimo', 'minimo-claro', 'biblioteca', 'biblioteca-noche', 'ateneo', 'ateneo-noche']);
 // Modo claro, oscuro o automático, y el tema de cada tono.
 const appearance = z.object({ mode: z.enum(['light', 'dark', 'auto']), dark: theme, light: theme });
 // Letras de la interfaz, los títulos, el texto y el código (un id del catálogo

@@ -7,7 +7,7 @@ import { api } from './api';
 // navegador para pintarlo bien desde el primer fotograma. Cada perfil puede
 // tener el suyo; los que no, usan el general.
 
-export type ThemeId = 'jardin' | 'papel' | 'observatorio' | 'bloques' | 'piedras' | 'plano' | 'minimo' | 'minimo-claro' | 'biblioteca' | 'biblioteca-noche';
+export type ThemeId = 'jardin' | 'papel' | 'observatorio' | 'bloques' | 'piedras' | 'plano' | 'minimo' | 'minimo-claro' | 'biblioteca' | 'biblioteca-noche' | 'ateneo' | 'ateneo-noche';
 export type Tone = 'dark' | 'light';
 export type Mode = Tone | 'auto';
 
@@ -17,11 +17,13 @@ export const THEMES: { id: ThemeId; name: string; hint: string; tone: Tone }[] =
   { id: 'plano', name: 'Plano', hint: 'Papel de plano azul con líneas blancas', tone: 'dark' },
   { id: 'minimo', name: 'Mínimo', hint: 'Negro, grises y una letra sans; nada más', tone: 'dark' },
   { id: 'biblioteca-noche', name: 'Biblioteca', hint: 'Gris carbón y lectura en serif; letra a elegir', tone: 'dark' },
+  { id: 'ateneo-noche', name: 'Ateneo', hint: 'Fichero de noche: tinta negra, crema y puntos verdes', tone: 'dark' },
   { id: 'papel', name: 'Papel', hint: 'Tinta sobre papel, como un cuaderno', tone: 'light' },
   { id: 'bloques', name: 'Bloques', hint: 'Brutalista: hueso, negro y amarillo', tone: 'light' },
   { id: 'piedras', name: 'Piedras de río', hint: 'Arena cálida y piedras de colores suaves', tone: 'light' },
   { id: 'minimo-claro', name: 'Mínimo claro', hint: 'Blanco, grises y una letra sans', tone: 'light' },
   { id: 'biblioteca', name: 'Biblioteca', hint: 'Blanco y lectura en serif; letra a elegir', tone: 'light' },
+  { id: 'ateneo', name: 'Ateneo', hint: 'Fichero retrofuturista: crema, tinta negra y letra mono', tone: 'light' },
 ];
 
 export const MODES: { id: Mode; name: string }[] = [

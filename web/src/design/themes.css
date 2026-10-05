@@ -411,3 +411,157 @@
 }
 [data-theme='minimo-claro'] .btn-primary { background: #111111; color: #fafafa; }
 [data-theme='minimo-claro'] .btn-primary:hover:not(:disabled) { background: #000000; }
+
+/* ── 7 · Ateneo: fichero retrofuturista, tinta negra sobre crema ─── */
+/* Papel crema, filetes finos de tinta, barra lateral negra, letra mono para
+   todo y títulos en grotesca ancha y mayúsculas. El único color: puntos
+   verdes de estado. */
+
+:root[data-theme^='ateneo'] {
+  --font-ui: 'IBM Plex Mono', 'JetBrains Mono Variable', ui-monospace, monospace;
+  --font-serif: 'Archivo Variable', 'Helvetica Neue', Arial, sans-serif;
+  --font-pixel: var(--font-ui);
+  --title-font: var(--font-serif);
+  --title-weight: 650;
+  --title-style: normal;
+  --title-case: uppercase;
+  --title-tracking: 0.01em;
+  --read-font: var(--font-ui);
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 3px;
+  --radius-xl: 4px;
+  --blur-chrome: 0px;
+  --vignette: transparent;
+  --pool: transparent;
+  --dots: transparent;
+  --grid: transparent;
+  --highlight: none;
+  --accent-glow: transparent;
+  --pearl-glow: none;
+  --bib-cover-c: 0.012;
+}
+:root[data-theme='ateneo'] {
+  color-scheme: light;
+  --bg: #e9e4d8;
+  --n-950: #e9e4d8;
+  --ink: 26 25 21;
+  --grid-strong: rgba(26, 25, 21, 0.08);
+  --text: #1a1915;
+  --text-muted: #48453d;
+  --text-faint: #736e62;
+  --text-ghost: #9f998b;
+  --line: rgba(26, 25, 21, 0.2);
+  --line-strong: rgba(26, 25, 21, 0.45);
+  --surface-1: #f1ede3;
+  --surface-2: #f1ede3;
+  --surface-3: #f1ede3;
+  --surface-sunken: rgba(26, 25, 21, 0.04);
+  --surface-hover: rgba(26, 25, 21, 0.06);
+  --shadow-1: 0 0 0 1px rgba(26, 25, 21, 0.28);
+  --shadow-2: 0 0 0 1px rgba(26, 25, 21, 0.5), 0 24px 60px -30px rgba(26, 25, 21, 0.35);
+  /* La tinta manda: el color del perfil se vuelve negro. */
+  --accent: #1a1915 !important;
+  --accent-contrast: #e9e4d8;
+  --accent-soft: rgba(26, 25, 21, 0.07);
+  --accent-line: rgba(26, 25, 21, 0.55);
+  --accent-ink: #1a1915;
+  --selection: rgba(26, 25, 21, 0.18);
+  --glow: 0 0 0 1px rgba(26, 25, 21, 0.6);
+  --pearl: #1a1915;
+  --pearl-ink: #e9e4d8;
+  --stem: rgba(26, 25, 21, 0.3);
+  --stem-hover: rgba(26, 25, 21, 0.6);
+  --success: #4f8f53;
+  --ateneo-dot: #4f8f53;
+  --bib-side: #161613;
+  --bib-sel: rgba(26, 25, 21, 0.08);
+  --bib-cover-l: 0.88;
+}
+:root[data-theme='ateneo-noche'] {
+  color-scheme: dark;
+  --bg: #161613;
+  --n-950: #161613;
+  --ink: 233 228 216;
+  --grid-strong: rgba(233, 228, 216, 0.07);
+  --text: #e9e4d8;
+  --text-muted: #bbb4a5;
+  --text-faint: #8a8476;
+  --text-ghost: #5f5b51;
+  --line: rgba(233, 228, 216, 0.14);
+  --line-strong: rgba(233, 228, 216, 0.32);
+  --surface-1: #1d1d19;
+  --surface-2: #1d1d19;
+  --surface-3: #1d1d19;
+  --surface-sunken: rgba(233, 228, 216, 0.035);
+  --surface-hover: rgba(233, 228, 216, 0.06);
+  --shadow-1: 0 0 0 1px rgba(233, 228, 216, 0.16);
+  --shadow-2: 0 0 0 1px rgba(233, 228, 216, 0.3), 0 30px 70px -30px rgba(0, 0, 0, 0.8);
+  --accent: #e9e4d8 !important;
+  --accent-contrast: #161613;
+  --accent-soft: rgba(233, 228, 216, 0.08);
+  --accent-line: rgba(233, 228, 216, 0.5);
+  --accent-ink: #e9e4d8;
+  --selection: rgba(233, 228, 216, 0.24);
+  --glow: 0 0 0 1px rgba(233, 228, 216, 0.55);
+  --pearl: #e9e4d8;
+  --pearl-ink: #161613;
+  --stem: rgba(233, 228, 216, 0.25);
+  --stem-hover: rgba(233, 228, 216, 0.55);
+  --success: #6fae72;
+  --ateneo-dot: #6fae72;
+  --bib-side: #0e0e0c;
+  --bib-sel: rgba(233, 228, 216, 0.08);
+  --bib-cover-l: 0.27;
+}
+/* La barra lateral es un panel de tinta negra en los dos tonos, con su
+   propio papel y filetes; lo elegido va en crema, como una ficha marcada. */
+[data-theme^='ateneo'] .bib-side {
+  --text: #e9e4d8;
+  --text-muted: #b5ae9f;
+  --text-faint: #827d70;
+  --text-ghost: #5c584f;
+  --line: rgba(233, 228, 216, 0.16);
+  --surface-hover: rgba(233, 228, 216, 0.08);
+  --bib-sel: #e9e4d8;
+  color-scheme: dark;
+}
+[data-theme^='ateneo'] .bib-side .bib-it.is-on,
+[data-theme^='ateneo'] .bib-side .bib-tree-row.is-on,
+[data-theme^='ateneo'] .bib-side .bib-tree-row.is-on .bib-tree-it,
+[data-theme^='ateneo'] .bib-side .bib-tree-row.is-on .bib-chev,
+[data-theme^='ateneo'] .bib-side .bib-it.is-on .bib-count { color: #161613 !important; }
+[data-theme='ateneo-noche'] .bib-side { border-right-color: rgba(233, 228, 216, 0.14); }
+[data-theme^='ateneo'] .bib-profile-dot { width: 7px; height: 7px; margin: 0 5px; border-radius: 50%; background: var(--ateneo-dot); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ateneo-dot) 22%, transparent); }
+/* Papel liso, sin luciérnagas ni cristales. */
+[data-theme^='ateneo'] .backdrop,
+[data-theme^='ateneo'] .page-view { background: var(--bg); }
+[data-theme^='ateneo'] .backdrop.dotted::before,
+[data-theme^='ateneo'] .fireflies,
+[data-theme^='ateneo'] .surface-3::before { display: none; }
+[data-theme^='ateneo'] .surface-1,
+[data-theme^='ateneo'] .surface-2,
+[data-theme^='ateneo'] .surface-3 { backdrop-filter: none; -webkit-backdrop-filter: none; }
+/* Títulos en grotesca ancha; etiquetas en mono, versalitas y espaciadas. */
+[data-theme^='ateneo'] .bib-lib-title h1,
+[data-theme^='ateneo'] .bib-cover-t,
+[data-theme^='ateneo'] .sheet.is-reader .sheet-title,
+[data-theme^='ateneo'] .display { font-stretch: 125%; }
+[data-theme^='ateneo'] .display em,
+[data-theme^='ateneo'] .serif { font-style: normal; }
+[data-theme^='ateneo'] .meta,
+[data-theme^='ateneo'] .label,
+[data-theme^='ateneo'] .settings-subheading,
+[data-theme^='ateneo'] .bib-thead,
+[data-theme^='ateneo'] .bib-cover-k,
+[data-theme^='ateneo'] .reader-meta,
+[data-theme^='ateneo'] .bib-side-label { font-family: var(--font-ui); text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--text-2xs); }
+/* Etiquetas como sellos: un filete, sin cápsula. */
+[data-theme^='ateneo'] .bib-pill { border-radius: var(--radius-xs); background: none; box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--text-2xs); }
+[data-theme^='ateneo'] .bib-search { background: none !important; box-shadow: inset 0 0 0 1px var(--line-strong); }
+[data-theme^='ateneo'] .bib-cover,
+[data-theme^='ateneo'] .bib-spine { box-shadow: inset 0 0 0 1px var(--line-strong); }
+/* Botón principal: un bloque de tinta. */
+[data-theme^='ateneo'] .btn-primary { background: var(--text); color: var(--bg); box-shadow: none; border-radius: var(--radius-sm); }
+[data-theme^='ateneo'] .btn-primary:hover:not(:disabled) { background: color-mix(in oklab, var(--text) 85%, var(--bg)); }
