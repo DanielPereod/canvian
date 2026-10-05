@@ -84,10 +84,10 @@
 /* Barra para añadir */
 .board-tools {
   position: absolute; left: 50%; bottom: var(--space-5); transform: translateX(-50%);
-  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; z-index: 5;
+  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: var(--radius-pill); z-index: 5;
   animation: rise-in var(--dur-slow) var(--ease-out) 200ms both;
 }
-.board-tools button, .board-tools-file { background: none; border: 0; color: var(--text-muted); font: inherit; font-size: var(--text-sm); padding: 6px 12px; border-radius: 999px; cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }
+.board-tools button, .board-tools-file { background: none; border: 0; color: var(--text-muted); font: inherit; font-size: var(--text-sm); padding: 6px 12px; border-radius: var(--radius-pill); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }
 .board-tools button:hover, .board-tools-file:hover { color: var(--text); background: var(--accent-soft); }
 .board-tools-file input { display: none; }
 .board-tools-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
@@ -154,16 +154,16 @@
   display: flex; flex-direction: row-reverse; align-items: center; gap: 8px;
   animation: rise-in var(--dur-slow) var(--ease-out) 260ms both;
 }
-.draw-rail { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; }
+.draw-rail { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; border-radius: var(--radius-pill); }
 .draw-rail button, .draw-style button {
-  display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 999px;
+  display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: var(--radius-pill);
   background: none; color: var(--text-muted); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast), opacity var(--dur-fast);
 }
 .draw-rail button:hover:not(:disabled) { color: var(--text); background: var(--accent-soft); }
 .draw-rail button.is-on { color: var(--accent-ink, var(--accent)); background: var(--accent-soft); }
 .draw-rail button:disabled { opacity: 0.3; cursor: default; }
 .draw-rail-sep, .draw-style-sep { width: 18px; height: 1px; background: var(--line); margin: 4px 0; }
-.draw-style { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px; border-radius: 999px; animation: fade var(--dur-base) var(--ease-out) both; }
+.draw-style { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px; border-radius: var(--radius-pill); animation: fade var(--dur-base) var(--ease-out) both; }
 .draw-style button { width: 30px; height: 30px; }
 .draw-swatch span { width: 14px; height: 14px; border-radius: 50%; background: var(--draw-c); transition: box-shadow var(--dur-fast), scale var(--dur-fast); }
 .draw-swatch:hover span { scale: 1.15; }

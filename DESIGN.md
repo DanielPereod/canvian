@@ -2,6 +2,8 @@
 
 Dirección: **una biblioteca de investigación**. Una barra lateral con tus notas en árbol, la colección en lista, portadas o nodos, y un lector tranquilo. El color del perfil es el acento. Cada tema cambia el aspecto (colores, letras, radios), nunca la estructura.
 
+**Regla:** ninguna vista escribe radios ni tamaños de letra a mano. Los radios son `--radius-xs/sm/md/lg/xl`, las cápsulas `--radius-pill` y los botones `--radius-btn` (cada tema decide si son píldora o bloque); un círculo de verdad es `50%` y los filetes de 1–3 px pueden quedarse fijos. La letra es `--text-2xs…3xl`. Los botones principales son `.btn .btn-primary` (`.btn-sm` para los pequeños), nunca uno propio. Así el tema manda en todas las vistas, también en las nuevas.
+
 La muestra viva está en la propia app: abre `http://localhost:5173/#sistema`.
 
 ## Archivos

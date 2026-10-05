@@ -64,7 +64,7 @@
 .prose ul[data-type='taskList'] > li[data-status='blocked'] > label::after { left: 22%; right: 22%; top: calc(50% - 1px); height: 2px; border-radius: 1px; background: var(--prio-3); }
 .prose ul[data-type='taskList'] > li[data-status='blocked'] > div > p:first-child { color: var(--text-faint); }
 /* La tarea a la que se llega desde la vista de tareas. */
-.prose ul[data-type='taskList'] > li.is-flash > div { animation: task-flash 1.6s ease-out; border-radius: 4px; }
+.prose ul[data-type='taskList'] > li.is-flash > div { animation: task-flash 1.6s ease-out; border-radius: var(--radius-xs); }
 @keyframes task-flash { 0%, 30% { background: var(--accent-soft); } 100% { background: transparent; } }
 
 /* La lista que sale al escribir «[[» */

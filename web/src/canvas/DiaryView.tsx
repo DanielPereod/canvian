@@ -188,7 +188,7 @@ export function DiaryView(p: Props) {
           {editor && <MobileBar editor={editor} />}
           <div className="diary-compose-foot">
             <span className="meta diary-hint">{TOUCH ? '' : t('Ctrl Intro para publicar')}</span>
-            <button className="diary-post" disabled={empty} onClick={() => post.current()}>
+            <button className="btn btn-primary btn-sm diary-post" disabled={empty} onClick={() => post.current()}>
               {t('Publicar')}
             </button>
           </div>
@@ -198,7 +198,7 @@ export function DiaryView(p: Props) {
 
         {days.map((d) => (
           <section key={d.day} className="diary-day">
-            <h2 className="diary-day-title">{dayLabel(d.day)}</h2>
+            <h2 className="label diary-day-title">{dayLabel(d.day)}</h2>
             {d.entries.map(({ row, at }) => (
               <article
                 key={row.id}

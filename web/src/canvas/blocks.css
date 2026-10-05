@@ -15,7 +15,7 @@
 .prose [data-color]:not([data-color$='-bg']),
 .prose [data-text-color]:not([data-text-color$='-bg']),
 .fmt-a[data-text-color]:not([data-text-color$='-bg']) { color: color-mix(in oklab, var(--tone) 82%, var(--text)); }
-.prose [data-color$='-bg'] { background: color-mix(in oklab, var(--tone) 17%, transparent); border-radius: 4px; padding: 0.15em 0.45em; }
+.prose [data-color$='-bg'] { background: color-mix(in oklab, var(--tone) 17%, transparent); border-radius: var(--radius-xs); padding: 0.15em 0.45em; }
 .prose ul[data-color$='-bg'], .prose ol[data-color$='-bg'] { padding-left: 1.6em; }
 .prose [data-text-color$='-bg'] { background: color-mix(in oklab, var(--tone) 22%, transparent); border-radius: 3px; padding: 0 2px; }
 
@@ -31,9 +31,9 @@
 
 /* ── Aviso ── (como en Obsidian: cabecera con icono y tipo en su color,
    el texto debajo a todo lo ancho, fondo apenas teñido y sin borde) */
-.prose .note-callout { --kind: #3f86c9; --c: var(--kind); display: flex; flex-direction: column; gap: 0.35em; margin: 0.2em 0 0.6em; padding: 0.7em 1em 0.8em; border-radius: 8px; border: 0; background: color-mix(in oklab, var(--c) 7%, var(--surface-sunken)); }
+.prose .note-callout { --kind: #3f86c9; --c: var(--kind); display: flex; flex-direction: column; gap: 0.35em; margin: 0.2em 0 0.6em; padding: 0.7em 1em 0.8em; border-radius: var(--radius-sm); border: 0; background: color-mix(in oklab, var(--c) 7%, var(--surface-sunken)); }
 .prose .note-callout[data-color] { --c: var(--tone); }
-.prose .note-callout[data-color$='-bg'] { padding: 0.7em 1em 0.8em; border-radius: 8px; background: color-mix(in oklab, var(--c) 16%, transparent); }
+.prose .note-callout[data-color$='-bg'] { padding: 0.7em 1em 0.8em; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--c) 16%, transparent); }
 .note-callout[data-kind='example'] { --kind: #9467b5; }
 .note-callout[data-kind='warning'] { --kind: #db7f30; }
 .note-callout[data-kind='success'] { --kind: #4c9a6a; }
@@ -42,7 +42,7 @@
 .note-callout:is([data-kind='abstract'], [data-kind='tip']) { --kind: #2fa4b5; }
 .note-callout[data-kind='quote'] { --kind: #8b9099; }
 .note-callout[data-kind='star'] { --kind: #c9a227; }
-.prose .note-callout-head { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.4em; margin: 0 0 0 -0.3em; padding: 0.1em 0.3em; border: 0; border-radius: 4px; background: none; font: inherit; font-size: 0.95em; font-weight: 600; line-height: 1.5; color: color-mix(in oklab, var(--c) 85%, var(--text)); cursor: pointer; user-select: none; }
+.prose .note-callout-head { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.4em; margin: 0 0 0 -0.3em; padding: 0.1em 0.3em; border: 0; border-radius: var(--radius-xs); background: none; font: inherit; font-size: 0.95em; font-weight: 600; line-height: 1.5; color: color-mix(in oklab, var(--c) 85%, var(--text)); cursor: pointer; user-select: none; }
 button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, transparent); }
 .prose .note-callout-icon { display: inline-flex; font-size: 0.95em; line-height: 1; }
 .prose .note-callout-icon svg { width: 1em; height: 1em; }
@@ -54,7 +54,7 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
 /* ── Desplegable ── */
 .prose .note-toggle { position: relative; padding-left: 1.6em; margin: 0 0 0.45em; }
 .prose .note-toggle[data-color$='-bg'] { padding-left: 1.9em; }
-.prose .note-toggle-arrow { position: absolute; left: 0; top: 0; width: 1.4em; height: 1.7em; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-faint); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.prose .note-toggle-arrow { position: absolute; left: 0; top: 0; width: 1.4em; height: 1.7em; padding: 0; border: 0; border-radius: var(--radius-xs); background: none; color: var(--text-faint); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .prose .note-toggle[data-color$='-bg'] > .note-toggle-arrow { left: 0.3em; top: 0.15em; }
 .prose .note-toggle-arrow:hover { background: var(--surface-hover); color: var(--text); }
 .prose .note-toggle-arrow::before { content: ''; border-style: solid; border-width: 0.3em 0 0.3em 0.48em; border-color: transparent transparent transparent currentColor; transition: transform var(--dur-fast) var(--ease-out); }
@@ -67,7 +67,7 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
 .prose .note-toggle[data-open='true']:not(:has(> .note-toggle-arrow)) > .note-toggle-body > :first-child::before { content: '▾'; }
 
 /* Un bloque entero señalado (con el asa). */
-.sheet-prose :is(p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, ul, ol, hr, table, .note-columns, .note-callout, .note-toggle).ProseMirror-selectednode { background: var(--accent-soft); border-radius: 4px; outline: none; }
+.sheet-prose :is(p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, ul, ol, hr, table, .note-columns, .note-callout, .note-toggle).ProseMirror-selectednode { background: var(--accent-soft); border-radius: var(--radius-xs); outline: none; }
 .sheet-prose hr.ProseMirror-selectednode { border-top-color: var(--accent); }
 
 /* La línea vacía con el cursor dice qué escribir. */
@@ -81,7 +81,7 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
 /* ── El asa ── */
 .blk-handle { position: fixed; z-index: 40; display: flex; gap: 1px; animation: blk-in 140ms var(--ease-out) both; }
 @keyframes blk-in { from { opacity: 0; } }
-.blk-btn { width: 22px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--text-ghost); cursor: pointer; transition: background var(--dur-instant), color var(--dur-instant); }
+.blk-btn { width: 22px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-xs); background: none; color: var(--text-ghost); cursor: pointer; transition: background var(--dur-instant), color var(--dur-instant); }
 .blk-btn:hover { background: var(--surface-hover); color: var(--text-muted); }
 .blk-grip { cursor: grab; }
 .blk-grip:active { cursor: grabbing; }
@@ -95,30 +95,30 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 5px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--surface-1, var(--bg));
   color: var(--text);
   box-shadow: 0 0 0 1px var(--line), 0 12px 32px -8px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.06);
   font-family: var(--font-ui);
-  font-size: calc(13px * var(--type-scale, 1));
+  font-size: var(--text-sm);
   animation: bib-menu-in 120ms var(--ease-out) both;
 }
-.slash-group { padding: 8px 8px 4px; font-size: calc(11.5px * var(--type-scale, 1)); color: var(--text-faint); }
-.slash-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 8px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.slash-group { padding: 8px 8px 4px; font-size: var(--text-xs); color: var(--text-faint); }
+.slash-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 8px; border: 0; border-radius: var(--radius-xs); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .slash-item[aria-selected='true'] { background: var(--surface-hover); }
-.slash-icon { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text-muted); font-size: calc(13px * var(--type-scale, 1)); font-weight: 600; }
+.slash-icon { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--radius-xs); border: 1px solid var(--line); background: var(--bg); color: var(--text-muted); font-size: var(--text-sm); font-weight: 600; }
 .slash-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.slash-hint { flex: none; color: var(--text-faint); font: calc(11.5px * var(--type-scale, 1)) var(--font-mono); }
+.slash-hint { flex: none; color: var(--text-faint); font: var(--text-xs) var(--font-mono); }
 
 /* ── Menú del bloque ── */
 .blk-menu { min-width: 270px; max-width: min(320px, calc(100vw - 16px)); max-height: min(70vh, 560px); overflow-y: auto; overscroll-behavior: contain; }
 .blk-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; padding: 0 2px; }
-.blk-kind { display: flex; align-items: center; gap: 6px; min-width: 0; height: calc(30px * var(--type-scale, 1)); padding: 0 6px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blk-kind { display: flex; align-items: center; gap: 6px; min-width: 0; height: calc(30px * var(--type-scale, 1)); padding: 0 6px; border: 0; border-radius: var(--radius-xs); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .blk-kind:hover, .blk-kind:focus-visible { background: var(--surface-hover); outline: none; }
 .blk-kind.is-on, .bib-menu-it.is-on { color: var(--accent-ink); }
-.blk-kind-i { flex: none; width: 20px; text-align: center; color: var(--text-faint); font-size: calc(12px * var(--type-scale, 1)); font-weight: 600; }
+.blk-kind-i { flex: none; width: 20px; text-align: center; color: var(--text-faint); font-size: var(--text-xs); font-weight: 600; }
 .blk-colors { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 9px 6px; }
-.blk-color { width: 24px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: none; color: color-mix(in oklab, var(--tone, var(--text)) 85%, var(--text)); font: 600 13px var(--font-ui); cursor: pointer; }
+.blk-color { width: 24px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-xs); background: none; color: color-mix(in oklab, var(--tone, var(--text)) 85%, var(--text)); font: 600 13px var(--font-ui); cursor: pointer; }
 .blk-color.is-default { color: var(--text); }
 .blk-color.is-bg { background: color-mix(in oklab, var(--tone) 28%, transparent); border-color: transparent; }
 .blk-color:hover { border-color: var(--line-strong); }
@@ -132,18 +132,18 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
   align-items: center;
   gap: 1px;
   padding: 3px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface-1, var(--bg));
   color: var(--text);
   box-shadow: 0 0 0 1px var(--line), 0 12px 32px -8px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.06);
   font-family: var(--font-ui);
-  font-size: calc(13px * var(--type-scale, 1));
+  font-size: var(--text-sm);
   animation: bib-menu-in 120ms var(--ease-out) both;
 }
-.fmt-btn { display: inline-flex; align-items: center; justify-content: center; gap: 3px; height: 28px; min-width: 28px; padding: 0 7px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.fmt-btn { display: inline-flex; align-items: center; justify-content: center; gap: 3px; height: 28px; min-width: 28px; padding: 0 7px; border: 0; border-radius: var(--radius-xs); background: none; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
 .fmt-btn:hover { background: var(--surface-hover); }
 .fmt-btn.is-on { background: var(--accent-soft); color: var(--accent-ink); }
-.fmt-btn code { font: calc(11.5px * var(--type-scale, 1)) var(--font-mono); }
+.fmt-btn code { font: var(--text-xs) var(--font-mono); }
 .fmt-btn > span[aria-hidden] { font-size: 0.7em; color: var(--text-faint); }
 .fmt-turn { padding-right: 6px; }
 .fmt-a { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
@@ -156,7 +156,7 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
   max-height: 50vh;
   overflow-y: auto;
   padding: 5px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--surface-1, var(--bg));
   box-shadow: 0 0 0 1px var(--line), 0 12px 32px -8px rgba(0, 0, 0, 0.3);
   animation: bib-menu-in 120ms var(--ease-out) both;
@@ -181,7 +181,7 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
   font-family: var(--font-ui);
 }
 .mbar::-webkit-scrollbar { display: none; }
-.mbar-btn { flex: none; min-width: 40px; height: 38px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--text); font: calc(16px * var(--type-scale, 1)) var(--font-ui); cursor: pointer; }
+.mbar-btn { flex: none; min-width: 40px; height: 38px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: calc(16px * var(--type-scale, 1)) var(--font-ui); cursor: pointer; }
 .mbar-btn.is-on { background: var(--accent-soft); color: var(--accent-ink); }
 .mbar-btn:disabled { opacity: 0.35; }
 
@@ -193,12 +193,12 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
 /* El borde de una columna, para cambiarle el ancho. */
 .prose .column-resize-handle { position: absolute; top: 0; bottom: -1px; right: -2px; width: 3px; background: var(--accent); pointer-events: none; z-index: 2; }
 .prose.resize-cursor, .resize-cursor { cursor: col-resize; }
-.tbl-grip { position: fixed; z-index: 45; display: grid; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-1, var(--bg)); color: var(--text-faint); cursor: grab; touch-action: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); }
+.tbl-grip { position: fixed; z-index: 45; display: grid; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-xs); background: var(--surface-1, var(--bg)); color: var(--text-faint); cursor: grab; touch-action: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); }
 .tbl-grip.is-col { width: 28px; height: 18px; }
 .tbl-grip.is-row { width: 18px; height: 28px; }
 .tbl-grip:hover, .tbl-grip.is-dragging { color: var(--text); background: var(--accent-soft); border-color: var(--accent-line); }
 .tbl-grip.is-dragging { cursor: grabbing; }
-.tbl-add { position: fixed; z-index: 44; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; background: var(--surface-sunken); color: var(--text-ghost); font: 14px var(--font-ui); cursor: pointer; opacity: 0.55; transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast); }
+.tbl-add { position: fixed; z-index: 44; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-xs); background: var(--surface-sunken); color: var(--text-ghost); font: var(--text-md) var(--font-ui); cursor: pointer; opacity: 0.55; transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast); }
 .tbl-add.is-col { width: 16px; }
 .tbl-add.is-row { height: 16px; }
 .tbl-add:hover { opacity: 1; background: var(--surface-hover); color: var(--text-muted); }
@@ -215,7 +215,7 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
 .tbl-check { margin-left: auto; padding-left: 16px; color: var(--accent-ink); }
 
 /* El punto al que lleva un enlace [[Nota#^id]]: se resalta un momento. */
-.prose .is-flash-block { animation: block-flash 2.2s ease-out; border-radius: 4px; }
+.prose .is-flash-block { animation: block-flash 2.2s ease-out; border-radius: var(--radius-xs); }
 @keyframes block-flash { 0%, 35% { background: var(--accent-soft); box-shadow: 0 0 0 4px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 4px transparent; } }
 .wikilink.is-anchor::after { content: '¶'; margin-left: 0.15em; font-size: 0.8em; opacity: 0.55; }
 
@@ -226,6 +226,6 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
 .nmenu .blk-kind-i { display: inline-block; width: 24px; color: var(--text-faint); }
 
 /* Varios bloques señalados a la vez: se resaltan enteros, sin el subrayado del texto. */
-.sheet-prose .is-block-sel { background: var(--accent-soft); border-radius: 4px; }
+.sheet-prose .is-block-sel { background: var(--accent-soft); border-radius: var(--radius-xs); }
 .sheet-prose.has-block-sel ::selection { background: transparent; }
 .sheet-prose.has-block-sel { caret-color: transparent; }
