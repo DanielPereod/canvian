@@ -704,3 +704,8 @@
   .tv-row,
   .tv-card { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 }
+
+/* Una nota vista como colección: sus hijas con las vistas de la biblioteca,
+   debajo de la portada, y todo se desplaza junto. */
+.reader-coll { align-self: stretch; flex: none; animation: bib-in 320ms var(--ease-out) both; }
+.reader-coll > .bib-lib { position: relative; inset: auto; overflow: visible; }
