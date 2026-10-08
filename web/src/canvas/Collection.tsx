@@ -5,7 +5,7 @@ import { api, parseProps, type NoteInput, type NoteRow, type PropertyDef, type P
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { locale, t, tn } from '../i18n';
 import { DRAG_TYPE, editedLabel, hueOf, kindOf, snippetOf, titleOf, type Family } from './Biblioteca';
-import { coverStyle, parseCover } from './cover';
+import { coverStyle, firstImage, parseCover } from './cover';
 import { DatePicker } from './DatePicker';
 import { hueOf as optionHue } from './Inspector';
 import { LOOSE, type MapAction } from './NodeView';
@@ -333,6 +333,10 @@ export function Library(p: LibProps) {
             const n = count(r.id);
             const kind = kindOf(r, n);
             const cover = parseCover(r.cover);
+            // Con una imagen (la portada o, si no, la primera del texto), la
+            // tarjeta es la imagen; sin ella, el resumen del texto.
+            const src = cover?.kind === 'image' ? null : firstImage(r.bodyJson);
+            const pic = cover?.kind === 'image' ? cover : src ? ({ kind: 'image', src, y: 50 } as const) : null;
             return (
               <button
                 key={r.id}
@@ -342,17 +346,23 @@ export function Library(p: LibProps) {
                 onMouseEnter={() => setSel(i)}
                 onClick={() => enter(r)}
               >
-                <span className={`bib-cover${n ? ' is-branch' : ''}${r.cover ? ' has-cover' : ''}`}>
-                  {cover && <span className="bib-cover-img" style={coverStyle(cover)} aria-hidden="true" />}
-                  <span className="bib-cover-k">{kind.toLocaleUpperCase(locale())}</span>
-                  <span className="bib-cover-t">{titleOf(r)}</span>
-                  <span className="bib-cover-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : '')}</span>
-                  <span className="bib-cover-lines" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
+                {pic ? (
+                  <span className={`bib-cover is-pic${n ? ' is-branch' : ''}`}>
+                    <span className="bib-cover-img" style={coverStyle(pic)} aria-hidden="true" />
                   </span>
-                </span>
+                ) : (
+                  <span className={`bib-cover${n ? ' is-branch' : ''}${r.cover ? ' has-cover' : ''}`}>
+                    {cover && <span className="bib-cover-img" style={coverStyle(cover)} aria-hidden="true" />}
+                    <span className="bib-cover-k">{kind.toLocaleUpperCase(locale())}</span>
+                    <span className="bib-cover-t">{titleOf(r)}</span>
+                    <span className="bib-cover-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : '')}</span>
+                    <span className="bib-cover-lines" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                  </span>
+                )}
                 <span className="bib-cover-name">
                   {pathOf(r)}
                   {titleOf(r)}
