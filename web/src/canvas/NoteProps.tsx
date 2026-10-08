@@ -216,7 +216,7 @@ export function TypeIcon({ type }: { type: PropertyType }) {
 }
 
 // Campo que guarda al salir o con Intro, no con cada tecla.
-function Field({ value, type, autoFocus, onChange }: { value: string; type: 'text' | 'number' | 'url'; autoFocus?: boolean; onChange: (v: string) => void }) {
+function Field({ value, type, autoFocus, placeholder, onChange }: { value: string; type: 'text' | 'number' | 'url'; autoFocus?: boolean; placeholder?: string; onChange: (v: string) => void }) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   return (
@@ -226,7 +226,7 @@ function Field({ value, type, autoFocus, onChange }: { value: string; type: 'tex
       inputMode={type === 'url' ? 'url' : undefined}
       value={draft}
       autoFocus={autoFocus}
-      placeholder={t('Vacío')}
+      placeholder={placeholder ?? t('Vacío')}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => draft !== value && onChange(draft)}
       onKeyDown={(e) => {
@@ -279,6 +279,7 @@ function ImageValue({ value, autoFocus, onChange }: { value: string; autoFocus: 
   const file = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [editing, setEditing] = useState(false);
   const pick = (f: File | undefined) => {
     if (!f) return;
     setBusy(true);
@@ -291,8 +292,22 @@ function ImageValue({ value, autoFocus, onChange }: { value: string; autoFocus: 
   };
   return (
     <span className="nprop-line">
-      {okImageUrl(value) && <span className="nprop-thumb" style={{ backgroundImage: `url("${value.replace(/"/g, '%22')}")` }} aria-hidden="true" />}
-      <Field type="url" autoFocus={autoFocus} value={value} onChange={(v) => onChange(v.trim() || null)} />
+      {value && !editing ? (
+        // Con imagen, solo se ve la imagen. Al pulsarla se puede pegar otro enlace
+        // (el de una imagen subida no se enseña).
+        <button className="nprop-pic" type="button" onClick={() => setEditing(true)} title={t('Cambiar la imagen')}>
+          {okImageUrl(value) ? <span className="nprop-pic-img" style={{ backgroundImage: `url("${value.replace(/"/g, '%22')}")` }} /> : <span className="nprop-empty">{t('Enlace no válido')}</span>}
+        </button>
+      ) : (
+        <span className="nprop-grow" onBlur={() => setEditing(false)}>
+          <Field type="url" autoFocus={autoFocus || editing} value={value.startsWith('/api/media/') ? '' : value} placeholder={t('Pega un enlace o sube una imagen')} onChange={(v) => onChange(v.trim() || null)} />
+        </span>
+      )}
+      {value && !editing && (
+        <button className="nprop-open" type="button" onClick={() => onChange(null)} aria-label={t('Quitar imagen')} title={t('Quitar imagen')}>
+          ×
+        </button>
+      )}
       <button className="nprop-open" type="button" disabled={busy} onClick={() => file.current?.click()} aria-label={t('Subir imagen')} title={failed ? t('No se pudo subir la imagen') : t('Subir imagen')}>
         {busy ? '…' : failed ? '!' : '↑'}
       </button>
