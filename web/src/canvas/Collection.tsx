@@ -977,6 +977,7 @@ function Filters({ view, fields, onView }: { view: View; fields: Field[]; onView
               value={flt.field}
               missing={t('(borrada)')}
               label={t('Propiedad')}
+            search
               autoOpen={fresh === flt.id}
               onChange={(id) => {
                 const nf = byId.get(id);
@@ -1018,6 +1019,7 @@ function FilterValue({ f, value, autoOpen, onChange }: { f: Field; value: PropVa
         value={current}
         placeholder={t('Elige…')}
         label={t('Valor')}
+        search
         autoOpen={autoOpen && !current}
         onChange={(v) => onChange(v || null)}
       />
@@ -1054,6 +1056,7 @@ function Sorts({ view, fields, onView }: { view: View; fields: Field[]; onView: 
             value={s.field}
             missing={t('(borrada)')}
             label={t('Propiedad')}
+            search
             autoOpen={fresh === s.field && i === view.sorts.length - 1}
             onChange={(field) => set(i, { field })}
           />

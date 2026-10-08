@@ -35,9 +35,11 @@ type Props = {
   autoOpen?: boolean;
   className?: string;
   label?: string;
+  // Buscador siempre, aunque haya pocas opciones (propiedades y valores).
+  search?: boolean;
 };
 
-export function Combo({ items, value, onChange, placeholder, missing, autoOpen, className, label }: Props) {
+export function Combo({ items, value, onChange, placeholder, missing, autoOpen, className, label, search }: Props) {
   const [open, setOpen] = useState(!!autoOpen);
   const [btn, setBtn] = useState<HTMLButtonElement | null>(null);
   const current = items.find((i) => i.id === value);
@@ -70,6 +72,7 @@ export function Combo({ items, value, onChange, placeholder, missing, autoOpen, 
           anchor={btn}
           items={items}
           value={value}
+          search={search ?? items.length >= SEARCH_FROM}
           onPick={(id) => {
             setOpen(false);
             btn.focus();
@@ -85,12 +88,11 @@ export function Combo({ items, value, onChange, placeholder, missing, autoOpen, 
   );
 }
 
-function ComboList({ anchor, items, value, onPick, onClose }: { anchor: HTMLElement; items: ComboItem[]; value: string | null; onPick: (id: string) => void; onClose: (refocus: boolean) => void }) {
+function ComboList({ anchor, items, value, search, onPick, onClose }: { anchor: HTMLElement; items: ComboItem[]; value: string | null; search: boolean; onPick: (id: string) => void; onClose: (refocus: boolean) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const [q, setQ] = useState('');
-  const search = items.length >= SEARCH_FROM;
   const found = items.filter((i) => matches(i.label, q));
   const shown = found.slice(0, LIMIT);
   const [hi, setHi] = useState(() => Math.max(0, shown.findIndex((i) => i.id === value)));
