@@ -240,7 +240,7 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
   app.all('/mcp', (c) => mcp(c, /^Bearer\s+(.+)$/i.exec(c.req.header('authorization') ?? '')?.[1]?.trim()));
   app.all('/mcp/:token', (c) => mcp(c, c.req.param('token')));
   // KOReader manda aquí los subrayados (con su propia llave, ver koreader/).
-  app.route('/koreader', koreaderRoutes(db, hub));
+  app.route('/koreader', koreaderRoutes(db, hub, opts.mediaDir));
   app.route('/api', api);
   app.all('/api/*', (c) => c.json({ error: 'No encontrado' }, 404));
   return app;

@@ -7,6 +7,7 @@ genera Canvian al descargar el plugin) y se pueden cambiar desde el menú.
 ]]
 
 local ButtonDialog = require("ui/widget/buttondialog")
+local DataStorage = require("datastorage")
 local DocSettings = require("docsettings")
 local InfoMessage = require("ui/widget/infomessage")
 local InputDialog = require("ui/widget/inputdialog")
@@ -121,6 +122,7 @@ end
 
 -- ── Red ──────────────────────────────────────────────────────────────
 
+-- body es una tabla (va como JSON) o { raw = datos, type = "image/jpeg" }.
 function Canvian:request(method, path, body, quick)
     local base = (self:get("url") or ""):gsub("/+$", "")
     local token = self:get("token")
@@ -132,8 +134,8 @@ function Canvian:request(method, path, body, quick)
     }
     local source
     if body then
-        local data = JSON.encode(body)
-        headers["Content-Type"] = "application/json"
+        local data = body.raw or JSON.encode(body)
+        headers["Content-Type"] = body.raw and body.type or "application/json"
         headers["Content-Length"] = tostring(#data)
         source = ltn12.source.string(data)
     end
@@ -230,6 +232,7 @@ function Canvian:openBook()
     local key = ui.doc_settings and ui.doc_settings:readSetting("partial_md5_checksum")
     return {
         file = file,
+        doc = ui.document,
         book = bookOf(ui.doc_props or (ui.doc_settings and ui.doc_settings:readSetting("doc_props")), key, file, self.L.untitled),
         annotations = normalize(list, old),
     }
@@ -249,12 +252,68 @@ function Canvian:storedBook(file)
     }
 end
 
+-- ── La portada ───────────────────────────────────────────────────────
+
+local COVER_HEIGHT = 800
+
+-- La portada como imagen (JPEG, o PNG en versiones de KOReader que no saben
+-- escribir JPEG), reducida para no mandar megas. nil si no se puede sacar.
+local function coverImage(doc, file)
+    local ok, bb = pcall(function()
+        local BookInfo = require("apps/filemanager/filemanagerbookinfo")
+        return BookInfo:getCoverImage(doc, file)
+    end)
+    if not ok or not bb then return nil end
+    local w, h = bb:getWidth(), bb:getHeight()
+    if h > COVER_HEIGHT then
+        local okScale, scaled = pcall(function()
+            local RenderImage = require("ui/renderimage")
+            return RenderImage:scaleBlitBuffer(bb, math.floor(w * COVER_HEIGHT / h), COVER_HEIGHT)
+        end)
+        if okScale and scaled and scaled ~= bb then
+            bb:free()
+            bb = scaled
+        end
+    end
+    local path = DataStorage:getDataDir() .. "/canvian-cover"
+    local mime
+    if bb.writeToFile and pcall(bb.writeToFile, bb, path, "jpg", 85) then
+        mime = "image/jpeg"
+    elseif bb.writePNG and pcall(bb.writePNG, bb, path) then
+        mime = "image/png"
+    end
+    bb:free()
+    if not mime then return nil end
+    local f = io.open(path, "rb")
+    if not f then return nil end
+    local data = f:read("*a")
+    f:close()
+    os.remove(path)
+    if not data or data == "" then return nil end
+    return data, mime
+end
+
+-- Una vez por libro: Canvian dice en la respuesta si aún no tiene su portada.
+function Canvian:sendCover(item, result, quick)
+    if not (result and result.cover and result.id) then return end
+    local ok, err = pcall(function()
+        local doc = item.doc
+        local data, mime = coverImage(doc, not doc and item.file or nil)
+        if not data then return end
+        local _, fail = self:request("POST", "/koreader/cover/" .. result.id, { raw = data, type = mime }, quick)
+        if fail then logger.warn("Canvian: no se ha podido mandar la portada", item.file, fail) end
+    end)
+    if not ok then logger.warn("Canvian: portada", err) end
+end
+
 function Canvian:send(item, quick)
-    return self:request("POST", "/koreader/sync", {
+    local result, err = self:request("POST", "/koreader/sync", {
         profile = self:get("profile"),
         book = item.book,
         annotations = item.annotations,
     }, quick)
+    if result and not result.skipped then self:sendCover(item, result, quick) end
+    return result, err
 end
 
 -- ── Acciones ─────────────────────────────────────────────────────────

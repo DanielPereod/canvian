@@ -45,6 +45,16 @@ const NAME = /^[0-9A-HJKMNP-TV-Z]{26}\.([a-z0-9]{1,10})$/;
 // La extensión de un adjunto sale de su nombre original.
 const extOf = (fileName: string) => /\.([a-z0-9]{1,10})$/.exec(fileName.toLowerCase())?.[1] ?? 'bin';
 
+/** Guarda una imagen que llega por otro lado (la portada de KOReader); null si no es una imagen que se pinte. */
+export async function storeImage(dir: string, mime: string, data: Buffer): Promise<string | null> {
+  const ext = TYPES[mime];
+  if (!ext || !mime.startsWith('image/') || !data.length) return null;
+  mkdirSync(dir, { recursive: true });
+  const name = `${ulid()}.${ext}`;
+  await writeFile(join(dir, name), data, { flag: 'wx' });
+  return `/api/media/${name}`;
+}
+
 export function mediaRoutes(dir: string) {
   mkdirSync(dir, { recursive: true });
   const r = new Hono();
