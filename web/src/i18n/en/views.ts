@@ -19,6 +19,12 @@ export const EN_VIEWS: Record<string, string> = {
   '(borrada)': '(deleted)',
   'Añadir filtro': 'Add filter',
   'Elige…': 'Choose…',
+  'Buscar…': 'Search…',
+  'Buscar una propiedad…': 'Search properties…',
+  'Nada coincide con «{q}»': 'Nothing matches “{q}”',
+  'Y {n} más: escribe para afinar': '{n} more: type to narrow down',
+  Propiedad: 'Property',
+  Condición: 'Condition',
   'Elige una fecha': 'Pick a date',
   Valor: 'Value',
   'Sin orden propio: las colecciones arriba y las más activas primero (o como las ordenaste en la barra).':

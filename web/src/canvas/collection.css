@@ -59,6 +59,25 @@
 .cv-opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 9px; color: var(--text-faint); }
 .cv-opt .cv-select { width: auto; max-width: 150px; }
 .cv-viewmenu .bib-menu-it:disabled { opacity: 0.4; cursor: default; background: none; }
+.cv-fields-search { position: sticky; top: -5px; z-index: 1; background: var(--surface-1, var(--bg)); }
+
+/* ── Desplegable con buscador (propiedad, condición, valor y orden) ── */
+.cv-combo { display: flex; align-items: center; gap: 6px; text-align: left; color: var(--text); }
+.cv-combo.is-empty { color: var(--text-faint); }
+.cv-combo.is-auto { width: auto; max-width: 150px; }
+.cv-combo .bib-ellipsis { flex: 1; min-width: 0; }
+.cv-combo .nprop-icon { flex: none; opacity: 0.8; }
+.cv-combo-caret { flex: none; margin-left: auto; color: var(--text-faint); transition: transform var(--dur-fast) var(--ease-out); }
+.cv-combo.is-open { border-color: var(--line-strong); }
+.cv-combo.is-open .cv-combo-caret { transform: rotate(180deg); }
+.cv-combo-pop { z-index: 61; display: flex; flex-direction: column; min-width: 180px; max-width: min(300px, calc(100vw - 16px)); max-height: min(340px, calc(100vh - 16px)); }
+.cv-combo-search { flex: none; }
+.cv-combo-list { flex: 1; min-height: 0; overflow-y: auto; outline: none; overscroll-behavior: contain; }
+.cv-combo-it { gap: 8px; }
+.cv-combo-it:hover { background: none; }
+.cv-combo-it.is-hi { background: var(--bib-sel, var(--surface-hover)); }
+.cv-combo-it.is-on { color: var(--accent-ink, var(--text)); }
+.cv-combo-it .nprop-icon { flex: none; opacity: 0.8; }
 
 /* ── Tabla ── */
 .cv-table { display: flex; flex-direction: column; overflow-x: auto; font-size: var(--text-sm); margin-top: -10px; }
