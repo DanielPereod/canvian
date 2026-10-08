@@ -75,7 +75,8 @@ const DotsIcon = () => (
   </svg>
 );
 
-type SheetItem = { label: string; title?: string; keys?: string; danger?: boolean; run: () => void } | null;
+// `checked`: una opción que se enciende y se apaga, con su marca.
+type SheetItem = { label: string; title?: string; keys?: string; danger?: boolean; checked?: boolean; run: () => void } | null;
 
 // Las acciones de la nota, en un menú desde el botón de los tres puntos.
 function SheetMenu({ x, y, items, onClose }: { x: number; y: number; items: SheetItem[]; onClose: () => void }) {
@@ -87,8 +88,9 @@ function SheetMenu({ x, y, items, onClose }: { x: number; y: number; items: Shee
         it ? (
           <button
             key={it.label}
-            role="menuitem"
-            className={`bib-menu-it${it.danger ? ' is-danger' : ''}`}
+            role={it.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+            aria-checked={it.checked}
+            className={`bib-menu-it${it.danger ? ' is-danger' : ''}${it.checked ? ' is-on' : ''}`}
             title={it.title}
             onClick={() => {
               onClose();
@@ -97,6 +99,11 @@ function SheetMenu({ x, y, items, onClose }: { x: number; y: number; items: Shee
           >
             {it.label}
             {it.keys && <span className="bib-menu-k">{it.keys}</span>}
+            {it.checked && (
+              <span className="bib-menu-check" aria-hidden="true">
+                ✓
+              </span>
+            )}
           </button>
         ) : (
           <div key={`s${i}`} className="bib-menu-sep" role="separator" />
@@ -680,8 +687,16 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   const wide = useWide(note.id);
   const flipWide = () => void toggleWide(note.id).catch(onError);
   // Como colección: cada nota recuerda si se abre así.
-  const asColl = useAsCollection(note.id) && note.kind !== 'canvas';
-  const flipColl = () => void toggleAsCollection(note.id).catch(onError);
+  // Ver como colección: solo ahora, o siempre si es su vista por defecto
+  // (cada nota recuerda la suya).
+  const collDefault = useAsCollection(note.id);
+  const [shownAs, setShownAs] = useState<{ id: string; coll: boolean } | null>(null);
+  const asColl = (shownAs?.id === note.id ? shownAs.coll : collDefault) && note.kind !== 'canvas';
+  const flipColl = () => setShownAs({ id: note.id, coll: !asColl });
+  const flipDefault = () => {
+    setShownAs({ id: note.id, coll: !collDefault });
+    void toggleAsCollection(note.id).catch(onError);
+  };
   // Al entrar o salir desde un botón que desaparece, se sigue escribiendo.
   const setZen = (on: boolean) => {
     onZen(on);
@@ -829,6 +844,12 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         label: asColl ? t('Ver como nota') : t('Ver como colección'),
         title: asColl ? t('Volver a su texto') : t('Sus notas de dentro en tabla, lista, galería, tablero o calendario'),
         run: flipColl,
+      },
+      {
+        label: t('Abrir siempre como colección'),
+        title: collDefault ? t('Volver a abrirla como texto') : t('Su vista por defecto: se abre como colección hasta que lo quites'),
+        checked: collDefault,
+        run: flipDefault,
       },
       { label: t('Ver en nodos'), title: t('Esta nota en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
       null,
