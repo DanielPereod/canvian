@@ -450,6 +450,8 @@
 .bib-cover-it:hover .bib-cover,
 .bib-cover-it.is-sel .bib-cover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px var(--line-strong); }
 .bib-cover-img { flex: none; height: 38%; margin: -16px -14px 4px; background-size: cover; background-position: 50% 50%; }
+.bib-cover.is-pic { padding: 0; }
+.bib-cover.is-pic .bib-cover-img { flex: 1; height: auto; margin: 0; }
 .bib-cover-k { font-size: var(--text-2xs); letter-spacing: 0.12em; opacity: 0.7; }
 .bib-cover-t { font-size: calc(17px * var(--title-scale) * var(--type-scale, 1)); line-height: 1.15; }
 .bib-cover-s { font-family: var(--read-font); font-size: var(--text-xs); line-height: 1.45; opacity: 0.75; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
