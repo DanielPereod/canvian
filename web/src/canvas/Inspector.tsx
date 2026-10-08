@@ -20,6 +20,7 @@ const TYPES: { id: PropertyType; name: string }[] = [
   { id: 'date', name: 'Fecha' },
   { id: 'checkbox', name: 'Casilla' },
   { id: 'url', name: 'Enlace' },
+  { id: 'image', name: 'Imagen' },
 ];
 
 type Props = {

@@ -27,6 +27,8 @@ export const EN_NOTE: Record<string, string> = {
   'Número': 'Number',
   'Casilla': 'Checkbox',
   'Enlace': 'Link',
+  'Subir imagen': 'Upload image',
+  'No se pudo subir la imagen': 'Couldn’t upload the image',
   'Ya existe': 'Already exists',
   'Cancelar': 'Cancel',
   'Crear': 'Create',

@@ -51,7 +51,7 @@ export function parseProps(raw: string | null | undefined): Record<string, PropV
   }
 }
 
-export type PropertyType = 'text' | 'number' | 'select' | 'tags' | 'date' | 'checkbox' | 'url';
+export type PropertyType = 'text' | 'number' | 'select' | 'tags' | 'date' | 'checkbox' | 'url' | 'image';
 export type PropValue = string | number | boolean | null | string[];
 
 export type PropertyDef = {

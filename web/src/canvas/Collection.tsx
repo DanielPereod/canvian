@@ -6,7 +6,7 @@ import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { locale, t, tn } from '../i18n';
 import { DRAG_TYPE, editedLabel, hueOf, kindOf, snippetOf, titleOf, type Family } from './Biblioteca';
 import { Combo, matches, type ComboItem } from './Combo';
-import { coverStyle, firstImage, parseCover } from './cover';
+import { coverStyle, firstImage, okImageUrl, parseCover } from './cover';
 import { DatePicker } from './DatePicker';
 import { hueOf as optionHue } from './Inspector';
 import { LOOSE, type MapAction } from './NodeView';
@@ -117,6 +117,15 @@ export function Library(p: LibProps) {
   const setView = (v: View) => save({ ...coll, views: coll.views.map((x) => (x.id === v.id ? v : x)) });
 
   const items = useMemo(() => applyView(base, view, fields, count), [base, view, fields, count]);
+  const imageDefs = useMemo(() => p.defs.filter((d) => d.type === 'image'), [p.defs]);
+  const propImage = (r: NoteRow) => {
+    const props = parseProps(r.props);
+    for (const d of imageDefs) {
+      const v = props[d.id];
+      if (typeof v === 'string' && okImageUrl(v)) return v.trim();
+    }
+    return null;
+  };
   const shown = view.fields.map((id) => fieldById.get(id)).filter((f): f is Field => !!f && f.id !== 'title');
 
   // Cambiar una propiedad desde la tabla, el tablero o el calendario.
@@ -342,10 +351,11 @@ export function Library(p: LibProps) {
             const n = count(r.id);
             const kind = kindOf(r, n);
             const cover = parseCover(r.cover);
-            // Con una imagen (la portada o, si no, la primera del texto), la
-            // tarjeta es la imagen; sin ella, el resumen del texto.
-            const src = cover?.kind === 'image' ? null : firstImage(r.bodyJson);
-            const pic = cover?.kind === 'image' ? cover : src ? ({ kind: 'image', src, y: 50 } as const) : null;
+            // Con una imagen (la de una propiedad de tipo imagen, la portada o la
+            // primera del texto, por ese orden), la tarjeta es la imagen; sin
+            // ella, el resumen del texto.
+            const src = propImage(r) ?? (cover?.kind === 'image' ? null : firstImage(r.bodyJson));
+            const pic = src ? ({ kind: 'image', src, y: 50 } as const) : cover?.kind === 'image' ? cover : null;
             return (
               <button
                 key={r.id}
@@ -467,6 +477,8 @@ function Shown({ r, f, count, quiet }: { r: NoteRow; f: Field; count: (id: strin
           ))}
         </span>
       );
+    case 'image':
+      return okImageUrl(String(v)) ? <span className="cv-thumb" style={{ backgroundImage: `url("${String(v).replace(/"/g, '%22')}")` }} aria-label={f.name} /> : <span className="cv-val bib-ellipsis">{String(v)}</span>;
     default:
       return <span className="cv-val bib-ellipsis">{String(v)}</span>;
   }
