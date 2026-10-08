@@ -5,7 +5,6 @@ import { Keys } from './Kbd';
 import { MODES, setMode, setOwnTheme, setTheme, THEMES, useAppearance, type Tone } from './theme';
 import { SIZES, SLOTS, THEME, setTypography, useTypography } from './typography';
 import { FontPicker } from './FontPicker';
-import { openOrganize } from './canvas/OrganizeView';
 import { BackArrow } from './BackArrow';
 import { CalendarSettings } from './CalendarSettings';
 import { AiSettings } from './AiSettings';
@@ -209,17 +208,6 @@ export function Settings({ profile, profiles, onClose, onProfiles }: Props) {
                     );
                   })}
                 </div>
-              </Row>
-              <Row name={t('Ordenar notas')} hint={t('Revisa las notas sueltas y mételas dentro de otras.')}>
-                <button
-                  className="set-button"
-                  onClick={() => {
-                    onClose();
-                    openOrganize();
-                  }}
-                >
-                  {t('Abrir')}
-                </button>
               </Row>
               <Row name={t('Perfiles y sesión')} hint={t('Cambia de perfil, crea otros o cierra la sesión.')}>
                 <button className="set-button" onClick={onProfiles}>

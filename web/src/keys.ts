@@ -13,7 +13,6 @@ export type ActionId =
   | 'toRoot'
   | 'tasks'
   | 'diary'
-  | 'organize'
   | 'newNote'
   | 'quickNote'
   | 'daily'
@@ -36,8 +35,6 @@ export type ActionId =
   | 'taskEdit'
   | 'taskLayout'
   | 'calendar'
-  | 'acceptHints'
-  | 'undo'
   | 'nodes'
   | 'lantern'
   | 'sidebar'
@@ -50,10 +47,10 @@ export type ActionId =
 
 // Dónde sirve cada comando. `global` vale en todas partes; `list` es la
 // biblioteca, el árbol y los nodos; `note`, una nota abierta.
-export type View = 'list' | 'note' | 'tasks' | 'organize';
+export type View = 'list' | 'note' | 'tasks';
 export type Ctx = View | 'global';
 
-export const GROUPS = ['Ir a', 'Crear', 'Lo señalado', 'Nota', 'Tareas', 'Ordenar', 'Ver', 'Aplicación'] as const;
+export const GROUPS = ['Ir a', 'Crear', 'Lo señalado', 'Nota', 'Tareas', 'Ver', 'Aplicación'] as const;
 export type Group = (typeof GROUPS)[number];
 
 // `key` vacío: sin tecla de fábrica (está en la paleta y se le puede poner una).
@@ -68,16 +65,15 @@ const RAW: KeyAction[] = [
   { id: 'tasks', label: 'Tareas', hint: 'Abre o cierra la vista de tareas', group: 'Ir a', ctx: ['list', 'tasks'], key: 'a' },
   { id: 'diary', label: 'Diario', hint: 'El feed para apuntar el día a día (actívalo en Configuración › General)', group: 'Ir a', ctx: ['global'], key: '' },
   { id: 'calendar', label: 'Calendario', hint: 'Las tareas por fechas, junto a tus otros calendarios', group: 'Ir a', ctx: ['global'], key: '' },
-  { id: 'organize', label: 'Ordenar notas', hint: 'Meter las notas sueltas dentro de otras', group: 'Ir a', ctx: ['list', 'organize'], key: 'o' },
 
   { id: 'newNote', label: 'Nota nueva', hint: 'En Tareas, apunta una tarea', group: 'Crear', ctx: ['list', 'tasks', 'note'], key: 'n' },
   { id: 'quickNote', label: 'Nota rápida', hint: 'Desde cualquier sitio; en Tareas, apunta una tarea. Ctrl Alt N también', group: 'Crear', ctx: ['global'], key: 'mod+n' },
   { id: 'daily', label: 'Nota de hoy', hint: 'La abre, o la crea con la fecha de hoy', group: 'Crear', ctx: ['global'], key: 'mod+shift+d' },
-  { id: 'newSection', label: 'Nota dentro', hint: 'Dentro de la señalada o de la abierta', group: 'Crear', ctx: ['list', 'organize', 'note'], key: 'shift+n' },
+  { id: 'newSection', label: 'Nota dentro', hint: 'Dentro de la señalada o de la abierta', group: 'Crear', ctx: ['list', 'note'], key: 'shift+n' },
   { id: 'newCanvas', label: 'Canvas nuevo', hint: 'Tarjetas libres y flechas', group: 'Crear', ctx: ['list', 'note'], key: '' },
 
   { id: 'rename', label: 'Renombrar', group: 'Lo señalado', ctx: ['list'], key: 'r' },
-  { id: 'move', label: 'Mover a…', hint: 'Meterla dentro de otra nota', group: 'Lo señalado', ctx: ['list', 'note', 'tasks', 'organize'], key: 'm' },
+  { id: 'move', label: 'Mover a…', hint: 'Meterla dentro de otra nota', group: 'Lo señalado', ctx: ['list', 'note', 'tasks'], key: 'm' },
   { id: 'properties', label: 'Propiedades', group: 'Lo señalado', ctx: ['list'], key: 'p' },
   { id: 'archive', label: 'Archivar o desarchivar', hint: 'Se oculta con lo que cuelga de ella', group: 'Lo señalado', ctx: ['list', 'note'], key: 'mod+shift+x' },
   { id: 'deleteCell', label: 'Borrar', group: 'Lo señalado', ctx: ['list', 'tasks'], key: 'delete' },
@@ -95,8 +91,6 @@ const RAW: KeyAction[] = [
   { id: 'taskEdit', label: 'Editar el título', group: 'Tareas', ctx: ['tasks'], key: 'e' },
   { id: 'taskLayout', label: 'Lista o tablero', group: 'Tareas', ctx: ['tasks'], key: 'v' },
 
-  { id: 'acceptHints', label: 'Aceptar las sugerencias', group: 'Ordenar', ctx: ['organize'], key: 's' },
-  { id: 'undo', label: 'Deshacer el último movimiento', group: 'Ordenar', ctx: ['organize'], key: 'mod+z' },
 
   { id: 'nodes', label: 'Ver en nodos', hint: 'La nota abierta o señalada en el centro', group: 'Ver', ctx: ['global'], key: 'mod+g' },
   { id: 'lantern', label: 'Filtrar', group: 'Ver', ctx: ['list'], key: 'f' },
@@ -154,10 +148,6 @@ const FIXED_RAW: { keys: string[]; label: string; ctx: Ctx }[] = [
   { keys: ['t'], label: 'En el calendario, ir a hoy', ctx: 'tasks' },
   { keys: ['[', ']'], label: 'En el calendario, periodo anterior o siguiente', ctx: 'tasks' },
   { keys: ['shift+f10'], label: 'Menú de la tarea señalada', ctx: 'tasks' },
-  { keys: ['space'], label: 'Marcar (con ⇧ y flechas, un rango)', ctx: 'organize' },
-  { keys: ['mod+a'], label: 'Marcar todas', ctx: 'organize' },
-  { keys: ['/'], label: 'Buscar', ctx: 'organize' },
-  { keys: ['←', '→'], label: 'Nota anterior o siguiente', ctx: 'organize' },
 ];
 export const FIXED = FIXED_RAW.map(translated);
 

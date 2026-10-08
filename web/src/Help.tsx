@@ -3,7 +3,7 @@ import { ACTIONS, FIXED, comboOf, matches, useKeymap, useView, type Ctx, type Vi
 import { Keys } from './Kbd';
 import { t } from './i18n';
 
-const PLACE: Record<Ctx, string> = { list: 'Notas y nodos', note: 'Nota abierta', tasks: 'Tareas', organize: 'Ordenar', global: 'En todas partes' };
+const PLACE: Record<Ctx, string> = { list: 'Notas y nodos', note: 'Nota abierta', tasks: 'Tareas', global: 'En todas partes' };
 
 // La lista de atajos, en un panel que se abre con «?» (o lo que elijas).
 // Primero lo que sirve donde estás, luego lo de siempre y luego el resto.
@@ -23,7 +23,7 @@ export function Help({ onClose, onSettings }: { onClose: () => void; onSettings:
     return () => window.removeEventListener('keydown', onKey, true);
   });
 
-  const others = (['list', 'note', 'tasks', 'organize'] as View[]).filter((v) => v !== view);
+  const others = (['list', 'note', 'tasks'] as View[]).filter((v) => v !== view);
   const order: Ctx[] = [view, 'global', ...others];
   // Cada comando sale una vez: en la primera sección donde sirve.
   const home = (ctx: Ctx[]) => order.find((c) => ctx.includes(c))!;
