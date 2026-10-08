@@ -4,7 +4,8 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { settings } from '../db/schema.js';
 import { joinTitle, parseBody, splitTitle, type JSONContent } from '../doc/json.js';
-import { coerceProp, contentOf, createNote, liveNotes, newDoc, parseProps, propertyFor, resolveProfile, saveNote, type Note } from '../mcp/notes.js';
+import { notes } from '../db/schema.js';
+import { coerceProp, contentOf, createNote, liveNotes, newDoc, parseProps, propertyDefsOf, propertyFor, resolveProfile, saveNote, type Note } from '../mcp/notes.js';
 
 // Sincronización con KOReader: el plugin (ver server/koreader) manda los
 // subrayados y notas de cada libro y aquí se guardan en una nota por libro,
@@ -16,6 +17,9 @@ const TOKEN = 'koreader_token';
 const folderKey = (profileId: string) => `koreader_folder:${profileId}`;
 /** Propiedad reservada (como «noTasks»): la huella del libro. */
 export const BOOK_KEY = 'koreader';
+/** Propiedad reservada: la portada que ya se subió (no se vuelve a pedir, aunque luego se quite). */
+export const COVER_KEY = 'koreaderCover';
+const COVER_PROP = 'Portada';
 /** El encabezado desde el que la nota es de KOReader; lo de encima se respeta. */
 export const SECTION = 'Subrayados';
 const FOLDER_TITLE = 'KOReader';
@@ -131,7 +135,10 @@ export function mergeHighlights(doc: JSONContent, blocks: JSONContent[]): JSONCo
   return joinTitle(split.head, { type: 'doc', content: [...kept, ...blocks] });
 }
 
-export type SyncResult = { id: string; title: string; created: boolean; changed: boolean; count: number } | { skipped: true };
+/** cover: si Canvian aún no tiene la portada del libro y el plugin debería mandarla. */
+export type SyncResult = { id: string; title: string; created: boolean; changed: boolean; count: number; cover: boolean } | { skipped: true };
+
+const wantsCover = (props: Record<string, unknown>) => !props[COVER_KEY];
 
 export function syncBook(db: Db, body: SyncBody): SyncResult {
   const profile = resolveProfile(db, body.profile || null);
@@ -156,7 +163,7 @@ export function syncBook(db: Db, body: SyncBody): SyncResult {
     const title = body.book.title || 'Libro sin título';
     const doc = mergeHighlights(newDoc(title, ''), blocks);
     const note = createNote(db, profile.id, { doc, parentId: folderFor(db, profile.id, all), props: withAuthor(null) });
-    return { id: note.id, title, created: true, changed: true, count };
+    return { id: note.id, title, created: true, changed: true, count, cover: true };
   }
 
   const doc = mergeHighlights(parseBody(existing.bodyJson) ?? { type: 'doc', content: [] }, blocks);
@@ -164,5 +171,30 @@ export function syncBook(db: Db, body: SyncBody): SyncResult {
   const bodyJson = JSON.stringify(doc);
   const changed = bodyJson !== existing.bodyJson || props !== existing.props;
   if (changed) saveNote(db, existing.id, { ...contentOf(doc), props });
-  return { id: existing.id, title: existing.title ?? body.book.title ?? '', created: false, changed, count };
+  return { id: existing.id, title: existing.title ?? body.book.title ?? '', created: false, changed, count, cover: wantsCover(parseProps(existing.props)) };
+}
+
+// ── La portada ────────────────────────────────────────────────────────
+
+/** Una nota de libro de KOReader (las demás no se tocan desde el plugin). */
+export function bookNote(db: Db, id: string): Note | null {
+  const note = db.select().from(notes).where(eq(notes.id, id)).get();
+  return note && !note.deletedAt && parseProps(note.props)[BOOK_KEY] ? note : null;
+}
+
+/**
+ * Pone la portada subida en la propiedad de tipo Imagen «Portada» (la que usa
+ * la galería). Si la nota ya tenía ahí otra imagen, se respeta.
+ */
+export function setBookCover(db: Db, note: Note, url: string): Note {
+  const defs = propertyDefsOf(db, note.profileId);
+  const fold = (s: string) => s.trim().toLocaleLowerCase();
+  const def =
+    defs.find((d) => d.type === 'image' && fold(d.name) === fold(COVER_PROP)) ??
+    defs.find((d) => d.type === 'image') ??
+    propertyFor(db, note.profileId, defs.some((d) => fold(d.name) === fold(COVER_PROP)) ? `${COVER_PROP} del libro` : COVER_PROP, url, 'image')!;
+  const props = parseProps(note.props);
+  if (!props[def.id]) props[def.id] = url;
+  props[COVER_KEY] = url;
+  return saveNote(db, note.id, { props: JSON.stringify(props) });
 }

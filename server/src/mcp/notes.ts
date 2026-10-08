@@ -223,13 +223,13 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const typeFor = (v: unknown) => (Array.isArray(v) ? 'tags' : typeof v === 'boolean' ? 'checkbox' : typeof v === 'number' ? 'number' : typeof v === 'string' && DAY.test(v) ? 'date' : typeof v === 'string' && /^https?:\/\//.test(v) ? 'url' : 'text');
 
 /** La propiedad de ese nombre (se crea si no existe y hay valor que poner). */
-export function propertyFor(db: Db, profileId: string, name: string, value: unknown): PropertyDef | null {
+export function propertyFor(db: Db, profileId: string, name: string, value: unknown, type?: string): PropertyDef | null {
   const defs = propertyDefsOf(db, profileId);
   const hit = defs.find((d) => fold(d.name) === fold(name));
   if (hit || value === null) return hit ?? null;
   return db
     .insert(propertyDefs)
-    .values({ id: ulid(), profileId, name: name.trim(), type: typeFor(value), options: '[]', appliesTo: 'all', position: defs.length ? Math.max(...defs.map((d) => d.position)) + 1 : 0 })
+    .values({ id: ulid(), profileId, name: name.trim(), type: type ?? typeFor(value), options: '[]', appliesTo: 'all', position: defs.length ? Math.max(...defs.map((d) => d.position)) + 1 : 0 })
     .returning()
     .get();
 }

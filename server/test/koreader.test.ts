@@ -1,4 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import { createApp } from '../src/app.js';
 import { openDb } from '../src/db/index.js';
@@ -108,6 +111,34 @@ describe('koreader', () => {
     expect(await (await plugin('POST', '/sync', { book: { key: 'vacío' }, annotations: {} })).json()).toEqual({ skipped: true });
     const res = await (await plugin('POST', '/sync', { book, annotations: highlights })).json();
     expect((await notesOf()).find((n) => n.id === res.id)!.zoneId).toBe(folder.id);
+  });
+
+  it('takes the book cover once, into the gallery image property', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'canvian-koreader-'));
+    app = createApp(openDb(':memory:'), { mediaDir: dir });
+    cookie = '';
+    await call('POST', '/api/auth/setup', { password: 'una-clave-larga' });
+    token = (await (await call('POST', '/api/koreader/token')).json()).token;
+    profileId = (await (await call('GET', '/api/profiles')).json())[0].id;
+
+    const first = await (await plugin('POST', '/sync', { book, annotations: highlights })).json();
+    expect(first.cover).toBe(true);
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+    const send = (id: string, type = 'image/png') => app.request(`/koreader/cover/${id}`, { method: 'POST', headers: { 'content-type': type, authorization: `Bearer ${token}` }, body: png });
+    expect((await send(first.id, 'text/html')).status).toBe(400);
+    const folder = (await notesOf()).find((n) => n.title === 'KOReader')!;
+    expect((await send(folder.id)).status).toBe(404);
+    const { url } = await (await send(first.id)).json();
+    expect(url).toMatch(/^\/api\/media\/.+\.png$/);
+
+    const defs = (await (await call('GET', `/api/profiles/${profileId}/properties`)).json()) as { id: string; name: string; type: string }[];
+    const def = defs.find((d) => d.type === 'image')!;
+    expect(def.name).toBe('Portada');
+    expect(JSON.parse((await notesOf()).find((n) => n.id === first.id)!.props)[def.id]).toBe(url);
+    expect((await call('GET', url)).status).toBe(200);
+
+    // Ya la tiene: no la vuelve a pedir.
+    expect((await (await plugin('POST', '/sync', { book, annotations: highlights })).json()).cover).toBe(false);
   });
 
   it('downloads the plugin already set up', async () => {

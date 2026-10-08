@@ -4,14 +4,17 @@ import type { Db } from '../db/index.js';
 import type { LiveEvent } from '../live.js';
 import { McpError, listProfiles, liveNotes } from '../mcp/notes.js';
 import { mcpStatus } from '../mcp/token.js';
+import { storeImage } from '../routes/media.js';
 import { pluginZip } from './plugin.js';
 import {
   KoreaderError,
+  bookNote,
   createKoreaderToken,
   isKoreaderToken,
   koreaderFolder,
   koreaderToken,
   revokeKoreaderToken,
+  setBookCover,
   setKoreaderFolder,
   syncBody,
   syncBook,
@@ -65,7 +68,9 @@ export function koreaderSettingsRoutes(db: Db) {
 }
 
 // Lo que llama el plugin, con «Authorization: Bearer <llave>».
-export function koreaderRoutes(db: Db, hub?: Hub) {
+const MAX_COVER_BYTES = 5 * 1024 * 1024;
+
+export function koreaderRoutes(db: Db, hub?: Hub, mediaDir?: string) {
   const r = new Hono();
 
   r.use('*', async (c, next) => {
@@ -87,6 +92,23 @@ export function koreaderRoutes(db: Db, hub?: Hub) {
       if (e instanceof McpError || e instanceof KoreaderError) return c.json({ error: e.message }, 400);
       throw e;
     }
+  });
+
+  // La portada del libro, una vez por nota (la sincronización dice si hace falta).
+  // El cuerpo es la imagen tal cual, con su tipo en Content-Type.
+  r.post('/cover/:id', async (c) => {
+    if (!mediaDir) return c.json({ error: 'Este servidor no guarda imágenes' }, 501);
+    const note = bookNote(db, c.req.param('id'));
+    if (!note) return c.json({ error: 'Nota no encontrada' }, 404);
+    if (Number(c.req.header('content-length') ?? 0) > MAX_COVER_BYTES) return c.json({ error: 'La portada es demasiado grande' }, 413);
+    const data = Buffer.from(await c.req.arrayBuffer());
+    if (data.length > MAX_COVER_BYTES) return c.json({ error: 'La portada es demasiado grande' }, 413);
+    const mime = (c.req.header('content-type') ?? '').split(';')[0].trim().toLowerCase();
+    const url = await storeImage(mediaDir, mime, data);
+    if (!url) return c.json({ error: 'La portada no es una imagen' }, 400);
+    setBookCover(db, note, url);
+    hub?.publish({ scope: 'canvas', client: 'koreader' });
+    return c.json({ url });
   });
 
   return r;
