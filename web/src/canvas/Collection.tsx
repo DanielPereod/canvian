@@ -59,6 +59,9 @@ type LibProps = {
   onPatch: (id: string, change: NoteInput) => void;
   onDefsChange: (update: (defs: PropertyDef[]) => PropertyDef[]) => void;
   onError: (err: unknown) => void;
+  // Dentro del lector, la nota abierta como colección: vuelve a su texto y Esc
+  // es cosa del lector.
+  onAsNote?: () => void;
 };
 
 const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive', move: 'move' };
@@ -172,7 +175,7 @@ export function Library(p: LibProps) {
       else if (plain && e.key === 'ArrowRight' && cols > 1) setSel(Math.min(items.length - 1, at + 1));
       else if (plain && e.key === 'ArrowLeft' && cols > 1) setSel(Math.max(0, at - 1));
       else if (plain && e.key === 'Enter' && cur) enter(cur);
-      else if (plain && (e.key === 'Backspace' || e.key === 'Escape') && p.center !== null) up();
+      else if (plain && (e.key === 'Backspace' || e.key === 'Escape') && p.center !== null && !p.onAsNote) up();
       else return;
       e.preventDefault();
       e.stopPropagation();
@@ -201,11 +204,16 @@ export function Library(p: LibProps) {
           {tn(items.length, '{n} nota', '{n} notas')}
           {hidden > 0 && ` · ${tn(hidden, '{n} oculta por los filtros', '{n} ocultas por los filtros')}`} · {how}
         </span>
-        {here && (
-          <button className="bib-link" onClick={() => p.onOpen(here.id)}>
-            {t('Abrir «{name}» ↗', { name: titleOf(here) })}
-          </button>
-        )}
+        {here &&
+          (p.onAsNote ? (
+            <button className="bib-link" onClick={p.onAsNote}>
+              {t('Ver como nota')}
+            </button>
+          ) : (
+            <button className="bib-link" onClick={() => p.onOpen(here.id)}>
+              {t('Abrir «{name}» ↗', { name: titleOf(here) })}
+            </button>
+          ))}
       </div>
       <ViewBar coll={coll} view={view} fields={fields} defs={p.defs} onSave={save} onView={setView} />
       {items.length === 0 && view.type !== 'calendar' && view.type !== 'board' && (

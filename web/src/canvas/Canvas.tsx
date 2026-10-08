@@ -1382,6 +1382,35 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             return createNote(spotFor(focused.zoneId), 'text', { zoneId: focused.zoneId, title: title.slice(0, 120), bodyJson, bodyText: title }).id;
           }}
           onUnlink={(id) => unlink(focused.id, id)}
+          collection={(onAsNote) => (
+            <Library
+              rows={rows}
+              family={family}
+              links={links}
+              center={focused.id}
+              profileId={profile.id}
+              defs={defs}
+              gallery={bibGallery}
+              paused={!!paletteOpen || !!renaming || !!inspectId || !!bibMenu || !!movingId}
+              lit={lit}
+              hide={mode === 'hide'}
+              onCenter={(id) => {
+                flush(focused.id);
+                if (id && id !== LOOSE) setFocusId(id);
+                else closeFocused();
+              }}
+              onOpen={(id) => {
+                flush(focused.id);
+                setFocusId(id);
+              }}
+              onAction={act}
+              onMenu={(id, x, y) => setBibMenu({ id, x, y })}
+              onPatch={updateNote}
+              onDefsChange={setDefs}
+              onError={report}
+              onAsNote={onAsNote}
+            />
+          )}
           zen={zenOn}
           onZen={(on) => {
             // Desde la vista previa, primero se va a la nota de verdad.
