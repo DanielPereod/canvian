@@ -82,14 +82,23 @@ export function Library(p: LibProps) {
   const base = useMemo(() => {
     let list: NoteRow[];
     if (p.center === LOOSE) list = (kids.get(null) ?? []).filter((r) => !count(r.id));
-    else list = kids.get(here?.id ?? null) ?? [];
+    // «Todas las notas» son todas de verdad, también las que van dentro de otra.
+    else if (!here) list = p.rows;
+    else list = kids.get(here.id) ?? [];
     list = list.filter((r) => !p.hide || !p.lit || p.lit.has(r.id));
     const weight = (r: NoteRow) => importanceOf(r, degree.get(r.id) ?? 0) + Math.min(8, count(r.id)) * 0.6;
     // Arriba, las colecciones; después, las más activas: enlaces, tareas abiertas,
     // cambios recientes y largo (o como las ordenaste en la barra).
     const auto = (a: NoteRow, b: NoteRow) => Number(!!count(b.id)) - Number(!!count(a.id)) || weight(b) - weight(a);
     return p.center === LOOSE ? [...list].sort(auto) : sortByOrder(here?.id ?? null, list, auto, prefs);
-  }, [p.center, p.hide, p.lit, kids, count, here, degree, prefs]);
+  }, [p.center, p.rows, p.hide, p.lit, kids, count, here, degree, prefs]);
+
+  // En «Todas las notas», delante del título va dónde está la nota («Casa › Cocina › »).
+  const pathOf = (r: NoteRow) => {
+    if (p.center !== null) return null;
+    const trail = p.family.pathTo(parent.get(r.id) ?? null);
+    return trail.length ? <span className="cv-path">{trail.map(titleOf).join(' › ')} › </span> : null;
+  };
 
   // ── Las vistas de esta colección ──
   const fields = useMemo(() => fieldsOf(p.defs), [p.defs]);
@@ -262,7 +271,10 @@ export function Library(p: LibProps) {
             >
               <button className="cv-td cv-title" role="cell" {...itemProps(r, i)} style={undefined} onClick={() => enter(r)} title={titleOf(r)}>
                 <span className={`bib-dot${count(r.id) ? '' : ' is-sub'}`} style={{ '--h': hueOf(r.id), ...(prefs.colors[r.id] ? { '--tint': prefs.colors[r.id] } : {}) } as CSSProperties} aria-hidden="true" />
-                <span className="bib-ellipsis">{titleOf(r)}</span>
+                <span className="bib-ellipsis">
+                  {pathOf(r)}
+                  {titleOf(r)}
+                </span>
               </button>
               {shown.map((f) => (
                 <div key={f.id} role="cell" className={`cv-td${f.editable ? ' is-edit' : ''}`}>
@@ -297,7 +309,10 @@ export function Library(p: LibProps) {
               >
                 <Spine row={r} kids={n} />
                 <span className="bib-row-main">
-                  <span className="bib-row-t">{titleOf(r)}</span>
+                  <span className="bib-row-t">
+                    {pathOf(r)}
+                    {titleOf(r)}
+                  </span>
                   <span className="bib-row-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : t('Sin texto todavía.'))}</span>
                 </span>
                 <span className="cv-row-fields">
@@ -338,7 +353,10 @@ export function Library(p: LibProps) {
                     <span />
                   </span>
                 </span>
-                <span className="bib-cover-name">{titleOf(r)}</span>
+                <span className="bib-cover-name">
+                  {pathOf(r)}
+                  {titleOf(r)}
+                </span>
                 {shown.length > 0 && (
                   <span className="cv-card-fields">
                     {shown.map((f) => (

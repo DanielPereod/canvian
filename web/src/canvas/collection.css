@@ -77,6 +77,7 @@ button.cv-th-cell:hover { background: var(--surface-hover); }
 .cv-td .nprop-pills { margin-left: -6px; min-height: 30px; }
 .cv-td .nprop-pills { flex-wrap: nowrap; overflow: hidden; }
 .cv-title { gap: 8px; border: 0; background: none; font: inherit; font-weight: 500; color: var(--text); text-align: left; cursor: pointer; }
+.cv-path { color: var(--text-faint); font-weight: 400; }
 .cv-tr.is-sel { background: var(--surface-hover); }
 .cv-tr.is-dim { opacity: 0.35; }
 .cv-none { color: var(--text-ghost); }
