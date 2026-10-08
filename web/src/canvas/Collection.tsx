@@ -5,6 +5,7 @@ import { api, parseProps, type NoteInput, type NoteRow, type PropertyDef, type P
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { locale, t, tn } from '../i18n';
 import { DRAG_TYPE, editedLabel, hueOf, kindOf, snippetOf, titleOf, type Family } from './Biblioteca';
+import { Combo, matches, type ComboItem } from './Combo';
 import { coverStyle, firstImage, parseCover } from './cover';
 import { DatePicker } from './DatePicker';
 import { hueOf as optionHue } from './Inspector';
@@ -878,9 +879,17 @@ function Popover({ x, y, wide, onClose, children }: { x: number; y: number; wide
   const ref = useRef<HTMLDivElement>(null);
   const [spot, setSpot] = useState({ x, y });
   useLayoutEffect(() => {
-    const box = ref.current?.getBoundingClientRect();
-    if (!box) return;
-    setSpot({ x: Math.max(8, Math.min(x, innerWidth - box.width - 8)), y: Math.max(8, Math.min(y, innerHeight - box.height - 8)) });
+    const place = () => {
+      // offsetWidth y no getBoundingClientRect: la entrada la encoge un poco.
+      const box = ref.current;
+      if (!box) return;
+      setSpot({ x: Math.max(8, Math.min(x, innerWidth - box.offsetWidth - 8)), y: Math.max(8, Math.min(y, innerHeight - box.offsetHeight - 8)) });
+    };
+    place();
+    // Crece al añadir filtros u órdenes: que siga cabiendo en la pantalla.
+    const ro = new ResizeObserver(place);
+    if (ref.current) ro.observe(ref.current);
+    return () => ro.disconnect();
   }, [x, y]);
   useEffect(() => {
     const away = (e: Event) => {
@@ -891,6 +900,8 @@ function Popover({ x, y, wide, onClose, children }: { x: number; y: number; wide
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      // Con una lista abierta dentro, Esc solo cierra esa lista.
+      if (document.querySelector('[data-combo]')) return;
       // Que no llegue a la biblioteca (Esc también es «subir»).
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -911,20 +922,30 @@ function Popover({ x, y, wide, onClose, children }: { x: number; y: number; wide
   );
 }
 
-const fieldLabel = (f: Field) => f.name;
+const fieldItems = (fields: Field[]): ComboItem[] => fields.map((f) => ({ id: f.id, label: f.name, icon: <TypeIcon type={f.type} /> }));
 
 function Filters({ view, fields, onView }: { view: View; fields: Field[]; onView: (v: View) => void }) {
   const byId = new Map(fields.map((f) => [f.id, f]));
+  const items = fieldItems(fields);
+  // El filtro recién añadido abre ya la lista de propiedades.
+  const [fresh, setFresh] = useState<string | null>(null);
+  // Y al cambiar de propiedad, la de sus valores.
+  const [picked, setPicked] = useState<string | null>(null);
   const set = (id: string, change: Partial<Filter>) => onView({ ...view, filters: view.filters.map((f) => (f.id === id ? { ...f, ...change } : f)) });
   return (
     <div className="cv-rows">
       {view.filters.length > 1 && (
         <div className="cv-match">
           {t('Mostrar las que cumplen')}
-          <select className="cv-select" value={view.match} onChange={(e) => onView({ ...view, match: e.target.value as View['match'] })}>
-            <option value="and">{t('todos')}</option>
-            <option value="or">{t('alguno')}</option>
-          </select>
+          <Combo
+            className="is-auto"
+            items={[
+              { id: 'and', label: t('todos') },
+              { id: 'or', label: t('alguno') },
+            ]}
+            value={view.match}
+            onChange={(match) => onView({ ...view, match: match as View['match'] })}
+          />
           {t('de estos filtros')}
         </div>
       )}
@@ -933,56 +954,57 @@ function Filters({ view, fields, onView }: { view: View; fields: Field[]; onView
         const f = byId.get(flt.field);
         return (
           <div key={flt.id} className="cv-row-edit">
-            <select
-              className="cv-select"
+            <Combo
+              items={items}
               value={flt.field}
-              onChange={(e) => {
-                const nf = byId.get(e.target.value);
-                if (nf) set(flt.id, { field: nf.id, op: OPS[nf.type][0], value: null });
+              missing={t('(borrada)')}
+              label={t('Propiedad')}
+              autoOpen={fresh === flt.id}
+              onChange={(id) => {
+                const nf = byId.get(id);
+                if (!nf) return;
+                setPicked(flt.id);
+                set(flt.id, { field: nf.id, op: OPS[nf.type][0], value: null });
               }}
-            >
-              {!f && <option value={flt.field}>{t('(borrada)')}</option>}
-              {fields.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {fieldLabel(x)}
-                </option>
-              ))}
-            </select>
-            {f && (
-              <select className="cv-select" value={flt.op} onChange={(e) => set(flt.id, { op: e.target.value })}>
-                {OPS[f.type].map((op) => (
-                  <option key={op} value={op}>
-                    {opName(op)}
-                  </option>
-                ))}
-              </select>
-            )}
-            {f && needsValue(flt.op) ? <FilterValue f={f} value={flt.value} onChange={(value) => set(flt.id, { value })} /> : <span />}
+            />
+            {f && <Combo items={OPS[f.type].map((op) => ({ id: op, label: opName(op) }))} value={flt.op} label={t('Condición')} onChange={(op) => set(flt.id, { op })} />}
+            {f && needsValue(flt.op) ? <FilterValue key={f.id} f={f} value={flt.value} autoOpen={picked === flt.id} onChange={(value) => set(flt.id, { value })} /> : <span />}
             <button className="cv-x" onClick={() => onView({ ...view, filters: view.filters.filter((x) => x.id !== flt.id) })} aria-label={t('Quitar')} title={t('Quitar')}>
               ×
             </button>
           </div>
         );
       })}
-      <button className="bib-menu-it cv-add" onClick={() => onView({ ...view, filters: [...view.filters, { id: ulid(), field: 'title', op: 'contains', value: null }] })}>
+      <button
+        className="bib-menu-it cv-add"
+        onClick={() => {
+          const id = ulid();
+          setFresh(id);
+          onView({ ...view, filters: [...view.filters, { id, field: 'title', op: 'contains', value: null }] });
+        }}
+      >
         + {t('Añadir filtro')}
       </button>
     </div>
   );
 }
 
-function FilterValue({ f, value, onChange }: { f: Field; value: PropValue; onChange: (v: PropValue) => void }) {
-  if (f.type === 'select' || f.type === 'tags')
+function FilterValue({ f, value, autoOpen, onChange }: { f: Field; value: PropValue; autoOpen: boolean; onChange: (v: PropValue) => void }) {
+  if (f.type === 'select' || f.type === 'tags') {
+    const current = typeof value === 'string' ? value : null;
+    // Un valor que ya no está entre las opciones se sigue viendo para poder cambiarlo.
+    const options = current && !f.options.includes(current) ? [current, ...f.options] : f.options;
     return (
-      <select className="cv-select" value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value || null)}>
-        <option value="">{t('Elige…')}</option>
-        {f.options.map((o) => (
-          <option key={o} value={o}>
-            {f.id === 'kind' ? kindName(o) : o}
-          </option>
-        ))}
-      </select>
+      <Combo
+        items={options.map((o) => ({ id: o, label: f.id === 'kind' ? kindName(o) : o }))}
+        value={current}
+        placeholder={t('Elige…')}
+        label={t('Valor')}
+        autoOpen={autoOpen && !current}
+        onChange={(v) => onChange(v || null)}
+      />
     );
+  }
   if (f.type === 'date') return <DatePicker className="cv-input cv-date" value={typeof value === 'string' ? value : null} placeholder={t('Elige una fecha')} onChange={onChange} />;
   return (
     <input
@@ -999,31 +1021,38 @@ function FilterValue({ f, value, onChange }: { f: Field; value: PropValue; onCha
 function Sorts({ view, fields, onView }: { view: View; fields: Field[]; onView: (v: View) => void }) {
   const set = (i: number, change: Partial<View['sorts'][number]>) => onView({ ...view, sorts: view.sorts.map((s, j) => (j === i ? { ...s, ...change } : s)) });
   const free = fields.filter((f) => !view.sorts.some((s) => s.field === f.id));
+  const [fresh, setFresh] = useState<string | null>(null);
+  const dirs: ComboItem[] = [
+    { id: 'asc', label: t('Ascendente') },
+    { id: 'desc', label: t('Descendente') },
+  ];
   return (
     <div className="cv-rows">
       {!view.sorts.length && <div className="bib-menu-head">{t('Sin orden propio: las colecciones arriba y las más activas primero (o como las ordenaste en la barra).')}</div>}
       {view.sorts.map((s, i) => (
-        <div key={s.field} className="cv-row-edit is-sort">
-          <select className="cv-select" value={s.field} onChange={(e) => set(i, { field: e.target.value })}>
-            {fields
-              .filter((f) => f.id === s.field || free.includes(f))
-              .map((f) => (
-                <option key={f.id} value={f.id}>
-                  {fieldLabel(f)}
-                </option>
-              ))}
-          </select>
-          <select className="cv-select" value={s.dir} onChange={(e) => set(i, { dir: e.target.value as 'asc' | 'desc' })}>
-            <option value="asc">{t('Ascendente')}</option>
-            <option value="desc">{t('Descendente')}</option>
-          </select>
+        <div key={i} className="cv-row-edit is-sort">
+          <Combo
+            items={fieldItems(fields.filter((f) => f.id === s.field || free.includes(f)))}
+            value={s.field}
+            missing={t('(borrada)')}
+            label={t('Propiedad')}
+            autoOpen={fresh === s.field && i === view.sorts.length - 1}
+            onChange={(field) => set(i, { field })}
+          />
+          <Combo items={dirs} value={s.dir} label={t('Orden')} onChange={(dir) => set(i, { dir: dir as 'asc' | 'desc' })} />
           <button className="cv-x" onClick={() => onView({ ...view, sorts: view.sorts.filter((_, j) => j !== i) })} aria-label={t('Quitar')} title={t('Quitar')}>
             ×
           </button>
         </div>
       ))}
       {free.length > 0 && view.sorts.length < 6 && (
-        <button className="bib-menu-it cv-add" onClick={() => onView({ ...view, sorts: [...view.sorts, { field: free[0].id, dir: 'asc' }] })}>
+        <button
+          className="bib-menu-it cv-add"
+          onClick={() => {
+            setFresh(free[0].id);
+            onView({ ...view, sorts: [...view.sorts, { field: free[0].id, dir: 'asc' }] });
+          }}
+        >
           + {t('Añadir orden')}
         </button>
       )}
@@ -1036,6 +1065,9 @@ function Fields({ view, fields, onView }: { view: View; fields: Field[]; onView:
   const on = view.fields.filter((id) => all.some((f) => f.id === id));
   const ordered = [...on.map((id) => all.find((f) => f.id === id)!), ...all.filter((f) => !on.includes(f.id))];
   const [drag, setDrag] = useState<string | null>(null);
+  const [q, setQ] = useState('');
+  const searching = !!q.trim();
+  const list = ordered.filter((f) => matches(f.name, q));
   const toggle = (id: string) => onView({ ...view, fields: on.includes(id) ? on.filter((x) => x !== id) : [...on, id] });
   const move = (id: string, before: string) => {
     if (id === before) return;
@@ -1043,37 +1075,62 @@ function Fields({ view, fields, onView }: { view: View; fields: Field[]; onView:
     next.splice(next.indexOf(before), 0, id);
     onView({ ...view, fields: next });
   };
+  // Con un buscador, «mostrar u ocultar todas» va sobre lo que se ve.
+  const ids = list.map((f) => f.id);
+  const anyOn = ids.some((id) => on.includes(id));
+  const toggleAll = () => onView({ ...view, fields: anyOn ? on.filter((id) => !ids.includes(id)) : [...on, ...ids.filter((id) => !on.includes(id))] });
   return (
     <div className="cv-fields">
+      {all.length >= 8 && (
+        <input
+          className="nprop-menu-input cv-fields-search"
+          value={q}
+          placeholder={t('Buscar una propiedad…')}
+          aria-label={t('Buscar una propiedad…')}
+          autoFocus={!TOUCH}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && list.length) {
+              e.preventDefault();
+              toggle(list[0].id);
+            }
+          }}
+        />
+      )}
       <div className="bib-menu-head cv-fields-head">
         {t('Propiedades a la vista')}
-        <button className="cv-link" onClick={() => onView({ ...view, fields: on.length ? [] : all.map((f) => f.id) })}>
-          {on.length ? t('Ocultar todas') : t('Mostrar todas')}
-        </button>
+        {list.length > 0 && (
+          <button className="cv-link" onClick={toggleAll}>
+            {anyOn ? t('Ocultar todas') : t('Mostrar todas')}
+          </button>
+        )}
       </div>
-      {ordered.map((f) => {
+      {!list.length && <div className="bib-menu-head">{t('Nada coincide con «{q}»', { q: q.trim() })}</div>}
+      {list.map((f) => {
         const visible = on.includes(f.id);
+        // Mientras se busca no se reordena: la lista está recortada.
+        const grip = visible && !searching;
         return (
           <div
             key={f.id}
             className={`bib-menu-it cv-field${visible ? ' is-on' : ''}${drag === f.id ? ' is-drag' : ''}`}
-            draggable={visible && !TOUCH}
+            draggable={grip && !TOUCH}
             onDragStart={(e) => {
               setDrag(f.id);
               e.dataTransfer.effectAllowed = 'move';
             }}
             onDragEnd={() => setDrag(null)}
             onDragOver={(e) => {
-              if (drag && visible) e.preventDefault();
+              if (drag && grip) e.preventDefault();
             }}
             onDrop={(e) => {
               e.preventDefault();
-              if (drag && visible) move(drag, f.id);
+              if (drag && grip) move(drag, f.id);
               setDrag(null);
             }}
           >
             <span className="cv-grip" aria-hidden="true">
-              {visible ? '⋮⋮' : ''}
+              {grip ? '⋮⋮' : ''}
             </span>
             <TypeIcon type={f.type} />
             <span className="bib-ellipsis">{f.name}</span>
