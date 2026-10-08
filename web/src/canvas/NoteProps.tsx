@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ulid } from 'ulidx';
 import { api, parseProps, type NoteInput, type NoteRow, type PropertyDef, type PropertyType, type PropValue } from '../api';
 import { useContextMenu } from './Biblioteca';
+import { okImageUrl } from './cover';
 import { DatePicker } from './DatePicker';
 import { hueOf } from './Inspector';
 import { t } from '../i18n';
@@ -29,6 +30,7 @@ const TYPES: { id: PropertyType; name: string }[] = [
   { id: 'date', name: 'Fecha' },
   { id: 'checkbox', name: 'Casilla' },
   { id: 'url', name: 'Enlace' },
+  { id: 'image', name: 'Imagen' },
 ];
 
 // La fecha de la nota no es una propiedad personalizada, pero se ve igual.
@@ -198,6 +200,13 @@ export function TypeIcon({ type }: { type: PropertyType }) {
       </>
     ),
     url: <path d="M6.8 9.2a2.6 2.6 0 0 0 3.7 0l2-2a2.6 2.6 0 0 0-3.7-3.7l-.7.7M9.2 6.8a2.6 2.6 0 0 0-3.7 0l-2 2a2.6 2.6 0 0 0 3.7 3.7l.7-.7" />,
+    image: (
+      <>
+        <rect x="2.5" y="3" width="11" height="10" rx="2" />
+        <circle cx="6" cy="6.5" r="1.1" />
+        <path d="m2.8 11.6 3.4-3.2 2.6 2.4 1.7-1.5 2.8 2.5" />
+      </>
+    ),
   };
   return (
     <span className="nprop-icon">
@@ -247,6 +256,8 @@ export function Value({ def, value, autoFocus, onChange, onAddOption }: { def: P
     case 'select':
     case 'tags':
       return <Options def={def} value={value} autoOpen={autoFocus} onChange={onChange} onAddOption={onAddOption} />;
+    case 'image':
+      return <ImageValue value={typeof value === 'string' ? value : ''} autoFocus={autoFocus} onChange={onChange} />;
     case 'number':
       return <Field type="number" autoFocus={autoFocus} value={value === null ? '' : String(value)} onChange={(v) => onChange(v.trim() === '' || Number.isNaN(Number(v)) ? null : Number(v))} />;
     default:
@@ -261,6 +272,42 @@ export function Value({ def, value, autoFocus, onChange, onAddOption }: { def: P
         </span>
       );
   }
+}
+
+// Una imagen: se pega su enlace o se sube un archivo. La miniatura, si vale.
+function ImageValue({ value, autoFocus, onChange }: { value: string; autoFocus: boolean; onChange: (v: PropValue) => void }) {
+  const file = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const pick = (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true);
+    setFailed(false);
+    api
+      .uploadMedia(f)
+      .then(({ url, kind }) => (kind === 'image' ? onChange(url) : setFailed(true)))
+      .catch(() => setFailed(true))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <span className="nprop-line">
+      {okImageUrl(value) && <span className="nprop-thumb" style={{ backgroundImage: `url("${value.replace(/"/g, '%22')}")` }} aria-hidden="true" />}
+      <Field type="url" autoFocus={autoFocus} value={value} onChange={(v) => onChange(v.trim() || null)} />
+      <button className="nprop-open" type="button" disabled={busy} onClick={() => file.current?.click()} aria-label={t('Subir imagen')} title={failed ? t('No se pudo subir la imagen') : t('Subir imagen')}>
+        {busy ? '…' : failed ? '!' : '↑'}
+      </button>
+      <input
+        ref={file}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          pick(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
+    </span>
+  );
 }
 
 const pill = (o: string) => ({ '--chip': hueOf(o) }) as CSSProperties;

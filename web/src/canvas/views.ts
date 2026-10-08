@@ -82,6 +82,7 @@ const empty = (v: PropValue) => v === null || v === undefined || v === '' || (Ar
 export const OPS: Record<PropertyType, string[]> = {
   text: ['contains', 'notContains', 'is', 'empty', 'notEmpty'],
   url: ['contains', 'notContains', 'is', 'empty', 'notEmpty'],
+  image: ['empty', 'notEmpty'],
   number: ['eq', 'neq', 'gt', 'lt', 'empty', 'notEmpty'],
   select: ['is', 'isNot', 'empty', 'notEmpty'],
   tags: ['has', 'hasNot', 'empty', 'notEmpty'],

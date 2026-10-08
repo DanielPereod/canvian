@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { notes, profiles, propertyDefs } from '../db/schema.js';
 
-export const PROPERTY_TYPES = ['text', 'number', 'select', 'tags', 'date', 'checkbox', 'url'] as const;
+export const PROPERTY_TYPES = ['text', 'number', 'select', 'tags', 'date', 'checkbox', 'url', 'image'] as const;
 
 // Hay quien tiene cientos de etiquetas: el tope solo evita listas absurdas.
 const options = z.array(z.string().trim().min(1).max(60)).max(5000);
