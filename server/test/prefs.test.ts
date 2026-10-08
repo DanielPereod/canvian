@@ -59,6 +59,12 @@ describe('prefs', () => {
     expect((await call('PUT', '/api/prefs/wide', [''])).status).toBe(400);
   });
 
+  it('saves the notes shown as a collection', async () => {
+    expect((await call('PUT', '/api/prefs/collection', ['01HZX'])).status).toBe(204);
+    expect(await (await call('GET', '/api/prefs')).json()).toEqual({ collection: ['01HZX'] });
+    expect((await call('PUT', '/api/prefs/collection', 'x')).status).toBe(400);
+  });
+
   it('saves the language', async () => {
     expect((await call('PUT', '/api/prefs/lang', 'en')).status).toBe(204);
     expect(await (await call('GET', '/api/prefs')).json()).toEqual({ lang: 'en' });

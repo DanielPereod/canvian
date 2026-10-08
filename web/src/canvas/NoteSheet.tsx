@@ -29,7 +29,7 @@ import { TOUCH } from './touch';
 import { TextSelection } from '@tiptap/pm/state';
 import { parseBody as parseDoc, sectionOf } from '../../../server/src/doc/json';
 import { actionFor, keyParts, keysBlocked, matches, useKeymap } from '../keys';
-import { toggleWide, useWide } from './widePrefs';
+import { toggleAsCollection, toggleWide, useAsCollection, useWide } from './widePrefs';
 import { t, tn } from '../i18n';
 
 // Una nota se abre como lector: el texto a la izquierda y un panel de detalles
@@ -644,11 +644,14 @@ type Props = {
   // Modo zen: sin nada alrededor, solo el texto.
   zen: boolean;
   onZen: (on: boolean) => void;
+  // La nota vista como colección: sus hijas con las vistas de la biblioteca.
+  // `onAsNote` vuelve a su texto.
+  collection: (onAsNote: () => void) => ReactNode;
   // Un aviso breve abajo (p. ej. «Enlace copiado»).
   onNotice?: (text: string) => void;
 };
 
-export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onChange, onDefsChange, profileId, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen, onNotice }: Props) {
+export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onChange, onDefsChange, profileId, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen, collection, onNotice }: Props) {
   const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -676,6 +679,9 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   // Modo ancho: cada nota recuerda el suyo.
   const wide = useWide(note.id);
   const flipWide = () => void toggleWide(note.id).catch(onError);
+  // Como colección: cada nota recuerda si se abre así.
+  const asColl = useAsCollection(note.id) && note.kind !== 'canvas';
+  const flipColl = () => void toggleAsCollection(note.id).catch(onError);
   // Al entrar o salir desde un botón que desaparece, se sigue escribiendo.
   const setZen = (on: boolean) => {
     onZen(on);
@@ -733,13 +739,13 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       // Ctrl/⌘ A fuera del texto (tras pulsar un botón, al abrir…) selecciona
       // la nota, no la página entera.
       // Antes que el editor, que con Ctrl E pondría el texto como código.
-      if (!isCanvas && matches(e, 'markdownSource') && !keysBlocked() && !document.querySelector('.inspector, .overlay')) {
+      if (!isCanvas && !asColl && matches(e, 'markdownSource') && !keysBlocked() && !document.querySelector('.inspector, .overlay')) {
         e.preventDefault();
         e.stopPropagation();
         setSource((s) => !s);
         return;
       }
-      if (!keysBlocked() && !document.querySelector('.inspector, .overlay') && (matches(e, 'zen') || (!isCanvas && (matches(e, 'wideNote') || matches(e, 'details'))))) {
+      if (!keysBlocked() && !document.querySelector('.inspector, .overlay') && ((matches(e, 'zen') && !asColl) || (!isCanvas && ((matches(e, 'wideNote') && !asColl) || matches(e, 'details'))))) {
         e.preventDefault();
         e.stopPropagation();
         if (matches(e, 'zen')) setZen(!zen);
@@ -749,7 +755,8 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       }
       const typing = !!target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
       // Mover, enlazar y adjuntar (desde la paleta, o M fuera del texto).
-      const act = !typing && !keysBlocked() && !document.querySelector('.inspector, .overlay') ? actionFor(e, isCanvas ? ['move'] : ['move', 'linkNote', 'attach']) : null;
+      // Como colección, mover y lo demás van con la nota elegida de la colección.
+      const act = !typing && !asColl && !keysBlocked() && !document.querySelector('.inspector, .overlay') ? actionFor(e, isCanvas ? ['move'] : ['move', 'linkNote', 'attach']) : null;
       if (act) {
         e.preventDefault();
         e.stopPropagation();
@@ -788,7 +795,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     />
   );
 
-  const zenExit = zen && (
+  const zenExit = zen && !asColl && (
     <button className="reader-zen-exit" onClick={() => setZen(false)} title={t('Salir del modo zen (Esc)')}>
       {t('Salir del modo zen')} <span className="reader-zen-k">Esc</span>
     </button>
@@ -817,13 +824,22 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       onChange(note.id, { props: noTasks ? rest : { ...rest, [NO_TASKS]: true } });
     };
     const items: SheetItem[] = [
-      { label: t('Adjuntar archivos…'), title: t('PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto'), run: () => filePick.current?.click() },
+      ...(asColl ? [] : [{ label: t('Adjuntar archivos…'), title: t('PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto'), run: () => filePick.current?.click() }]),
+      {
+        label: asColl ? t('Ver como nota') : t('Ver como colección'),
+        title: asColl ? t('Volver a su texto') : t('Sus notas de dentro en tabla, lista, galería, tablero o calendario'),
+        run: flipColl,
+      },
       { label: t('Ver en nodos'), title: t('Esta nota en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
       null,
-      { label: source ? t('Ver el texto') : t('Ver el Markdown'), keys: keysOf(keymap.markdownSource), run: () => setSource((s) => !s) },
-      { label: wide ? t('Texto estrecho') : t('Texto ancho'), keys: keysOf(keymap.wideNote), run: flipWide },
-      { label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
-      null,
+      ...(asColl
+        ? []
+        : [
+            { label: source ? t('Ver el texto') : t('Ver el Markdown'), keys: keysOf(keymap.markdownSource), run: () => setSource((s) => !s) },
+            { label: wide ? t('Texto estrecho') : t('Texto ancho'), keys: keysOf(keymap.wideNote), run: flipWide },
+            { label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
+            null,
+          ]),
       { label: note.cover ? t('Quitar portada') : t('Añadir portada'), run: () => setCover(note.cover ? null : randomCover()) },
       { label: t('Propiedades'), run: () => onProps(note.id) },
       {
@@ -847,10 +863,15 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       </>
     );
     return (
-      <div ref={ref} className={`sheet is-reader${zen ? ' is-zen' : ''}${wide ? ' is-wide' : ''}${folded ? ' is-side-folded' : ''}`} style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
+      <div ref={ref} className={`sheet is-reader${zen && !asColl ? ' is-zen' : ''}${wide ? ' is-wide' : ''}${asColl ? ' is-coll' : ''}${folded ? ' is-side-folded' : ''}`} style={{ '--reader-w': `${sideWidth.width}px` } as CSSProperties}>
         {zenExit}
         <div className="reader-main">
           <NoteCover key={note.id} cover={note.cover} onChange={setCover} onError={onError} />
+          {asColl ? (
+            <div className="reader-coll" key={note.id}>
+              {collection(flipColl)}
+            </div>
+          ) : (
           <article className={`reader-body${note.cover ? ' has-cover' : ''}`} key={note.id + note.kind}>
             <span className="reader-meta">
               {madre ? madre.title || t('Nota sin título') : t('Arriba del todo')} · {kindOf(note, kids)} · {t('editada {date}', { date: editedLabel(note.updatedAt) })}
@@ -878,6 +899,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
               between={<NoteProps key={note.id} note={note} defs={defs} profileId={profileId} onChange={onChange} onDefsChange={onDefsChange} onError={onError} />}
             />
           </article>
+          )}
         </div>
         {/* Los botones de la nota van en la barra de arriba, a la altura de los de la barra lateral;
             sin barra, flotan arriba a la derecha. */}

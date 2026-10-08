@@ -40,3 +40,25 @@ export const okImageUrl = (url: string) => /^(https?:\/\/|\/api\/media\/)\S+$/i.
 
 export const coverStyle = (c: Cover): CSSProperties =>
   c.kind === 'gradient' ? { background: c.css } : { backgroundImage: `url("${c.src.replace(/"/g, '%22')}")`, backgroundPosition: `50% ${c.y}%` };
+
+// La primera imagen del texto de una nota (su JSON), para la tarjeta de la
+// galería. Se recuerda por texto: la galería repinta a menudo.
+const firstImages = new Map<string, string | null>();
+export function firstImage(bodyJson: string | null | undefined): string | null {
+  if (!bodyJson || !/"type"\s*:\s*"image"/.test(bodyJson)) return null;
+  let hit = firstImages.get(bodyJson);
+  if (hit !== undefined) return hit;
+  hit = null;
+  try {
+    const walk = (n: { type?: string; attrs?: { src?: unknown }; content?: unknown[] }): boolean => {
+      if (n?.type === 'image' && typeof n.attrs?.src === 'string' && okImageUrl(n.attrs.src)) return !!(hit = n.attrs.src);
+      return Array.isArray(n?.content) && n.content.some((c) => walk(c as typeof n));
+    };
+    walk(JSON.parse(bodyJson));
+  } catch {
+    hit = null;
+  }
+  if (firstImages.size > 500) firstImages.clear();
+  firstImages.set(bodyJson, hit);
+  return hit;
+}

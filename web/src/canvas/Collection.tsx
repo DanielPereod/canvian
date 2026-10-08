@@ -5,8 +5,8 @@ import { api, parseProps, type NoteInput, type NoteRow, type PropertyDef, type P
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { locale, t, tn } from '../i18n';
 import { DRAG_TYPE, editedLabel, hueOf, kindOf, snippetOf, titleOf, type Family } from './Biblioteca';
-import { coverStyle, parseCover } from './cover';
 import { Combo, matches, type ComboItem } from './Combo';
+import { coverStyle, firstImage, parseCover } from './cover';
 import { DatePicker } from './DatePicker';
 import { hueOf as optionHue } from './Inspector';
 import { LOOSE, type MapAction } from './NodeView';
@@ -60,6 +60,9 @@ type LibProps = {
   onPatch: (id: string, change: NoteInput) => void;
   onDefsChange: (update: (defs: PropertyDef[]) => PropertyDef[]) => void;
   onError: (err: unknown) => void;
+  // Dentro del lector, la nota abierta como colección: vuelve a su texto y Esc
+  // es cosa del lector.
+  onAsNote?: () => void;
 };
 
 const KEYS: Partial<Record<ActionId, MapAction>> = { properties: 'props', deleteCell: 'delete', rename: 'rename', archive: 'archive', move: 'move' };
@@ -173,7 +176,7 @@ export function Library(p: LibProps) {
       else if (plain && e.key === 'ArrowRight' && cols > 1) setSel(Math.min(items.length - 1, at + 1));
       else if (plain && e.key === 'ArrowLeft' && cols > 1) setSel(Math.max(0, at - 1));
       else if (plain && e.key === 'Enter' && cur) enter(cur);
-      else if (plain && (e.key === 'Backspace' || e.key === 'Escape') && p.center !== null) up();
+      else if (plain && (e.key === 'Backspace' || e.key === 'Escape') && p.center !== null && !p.onAsNote) up();
       else return;
       e.preventDefault();
       e.stopPropagation();
@@ -202,11 +205,16 @@ export function Library(p: LibProps) {
           {tn(items.length, '{n} nota', '{n} notas')}
           {hidden > 0 && ` · ${tn(hidden, '{n} oculta por los filtros', '{n} ocultas por los filtros')}`} · {how}
         </span>
-        {here && (
-          <button className="bib-link" onClick={() => p.onOpen(here.id)}>
-            {t('Abrir «{name}» ↗', { name: titleOf(here) })}
-          </button>
-        )}
+        {here &&
+          (p.onAsNote ? (
+            <button className="bib-link" onClick={p.onAsNote}>
+              {t('Ver como nota')}
+            </button>
+          ) : (
+            <button className="bib-link" onClick={() => p.onOpen(here.id)}>
+              {t('Abrir «{name}» ↗', { name: titleOf(here) })}
+            </button>
+          ))}
       </div>
       <ViewBar coll={coll} view={view} fields={fields} defs={p.defs} onSave={save} onView={setView} />
       {items.length === 0 && view.type !== 'calendar' && view.type !== 'board' && (
@@ -319,6 +327,10 @@ export function Library(p: LibProps) {
             const n = count(r.id);
             const kind = kindOf(r, n);
             const cover = parseCover(r.cover);
+            // Con una imagen (la portada o, si no, la primera del texto), la
+            // tarjeta es la imagen; sin ella, el resumen del texto.
+            const src = cover?.kind === 'image' ? null : firstImage(r.bodyJson);
+            const pic = cover?.kind === 'image' ? cover : src ? ({ kind: 'image', src, y: 50 } as const) : null;
             return (
               <button
                 key={r.id}
@@ -328,17 +340,23 @@ export function Library(p: LibProps) {
                 onMouseEnter={() => setSel(i)}
                 onClick={() => enter(r)}
               >
-                <span className={`bib-cover${n ? ' is-branch' : ''}${r.cover ? ' has-cover' : ''}`}>
-                  {cover && <span className="bib-cover-img" style={coverStyle(cover)} aria-hidden="true" />}
-                  <span className="bib-cover-k">{kind.toLocaleUpperCase(locale())}</span>
-                  <span className="bib-cover-t">{titleOf(r)}</span>
-                  <span className="bib-cover-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : '')}</span>
-                  <span className="bib-cover-lines" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
+                {pic ? (
+                  <span className={`bib-cover is-pic${n ? ' is-branch' : ''}`}>
+                    <span className="bib-cover-img" style={coverStyle(pic)} aria-hidden="true" />
                   </span>
-                </span>
+                ) : (
+                  <span className={`bib-cover${n ? ' is-branch' : ''}${r.cover ? ' has-cover' : ''}`}>
+                    {cover && <span className="bib-cover-img" style={coverStyle(cover)} aria-hidden="true" />}
+                    <span className="bib-cover-k">{kind.toLocaleUpperCase(locale())}</span>
+                    <span className="bib-cover-t">{titleOf(r)}</span>
+                    <span className="bib-cover-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : '')}</span>
+                    <span className="bib-cover-lines" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                  </span>
+                )}
                 <span className="bib-cover-name">{titleOf(r)}</span>
                 {shown.length > 0 && (
                   <span className="cv-card-fields">
