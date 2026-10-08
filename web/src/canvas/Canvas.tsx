@@ -20,7 +20,6 @@ import { Inspector } from './Inspector';
 import { INBOX, TasksView, rememberTasksView, type TaskWhen } from './TasksView';
 import { addTaskItem, changeTask, listedTasks, contentOf, newTaskItem, removeTask, takeTask, type Task, type TaskChange } from './tasks';
 import { mergeTags, splitTags } from './tags';
-import { OrganizeView, OPEN_ORGANIZE, type Move } from './OrganizeView';
 import { actionFor, keyParts, keysBlocked, setView, useKeymap } from '../keys';
 import { useSideWidth } from './Resizer';
 import { Library } from './Collection';
@@ -54,7 +53,7 @@ const spotIn = (r: Rect) => ({ x: r.x + 40 + Math.random() * Math.max(0, r.w - N
 
 // Dónde estás (la nota abierta, la vista, el centro de los nodos) se recuerda
 // en este navegador y por perfil: al recargar vuelves al mismo sitio.
-type Place = { note: string | null; center: string | null; tasks: boolean; organize: boolean; diary?: boolean };
+type Place = { note: string | null; center: string | null; tasks: boolean; diary?: boolean };
 const placeKey = (profileId: string) => `canvian.place.${profileId}`;
 function readPlace(profileId: string): Partial<Place> {
   try {
@@ -95,8 +94,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [tasksOpen, setTasksOpen] = useState(false);
   // Cambia para volver a montar las tareas (y que lean la lista recordada).
   const [tasksKey, setTasksKey] = useState(0);
-  // Y la de ordenar: el árbol de secciones y sus notas, para mover en bloque.
-  const [organizeOpen, setOrganizeOpen] = useState(false);
   // Y el Diario: un feed de entradas, lo nuevo arriba (si está en este perfil).
   const [diaryOpen, setDiaryOpen] = useState(false);
   const diaryOn = useDiaryOn(profile.id);
@@ -163,13 +160,13 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
 
   useEffect(() => {
     if (!loaded) return;
-    const place: Place = { note: focusId, center, tasks: tasksOpen, organize: organizeOpen, diary: diaryOpen };
+    const place: Place = { note: focusId, center, tasks: tasksOpen, diary: diaryOpen };
     try {
       localStorage.setItem(placeKey(profile.id), JSON.stringify(place));
     } catch {
       // Sin almacenamiento local, al recargar se empieza desde el principio.
     }
-  }, [loaded, profile.id, focusId, center, tasksOpen, organizeOpen, diaryOpen]);
+  }, [loaded, profile.id, focusId, center, tasksOpen, diaryOpen]);
 
   const patchRow = useCallback((id: string, patch: Partial<NoteRow>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r))), []);
 
@@ -188,7 +185,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       if (exists(place.note)) setFocusId(place.note!);
       else if (place.tasks) setTasksOpen(true);
       else if (place.diary) setDiaryOpen(true);
-      else if (place.organize) setOrganizeOpen(true);
       setLoaded(true);
     }, report);
     return () => {
@@ -520,7 +516,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const openDiary = () => {
     if (focused) closeFocused();
     setTasksOpen(false);
-    setOrganizeOpen(false);
     setDiaryOpen(true);
   };
   // Si se quita del perfil en Configuración, se cierra.
@@ -546,12 +541,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', marks: [{ type: 'bold' }], text: title }] }] });
     saveContent(row.id, { bodyJson, bodyText: title, title: title.slice(0, 120) });
     return row;
-  };
-
-  // Nota nueva con nombre dentro de otra (vista de ordenar).
-  const newSection = (zoneId: string | null) => {
-    const row = createNote(spotFor(zoneId), 'text', { zoneId });
-    setRenaming({ id: row.id, title: '' });
   };
 
   // El título de una nota es su primera línea: renombrar cambia esa línea.
@@ -580,31 +569,11 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     updateNote(id, { zoneId, ...spotFor(zoneId) });
   };
 
-  // Mover varias de golpe (vista de ordenar): una sola petición al servidor.
-  const moveMany = (moves: Move[]) => {
-    const byId = new Map(rowsRef.current.map((r) => [r.id, r]));
-    const inside = (zoneId: string | null, id: string) => {
-      for (let z = zoneId; z; z = byId.get(z)?.zoneId ?? null) if (z === id) return true;
-      return false;
-    };
-    const items = moves
-      .filter((m) => byId.has(m.id) && !deleted.current.has(m.id) && !inside(m.zoneId, m.id))
-      .map((m) => ({ id: m.id, zoneId: m.zoneId, ...spotFor(m.zoneId) }));
-    if (!items.length) return;
-    const change = new Map(items.map((it) => [it.id, it]));
-    const at = now();
-    setRows((rs) => rs.map((r) => (change.has(r.id) ? { ...r, ...change.get(r.id)!, updatedAt: at } : r)));
-    ready(...items.map((it) => it.id))
-      .then(() => api.saveLayout(items))
-      .catch(report);
-  };
-
   // Modo nodo: cierra la nota y la pone en el centro de la vista de nodos.
   const toNodes = (id: string) => {
     flush(id);
     setFocusId(null);
     setTasksOpen(false);
-    setOrganizeOpen(false);
     setDiaryOpen(false);
     setCenter(id);
     setBibLayout('nodos');
@@ -643,26 +612,15 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     setNotice(archiving ? t('Archivada · {how} las muestra', { how: keymap.showArchived ? keyParts(keymap.showArchived).join(' ') : t('«Archivadas» en la barra') }) : t('Desarchivada'));
   };
 
-  // Desde Configuración también se llega a la vista de ordenar.
-  useEffect(() => {
-    const open = () => {
-      setTasksOpen(false);
-      setDiaryOpen(false);
-      setOrganizeOpen(true);
-    };
-    window.addEventListener(OPEN_ORGANIZE, open);
-    return () => window.removeEventListener(OPEN_ORGANIZE, open);
-  }, []);
-
   // La paleta y la ayuda enseñan primero lo que sirve en esta vista.
-  useEffect(() => setView(focusId ? 'note' : tasksOpen ? 'tasks' : organizeOpen ? 'organize' : 'list'), [focusId, tasksOpen, organizeOpen, diaryOpen]);
+  useEffect(() => setView(focusId ? 'note' : tasksOpen ? 'tasks' : 'list'), [focusId, tasksOpen, diaryOpen]);
 
   // ── Teclado de la vista (el mapa tiene el suyo) ─────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keysBlocked()) return;
       // Las combinaciones con Ctrl/⌘ o Alt valen también escribiendo.
-      const action = actionFor(e, ['exportCanvas', 'search', 'switcher', 'quickNote', 'daily', 'diary', 'tasks', 'organize', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar', 'zen', 'wideNote', 'newNote', 'newCanvas', 'newSection', 'calendar']);
+      const action = actionFor(e, ['exportCanvas', 'search', 'switcher', 'quickNote', 'daily', 'diary', 'tasks', 'lantern', 'nodes', 'archive', 'showArchived', 'sidebar', 'zen', 'wideNote', 'newNote', 'newCanvas', 'newSection', 'calendar']);
       const chord = e.metaKey || e.ctrlKey || e.altKey;
       // Con una nota abierta los atiende ella; aquí solo llegan sin nota.
       if ((action === 'zen' || action === 'wideNote') && (chord || !isTyping(e.target))) {
@@ -712,8 +670,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       if (action === 'calendar' && (chord || !isTyping(e.target)) && !(tasksOpen && !focused)) {
         e.preventDefault();
         if (focused) closeFocused();
-        setOrganizeOpen(false);
-        setDiaryOpen(false);
+            setDiaryOpen(false);
         rememberTasksView('cal');
         setTasksKey((k) => k + 1);
         setTasksOpen(true);
@@ -753,12 +710,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         setInspectId(null);
         return;
       }
-      if (isTyping(e.target) || paletteOpen || focusId || tasksOpen || organizeOpen || diaryOpen) return;
-      if (action === 'organize') {
-        e.preventDefault();
-        setOrganizeOpen(true);
-        return;
-      }
+      if (isTyping(e.target) || paletteOpen || focusId || tasksOpen || diaryOpen) return;
       if (action === 'tasks') {
         e.preventDefault();
         setTasksOpen(true);
@@ -934,7 +886,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   // Abrir desde la barra lateral: la nota, con su colección detrás.
   const bibOpen = (id: string) => {
     setTasksOpen(false);
-    setOrganizeOpen(false);
     setDiaryOpen(false);
     if (focused) flush(focused.id);
     setCenter(family.parent.get(id) ?? null);
@@ -1008,11 +959,10 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
 
   // ── Barra lateral, ruta y la colección ──────────────────────────────
   const family = useFamily(rows);
-  const bibView: BibView = focused && !peek ? 'note' : tasksOpen ? 'tasks' : diaryOpen ? 'diary' : organizeOpen ? 'organize' : 'library';
+  const bibView: BibView = focused && !peek ? 'note' : tasksOpen ? 'tasks' : diaryOpen ? 'diary' : 'library';
   const goLibrary = (id: string | null) => {
     if (focused) closeFocused();
     setTasksOpen(false);
-    setOrganizeOpen(false);
     setDiaryOpen(false);
     setCenter(id);
   };
@@ -1021,8 +971,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       ? [{ id: null, title: t('Tareas') }]
       : bibView === 'diary'
         ? [{ id: null, title: t('Diario') }]
-        : bibView === 'organize'
-        ? [{ id: null, title: t('Ordenar') }]
         : [
             { id: null, title: t('Todas las notas') },
             ...(center === LOOSE && !focused ? [{ id: LOOSE as string | null, title: t('Sueltas') }] : []),
@@ -1039,8 +987,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         ? () => setTasksOpen(false)
         : bibView === 'diary'
           ? () => setDiaryOpen(false)
-          : bibView === 'organize'
-          ? () => setOrganizeOpen(false)
           : center !== null
             ? () => setCenter(center === LOOSE ? null : (family.parent.get(center) ?? null))
             : null;
@@ -1096,7 +1042,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             profileName={profile.name}
             family={family}
             view={bibView}
-            here={bibView === 'tasks' || bibView === 'organize' || bibView === 'diary' ? undefined : focused ? focused.id : center}
+            here={bibView === 'tasks' || bibView === 'diary' ? undefined : focused ? focused.id : center}
             tasks={openTasksCount}
             diary={diaryOn}
             onDiary={openDiary}
@@ -1112,8 +1058,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
               if (focused) closeFocused();
               setTasksOpen(false);
               setDiaryOpen(false);
-              setOrganizeOpen(false);
-              setLamp((q) => q ?? '');
+                        setLamp((q) => q ?? '');
               setLampOpen(true);
             }}
             onSettings={shell.onSettings}
@@ -1123,22 +1068,14 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             onMenu={(id, x, y) => setBibMenu({ id, x, y })}
             onTasks={() => {
               if (focused) closeFocused();
-              setOrganizeOpen(false);
-              setDiaryOpen(false);
+                        setDiaryOpen(false);
               setTasksOpen(true);
-            }}
-            onOrganize={() => {
-              if (focused) closeFocused();
-              setTasksOpen(false);
-              setDiaryOpen(false);
-              setOrganizeOpen(true);
             }}
             onArchived={() => setShowArchived((v) => !v)}
             onNewNote={(kind) => {
               if (focused) closeFocused();
               setTasksOpen(false);
-              setOrganizeOpen(false);
-              setDiaryOpen(false);
+                        setDiaryOpen(false);
               setCenter(null);
               if (kind === 'canvas') newCanvas(null);
               else newNote(null);
@@ -1149,7 +1086,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             view={bibView}
             layout={bibLayout}
             onCrumb={(id) => {
-              if (bibView === 'tasks' || bibView === 'organize' || bibView === 'diary') return;
+              if (bibView === 'tasks' || bibView === 'diary') return;
               if (bibView === 'note' && id) bibOpen(id);
               else goLibrary(id);
             }}
@@ -1208,7 +1145,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           profileId={profile.id}
           defs={defs}
           gallery={bibGallery}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen || diaryOpen || !!inspectId}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || diaryOpen || !!inspectId}
           lit={lit}
           hide={mode === 'hide'}
           onCenter={setCenter}
@@ -1225,7 +1162,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           rows={rows}
           links={links}
           center={center}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || organizeOpen || diaryOpen}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || diaryOpen}
           onCenter={setCenter}
           onOpen={(id) => openNote(id)}
           onAction={act}
@@ -1302,17 +1239,6 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             } else newNote(currentZone()?.id ?? null, text);
           }}
           onClose={() => setPaletteOpen(false)}
-        />
-      )}
-      {organizeOpen && (
-        <OrganizeView
-          rows={rows}
-          sections={sectionOptions}
-          paused={!!focusId || !!inspectId || !!paletteOpen || !!renaming}
-          onOpen={(id) => openNote(id)}
-          onMove={moveMany}
-          onNewSection={newSection}
-          onClose={() => setOrganizeOpen(false)}
         />
       )}
       {tasksOpen && (

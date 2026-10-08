@@ -21,7 +21,7 @@ const withKey = (text: string, keys: string) => (keys ? `${text} (${keys})` : te
 // arriba, la ruta y el buscador; en el centro, las notas de la colección en
 // sus vistas (Collection.tsx) o los nodos de siempre.
 
-export type BibView = 'library' | 'note' | 'tasks' | 'diary' | 'organize';
+export type BibView = 'library' | 'note' | 'tasks' | 'diary';
 // La colección (con sus vistas) o los nodos.
 export type BibLayout = 'lista' | 'nodos';
 
@@ -162,7 +162,6 @@ type SideProps = {
   onOpen: (id: string) => void;
   onTasks: () => void;
   onDiary: () => void;
-  onOrganize: () => void;
   onArchived: () => void;
   onNewNote: (kind: NewKind) => void;
   onMove: (id: string, parent: string | null) => void;
@@ -386,9 +385,6 @@ export function BibSidebar(p: SideProps) {
           )}
           <button className={`bib-it${p.view === 'tasks' ? ' is-on' : ''}`} onClick={p.onTasks} title={key('tasks') || undefined}>
             {t('Tareas')}<span className="bib-count">{p.tasks || ''}</span>
-          </button>
-          <button className={`bib-it${p.view === 'organize' ? ' is-on' : ''}`} onClick={p.onOrganize} title={key('organize') || undefined}>
-            {t('Ordenar')}
           </button>
           <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title={key('showArchived') || undefined}>
             {p.showArchived ? t('Ocultar archivadas') : t('Archivadas')}

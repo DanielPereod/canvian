@@ -16,7 +16,6 @@ export const EN_CANVAS: Record<string, string> = {
   'Cerrar (Esc)': 'Close (Esc)',
   Cerrar: 'Close',
   Tareas: 'Tasks',
-  Ordenar: 'Organize',
   'Todas las notas': 'All notes',
   Sueltas: 'Loose',
   'Suelta tus': 'Drop your',

@@ -139,16 +139,14 @@
 /* Todo lo que antes llenaba la pantalla ahora llena el hueco de la derecha. */
 .canvas.is-bib > .home-layer,
 .canvas.is-bib > .sheet,
-.canvas.is-bib > .tasks-view,
-.canvas.is-bib > .org-view {
+.canvas.is-bib > .tasks-view {
   position: absolute;
   inset: var(--bib-h) 0 0 var(--bib-w);
   z-index: 1;
 }
 .canvas.is-bib > .home-layer { overflow: hidden; }
 .canvas.is-bib > .sheet { z-index: 3; background: var(--bg); box-shadow: none; }
-.canvas.is-bib > .tasks-view,
-.canvas.is-bib > .org-view { z-index: 2; background: var(--bg); animation: bib-in 260ms var(--ease-out) both; }
+.canvas.is-bib > .tasks-view { z-index: 2; background: var(--bg); animation: bib-in 260ms var(--ease-out) both; }
 .canvas.is-bib .lantern { left: calc(var(--bib-w) + 50%); }
 @keyframes bib-in { from { opacity: 0; transform: translateY(6px); } }
 
@@ -384,7 +382,6 @@
 .bib-lib-title h1,
 .bib-cover-t,
 .canvas.is-bib .tv-title,
-.canvas.is-bib .org-title,
 .sheet.is-reader .sheet-title,
 .sheet.is-reader .sheet-prose h1,
 .sheet.is-reader .sheet-prose h2,
@@ -593,12 +590,10 @@
 .reader-zen-k { padding: 1px 5px; border: 1px solid var(--line); border-radius: var(--radius-xs); font-size: 0.9em; }
 @keyframes zen-hint { 0%, 55% { opacity: 1; } 100% { opacity: 0; } }
 
-/* ── Tareas, ordenar y el buscador con este estilo ──────────────────── */
+/* ── Tareas y el buscador con este estilo ──────────────────── */
 
-.canvas.is-bib .tv-title,
-.canvas.is-bib .org-title { font-size: calc(26px * var(--title-scale) * var(--type-scale, 1)); }
-.canvas.is-bib .tv-title em,
-.canvas.is-bib .org-title em { font-style: normal; color: inherit; }
+.canvas.is-bib .tv-title { font-size: calc(26px * var(--title-scale) * var(--type-scale, 1)); }
+.canvas.is-bib .tv-title em { font-style: normal; color: inherit; }
 .canvas.is-bib .popover:has(#note-search) .list { counter-reset: hit; }
 .canvas.is-bib .popover:has(#note-search) .list-item:not(.static)::before {
   counter-increment: hit;
