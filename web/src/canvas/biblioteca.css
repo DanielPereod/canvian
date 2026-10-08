@@ -257,6 +257,7 @@
 .bib-menu-it { display: flex; align-items: center; width: 100%; height: calc(28px * var(--type-scale, 1)); padding: 0 9px; border: 0; border-radius: var(--radius-xs); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .bib-menu-it:hover, .bib-menu-it:focus-visible { background: var(--bib-sel, var(--surface-hover)); outline: none; }
 .bib-menu-it.is-danger { color: #d13f3f; }
+.bib-menu-check { margin-left: auto; padding-left: 16px; color: var(--accent-ink); }
 .bib-menu-k { margin-left: auto; padding-left: 16px; font-size: var(--text-xs); color: var(--text-faint); }
 .bib-menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
 .bib-menu-colors { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 9px 5px; }
