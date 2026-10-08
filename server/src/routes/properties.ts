@@ -7,7 +7,8 @@ import { notes, profiles, propertyDefs } from '../db/schema.js';
 
 export const PROPERTY_TYPES = ['text', 'number', 'select', 'tags', 'date', 'checkbox', 'url'] as const;
 
-const options = z.array(z.string().trim().min(1).max(60)).max(300);
+// Hay quien tiene cientos de etiquetas: el tope solo evita listas absurdas.
+const options = z.array(z.string().trim().min(1).max(60)).max(5000);
 const propertyCreate = z.object({
   id: z.string().min(10).max(40).optional(),
   name: z.string().trim().min(1).max(60),
