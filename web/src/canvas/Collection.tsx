@@ -57,6 +57,8 @@ type LibProps = {
   hide: boolean;
   onCenter: (id: string | null) => void;
   onOpen: (id: string) => void;
+  // Abrir una nota en ventana, encima de la colección (la línea de tiempo).
+  onPeek?: (id: string) => void;
   onAction: (action: MapAction, noteId: string | null, parentId: string | null) => void;
   onMenu: (id: string, x: number, y: number) => void;
   onPatch: (id: string, change: NoteInput) => void;
@@ -312,6 +314,8 @@ export function Library(p: LibProps) {
       if (p.paused || keysBlocked()) return;
       const el = e.target as HTMLElement | null;
       if (el?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName ?? '')) return;
+      // Las teclas de un menú abierto (el de una barra de la línea de tiempo) son suyas.
+      if (el?.closest('[role="menu"]')) return;
       const plain = !(e.metaKey || e.ctrlKey || e.altKey || e.shiftKey);
       const cols = view.type === 'gallery' ? Math.max(1, Math.round((list.current?.clientWidth ?? 1000) / 200)) : 1;
       const cur = items[at];
@@ -607,7 +611,7 @@ export function Library(p: LibProps) {
         <Calendar items={items} view={view} fields={fields} sel={items[at]?.id ?? null} dim={dim} listRef={list} onEnter={enter} onMenu={p.onMenu} onSet={setField} onView={setView} count={count} />
       )}
       {view.type === 'timeline' && (
-        <Timeline items={items} view={view} fields={fields} sel={items[at]?.id ?? null} dim={dim} listRef={list} onEnter={enter} onMenu={p.onMenu} onSet={setField} onView={setView} count={count} />
+        <Timeline onPeek={(r) => (p.onPeek && !count(r.id) ? p.onPeek(r.id) : enter(r))} items={items} view={view} fields={fields} sel={items[at]?.id ?? null} dim={dim} listRef={list} onEnter={enter} onMenu={p.onMenu} onSet={setField} onView={setView} count={count} />
       )}
     </div>
   );

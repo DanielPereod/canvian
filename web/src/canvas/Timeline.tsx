@@ -1,7 +1,8 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { parseProps, type NoteRow, type PropValue } from '../api';
 import { locale, t, tn } from '../i18n';
-import { hueOf, titleOf } from './Biblioteca';
+import { hueOf, titleOf, useContextMenu } from './Biblioteca';
 import { TOUCH } from './touch';
 import { datable, valueOf, type Field, type View, type Zoom } from './views';
 
@@ -21,6 +22,8 @@ type Props = {
   dim: (r: NoteRow) => boolean;
   listRef: React.RefObject<HTMLDivElement | null>;
   onEnter: (r: NoteRow) => void;
+  // Pulsar una barra abre su nota en ventana.
+  onPeek: (r: NoteRow) => void;
   onMenu: (id: string, x: number, y: number) => void;
   onSet: (r: NoteRow, f: Field, v: PropValue) => void;
   onView: (v: View) => void;
@@ -71,6 +74,8 @@ export function Timeline(p: Props) {
   // Soltar una barra arrastrada no la abre.
   const dragged = useRef(false);
   const scroller = useRef<HTMLDivElement>(null);
+  // El menú del clic derecho en una barra: lo que toca a la línea de tiempo, no a la nota.
+  const [menu, setMenu] = useState<{ r: NoteRow; x: number; y: number } | null>(null);
 
   // «Editada» va en UTC; se pinta en el día de aquí.
   const dayOf = (r: NoteRow, f: Field) => {
@@ -178,15 +183,19 @@ export function Timeline(p: Props) {
   const resizable = movable && !!endF?.editable;
   // Cambia una o las dos fechas de una nota. Cada cambio parte del anterior, para
   // que el segundo no pise al primero cuando las dos son propiedades.
-  const setDays = (r: NoteRow, changes: [Field, number][]) => {
+  // Con `null`, la fecha se quita.
+  const setDays = (r: NoteRow, changes: [Field, number | null][]) => {
     let row = r;
     for (const [f, n] of changes) {
       // Lo que va detrás del día (una hora) se queda como estaba.
       const old = valueOf(row, f, p.count);
-      const v = isoOf(n) + (typeof old === 'string' && f.id !== 'updated' ? old.slice(10) : '');
+      const v = n === null ? null : isoOf(n) + (typeof old === 'string' && f.id !== 'updated' ? old.slice(10) : '');
       p.onSet(row, f, v);
       if (f.id === 'due') row = { ...row, dueAt: v };
-      else if (f.def) row = { ...row, props: JSON.stringify({ ...parseProps(row.props), [f.id]: v }) };
+      else if (f.def) {
+        const { [f.id]: _old, ...rest } = parseProps(row.props);
+        row = { ...row, props: JSON.stringify(v === null ? rest : { ...rest, [f.id]: v }) };
+      }
     }
   };
   const begin = (e: React.PointerEvent, s: Span, mode: Drag['mode']) => {
@@ -361,13 +370,12 @@ export function Timeline(p: Props) {
                       onPointerMove={moveDrag}
                       onPointerUp={() => endDrag(it)}
                       onPointerCancel={() => setDrag(null)}
-                      // Pulsar una barra saca el menú de la nota (abrir, renombrar, borrar…), como el clic derecho.
-                      onClick={(e) => {
-                        if (!dragged.current) p.onMenu(s.r.id, e.clientX, e.clientY);
+                      onClick={() => {
+                        if (!dragged.current) p.onPeek(s.r);
                       }}
                       onContextMenu={(e) => {
                         e.preventDefault();
-                        p.onMenu(s.r.id, e.clientX, e.clientY);
+                        setMenu({ r: s.r, x: e.clientX, y: e.clientY });
                       }}
                     >
                       {!point && resizable && <span className="cv-tl-grip is-start" onPointerDown={(e) => begin(e, it, 'start')} onPointerMove={moveDrag} onPointerUp={() => endDrag(it)} />}
@@ -386,6 +394,50 @@ export function Timeline(p: Props) {
           </div>
         </div>
       </div>
+      {menu &&
+        createPortal(
+          <BarMenu
+            r={menu.r}
+            x={menu.x}
+            y={menu.y}
+            hasEnd={!!endF?.editable && !!valueOf(menu.r, endF, p.count)}
+            canClear={startF.editable}
+            onPeek={() => p.onPeek(menu.r)}
+            onOpen={() => p.onEnter(menu.r)}
+            onNoEnd={() => endF && setDays(menu.r, [[endF, null]])}
+            onClear={() => setDays(menu.r, [[startF, null], ...(endF?.editable ? [[endF, null] as [Field, null]] : [])])}
+            onClose={() => setMenu(null)}
+          />,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+// El menú de una barra. Quitarla de la línea de tiempo borra sus fechas, no la nota.
+function BarMenu(p: { r: NoteRow; x: number; y: number; hasEnd: boolean; canClear: boolean; onPeek: () => void; onOpen: () => void; onNoEnd: () => void; onClear: () => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const spot = useContextMenu(ref, p.x, p.y, p.onClose);
+  const item = (label: string, run: () => void, danger = false) => (
+    <button
+      role="menuitem"
+      className={`bib-menu-it${danger ? ' is-danger' : ''}`}
+      onClick={() => {
+        p.onClose();
+        run();
+      }}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="bib-menu" ref={ref} role="menu" aria-label={titleOf(p.r)} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
+      <div className="bib-menu-head bib-ellipsis">{titleOf(p.r)}</div>
+      {item(t('Abrir en ventana'), p.onPeek)}
+      {item(t('Abrir'), p.onOpen)}
+      {p.canClear && <div className="bib-menu-sep" />}
+      {p.hasEnd && item(t('Quitar la fecha de fin'), p.onNoEnd)}
+      {p.canClear && item(t('Quitar de la línea de tiempo'), p.onClear, true)}
     </div>
   );
 }
