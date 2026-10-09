@@ -1094,6 +1094,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             }}
             onArchived={() => setShowArchived((v) => !v)}
             onNewNote={(kind) => {
+              if (kind === 'daily') return openDaily();
               if (focused) closeFocused();
               setTasksOpen(false);
                         setDiaryOpen(false);
