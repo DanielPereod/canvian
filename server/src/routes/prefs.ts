@@ -61,6 +61,8 @@ const view = z.object({
   date: field.nullable(),
   end: field.nullable().optional(),
   zoom: z.enum(['day', 'week', 'month']).optional(),
+  // Tabla: el ancho de las columnas ajustadas a mano, en píxeles.
+  widths: z.record(field, z.number().int().min(40).max(2000)).refine((m) => Object.keys(m).length <= 61).optional(),
 });
 const views = z
   .record(z.string().min(1).max(100), z.object({ active: id, views: z.array(view).min(1).max(30) }))

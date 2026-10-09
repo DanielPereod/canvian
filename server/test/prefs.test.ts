@@ -93,6 +93,11 @@ describe('prefs', () => {
     expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [{ ...view, type: 'gantt' }] } })).status).toBe(400);
     expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [{ ...timeline, zoom: 'year' }] } })).status).toBe(400);
     expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [] } })).status).toBe(400);
+    // La tabla guarda el ancho de las columnas que se han ajustado a mano.
+    const table = { ...view, widths: { title: 320, abc: 180 } };
+    expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [table] } })).status).toBe(204);
+    expect(await (await call('GET', '/api/prefs')).json()).toEqual({ views: { 'p1:root': { active: 'v1', views: [table] } } });
+    expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [{ ...view, widths: { title: -5 } }] } })).status).toBe(400);
   });
 
   it('rejects unknown prefs and bad values', async () => {
