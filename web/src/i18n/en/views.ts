@@ -47,6 +47,7 @@ export const EN_VIEWS: Record<string, string> = {
   Antes: 'Earlier',
   Después: 'Later',
   'Pulsa para ponerle fecha': 'Click to give it a date',
+  'Pulsa o arrastra para ponerle fechas': 'Click or drag to give it dates',
   'Duplicar vista': 'Duplicate view',
   'Es la única vista': 'It is the only view',
   'Borrar vista': 'Delete view',
