@@ -1172,6 +1172,10 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           hide={mode === 'hide'}
           onCenter={setCenter}
           onOpen={(id) => openNote(id)}
+          onPeek={(id) => {
+            setPeek(true);
+            openNote(id);
+          }}
           onAction={act}
           onMenu={(id, x, y) => setBibMenu({ id, x, y })}
           onPatch={updateNote}
