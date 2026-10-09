@@ -152,6 +152,7 @@ export function Library(p: LibProps) {
   // (vacía hasta que se rellena) y esta vista la enseña al final.
   const [colPop, setColPop] = useState<{ kind: 'add' | 'col'; id: string; x: number; y: number } | null>(null);
   const openCol = (kind: 'add' | 'col', id: string) => (e: React.MouseEvent<HTMLElement>) => {
+    if (dragged.current) return;
     const r = e.currentTarget.getBoundingClientRect();
     setColPop((cur) => (cur?.kind === kind && cur.id === id ? null : { kind, id, x: kind === 'add' ? r.right - 260 : r.left, y: r.bottom + 4 }));
   };
@@ -176,6 +177,105 @@ export function Library(p: LibProps) {
     api.deleteProperty(def.id).catch(p.onError);
   };
   const colField = colPop?.kind === 'col' ? fieldById.get(colPop.id) : undefined;
+
+  // Como en Notion: el borde de la cabecera se arrastra para cambiar el ancho
+  // (doble clic lo devuelve al automático) y la cabecera, para mover la columna.
+  // Mientras se arrastra se ve en vivo; al soltar se guarda en la vista.
+  const head = useRef<HTMLDivElement>(null);
+  const [liveWidths, setLiveWidths] = useState<Record<string, number> | null>(null);
+  const [moving, setMoving] = useState<{ id: string; dx: number; to: number } | null>(null);
+  // Tras arrastrar, el clic que llega al soltar no abre el menú de la columna.
+  const dragged = useRef(false);
+  const widths = liveWidths ?? view.widths ?? {};
+  const track = (id: string, auto: string) => (widths[id] ? `${widths[id]}px` : auto);
+  const tableCols = [track('title', 'minmax(220px, 2.4fr)'), ...shown.map((f) => track(f.id, 'minmax(130px, 1fr)')), 'minmax(40px, auto)'].join(' ');
+  const afterDrag = (moved: boolean) => {
+    if (!moved) return;
+    dragged.current = true;
+    setTimeout(() => (dragged.current = false));
+  };
+  const follow = (move: (e: PointerEvent) => void, end: () => void) => {
+    const stop = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+      end();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
+  };
+  const startResize = (id: string) => (e: React.PointerEvent<HTMLElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Las demás columnas se quedan con el ancho que tienen ahora: solo cambia esta.
+    const from: Record<string, number> = {};
+    head.current?.querySelectorAll<HTMLElement>('[data-col]').forEach((el) => (from[el.dataset.col!] = Math.max(60, Math.round(el.getBoundingClientRect().width))));
+    const x0 = e.clientX;
+    const min = id === 'title' ? 120 : 60;
+    let next = from;
+    setLiveWidths(from);
+    follow(
+      (ev) => {
+        next = { ...from, [id]: Math.min(2000, Math.max(min, Math.round(from[id] + ev.clientX - x0))) };
+        setLiveWidths(next);
+      },
+      () => {
+        setLiveWidths(null);
+        afterDrag(true);
+        if (next !== from) setView({ ...view, widths: { ...view.widths, ...next } });
+      },
+    );
+  };
+  const resetWidth = (id: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!view.widths?.[id]) return;
+    const { [id]: _old, ...rest } = view.widths;
+    setView({ ...view, widths: rest });
+  };
+  // Cambia el orden de las columnas a la vista; las ocultas se quedan donde estaban.
+  const placeColumn = (id: string, to: number) => {
+    const order = shown.map((f) => f.id).filter((x) => x !== id);
+    order.splice(Math.max(0, Math.min(order.length, to)), 0, id);
+    let k = 0;
+    setView({ ...view, fields: view.fields.map((x) => (order.includes(x) ? order[k++] : x)) });
+  };
+  const startMove = (id: string) => (e: React.PointerEvent<HTMLElement>) => {
+    // En el móvil el dedo desplaza la tabla; allí se mueve desde el menú de la columna.
+    if (e.button !== 0 || e.pointerType === 'touch') return;
+    e.preventDefault();
+    const from = shown.findIndex((f) => f.id === id);
+    const mids = [...(head.current?.querySelectorAll<HTMLElement>('[data-move]') ?? [])].map((el) => {
+      const r = el.getBoundingClientRect();
+      return r.left + r.width / 2;
+    });
+    const x0 = e.clientX;
+    let to = from;
+    let on = false;
+    follow(
+      (ev) => {
+        const dx = ev.clientX - x0;
+        if (!on && Math.abs(dx) < 5) return;
+        on = true;
+        to = mids.filter((m, i) => i !== from && m < ev.clientX).length;
+        setMoving({ id, dx, to });
+      },
+      () => {
+        setMoving(null);
+        afterDrag(on);
+        if (on && to !== from) placeColumn(id, to);
+      },
+    );
+  };
+  // Dónde caería la columna que se mueve: una raya antes (o después, al final) de otra.
+  const dropMark = (id: string) => {
+    if (!moving || moving.id === id) return '';
+    const order = shown.map((f) => f.id).filter((x) => x !== moving.id);
+    if (order[moving.to] === id) return ' is-drop-before';
+    if (moving.to === order.length && order[order.length - 1] === id) return ' is-drop-after';
+    return '';
+  };
 
   // Lo común a filas y portadas: color, arrastrar a la barra y menú con clic derecho.
   const itemProps = (r: NoteRow, i: number) => ({
@@ -285,11 +385,12 @@ export function Library(p: LibProps) {
         </p>
       )}
       {view.type === 'table' && (
-        <div className="cv-table" ref={list} role="table" style={{ '--cv-cols': `minmax(220px, 2.4fr) repeat(${shown.length}, minmax(130px, 1fr)) 40px` } as CSSProperties}>
-          <div className="cv-tr cv-th" role="row">
-            <span role="columnheader" className="cv-th-cell">
+        <div className={`cv-table${liveWidths ? ' is-resizing' : ''}${moving ? ' is-moving' : ''}`} ref={list} role="table" style={{ '--cv-cols': tableCols } as CSSProperties}>
+          <div className="cv-tr cv-th" role="row" ref={head}>
+            <span role="columnheader" className="cv-th-cell" data-col="title">
               <TypeIcon type="text" />
               {t('Título')}
+              <span className="cv-resize" role="separator" aria-orientation="vertical" title={t('Arrastra para cambiar el ancho · doble clic para volver al de siempre')} onPointerDown={startResize('title')} onDoubleClick={resetWidth('title')} />
             </span>
             {shown.map((f) => {
               const s = view.sorts.find((x) => x.field === f.id);
@@ -297,14 +398,19 @@ export function Library(p: LibProps) {
                 <button
                   key={f.id}
                   role="columnheader"
-                  className={`cv-th-cell${colPop?.kind === 'col' && colPop.id === f.id ? ' is-open' : ''}`}
+                  data-col={f.id}
+                  data-move=""
+                  className={`cv-th-cell${colPop?.kind === 'col' && colPop.id === f.id ? ' is-open' : ''}${moving?.id === f.id ? ' is-moving' : ''}${dropMark(f.id)}`}
+                  style={moving?.id === f.id ? ({ '--dx': `${moving.dx}px` } as CSSProperties) : undefined}
                   title={t('Opciones de la columna')}
                   aria-haspopup="menu"
+                  onPointerDown={startMove(f.id)}
                   onClick={openCol('col', f.id)}
                 >
                   <TypeIcon type={f.type} />
                   <span className="bib-ellipsis">{f.name}</span>
                   {s && <span className="cv-arrow">{s.dir === 'asc' ? '↑' : '↓'}</span>}
+                  <span className="cv-resize" role="separator" aria-orientation="vertical" title={t('Arrastra para cambiar el ancho · doble clic para volver al de siempre')} onPointerDown={startResize(f.id)} onDoubleClick={resetWidth(f.id)} onClick={(e) => e.stopPropagation()} />
                 </button>
               );
             })}
@@ -342,6 +448,12 @@ export function Library(p: LibProps) {
                   setColPop(null);
                   setView({ ...view, fields: view.fields.filter((x) => x !== colField.id) });
                 }}
+                place={shown.findIndex((f) => f.id === colField.id)}
+                count={shown.length}
+                onPlace={(to) => {
+                  setColPop(null);
+                  placeColumn(colField.id, to);
+                }}
                 onRename={(name) => colField.def && renameColumn(colField.def, name)}
                 onType={(type) => colField.def && type !== colField.type && p.onRetype(colField.def, type)}
                 onDelete={() => {
@@ -372,7 +484,7 @@ export function Library(p: LibProps) {
                 </span>
               </button>
               {shown.map((f) => (
-                <div key={f.id} role="cell" className={`cv-td${f.editable ? ' is-edit' : ''}`}>
+                <div key={f.id} role="cell" className={`cv-td${f.editable ? ' is-edit' : ''}${moving?.id === f.id ? ' is-moving' : ''}`}>
                   {f.id === 'due' ? (
                     <DatePicker className="nprop-input nprop-date" value={r.dueAt?.slice(0, 10) ?? null} placeholder="" onChange={(v) => setField(r, f, v)} />
                   ) : f.def ? (
@@ -1314,6 +1426,9 @@ function ColumnMenu({
   taken,
   onSort,
   onHide,
+  place,
+  count,
+  onPlace,
   onRename,
   onType,
   onDelete,
@@ -1323,6 +1438,10 @@ function ColumnMenu({
   taken: (name: string) => boolean;
   onSort: (dir: 'asc' | 'desc' | null) => void;
   onHide: () => void;
+  // Dónde está la columna entre las que se ven, para moverla un sitio.
+  place: number;
+  count: number;
+  onPlace: (to: number) => void;
   onRename: (name: string) => void;
   onType: (type: PropertyType) => void;
   onDelete: () => void;
@@ -1375,6 +1494,16 @@ function ColumnMenu({
         {sort === 'desc' && <span className="bib-menu-k">✓</span>}
       </button>
       <div className="bib-menu-sep" />
+      {place > 0 && (
+        <button className="bib-menu-it" onClick={() => onPlace(place - 1)}>
+          ← {t('Mover a la izquierda')}
+        </button>
+      )}
+      {place >= 0 && place < count - 1 && (
+        <button className="bib-menu-it" onClick={() => onPlace(place + 1)}>
+          → {t('Mover a la derecha')}
+        </button>
+      )}
       <button className="bib-menu-it" onClick={onHide}>
         {t('Ocultar en esta vista')}
       </button>

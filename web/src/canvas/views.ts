@@ -28,6 +28,8 @@ export type View = {
   // Línea de tiempo: la fecha en que acaba cada nota (sin ella, son puntos) y el zoom.
   end?: string | null;
   zoom?: Zoom;
+  // Tabla: el ancho de cada columna (en píxeles) que se ha ajustado a mano.
+  widths?: Record<string, number>;
 };
 export type Coll = { active: string; views: View[] };
 
