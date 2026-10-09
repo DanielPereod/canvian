@@ -177,7 +177,8 @@ export function BibSidebar(p: SideProps) {
   const key = useKeyText();
   const { kids, count, pathTo, parent } = p.family;
   const prefs = useSidebarPrefs();
-  const [newAt, setNewAt] = useState<{ x: number; y: number } | null>(null);
+  // `full`: abierto con el clic derecho (o manteniendo pulsado) en un hueco de la barra.
+  const [newAt, setNewAt] = useState<{ x: number; y: number; full?: boolean } | null>(null);
   const [open, setOpen] = useState<Set<string>>(() => {
     try {
       return new Set(JSON.parse(read(OPEN_KEY) ?? '[]') as string[]);
@@ -349,6 +350,11 @@ export function BibSidebar(p: SideProps) {
   };
 
   const libraryOn = p.view === 'library' || p.view === 'note';
+  // Clic derecho (en el móvil, mantener pulsado) en la barra fuera de una
+  // nota del árbol: el menú para crear, arriba del todo.
+  const newHere = (x: number, y: number) => setNewAt({ x, y, full: true });
+  const onRow = (e: React.SyntheticEvent) => !!(e.target as HTMLElement).closest('.bib-tree-row');
+  const hold = longPress(newHere);
   return (
     <div className={`bib-dock${p.folded ? ' is-folded' : ''}${p.drawer ? ' is-drawer' : ''}`}>
       {p.folded && <div className="bib-hot" aria-hidden="true" />}
@@ -356,6 +362,15 @@ export function BibSidebar(p: SideProps) {
       <aside
         className="bib-side"
         aria-label={t('Biblioteca')}
+        {...hold}
+        onTouchStart={(e) => {
+          if (!onRow(e)) hold.onTouchStart(e);
+        }}
+        onContextMenu={(e) => {
+          if (onRow(e)) return;
+          e.preventDefault();
+          newHere(e.clientX, e.clientY);
+        }}
         onClickCapture={(e) => {
           // Elegir algo cierra el cajón; las flechas de plegar no.
           const b = (e.target as HTMLElement).closest('button');
@@ -437,7 +452,19 @@ export function BibSidebar(p: SideProps) {
           </button>
         </div>
       </aside>
-      {newAt && <NewMenu x={newAt.x} y={newAt.y} onPick={p.onNewNote} onClose={() => setNewAt(null)} />}
+      {newAt && (
+        <NewMenu
+          x={newAt.x}
+          y={newAt.y}
+          full={newAt.full}
+          onPick={(kind) => {
+            // Manteniendo pulsado no hay clic que cierre el cajón del móvil.
+            p.onDrawer(false);
+            p.onNewNote(kind);
+          }}
+          onClose={() => setNewAt(null)}
+        />
+      )}
       {!p.folded && <Resizer size={p.width} edge="right" className="bib-resizer" />}
     </div>
   );
@@ -499,31 +526,39 @@ export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: n
   return spot;
 }
 
-export type NewKind = 'text' | 'canvas';
+export type NewKind = 'text' | 'canvas' | 'daily';
 
 // Lo que se crea se elige al crearlo: luego una nota no pasa a ser canvas ni al revés.
-export function NewMenu({ x, y, onPick, onClose }: { x: number; y: number; onPick: (kind: NewKind) => void; onClose: () => void }) {
+// `full`: el del clic derecho en la barra, que también trae la nota de hoy.
+export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number; full?: boolean; onPick: (kind: NewKind) => void; onClose: () => void }) {
+  const key = useKeyText();
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
-  const items: { kind: NewKind; label: string }[] = [
-    { kind: 'text', label: t('Nota') },
-    { kind: 'canvas', label: 'Canvas' },
+  const items: ({ kind: NewKind; label: string; key?: string } | null)[] = [
+    { kind: 'text', label: full ? t('Nota nueva') : t('Nota'), key: full ? key('newNote') : undefined },
+    { kind: 'canvas', label: full ? t('Canvas nuevo') : 'Canvas', key: full ? key('newCanvas') : undefined },
+    ...(full ? [null, { kind: 'daily' as const, label: t('Nota de hoy'), key: key('daily') }] : []),
   ];
   return (
     <div className="bib-menu bib-new-menu" ref={ref} role="menu" aria-label={t('Crear')} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
-      {items.map((it) => (
-        <button
-          key={it.kind}
-          role="menuitem"
-          className="bib-menu-it"
-          onClick={() => {
-            onClose();
-            onPick(it.kind);
-          }}
-        >
-          {it.label}
-        </button>
-      ))}
+      {items.map((it, i) =>
+        it ? (
+          <button
+            key={it.kind}
+            role="menuitem"
+            className="bib-menu-it"
+            onClick={() => {
+              onClose();
+              onPick(it.kind);
+            }}
+          >
+            {it.label}
+            {it.key && <span className="bib-menu-k">{it.key}</span>}
+          </button>
+        ) : (
+          <div key={`s${i}`} className="bib-menu-sep" role="separator" />
+        ),
+      )}
     </div>
   );
 }
