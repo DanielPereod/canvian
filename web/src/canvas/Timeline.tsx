@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import type { NoteRow, PropValue } from '../api';
+import { parseProps, type NoteRow, type PropValue } from '../api';
 import { locale, t, tn } from '../i18n';
 import { hueOf, titleOf } from './Biblioteca';
 import { TOUCH } from './touch';
@@ -9,7 +9,8 @@ import { datable, valueOf, type Field, type View, type Zoom } from './views';
 // barra entre la fecha en que empieza y la fecha en que acaba (o un punto si
 // solo tiene una). Se acerca por días, semanas o meses, la raya de hoy marca
 // dónde estás y las barras se arrastran para moverlas o se estiran por los
-// bordes para cambiar el principio o el final.
+// bordes para cambiar el principio o el final. En una fila sin fecha, pulsar y
+// arrastrar dibuja la barra nueva.
 
 type Props = {
   items: NoteRow[];
@@ -47,7 +48,8 @@ const todayNum = () => {
 };
 
 type Span = { r: NoteRow; start: number; end: number; ranged: boolean };
-type Drag = { id: string; mode: 'move' | 'start' | 'end'; x: number; delta: number; moved: boolean };
+// Al crear, `anchor` es el día en que se pulsó y la barra va de ahí hasta el puntero.
+type Drag = { id: string; mode: 'move' | 'start' | 'end' | 'create'; x: number; delta: number; moved: boolean; anchor?: number };
 
 const fmts = new Map<string, Intl.DateTimeFormat>();
 const fmt = (o: Intl.DateTimeFormatOptions) => {
@@ -95,10 +97,29 @@ export function Timeline(p: Props) {
       if (e === null || e < s) e = s;
       spans.push({ r, start: s, end: e, ranged: !!endF });
     }
-    // Sin orden propio, por la fecha en que empiezan.
-    if (!p.view.sorts.length) spans.sort((a, b) => a.start - b.start || a.end - b.end);
     return { spans, undated };
-  }, [p.items, startF, endF, p.count, p.view.sorts.length]);
+  }, [p.items, startF, endF, p.count]);
+
+  // Las filas no saltan: ponerle o cambiarle la fecha a una nota (que también la
+  // hace «la más activa») la deja donde estaba. Solo se reordena al cambiar el
+  // orden de la vista; las notas nuevas van al final.
+  const order = useRef<{ key: string; ids: string[] }>({ key: '', ids: [] });
+  const orderKey = `${p.view.id}|${JSON.stringify(p.view.sorts)}`;
+  const rows = useMemo(() => {
+    const byId = new Map<string, Span | NoteRow>();
+    for (const sp of spans) byId.set(sp.r.id, sp);
+    for (const r of undated) byId.set(r.id, r);
+    const fresh = p.items.map((r) => r.id);
+    let ids: string[];
+    if (order.current.key !== orderKey) ids = fresh;
+    else {
+      const kept = order.current.ids.filter((id) => byId.has(id));
+      const seen = new Set(kept);
+      ids = [...kept, ...fresh.filter((id) => !seen.has(id))];
+    }
+    order.current = { key: orderKey, ids };
+    return ids.map((id) => byId.get(id)!);
+  }, [spans, undated, p.items, orderKey]);
 
   // El tramo que se pinta: lo que ocupan las notas y hoy, con aire a los lados,
   // empezando en lunes (o en día 1 si va por meses).
@@ -155,10 +176,18 @@ export function Timeline(p: Props) {
   // Arrastrar: la barra entera mueve las dos fechas; los bordes, solo una.
   const movable = startF.editable && !TOUCH;
   const resizable = movable && !!endF?.editable;
-  const shiftDay = (r: NoteRow, f: Field, n: number) => {
-    // Lo que va detrás del día (una hora) se queda como estaba.
-    const old = valueOf(r, f, p.count);
-    p.onSet(r, f, isoOf(n) + (typeof old === 'string' && f.id !== 'updated' ? old.slice(10) : ''));
+  // Cambia una o las dos fechas de una nota. Cada cambio parte del anterior, para
+  // que el segundo no pise al primero cuando las dos son propiedades.
+  const setDays = (r: NoteRow, changes: [Field, number][]) => {
+    let row = r;
+    for (const [f, n] of changes) {
+      // Lo que va detrás del día (una hora) se queda como estaba.
+      const old = valueOf(row, f, p.count);
+      const v = isoOf(n) + (typeof old === 'string' && f.id !== 'updated' ? old.slice(10) : '');
+      p.onSet(row, f, v);
+      if (f.id === 'due') row = { ...row, dueAt: v };
+      else if (f.def) row = { ...row, props: JSON.stringify({ ...parseProps(row.props), [f.id]: v }) };
+    }
   };
   const begin = (e: React.PointerEvent, s: Span, mode: Drag['mode']) => {
     if (e.button !== 0 || (mode === 'move' ? !movable : !resizable)) return;
@@ -182,11 +211,9 @@ export function Timeline(p: Props) {
     }
     if (!delta) return;
     const hasEnd = !!endF && valueOf(s.r, endF, p.count);
-    if (mode === 'move') {
-      shiftDay(s.r, startF, s.start + delta);
-      if (endF && hasEnd && endF.editable) shiftDay(s.r, endF, s.end + delta);
-    } else if (mode === 'start') shiftDay(s.r, startF, Math.min(s.start + delta, s.end));
-    else if (endF) shiftDay(s.r, endF, Math.max(s.end + delta, s.start));
+    if (mode === 'move') setDays(s.r, [[startF, s.start + delta], ...(endF && hasEnd && endF.editable ? [[endF, s.end + delta] as [Field, number]] : [])]);
+    else if (mode === 'start') setDays(s.r, [[startF, Math.min(s.start + delta, s.end)]]);
+    else if (endF) setDays(s.r, [[endF, Math.max(s.end + delta, s.start)]]);
   };
   const live = (s: Span) => {
     if (drag?.id !== s.r.id) return s;
@@ -195,14 +222,29 @@ export function Timeline(p: Props) {
     return { ...s, end: Math.max(s.end + drag.delta, s.start) };
   };
 
-  // Una nota sin fecha toma la del día en que se pulsa su fila.
-  const place = (e: React.MouseEvent<HTMLDivElement>, r: NoteRow) => {
-    if (!startF.editable) return;
+  // Una nota sin fecha: pulsar su fila le pone la fecha de ese día y, si la vista
+  // tiene fecha de fin, arrastrar dibuja la barra entera mientras se mueve el ratón.
+  const beginCreate = (e: React.PointerEvent<HTMLDivElement>, r: NoteRow) => {
+    if (e.button !== 0 || !startF.editable) return;
     const box = e.currentTarget.getBoundingClientRect();
-    p.onSet(r, startF, isoOf(from + Math.floor((e.clientX - box.left) / px)));
+    const anchor = from + Math.floor((e.clientX - box.left) / px);
+    if (!TOUCH) e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ id: r.id, mode: 'create', x: e.clientX, delta: 0, moved: false, anchor });
   };
-
-  const rows: (Span | NoteRow)[] = [...spans, ...undated];
+  const endCreate = (r: NoteRow) => {
+    if (drag?.mode !== 'create' || drag.anchor === undefined) return;
+    setDrag(null);
+    const a = drag.anchor;
+    const b = a + drag.delta;
+    if (endF?.editable && b !== a) setDays(r, [[startF, Math.min(a, b)], [endF, Math.max(a, b)]]);
+    else setDays(r, [[startF, endF ? Math.min(a, b) : b]]);
+  };
+  const ghost = (r: NoteRow): Span | null => {
+    if (drag?.mode !== 'create' || drag.id !== r.id || drag.anchor === undefined) return null;
+    const a = drag.anchor;
+    const b = a + drag.delta;
+    return endF ? { r, start: Math.min(a, b), end: Math.max(a, b), ranged: true } : { r, start: b, end: b, ranged: false };
+  };
   const zoomName = (z: Zoom) => t(ZOOMS.find((o) => o.id === z)!.name);
 
   return (
@@ -276,8 +318,31 @@ export function Timeline(p: Props) {
               ))}
               {today >= from && today <= to && <span className="cv-tl-today" style={{ left: x(today) + px / 2 }} title={t('Hoy')} />}
               {rows.map((it, i) => {
-                if (!('r' in it))
-                  return <div key={it.id} className={`cv-tl-row is-empty${startF.editable ? ' is-placeable' : ''}`} style={{ top: i * 36 }} title={startF.editable ? t('Pulsa para ponerle fecha') : undefined} onClick={(e) => place(e, it)} />;
+                if (!('r' in it)) {
+                  const g = ghost(it);
+                  return (
+                    <div
+                      key={it.id}
+                      className={`cv-tl-row is-empty${startF.editable ? ' is-placeable' : ''}${g ? ' is-creating' : ''}`}
+                      style={{ top: i * 36 }}
+                      title={startF.editable ? (endF?.editable ? t('Pulsa o arrastra para ponerle fechas') : t('Pulsa para ponerle fecha')) : undefined}
+                      onPointerDown={(e) => beginCreate(e, it)}
+                      onPointerMove={moveDrag}
+                      onPointerUp={() => endCreate(it)}
+                      onPointerCancel={() => setDrag(null)}
+                    >
+                      {g && (
+                        <>
+                          <div className={`cv-tl-bar is-ghost${g.ranged ? '' : ' is-point'}`} style={{ left: g.ranged ? x(g.start) : x(g.start) + px / 2, width: g.ranged ? (g.end - g.start + 1) * px : undefined, '--h': hueOf(it.id) } as CSSProperties} />
+                          <span className="cv-tl-label" style={{ left: g.ranged ? x(g.end + 1) + 8 : x(g.start) + px / 2 + 12 }}>
+                            <span className="cv-tl-label-t">{titleOf(it)}</span>
+                            <span className="bib-muted">{g.end > g.start ? `${label(g.start)} → ${label(g.end)}` : label(g.start)}</span>
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  );
+                }
                 const s = live(it);
                 const point = !s.ranged;
                 const left = x(s.start);

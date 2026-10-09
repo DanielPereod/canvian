@@ -40,7 +40,15 @@
 .cv-tl-row.is-placeable { cursor: copy; }
 .cv-tl-row.is-placeable:hover { background: var(--surface-hover); }
 
-.cv-tl-bar { position: absolute; top: 6px; height: calc(var(--tl-row) - 13px); min-width: 6px; box-sizing: border-box; display: flex; align-items: center; border-radius: var(--radius-xs); background: color-mix(in oklab, var(--tint, oklch(0.7 0.12 var(--h, 250))) 26%, var(--surface-1, var(--bg))); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tint, oklch(0.7 0.12 var(--h, 250))) 55%, transparent); color: var(--text); cursor: pointer; z-index: 1; transition: box-shadow var(--dur-fast); }
+.cv-tl-bar { position: absolute; top: 6px; height: calc(var(--tl-row) - 13px); min-width: 6px; box-sizing: border-box; display: flex; align-items: center; border-radius: var(--radius-xs); background: color-mix(in oklab, var(--tint, oklch(0.7 0.12 var(--h, 250))) 26%, var(--surface-1, var(--bg))); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tint, oklch(0.7 0.12 var(--h, 250))) 55%, transparent); color: var(--text); cursor: pointer; z-index: 1; }
+/* La barra sigue al puntero día a día, deslizándose en vez de saltar. */
+.cv-tl-bar, .cv-tl-label { transition: left 120ms var(--ease-out), width 120ms var(--ease-out), box-shadow var(--dur-fast); }
+.cv-tl-bar.is-ghost { box-shadow: inset 0 0 0 1px var(--tint, oklch(0.7 0.12 var(--h, 250))), 0 4px 12px -6px rgba(0, 0, 0, 0.3); pointer-events: none; }
+.cv-tl-row.is-creating { cursor: ew-resize; background: var(--surface-hover); }
+.cv-tl-row.is-placeable { touch-action: pan-y; }
+@media (prefers-reduced-motion: reduce) {
+  .cv-tl-bar, .cv-tl-label { transition: none; }
+}
 .cv-tl-bar.is-movable { cursor: grab; touch-action: pan-y; }
 .is-dragging .cv-tl-bar { cursor: grabbing; }
 .cv-tl-bar:hover, .cv-tl-bar.is-sel { box-shadow: inset 0 0 0 1px var(--line-strong, var(--line)), 0 4px 12px -6px rgba(0, 0, 0, 0.3); }
