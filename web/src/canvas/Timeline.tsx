@@ -361,8 +361,9 @@ export function Timeline(p: Props) {
                       onPointerMove={moveDrag}
                       onPointerUp={() => endDrag(it)}
                       onPointerCancel={() => setDrag(null)}
-                      onClick={() => {
-                        if (!dragged.current) p.onEnter(s.r);
+                      // Pulsar una barra saca el menú de la nota (abrir, renombrar, borrar…), como el clic derecho.
+                      onClick={(e) => {
+                        if (!dragged.current) p.onMenu(s.r.id, e.clientX, e.clientY);
                       }}
                       onContextMenu={(e) => {
                         e.preventDefault();
