@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ulid } from 'ulidx';
-import { api, parseProps, type NoteInput, type NoteRow, type PropertyDef, type PropValue } from '../api';
+import { api, parseProps, type NoteInput, type NoteRow, type PropertyDef, type PropertyType, type PropValue } from '../api';
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { locale, t, tn } from '../i18n';
 import { DRAG_TYPE, editedLabel, hueOf, kindOf, snippetOf, titleOf, type Family } from './Biblioteca';
@@ -10,7 +10,7 @@ import { coverStyle, firstImage, okImageUrl, parseCover } from './cover';
 import { DatePicker } from './DatePicker';
 import { hueOf as optionHue } from './Inspector';
 import { LOOSE, type MapAction } from './NodeView';
-import { TypeIcon, Value } from './NoteProps';
+import { TYPES, TypeIcon, Value } from './NoteProps';
 import { importanceOf } from './sections';
 import { ROOT_KEY, sortByOrder, useSidebarPrefs } from './sidebarPrefs';
 import { taskCount } from './tasks';
@@ -60,6 +60,8 @@ type LibProps = {
   onPatch: (id: string, change: NoteInput) => void;
   onDefsChange: (update: (defs: PropertyDef[]) => PropertyDef[]) => void;
   onError: (err: unknown) => void;
+  // Cambiar el tipo de una propiedad: el servidor pasa los valores al nuevo.
+  onRetype: (def: PropertyDef, type: PropertyType) => void;
   // Dentro del lector, la nota abierta como colección: vuelve a su texto y Esc
   // es cosa del lector.
   onAsNote?: () => void;
@@ -142,6 +144,36 @@ export function Library(p: LibProps) {
     p.onDefsChange((ds) => ds.map((d) => (d.id === def.id ? { ...d, options } : d)));
     api.updateProperty(def.id, { options }).catch(p.onError);
   };
+
+  // ── Columnas de la tabla ──
+  // Una columna nueva es una propiedad del perfil: la tienen todas las notas
+  // (vacía hasta que se rellena) y esta vista la enseña al final.
+  const [colPop, setColPop] = useState<{ kind: 'add' | 'col'; id: string; x: number; y: number } | null>(null);
+  const openCol = (kind: 'add' | 'col', id: string) => (e: React.MouseEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setColPop((cur) => (cur?.kind === kind && cur.id === id ? null : { kind, id, x: kind === 'add' ? r.right - 260 : r.left, y: r.bottom + 4 }));
+  };
+  const showColumn = (id: string) => setView({ ...view, fields: view.fields.includes(id) ? view.fields : [...view.fields, id] });
+  const createColumn = (name: string, type: PropertyType) => {
+    const def: PropertyDef = { id: ulid(), profileId: p.profileId, name, type, options: [], position: p.defs.length };
+    p.onDefsChange((ds) => [...ds, def]);
+    showColumn(def.id);
+    api.createProperty(p.profileId, { id: def.id, name, type }).catch((err) => {
+      p.onDefsChange((ds) => ds.filter((d) => d.id !== def.id));
+      p.onError(err);
+    });
+  };
+  const renameColumn = (def: PropertyDef, name: string) => {
+    if (!name || name === def.name || p.defs.some((d) => d.id !== def.id && d.name.toLowerCase() === name.toLowerCase())) return;
+    p.onDefsChange((ds) => ds.map((d) => (d.id === def.id ? { ...d, name } : d)));
+    api.updateProperty(def.id, { name }).catch(p.onError);
+  };
+  const deleteColumn = (def: PropertyDef) => {
+    p.onDefsChange((ds) => ds.filter((d) => d.id !== def.id));
+    setView({ ...view, fields: view.fields.filter((x) => x !== def.id), sorts: view.sorts.filter((x) => x.field !== def.id) });
+    api.deleteProperty(def.id).catch(p.onError);
+  };
+  const colField = colPop?.kind === 'col' ? fieldById.get(colPop.id) : undefined;
 
   // Lo común a filas y portadas: color, arrastrar a la barra y menú con clic derecho.
   const itemProps = (r: NoteRow, i: number) => ({
@@ -251,7 +283,7 @@ export function Library(p: LibProps) {
         </p>
       )}
       {view.type === 'table' && (
-        <div className="cv-table" ref={list} role="table" style={{ '--cv-cols': `minmax(220px, 2.4fr) repeat(${shown.length}, minmax(130px, 1fr))` } as CSSProperties}>
+        <div className="cv-table" ref={list} role="table" style={{ '--cv-cols': `minmax(220px, 2.4fr) repeat(${shown.length}, minmax(130px, 1fr)) 40px` } as CSSProperties}>
           <div className="cv-tr cv-th" role="row">
             <span role="columnheader" className="cv-th-cell">
               <TypeIcon type="text" />
@@ -263,9 +295,10 @@ export function Library(p: LibProps) {
                 <button
                   key={f.id}
                   role="columnheader"
-                  className="cv-th-cell"
-                  title={t('Ordenar por esta columna')}
-                  onClick={() => setView({ ...view, sorts: !s ? [{ field: f.id, dir: 'asc' }] : s.dir === 'asc' ? [{ field: f.id, dir: 'desc' }] : [] })}
+                  className={`cv-th-cell${colPop?.kind === 'col' && colPop.id === f.id ? ' is-open' : ''}`}
+                  title={t('Opciones de la columna')}
+                  aria-haspopup="menu"
+                  onClick={openCol('col', f.id)}
                 >
                   <TypeIcon type={f.type} />
                   <span className="bib-ellipsis">{f.name}</span>
@@ -273,7 +306,49 @@ export function Library(p: LibProps) {
                 </button>
               );
             })}
+            <button className={`cv-th-cell cv-th-add${colPop?.kind === 'add' ? ' is-open' : ''}`} onClick={openCol('add', '')} title={t('Añadir columna')} aria-label={t('Añadir columna')} aria-haspopup="menu">
+              +
+            </button>
           </div>
+          {colPop?.kind === 'add' && (
+            <Popover x={colPop.x} y={colPop.y} onClose={() => setColPop(null)}>
+              <AddColumn
+                hidden={fields.filter((f) => f.id !== 'title' && !shown.includes(f))}
+                onShow={(id) => {
+                  setColPop(null);
+                  showColumn(id);
+                }}
+                onCreate={(name, type) => {
+                  setColPop(null);
+                  createColumn(name, type);
+                }}
+              />
+            </Popover>
+          )}
+          {colPop?.kind === 'col' && colField && (
+            <Popover x={colPop.x} y={colPop.y} onClose={() => setColPop(null)}>
+              <ColumnMenu
+                key={colField.id}
+                field={colField}
+                sort={view.sorts.find((x) => x.field === colField.id)?.dir ?? null}
+                taken={(name) => p.defs.some((d) => d.id !== colField.id && d.name.toLowerCase() === name.toLowerCase())}
+                onSort={(dir) => {
+                  setColPop(null);
+                  setView({ ...view, sorts: dir ? [{ field: colField.id, dir }] : view.sorts.filter((x) => x.field !== colField.id) });
+                }}
+                onHide={() => {
+                  setColPop(null);
+                  setView({ ...view, fields: view.fields.filter((x) => x !== colField.id) });
+                }}
+                onRename={(name) => colField.def && renameColumn(colField.def, name)}
+                onType={(type) => colField.def && type !== colField.type && p.onRetype(colField.def, type)}
+                onDelete={() => {
+                  setColPop(null);
+                  if (colField.def) deleteColumn(colField.def);
+                }}
+              />
+            </Popover>
+          )}
           {items.map((r, i) => (
             <div
               key={r.id}
@@ -1171,6 +1246,137 @@ function Fields({ view, fields, onView }: { view: View; fields: Field[]; onView:
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// El «+» de la tabla: busca una propiedad que no está a la vista o crea una
+// nueva con el nombre escrito (eligiendo su tipo).
+function AddColumn({ hidden, onShow, onCreate }: { hidden: Field[]; onShow: (id: string) => void; onCreate: (name: string, type: PropertyType) => void }) {
+  const [q, setQ] = useState('');
+  const name = q.trim();
+  const list = hidden.filter((f) => matches(f.name, q));
+  const exact = hidden.find((f) => f.name.toLowerCase() === name.toLowerCase());
+  return (
+    <div className="cv-addcol">
+      <input
+        className="nprop-menu-input"
+        value={q}
+        placeholder={t('Busca o escribe un nombre…')}
+        aria-label={t('Busca o escribe un nombre…')}
+        autoFocus={!TOUCH}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' || !name) return;
+          e.preventDefault();
+          if (exact) onShow(exact.id);
+          else if (list.length === 1) onShow(list[0].id);
+          else onCreate(name, 'text');
+        }}
+      />
+      {list.length > 0 && <div className="bib-menu-head">{t('Mostrar una propiedad')}</div>}
+      <div className="cv-addcol-list">
+        {list.map((f) => (
+          <button key={f.id} className="bib-menu-it nprop-menu-it" onClick={() => onShow(f.id)}>
+            <TypeIcon type={f.type} />
+            <span className="bib-ellipsis">{f.name}</span>
+          </button>
+        ))}
+      </div>
+      {name && !exact && (
+        <>
+          {list.length > 0 && <div className="bib-menu-sep" />}
+          <div className="bib-menu-head">{t('Nueva propiedad «{name}»', { name })}</div>
+          {TYPES.map((ty) => (
+            <button key={ty.id} className="bib-menu-it nprop-menu-it" onClick={() => onCreate(name, ty.id)}>
+              <TypeIcon type={ty.id} />
+              {t(ty.name)}
+            </button>
+          ))}
+        </>
+      )}
+      {!name && !list.length && <div className="bib-menu-head">{t('Escribe un nombre para crear una propiedad')}</div>}
+    </div>
+  );
+}
+
+// Al pulsar la cabecera de una columna: ordenar, ocultarla y, si es una
+// propiedad propia, cambiarle el nombre o el tipo, o borrarla de todas las notas.
+function ColumnMenu({
+  field,
+  sort,
+  taken,
+  onSort,
+  onHide,
+  onRename,
+  onType,
+  onDelete,
+}: {
+  field: Field;
+  sort: 'asc' | 'desc' | null;
+  taken: (name: string) => boolean;
+  onSort: (dir: 'asc' | 'desc' | null) => void;
+  onHide: () => void;
+  onRename: (name: string) => void;
+  onType: (type: PropertyType) => void;
+  onDelete: () => void;
+}) {
+  const own = !!field.def;
+  const [name, setName] = useState(field.name);
+  const [confirm, setConfirm] = useState(false);
+  const clash = !!name.trim() && taken(name.trim());
+  // El nombre se guarda al salir del campo, con Intro y al cerrar el menú.
+  const savedName = useRef(field.name);
+  const save = () => {
+    const n = name.trim();
+    if (!own || !n || clash || n === savedName.current) return;
+    savedName.current = n;
+    onRename(n);
+  };
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  useEffect(() => () => saveRef.current(), []);
+  return (
+    <div className="cv-colmenu">
+      {own && (
+        <>
+          <input
+            className="nprop-menu-input"
+            value={name}
+            aria-label={t('Nombre de la propiedad')}
+            autoFocus={!TOUCH}
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={save}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
+          />
+          {clash && <div className="bib-menu-head nprop-warn">{t('Ya existe')}</div>}
+          <div className="cv-colmenu-type">
+            <span className="bib-muted">{t('Tipo')}</span>
+            <Combo items={TYPES.map((ty) => ({ id: ty.id, label: t(ty.name), icon: <TypeIcon type={ty.id} /> }))} value={field.type} label={t('Tipo')} onChange={(type) => onType(type as PropertyType)} />
+          </div>
+          <div className="bib-menu-sep" />
+        </>
+      )}
+      <button className={`bib-menu-it${sort === 'asc' ? ' is-on' : ''}`} onClick={() => onSort(sort === 'asc' ? null : 'asc')}>
+        ↑ {t('Ascendente')}
+        {sort === 'asc' && <span className="bib-menu-k">✓</span>}
+      </button>
+      <button className={`bib-menu-it${sort === 'desc' ? ' is-on' : ''}`} onClick={() => onSort(sort === 'desc' ? null : 'desc')}>
+        ↓ {t('Descendente')}
+        {sort === 'desc' && <span className="bib-menu-k">✓</span>}
+      </button>
+      <div className="bib-menu-sep" />
+      <button className="bib-menu-it" onClick={onHide}>
+        {t('Ocultar en esta vista')}
+      </button>
+      {own && (
+        <button className="bib-menu-it is-danger" onClick={() => (confirm ? onDelete() : setConfirm(true))} title={t('Borrar esta propiedad de todas las notas')}>
+          {confirm ? t('¿Borrarla de todas las notas?') : t('Borrar propiedad')}
+        </button>
+      )}
     </div>
   );
 }

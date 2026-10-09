@@ -16,8 +16,35 @@ const propertyCreate = z.object({
   options: options.optional(),
 });
 const propertyPatch = z
-  .object({ name: z.string().trim().min(1).max(60), options, position: z.number().int() })
+  .object({ name: z.string().trim().min(1).max(60), options, position: z.number().int(), type: z.enum(PROPERTY_TYPES) })
   .partial();
+
+type PropertyType = (typeof PROPERTY_TYPES)[number];
+
+// Al cambiar el tipo de una propiedad, cada valor se pasa al nuevo si tiene
+// sentido («3» a número, una opción a etiquetas…); si no, se quita.
+export function convertValue(v: unknown, to: PropertyType): unknown {
+  const list = Array.isArray(v) ? v.map(String) : null;
+  const str = list ? list.join(', ') : typeof v === 'string' || typeof v === 'number' ? String(v).trim() : '';
+  switch (to) {
+    case 'checkbox':
+      return v === true ? true : undefined;
+    case 'number': {
+      const n = typeof v === 'number' ? v : str ? Number(str.replace(',', '.')) : NaN;
+      return Number.isFinite(n) ? n : undefined;
+    }
+    case 'date':
+      return /^\d{4}-\d{2}-\d{2}/.test(str) ? str : undefined;
+    case 'select':
+      return (list ? list[0] : str) || undefined;
+    case 'tags': {
+      const tags = list ?? str.split(',').map((x) => x.trim()).filter(Boolean);
+      return tags.length ? tags : undefined;
+    }
+    default:
+      return str || undefined;
+  }
+}
 
 const json = async (req: { json: () => Promise<unknown> }) => req.json().catch(() => null);
 
@@ -73,11 +100,40 @@ export function propertyRoutes(db: Db) {
   r.patch('/properties/:id', async (c) => {
     const body = propertyPatch.safeParse(await json(c.req));
     if (!body.success) return c.json({ error: 'Cambios no válidos' }, 400);
-    const { options: opts, ...rest } = body.data;
-    const set = { ...rest, ...(opts ? { options: JSON.stringify(opts) } : {}) };
-    if (!Object.keys(set).length) return c.json({ error: 'Nada que cambiar' }, 400);
+    if (!Object.keys(body.data).length) return c.json({ error: 'Nada que cambiar' }, 400);
+    const { options: opts, type, ...rest } = body.data;
+    const id = c.req.param('id');
+    const def = db.select().from(propertyDefs).where(eq(propertyDefs.id, id)).get();
+    if (!def) return c.json({ error: 'Propiedad no encontrada' }, 404);
+    let nextOptions = opts;
+    const retype = type && type !== def.type;
+    // Las notas con valor, pasadas al tipo nuevo (en la misma transacción que la propiedad).
+    const changed: { id: string; props: string }[] = [];
+    if (retype) {
+      const known = new Set<string>(nextOptions ?? (JSON.parse(def.options) as string[]));
+      const rows = db
+        .select({ id: notes.id, props: notes.props })
+        .from(notes)
+        .where(and(eq(notes.profileId, def.profileId), sql`json_type(${notes.props}, ${`$."${id}"`}) is not null`))
+        .all();
+      for (const n of rows) {
+        const props = JSON.parse(n.props) as Record<string, unknown>;
+        const v = convertValue(props[id], type);
+        if (v === undefined) delete props[id];
+        else props[id] = v;
+        if (type === 'select' && typeof v === 'string') known.add(v);
+        if (type === 'tags' && Array.isArray(v)) v.forEach((x) => known.add(String(x)));
+        changed.push({ id: n.id, props: JSON.stringify(props) });
+      }
+      if (type === 'select' || type === 'tags') nextOptions = [...known];
+    }
+    const set = { ...rest, ...(retype ? { type } : {}), ...(nextOptions ? { options: JSON.stringify(nextOptions) } : {}) };
+    if (!Object.keys(set).length) return c.json(toClient(def));
     try {
-      const row = db.update(propertyDefs).set(set).where(eq(propertyDefs.id, c.req.param('id'))).returning().get();
+      const row = db.transaction((tx) => {
+        for (const n of changed) tx.update(notes).set({ props: n.props }).where(eq(notes.id, n.id)).run();
+        return tx.update(propertyDefs).set(set).where(eq(propertyDefs.id, id)).returning().get();
+      });
       return row ? c.json(toClient(row)) : c.json({ error: 'Propiedad no encontrada' }, 404);
     } catch {
       return c.json({ error: 'Ya hay una propiedad con ese nombre' }, 409);

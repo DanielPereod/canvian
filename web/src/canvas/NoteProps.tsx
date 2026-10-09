@@ -22,7 +22,7 @@ type Props = {
   onError: (err: unknown) => void;
 };
 
-const TYPES: { id: PropertyType; name: string }[] = [
+export const TYPES: { id: PropertyType; name: string }[] = [
   { id: 'text', name: 'Texto' },
   { id: 'tags', name: 'Etiquetas' },
   { id: 'select', name: 'Opciones' },

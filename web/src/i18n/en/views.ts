@@ -62,4 +62,7 @@ export const EN_VIEWS: Record<string, string> = {
   'no está vacía': 'is not empty',
   marcada: 'is checked',
   'sin marcar': 'is unchecked',
+  'Opciones de la columna': 'Column options',
+  'Mostrar una propiedad': 'Show a property',
+  'Ocultar en esta vista': 'Hide in this view',
 };

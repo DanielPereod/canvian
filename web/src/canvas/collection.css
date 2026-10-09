@@ -85,7 +85,14 @@
 .cv-th { position: sticky; top: 0; z-index: 1; animation: none; color: var(--text-faint); font-size: var(--text-xs); }
 .cv-th-cell { display: flex; align-items: center; gap: 6px; min-width: 0; height: 32px; padding: 0 8px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 span.cv-th-cell { cursor: default; }
-button.cv-th-cell:hover { background: var(--surface-hover); }
+button.cv-th-cell:hover,
+.cv-th-cell.is-open { background: var(--surface-hover); }
+.cv-th-add { justify-content: center; padding: 0; font-size: var(--text-md); color: var(--text-faint); }
+.cv-th-add:hover, .cv-th-add.is-open { color: var(--text); }
+.cv-addcol, .cv-colmenu { width: 260px; max-width: calc(100vw - 32px); }
+.cv-addcol-list { max-height: 240px; overflow-y: auto; }
+.cv-colmenu-type { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 8px 4px; font-size: var(--text-xs); }
+.cv-colmenu-type .cv-combo { min-width: 130px; }
 .cv-th-cell .nprop-icon { opacity: 0.8; }
 .cv-arrow { margin-left: auto; color: var(--text-muted); }
 .cv-th-cell + .cv-th-cell,
