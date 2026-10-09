@@ -1442,29 +1442,20 @@ function ViewMenu({ coll, view, fields, onView, onDuplicate, onDelete, onClose }
       )}
       {view.type === 'timeline' && (
         <>
-          <label className="cv-opt">
+          <div className="cv-opt">
             {t('Empieza')}
-            <select className="cv-select" value={view.date ?? 'due'} onChange={(e) => onView({ ...view, date: e.target.value })}>
-              {dates.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="cv-opt">
+            <Combo className="is-auto" items={dates.map((f) => ({ id: f.id, label: f.name }))} value={view.date ?? 'due'} label={t('Empieza')} onChange={(date) => onView({ ...view, date, end: view.end === date ? null : view.end })} />
+          </div>
+          <div className="cv-opt">
             {t('Acaba')}
-            <select className="cv-select" value={view.end ?? ''} onChange={(e) => onView({ ...view, end: e.target.value || null })}>
-              <option value="">{t('Sin fecha de fin')}</option>
-              {dates
-                .filter((f) => f.id !== (view.date ?? 'due'))
-                .map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-            </select>
-          </label>
+            <Combo
+              className="is-auto"
+              items={[{ id: '', label: t('Sin fecha de fin') }, ...dates.filter((f) => f.id !== (view.date ?? 'due')).map((f) => ({ id: f.id, label: f.name }))]}
+              value={view.end ?? ''}
+              label={t('Acaba')}
+              onChange={(end) => onView({ ...view, end: end || null })}
+            />
+          </div>
         </>
       )}
       {view.type === 'calendar' && (
