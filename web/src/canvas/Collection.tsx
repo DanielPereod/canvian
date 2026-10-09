@@ -1428,28 +1428,16 @@ function ViewMenu({ coll, view, fields, onView, onDuplicate, onDelete, onClose }
         ))}
       </div>
       {view.type === 'board' && (
-        <label className="cv-opt">
+        <div className="cv-opt">
           {t('Agrupar por')}
-          <select className="cv-select" value={view.group ?? 'kind'} onChange={(e) => onView({ ...view, group: e.target.value })}>
-            {groups.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Combo className="is-auto" items={groups.map((f) => ({ id: f.id, label: f.name }))} value={view.group ?? 'kind'} label={t('Agrupar por')} onChange={(group) => onView({ ...view, group })} />
+        </div>
       )}
       {view.type === 'calendar' && (
-        <label className="cv-opt">
+        <div className="cv-opt">
           {t('Fecha que manda')}
-          <select className="cv-select" value={view.date ?? 'due'} onChange={(e) => onView({ ...view, date: e.target.value })}>
-            {dates.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Combo className="is-auto" items={dates.map((f) => ({ id: f.id, label: f.name }))} value={view.date ?? 'due'} label={t('Fecha que manda')} onChange={(date) => onView({ ...view, date })} />
+        </div>
       )}
       <div className="bib-menu-sep" />
       <button className="bib-menu-it" onClick={onDuplicate}>

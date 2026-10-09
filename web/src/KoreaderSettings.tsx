@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, type NoteRow, type Profile } from './api';
 import { CopyBox } from './AiSettings';
 import { getLang, t } from './i18n';
+import { Combo } from './canvas/Combo';
 
 // Configuración › KOReader: el plugin que manda los subrayados y notas de tus
 // libros a Canvian. Se descarga ya configurado (dirección, llave y perfil) y
@@ -98,13 +99,7 @@ export function KoreaderSettings({ report }: { report: (p: Promise<unknown>) => 
             <div className="set-hint">{t('El que se usa al descargar el plugin y cuya carpeta eliges aquí. En KOReader se puede cambiar desde el menú del plugin.')}</div>
           </div>
           <div className="set-control">
-            <select className="set-select" value={profileId ?? ''} onChange={(e) => setProfileId(e.target.value)} aria-label={t('Perfil')}>
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <Combo className="set-combo" items={profiles.map((p) => ({ id: p.id, label: p.name }))} value={profileId} label={t('Perfil')} onChange={setProfileId} />
           </div>
         </div>
       )}
@@ -115,15 +110,16 @@ export function KoreaderSettings({ report }: { report: (p: Promise<unknown>) => 
           <div className="set-hint">{t('La nota en la que se guardan los libros. Sin elegir ninguna, se crea la nota «KOReader».')}</div>
         </div>
         <div className="set-control">
-          <select className="set-select kor-folder" value={folder ?? ''} disabled={!notes || !status} onChange={(e) => pickFolder(e.target.value)} aria-label={t('Carpeta')}>
-            <option value="">{t('«KOReader» (automática)')}</option>
-            {folder && notes && !options.some((o) => o.id === folder) && <option value={folder}>{t('Nota archivada o borrada')}</option>}
-            {options.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.path}
-              </option>
-            ))}
-          </select>
+          <Combo
+            className="set-combo kor-folder"
+            items={[{ id: '', label: t('«KOReader» (automática)') }, ...options.map((o) => ({ id: o.id, label: o.path }))]}
+            value={folder ?? ''}
+            missing={notes ? t('Nota archivada o borrada') : undefined}
+            disabled={!notes || !status}
+            label={t('Carpeta')}
+            search
+            onChange={pickFolder}
+          />
         </div>
       </div>
 

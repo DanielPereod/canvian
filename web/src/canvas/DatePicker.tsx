@@ -3,6 +3,7 @@ import { dateFmt, daysUntil, dueLabel } from './dates';
 import { t } from '../i18n';
 import { parseRecur, recurText, type Recur, type RecurUnit } from './tasks';
 import { repeatLabel } from './repeat';
+import { Combo } from './Combo';
 
 // Selector de fecha propio, en vez del calendario nativo del navegador: un
 // botón que abre un mes en cuadrícula, con mes anterior/siguiente, atajos
@@ -255,13 +256,7 @@ function RepeatPicker({ rule, onChange }: { rule: string | null; onChange: (rule
                 if (n >= 1 && n <= 99) put({ n });
               }}
             />
-            <select value={r.unit} aria-label={t('Unidad')} onChange={(e) => put({ unit: e.target.value as RecurUnit })}>
-              {UNITS.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {t(r.n === 1 ? u.one : u.many)}
-                </option>
-              ))}
-            </select>
+            <Combo className="is-auto" items={UNITS.map((u) => ({ id: u.id, label: t(r.n === 1 ? u.one : u.many) }))} value={r.unit} label={t('Unidad')} onChange={(unit) => put({ unit: unit as RecurUnit })} />
           </label>
           {r.unit === 'week' && (
             <div className="dp-wdays" role="group" aria-label={t('Días de la semana')}>

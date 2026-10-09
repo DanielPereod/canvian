@@ -396,6 +396,9 @@
 .tv-detail-sep { color: var(--text-ghost); }
 .tv-time { padding: 2px 4px; border: 0; border-radius: var(--radius-xs); background: none; color: var(--text-muted); font: inherit; font-size: var(--text-sm); color-scheme: inherit; font-variant-numeric: tabular-nums; }
 .tv-time:hover, .tv-time:focus { background: var(--surface-sunken); outline: none; }
+.tv-time.cv-combo { width: auto; height: auto; gap: 4px; padding: 2px 4px; border: 0; background: none; }
+.tv-time.cv-combo:hover, .tv-time.cv-combo.is-open { background: var(--surface-sunken); }
+.tv-time.cv-combo.is-empty { color: var(--text-faint); }
 .tv-detail-up { align-self: flex-start; max-width: 100%; margin: var(--space-1) 0 -10px; padding: 0; background: none; border: 0; color: var(--text-ghost); font: inherit; font-size: var(--text-xs); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-detail-up span { color: var(--text-faint); }
 .tv-detail-up:hover span, .tv-detail-up:focus-visible span { color: var(--accent-ink); }
@@ -652,8 +655,9 @@ button.tv-agenda-date:hover { background: var(--surface-sunken); }
 .dp-quick.is-on { background: var(--surface-hover); color: var(--text); }
 .dp-custom { display: grid; gap: var(--space-2); padding: 0 6px; font-size: var(--text-xs); color: var(--text-faint); }
 .dp-every { display: flex; align-items: center; gap: 6px; }
-.dp-every input, .dp-every select { font: inherit; color: var(--text); background: var(--surface-hover); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 2px 6px; }
+.dp-every input, .dp-every .cv-combo { font: inherit; color: var(--text); background: var(--surface-hover); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 2px 6px; }
 .dp-every input { width: 3.5em; }
+.dp-every .cv-combo { height: auto; }
 .dp-wdays { display: flex; flex-wrap: wrap; gap: 2px; }
 .dp-wday { width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--text-faint); font: inherit; font-size: var(--text-xs); text-transform: uppercase; cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
 .dp-wday:hover { background: var(--surface-hover); color: var(--text); }
