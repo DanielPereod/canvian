@@ -117,6 +117,8 @@ export const EN_TASKS: Record<string, string> = {
   'Empieza…': 'Starts…',
   'Hora de empezar': 'Start time',
   'Hora de acabar': 'End time',
+  'Quitar hora': 'Clear time',
+  Hora: 'Time',
   'Añadir tarea en {note}…': 'Add a task to {note}…',
   'Añadir tarea en «{inbox}»… (#etiqueta, > otra nota)': 'Add a task to “{inbox}”… (#tag, > another note)',
   'Quitar la nota': 'Remove note',

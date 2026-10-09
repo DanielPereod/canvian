@@ -37,9 +37,10 @@ type Props = {
   label?: string;
   // Buscador siempre, aunque haya pocas opciones (propiedades y valores).
   search?: boolean;
+  disabled?: boolean;
 };
 
-export function Combo({ items, value, onChange, placeholder, missing, autoOpen, className, label, search }: Props) {
+export function Combo({ items, value, onChange, placeholder, missing, autoOpen, className, label, search, disabled }: Props) {
   const [open, setOpen] = useState(!!autoOpen);
   const [btn, setBtn] = useState<HTMLButtonElement | null>(null);
   const current = items.find((i) => i.id === value);
@@ -52,6 +53,7 @@ export function Combo({ items, value, onChange, placeholder, missing, autoOpen, 
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={label}
+        disabled={disabled}
         title={current?.label ?? missing ?? placeholder}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => {
@@ -67,7 +69,7 @@ export function Combo({ items, value, onChange, placeholder, missing, autoOpen, 
           <path d="M2.5 4l2.5 2.5L7.5 4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {open && btn && (
+      {open && btn && !disabled && (
         <ComboList
           anchor={btn}
           items={items}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ulid } from 'ulidx';
-import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef } from '../api';
+import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type PropertyType } from '../api';
 import type { NoteContent } from './NoteSheet';
 import { CommandPalette } from './CommandPalette';
 import { goToAnchor } from './anchor';
@@ -356,6 +356,27 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         .catch(report);
     },
     [patchRow, report],
+  );
+
+  // Cambiar el tipo de una propiedad: el servidor pasa los valores de todas las
+  // notas al tipo nuevo, y aquí se recogen ya convertidos.
+  const retypeProperty = useCallback(
+    (def: PropertyDef, type: PropertyType) => {
+      setDefs((ds) => ds.map((d) => (d.id === def.id ? { ...d, type } : d)));
+      api
+        .updateProperty(def.id, { type })
+        .then(async (saved) => {
+          setDefs((ds) => ds.map((d) => (d.id === saved.id ? saved : d)));
+          const canvas = await api.canvas(profile.id);
+          const fresh = new Map(canvas.notes.map((r) => [r.id, r.props]));
+          setRows((rs) => rs.map((r) => (fresh.has(r.id) && fresh.get(r.id) !== r.props ? { ...r, props: fresh.get(r.id)! } : r)));
+        })
+        .catch((err) => {
+          setDefs((ds) => ds.map((d) => (d.id === def.id ? def : d)));
+          report(err);
+        });
+    },
+    [profile.id, report],
   );
 
   const connect = (source: string, target: string) => {
@@ -1154,6 +1175,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           onMenu={(id, x, y) => setBibMenu({ id, x, y })}
           onPatch={updateNote}
           onDefsChange={setDefs}
+          onRetype={retypeProperty}
           onError={report}
         />
       )}
@@ -1333,6 +1355,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
               onMenu={(id, x, y) => setBibMenu({ id, x, y })}
               onPatch={updateNote}
               onDefsChange={setDefs}
+              onRetype={retypeProperty}
               onError={report}
               onAsNote={onAsNote}
             />
