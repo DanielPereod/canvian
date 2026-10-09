@@ -86,7 +86,12 @@ describe('prefs', () => {
     const views = { 'p1:root': { active: 'v1', views: [view] } };
     expect((await call('PUT', '/api/prefs/views', views)).status).toBe(204);
     expect(await (await call('GET', '/api/prefs')).json()).toEqual({ views });
-    expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [{ ...view, type: 'timeline' }] } })).status).toBe(400);
+    // La línea de tiempo guarda también su fecha de fin y su zoom.
+    const timeline = { ...view, type: 'timeline', date: 'due', end: '01HZEND', zoom: 'month' };
+    expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [timeline] } })).status).toBe(204);
+    expect(await (await call('GET', '/api/prefs')).json()).toEqual({ views: { 'p1:root': { active: 'v1', views: [timeline] } } });
+    expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [{ ...view, type: 'gantt' }] } })).status).toBe(400);
+    expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [{ ...timeline, zoom: 'year' }] } })).status).toBe(400);
     expect((await call('PUT', '/api/prefs/views', { 'p1:root': { active: 'v1', views: [] } })).status).toBe(400);
   });
 
