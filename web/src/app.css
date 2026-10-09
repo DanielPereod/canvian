@@ -210,6 +210,9 @@
 .set-button:hover { background: var(--surface-hover); }
 .set-select { font: inherit; font-size: var(--text-sm); color: var(--text); background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 5px 28px 5px 10px; cursor: pointer; appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--text-faint) 50%), linear-gradient(135deg, var(--text-faint) 50%, transparent 50%); background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%; background-size: 4px 4px; background-repeat: no-repeat; }
 .set-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.set-combo.cv-combo { width: auto; max-width: min(320px, 60vw); height: 30px; padding: 0 10px; font-size: var(--text-sm); background: var(--surface-sunken); border-color: var(--line); border-radius: var(--radius-sm); }
+.set-combo.cv-combo:disabled { opacity: 0.5; cursor: default; }
+.set-combo.cv-combo:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .set-segmented { display: inline-flex; padding: 2px; border-radius: var(--radius-sm); background: var(--surface-sunken); border: 1px solid var(--line); }
 .set-segmented button { background: none; border: 0; border-radius: calc(var(--radius-sm) - 2px); padding: 5px 12px; font: inherit; font-size: var(--text-sm); color: var(--text-faint); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
 .set-segmented button:hover { color: var(--text); }

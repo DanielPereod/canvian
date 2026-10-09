@@ -12,6 +12,7 @@ import { repeatLabel } from './repeat';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { Resizer, useSideWidth } from './Resizer';
 import { DatePicker } from './DatePicker';
+import { Combo, type ComboItem } from './Combo';
 import { useContextMenu } from './Biblioteca';
 import { useCalendarEvents, useCalendars } from '../calendars';
 import { byDayOf, shapeLabel, TaskCalendar, timeLabel, type Shape } from './TaskCalendar';
@@ -1018,11 +1019,11 @@ function Detail({
             onChange={(v) => p.onChange(row, { startAt: v && v < row.dueAt!.slice(0, 10) ? v : null })}
           />
           <span className="tv-detail-sep">→ {dueLabel(row.dueAt)}</span>
-          <input type="time" className="tv-time" aria-label={t('Hora de empezar')} title={t('Hora de empezar')} value={row.startTime ?? ''} onChange={(e) => p.onChange(row, { startTime: e.target.value || null })} />
+          <TimePick label={t('Hora de empezar')} value={row.startTime} onChange={(startTime) => p.onChange(row, { startTime })} />
           {row.startTime && (
             <>
               <span className="tv-detail-sep">–</span>
-              <input type="time" className="tv-time" aria-label={t('Hora de acabar')} title={t('Hora de acabar')} value={row.endTime ?? ''} onChange={(e) => p.onChange(row, { endTime: e.target.value || null })} />
+              <TimePick label={t('Hora de acabar')} value={row.endTime} onChange={(endTime) => p.onChange(row, { endTime })} />
             </>
           )}
         </div>
@@ -1213,4 +1214,17 @@ function matchNotes(options: SectionOption[], query: string) {
   }
   hits.sort((a, b) => a.score - b.score || a.o.path.length - b.o.path.length);
   return hits.slice(0, 8).map((h) => h.o);
+}
+
+// Hora de una tarea con el desplegable propio en vez del reloj nativo: cada
+// cuarto de hora, con buscador («9:3» encuentra 09:30). Una hora que no cae en
+// cuarto (puesta a mano en el texto) se sigue viendo tal cual.
+const QUARTERS: ComboItem[] = Array.from({ length: 96 }, (_, k) => {
+  const hm = `${String(Math.floor(k / 4)).padStart(2, '0')}:${String((k % 4) * 15).padStart(2, '0')}`;
+  return { id: hm, label: hm };
+});
+
+function TimePick({ label, value, onChange }: { label: string; value: string | null | undefined; onChange: (v: string | null) => void }) {
+  const items = value ? [{ id: '', label: t('Quitar hora') }, ...QUARTERS] : QUARTERS;
+  return <Combo className="tv-time" items={items} value={value ?? null} missing={value ?? undefined} placeholder={t('Hora')} label={label} onChange={(v) => onChange(v || null)} />;
 }

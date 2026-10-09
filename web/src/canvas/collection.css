@@ -70,7 +70,7 @@
 .cv-combo-caret { flex: none; margin-left: auto; color: var(--text-faint); transition: transform var(--dur-fast) var(--ease-out); }
 .cv-combo.is-open { border-color: var(--line-strong); }
 .cv-combo.is-open .cv-combo-caret { transform: rotate(180deg); }
-.cv-combo-pop { z-index: 61; display: flex; flex-direction: column; min-width: 180px; max-width: min(300px, calc(100vw - 16px)); max-height: min(340px, calc(100vh - 16px)); }
+.cv-combo-pop { z-index: calc(var(--z-overlay) + 1); display: flex; flex-direction: column; min-width: 180px; max-width: min(300px, calc(100vw - 16px)); max-height: min(340px, calc(100vh - 16px)); }
 .cv-combo-search { flex: none; }
 .cv-combo-list { flex: 1; min-height: 0; overflow-y: auto; outline: none; overscroll-behavior: contain; }
 .cv-combo-it { gap: 8px; }
