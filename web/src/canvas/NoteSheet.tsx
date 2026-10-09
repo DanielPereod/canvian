@@ -654,11 +654,14 @@ type Props = {
   // La nota vista como colección: sus hijas con las vistas de la biblioteca.
   // `onAsNote` vuelve a su texto.
   collection: (onAsNote: () => void) => ReactNode;
+  // La nota con este id vuelve a verse como colección (al cerrar una ventana
+  // abierta desde ella).
+  shownAsCollection?: string | null;
   // Un aviso breve abajo (p. ej. «Enlace copiado»).
   onNotice?: (text: string) => void;
 };
 
-export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onChange, onDefsChange, profileId, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen, collection, onNotice }: Props) {
+export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onChange, onDefsChange, profileId, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen, collection, shownAsCollection, onNotice }: Props) {
   const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -691,7 +694,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   // (cada nota recuerda la suya).
   const collDefault = useAsCollection(note.id);
   const [shownAs, setShownAs] = useState<{ id: string; coll: boolean } | null>(null);
-  const asColl = (shownAs?.id === note.id ? shownAs.coll : collDefault) && note.kind !== 'canvas';
+  const asColl = (shownAs?.id === note.id ? shownAs.coll : collDefault || shownAsCollection === note.id) && note.kind !== 'canvas';
   const flipColl = () => setShownAs({ id: note.id, coll: !asColl });
   const flipDefault = () => {
     setShownAs({ id: note.id, coll: !collDefault });

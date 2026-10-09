@@ -112,6 +112,14 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [movingId, setMovingId] = useState<string | null>(null);
   // Nota abierta en grande sobre la vista de tareas, sin salir de ella.
   const [peek, setPeek] = useState(false);
+  // La nota abierta como colección desde la que se abrió otra en ventana: al
+  // cerrar la ventana se vuelve a ella.
+  const [peekBack, setPeekBack] = useState<string | null>(null);
+  // Y esa nota se vuelve a ver como colección.
+  const [backAsColl, setBackAsColl] = useState<string | null>(null);
+  useEffect(() => {
+    if (focusId !== backAsColl) setBackAsColl(null);
+  }, [focusId]);
   // Modo zen: con una nota abierta, sin barra lateral ni nada más; solo el texto.
   const [zen, setZen] = useState(false);
   // Nota del centro en la vista de nodos (null: la raíz).
@@ -944,6 +952,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
               onClick={() => {
                 flush(focused.id);
                 setPeek(false);
+                setPeekBack(null);
                 setTasksOpen(false);
                 setDiaryOpen(false);
               }}
@@ -968,14 +977,19 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       sheet
     );
 
+  // Una nota con fecha o propiedades (la de una barra de la línea de tiempo) no está vacía.
+  const hasData = (r: NoteRow) => !!r.dueAt || Object.keys(parseProps(r.props)).length > 0;
   const closeFocused = () => {
     setPeek(false);
+    const back = peek ? peekBack : null;
+    setPeekBack(null);
     if (!focused) return;
     const id = focused.id;
     flush(id);
-    setFocusId(null);
+    setFocusId(back);
+    setBackAsColl(back);
     // Una nota nueva que se queda vacía no se guarda.
-    if ((focused.kind === 'canvas' ? !focused.title?.trim() && !parseBoard(focused.bodyJson).nodes.length : !focused.bodyText?.trim() && !hasMedia(focused.bodyJson)) && !links.some((l) => l.source === id || l.target === id)) removeNotes([id]);
+    if ((focused.kind === 'canvas' ? !focused.title?.trim() && !parseBoard(focused.bodyJson).nodes.length : !focused.bodyText?.trim() && !hasMedia(focused.bodyJson)) && !links.some((l) => l.source === id || l.target === id) && !hasData(focused) && !family.count(id)) removeNotes([id]);
   };
 
   // ── Barra lateral, ruta y la colección ──────────────────────────────
@@ -1335,6 +1349,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             return createNote(spotFor(focused.zoneId), 'text', { zoneId: focused.zoneId, title: title.slice(0, 120), bodyJson, bodyText: title }).id;
           }}
           onUnlink={(id) => unlink(focused.id, id)}
+          shownAsCollection={backAsColl}
           collection={(onAsNote) => (
             <Library
               rows={rows}
@@ -1356,6 +1371,15 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
                 flush(focused.id);
                 setFocusId(id);
               }}
+              // En ventana, encima de la misma colección (detrás queda en la biblioteca
+              // con sus mismas vistas) y, al cerrarla, de vuelta a esta nota.
+              onPeek={(id) => {
+                flush(focused.id);
+                setPeekBack(focused.id);
+                setCenter(focused.id);
+                setPeek(true);
+                setFocusId(id);
+              }}
               onAction={act}
               onMenu={(id, x, y) => setBibMenu({ id, x, y })}
               onPatch={updateNote}
@@ -1371,6 +1395,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             if (on && peek) {
               flush(focused.id);
               setPeek(false);
+              setPeekBack(null);
               setTasksOpen(false);
               setDiaryOpen(false);
             }
