@@ -185,7 +185,7 @@ export const api = {
   properties: (profileId: string) => request<PropertyDef[]>('GET', `/profiles/${profileId}/properties`),
   createProperty: (profileId: string, def: { id: string; name: string; type: PropertyType; options?: string[] }) =>
     request<PropertyDef>('POST', `/profiles/${profileId}/properties`, def),
-  updateProperty: (id: string, patch: Partial<Pick<PropertyDef, 'name' | 'options' | 'position'>>) =>
+  updateProperty: (id: string, patch: Partial<Pick<PropertyDef, 'name' | 'options' | 'position' | 'type'>>) =>
     request<PropertyDef>('PATCH', `/properties/${id}`, patch),
   deleteProperty: (id: string) => request('DELETE', `/properties/${id}`),
   lenses: (profileId: string) => request<Lens[]>('GET', `/profiles/${profileId}/lenses`),
