@@ -45,20 +45,22 @@ const calendars = z
 // Modo zen: si pone la pantalla completa.
 const zen = z.object({ fullscreen: z.boolean() });
 // Vistas de cada colección, como las de una base de datos de Notion: su tipo,
-// filtros, orden, columnas a la vista y cómo se agrupan. Por colección
+// filtros, orden, columnas a la vista, cómo se agrupan y qué fechas mandan. Por colección
 // («perfil:nota», «perfil:root» o «perfil:loose»), la lista y la que está abierta.
 const field = z.string().min(1).max(40);
 const filterValue = z.union([z.string().max(200), z.number(), z.boolean(), z.null(), z.array(z.string().max(200)).max(50)]);
 const view = z.object({
   id,
   name: z.string().trim().min(1).max(60),
-  type: z.enum(['table', 'list', 'gallery', 'board', 'calendar']),
+  type: z.enum(['table', 'list', 'gallery', 'board', 'calendar', 'timeline']),
   filters: z.array(z.object({ id, field, op: z.string().min(1).max(20), value: filterValue })).max(20),
   match: z.enum(['and', 'or']),
   sorts: z.array(z.object({ field, dir: z.enum(['asc', 'desc']) })).max(6),
   fields: z.array(field).max(60),
   group: field.nullable(),
   date: field.nullable(),
+  end: field.nullable().optional(),
+  zoom: z.enum(['day', 'week', 'month']).optional(),
 });
 const views = z
   .record(z.string().min(1).max(100), z.object({ active: id, views: z.array(view).min(1).max(30) }))

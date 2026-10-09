@@ -5,11 +5,12 @@ import { locale, t } from '../i18n';
 import { taskCount } from './tasks';
 
 // Las vistas de cada colección, como las de una base de datos de Notion: cada
-// una con su forma (tabla, lista, galería, tablero o calendario), sus filtros,
+// una con su forma (tabla, lista, galería, tablero, calendario o línea de tiempo), sus filtros,
 // su orden y las propiedades que enseña. Se guardan en el servidor, por
 // colección, junto con la que estaba abierta.
 
-export type ViewType = 'table' | 'list' | 'gallery' | 'board' | 'calendar';
+export type ViewType = 'table' | 'list' | 'gallery' | 'board' | 'calendar' | 'timeline';
+export type Zoom = 'day' | 'week' | 'month';
 export type Filter = { id: string; field: string; op: string; value: PropValue };
 export type Sort = { field: string; dir: 'asc' | 'desc' };
 export type View = {
@@ -21,9 +22,12 @@ export type View = {
   sorts: Sort[];
   // Las propiedades a la vista, en orden (el título va siempre).
   fields: string[];
-  // Tablero: la propiedad por la que se agrupa. Calendario: la fecha que manda.
+  // Tablero: la propiedad por la que se agrupa. Calendario y línea de tiempo: la fecha que manda.
   group: string | null;
   date: string | null;
+  // Línea de tiempo: la fecha en que acaba cada nota (sin ella, son puntos) y el zoom.
+  end?: string | null;
+  zoom?: Zoom;
 };
 export type Coll = { active: string; views: View[] };
 
@@ -33,6 +37,7 @@ export const VIEW_TYPES: { id: ViewType; name: string }[] = [
   { id: 'gallery', name: 'Galería' },
   { id: 'board', name: 'Tablero' },
   { id: 'calendar', name: 'Calendario' },
+  { id: 'timeline', name: 'Línea de tiempo' },
 ];
 
 // ── Propiedades ───────────────────────────────────────────────────────
@@ -200,6 +205,9 @@ export function applyView(rows: NoteRow[], view: View, fields: Field[], count: (
 export const groupable = (f: Field) => f.type === 'select' || f.type === 'tags' || f.type === 'checkbox';
 export const datable = (f: Field) => f.type === 'date';
 
+// La fecha de fin de partida: una propiedad de fecha que suene a final.
+export const endOf = (fields: Field[]) => fields.find((f) => f.def && datable(f) && /fin|final|acaba|termina|hasta|entrega|end|until|due/i.test(f.name))?.id ?? null;
+
 export function newView(type: ViewType, defs: PropertyDef[], name?: string): View {
   const fields = fieldsOf(defs);
   const custom = fields.filter((f) => f.def).map((f) => f.id);
@@ -210,6 +218,7 @@ export function newView(type: ViewType, defs: PropertyDef[], name?: string): Vie
     gallery: ['updated'],
     board: ['due'],
     calendar: [],
+    timeline: [],
   };
   return {
     id: ulid(),
@@ -220,7 +229,8 @@ export function newView(type: ViewType, defs: PropertyDef[], name?: string): Vie
     sorts: [],
     fields: shown[type],
     group: type === 'board' ? firstGroup : null,
-    date: type === 'calendar' ? 'due' : null,
+    date: type === 'calendar' || type === 'timeline' ? 'due' : null,
+    end: type === 'timeline' ? endOf(fields) : null,
   };
 }
 

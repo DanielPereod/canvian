@@ -14,10 +14,12 @@ import { TypeIcon, Value } from './NoteProps';
 import { importanceOf } from './sections';
 import { ROOT_KEY, sortByOrder, useSidebarPrefs } from './sidebarPrefs';
 import { taskCount } from './tasks';
+import { Timeline } from './Timeline';
 import { longPress, TOUCH } from './touch';
 import {
   applyView,
   datable,
+  endOf,
   fieldsOf,
   groupable,
   kindName,
@@ -38,8 +40,8 @@ import {
 
 // La colección: las notas que cuelgan de una nota, como una base de datos de
 // Notion. Arriba, sus vistas como pestañas (cada una con su forma, filtros,
-// orden y propiedades); debajo, las notas en tabla, lista, galería, tablero o
-// calendario.
+// orden y propiedades); debajo, las notas en tabla, lista, galería, tablero,
+// calendario o línea de tiempo.
 
 type LibProps = {
   rows: NoteRow[];
@@ -235,7 +237,7 @@ export function Library(p: LibProps) {
           ))}
       </div>
       <ViewBar coll={coll} view={view} fields={fields} defs={p.defs} onSave={save} onView={setView} />
-      {items.length === 0 && view.type !== 'calendar' && view.type !== 'board' && (
+      {items.length === 0 && view.type !== 'calendar' && view.type !== 'board' && view.type !== 'timeline' && (
         <p className="bib-empty">
           {hidden ? (
             t('Ninguna nota cumple los filtros.')
@@ -416,6 +418,9 @@ export function Library(p: LibProps) {
       )}
       {view.type === 'calendar' && (
         <Calendar items={items} view={view} fields={fields} sel={items[at]?.id ?? null} dim={dim} listRef={list} onEnter={enter} onMenu={p.onMenu} onSet={setField} onView={setView} count={count} />
+      )}
+      {view.type === 'timeline' && (
+        <Timeline items={items} view={view} fields={fields} sel={items[at]?.id ?? null} dim={dim} listRef={list} onEnter={enter} onMenu={p.onMenu} onSet={setField} onView={setView} count={count} />
       )}
     </div>
   );
@@ -791,6 +796,7 @@ const VIEW_ICONS: Record<ViewType, ReactNode> = {
       <path d="M2.5 6.8h11M5.5 2v3M10.5 2v3" />
     </>
   ),
+  timeline: <path d="M3 4.5h6M6 8h7M4.5 11.5h4.5" />,
 };
 export const ViewIcon = ({ type }: { type: ViewType }) => (
   <svg className="cv-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1212,7 +1218,8 @@ function ViewMenu({ coll, view, fields, onView, onDuplicate, onDelete, onClose }
                 ...view,
                 type: ty.id,
                 group: ty.id === 'board' ? (view.group ?? newView('board', fields.filter((f) => f.def).map((f) => f.def!)).group) : view.group,
-                date: ty.id === 'calendar' ? (view.date ?? 'due') : view.date,
+                date: ty.id === 'calendar' || ty.id === 'timeline' ? (view.date ?? 'due') : view.date,
+                end: ty.id === 'timeline' && view.end === undefined ? endOf(fields) : view.end,
               })
             }
           >
@@ -1232,6 +1239,33 @@ function ViewMenu({ coll, view, fields, onView, onDuplicate, onDelete, onClose }
             ))}
           </select>
         </label>
+      )}
+      {view.type === 'timeline' && (
+        <>
+          <label className="cv-opt">
+            {t('Empieza')}
+            <select className="cv-select" value={view.date ?? 'due'} onChange={(e) => onView({ ...view, date: e.target.value })}>
+              {dates.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="cv-opt">
+            {t('Acaba')}
+            <select className="cv-select" value={view.end ?? ''} onChange={(e) => onView({ ...view, end: e.target.value || null })}>
+              <option value="">{t('Sin fecha de fin')}</option>
+              {dates
+                .filter((f) => f.id !== (view.date ?? 'due'))
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        </>
       )}
       {view.type === 'calendar' && (
         <label className="cv-opt">
