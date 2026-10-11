@@ -5,7 +5,7 @@ import type { Db } from '../db/index.js';
 import { settings } from '../db/schema.js';
 import { joinTitle, parseBody, splitTitle, type JSONContent } from '../doc/json.js';
 import { notes } from '../db/schema.js';
-import { coerceProp, contentOf, createNote, liveNotes, newDoc, parseProps, propertyDefsOf, propertyFor, resolveProfile, saveNote, type Note } from '../mcp/notes.js';
+import { coerceProp, contentOf, createNote, galleryImageDef, liveNotes, newDoc, parseProps, propertyDefsOf, propertyFor, resolveProfile, saveNote, type Note } from '../mcp/notes.js';
 
 // Sincronización con KOReader: el plugin (ver server/koreader) manda los
 // subrayados y notas de cada libro y aquí se guardan en una nota por libro,
@@ -19,7 +19,6 @@ const folderKey = (profileId: string) => `koreader_folder:${profileId}`;
 export const BOOK_KEY = 'koreader';
 /** Propiedad reservada: la portada que ya se subió (no se vuelve a pedir, aunque luego se quite). */
 export const COVER_KEY = 'koreaderCover';
-const COVER_PROP = 'Portada';
 /** El encabezado desde el que la nota es de KOReader; lo de encima se respeta. */
 export const SECTION = 'Subrayados';
 const FOLDER_TITLE = 'KOReader';
@@ -187,12 +186,7 @@ export function bookNote(db: Db, id: string): Note | null {
  * la galería). Si la nota ya tenía ahí otra imagen, se respeta.
  */
 export function setBookCover(db: Db, note: Note, url: string): Note {
-  const defs = propertyDefsOf(db, note.profileId);
-  const fold = (s: string) => s.trim().toLocaleLowerCase();
-  const def =
-    defs.find((d) => d.type === 'image' && fold(d.name) === fold(COVER_PROP)) ??
-    defs.find((d) => d.type === 'image') ??
-    propertyFor(db, note.profileId, defs.some((d) => fold(d.name) === fold(COVER_PROP)) ? `${COVER_PROP} del libro` : COVER_PROP, url, 'image')!;
+  const def = galleryImageDef(db, note.profileId);
   const props = parseProps(note.props);
   if (!props[def.id]) props[def.id] = url;
   props[COVER_KEY] = url;

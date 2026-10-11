@@ -230,7 +230,7 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
     if (!isMcpToken(db, token)) return c.json({ error: 'Llave del MCP no válida' }, 401);
     // Sin sesiones no hay canal de avisos (GET) ni sesión que cerrar (DELETE).
     if (c.req.method !== 'POST') return c.json({ error: 'Solo POST' }, 405, { Allow: 'POST' });
-    const server = createMcpServer(db, hub);
+    const server = createMcpServer(db, hub, { mediaDir: opts.mediaDir, fetcher: opts.fetchPage });
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     await server.connect(transport);
     return transport.handleRequest(c.req.raw);

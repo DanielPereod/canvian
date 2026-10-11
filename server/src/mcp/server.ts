@@ -18,6 +18,7 @@ import {
   createNote,
   descendantIds,
   editDoc,
+  galleryImageDef,
   linkWikis,
   liveNotes,
   listProfiles,
@@ -36,6 +37,9 @@ import {
   withTags,
   type Note,
 } from './notes.js';
+import { fromBase64, fromUrl, sniffImage } from './images.js';
+import { storeImage } from '../routes/media.js';
+import type { Fetcher } from '../calendars.js';
 
 // El servidor MCP de Canvian: deja que Claude (u otro cliente MCP) lea y
 // escriba las notas y tareas. Cada petición crea uno nuevo (sin estado).
@@ -106,17 +110,17 @@ type Hub = { publish: (e: { scope: 'canvas'; client: string | null }) => void };
 const text = (value: string) => ({ content: [{ type: 'text' as const, text: value }] });
 const data = (value: unknown) => text(JSON.stringify(value, null, 2));
 
-export function createMcpServer(db: Db, hub?: Hub) {
+export function createMcpServer(db: Db, hub?: Hub, opts: { mediaDir?: string; fetcher?: Fetcher } = {}) {
   const server = new McpServer({ name: 'canvian', version: '1.0.0' }, { instructions: INSTRUCTIONS });
   // Las demás pantallas abiertas se enteran de lo que cambia Claude.
   const changed = () => hub?.publish({ scope: 'canvas', client: 'mcp' });
 
   // Errores esperables (una nota que no existe…) vuelven como texto para Claude.
   const run =
-    <A,>(fn: (args: A) => ReturnType<typeof text>) =>
+    <A,>(fn: (args: A) => ReturnType<typeof text> | Promise<ReturnType<typeof text>>) =>
     async (args: A) => {
       try {
-        return fn(args);
+        return await fn(args);
       } catch (e) {
         if (e instanceof McpError) return { ...text(e.message), isError: true };
         throw e;
@@ -618,6 +622,64 @@ export function createMcpServer(db: Db, hub?: Hub) {
       });
     }),
   );
+
+  // ── Imágenes ────────────────────────────────────────────────────────
+
+  if (opts.mediaDir) {
+    const mediaDir = opts.mediaDir;
+    server.registerTool(
+      'upload_image',
+      {
+        title: 'Subir imagen',
+        description:
+          'Sube una imagen (PNG, JPEG, GIF, WebP o AVIF, hasta 10 MB) desde base64 o desde una dirección de la web, y opcionalmente la pone en una nota: como su imagen de galería (la portada que se ve en las colecciones, p. ej. la de un libro), como portada de cabecera o al final del texto. Devuelve su dirección (/api/media/…), que también vale para ![](…) en el Markdown.',
+        inputSchema: {
+          base64: z.string().max(15_000_000).optional().describe('La imagen en base64 (vale también «data:image/png;base64,…»).'),
+          url: z.string().max(2000).optional().describe('O la dirección http(s) de la imagen, para que la descargue Canvian.'),
+          note: z.string().optional().describe('La nota donde ponerla (id, título o ruta).'),
+          as: z
+            .enum(['gallery', 'banner', 'body'])
+            .optional()
+            .describe('gallery (por defecto): la propiedad de imagen que se ve en la galería; banner: la portada de arriba de la nota; body: al final del texto.'),
+          property: z.string().trim().min(1).max(60).optional().describe('Con gallery, el nombre de la propiedad de imagen (por defecto la de la galería, «Portada»). Si no existe, se crea.'),
+          alt: z.string().max(200).optional().describe('Con body, el texto alternativo.'),
+          profile: profileArg,
+        },
+      },
+      run(async ({ base64, url, note, as = 'gallery', property, alt, profile }) => {
+        if (!base64 === !url) throw new McpError('Pasa la imagen en `base64` o en `url` (una de las dos).');
+        const { profile: p, all, byId } = ctx(profile);
+        // La nota se busca antes de descargar nada.
+        let n = note ? resolveNote(all, note) : null;
+        if (n && as === 'body') textNote(n);
+        const bytes = base64 ? fromBase64(base64) : await fromUrl(url!, opts.fetcher);
+        const mime = sniffImage(bytes);
+        if (!mime) throw new McpError('Eso no es una imagen PNG, JPEG, GIF, WebP ni AVIF.');
+        const src = (await storeImage(mediaDir, mime, bytes))!;
+        const out: Record<string, unknown> = { url: src, type: mime, bytes: bytes.length };
+        if (n) {
+          if (as === 'gallery') {
+            const def = property ? propertyFor(db, p.id, property, src, 'image')! : galleryImageDef(db, p.id);
+            if (def.type !== 'image') throw new McpError(`«${def.name}» es de tipo ${def.type}, no de imagen. La imagen se subió igualmente: ${src}`);
+            const props = parseProps(n.props);
+            props[def.id] = src;
+            n = saveNote(db, n.id, { props: JSON.stringify(props) });
+            out.property = def.name;
+          } else if (as === 'banner') {
+            n = saveNote(db, n.id, { cover: `${src}#y=50` });
+          } else {
+            const doc = editDoc(n, { append: `![${(alt ?? '').replace(/[[\]|]/g, '')}](${src})` });
+            n = saveNote(db, n.id, contentOf(doc));
+          }
+          byId.set(n.id, n);
+          changed();
+          out.note = brief(byId, n);
+          out.as = as;
+        }
+        return data(out);
+      }),
+    );
+  }
 
   return server;
 }
