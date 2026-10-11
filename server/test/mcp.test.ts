@@ -1,4 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { createApp } from '../src/app.js';
@@ -67,6 +70,58 @@ describe('mcp', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.result.tools.map((t: { name: string }) => t.name)).toContain('search_notes');
+  });
+
+  it('uploads images from base64 or a URL and puts them on a note', async () => {
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+    const jpg = Buffer.from('ffd8ffe000104a464946', 'hex');
+    const asked: string[] = [];
+    app = createApp(openDb(':memory:'), {
+      mediaDir: mkdtempSync(join(tmpdir(), 'canvian-mcp-')),
+      fetchPage: async (url) => {
+        asked.push(url);
+        if (url.endsWith('/vuelta')) return new Response(null, { status: 302, headers: { location: 'http://192.168.1.10/x.jpg' } });
+        if (url.endsWith('/salta')) return new Response(null, { status: 302, headers: { location: '/libro.jpg' } });
+        if (url.endsWith('/libro.jpg')) return new Response(jpg, { headers: { 'content-type': 'image/jpeg' } });
+        return new Response('<html></html>', { headers: { 'content-type': 'text/html' } });
+      },
+    });
+    cookie = '';
+    await call('POST', '/api/auth/setup', { password: 'una-clave-larga' });
+    token = (await (await call('POST', '/api/mcp/token')).json()).token;
+    const client = await connect(token);
+    const libro = (await tool(client, 'create_note', { title: 'Dune', markdown: 'Un libro.' })).created;
+
+    // Sola, sin nota: solo la dirección.
+    const alone = await tool(client, 'upload_image', { base64: `data:image/png;base64,${png.toString('base64')}` });
+    expect(alone).toMatchObject({ type: 'image/png', bytes: png.length });
+    expect(alone.url).toMatch(/^\/api\/media\/.+\.png$/);
+    expect(Buffer.from(await (await call('GET', alone.url)).arrayBuffer())).toEqual(png);
+
+    // Como portada de galería: la propiedad de imagen «Portada».
+    const cover = await tool(client, 'upload_image', { url: 'https://libros.example.com/salta', note: 'Dune' });
+    expect(cover).toMatchObject({ type: 'image/jpeg', property: 'Portada', as: 'gallery', note: { id: libro.id } });
+    expect(asked).toEqual(['https://libros.example.com/salta', 'https://libros.example.com/libro.jpg']);
+    expect((await tool(client, 'get_note', { note: libro.id })).properties).toEqual({ Portada: cover.url });
+
+    // De cabecera y dentro del texto.
+    await tool(client, 'upload_image', { base64: png.toString('base64'), note: libro.id, as: 'banner' });
+    const canvas = await (await call('GET', `/api/profiles/${(await (await call('GET', '/api/profiles')).json())[0].id}/canvas`)).json();
+    expect(canvas.notes.find((n: { id: string }) => n.id === libro.id).cover).toMatch(/^\/api\/media\/.+\.png#y=50$/);
+    const inline = await tool(client, 'upload_image', { base64: png.toString('base64'), note: libro.id, as: 'body', alt: 'Mapa' });
+    expect((await tool(client, 'get_note', { note: libro.id })).markdown).toContain(`![Mapa](${inline.url})`);
+
+    await expect(tool(client, 'upload_image', { base64: Buffer.from('<svg/>').toString('base64') })).rejects.toThrow(/no es una imagen/);
+    await expect(tool(client, 'upload_image', { url: 'https://libros.example.com/pagina' })).rejects.toThrow(/no es una imagen/);
+    await expect(tool(client, 'upload_image', { url: 'http://localhost/x.png' })).rejects.toThrow(/públicas/);
+    await expect(tool(client, 'upload_image', { url: 'https://libros.example.com/vuelta' })).rejects.toThrow(/públicas/);
+    await expect(tool(client, 'upload_image', {})).rejects.toThrow(/una de las dos/);
+    await expect(tool(client, 'upload_image', { base64: png.toString('base64'), note: 'Nada' })).rejects.toThrow();
+  });
+
+  it('only offers upload_image when the server keeps media', async () => {
+    const tools = (await (await connect(token)).listTools()).tools.map((t) => t.name);
+    expect(tools).not.toContain('upload_image');
   });
 
   it('creates, finds, reads and edits notes with links', async () => {

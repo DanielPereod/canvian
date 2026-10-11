@@ -234,6 +234,21 @@ export function propertyFor(db: Db, profileId: string, name: string, value: unkn
     .get();
 }
 
+/**
+ * La propiedad de tipo Imagen de la galería (la que sale como portada en las
+ * colecciones): «Portada» si la hay, si no la primera de tipo Imagen, y si no
+ * hay ninguna se crea «Portada».
+ */
+export function galleryImageDef(db: Db, profileId: string): PropertyDef {
+  const defs = propertyDefsOf(db, profileId);
+  return (
+    defs.find((d) => d.type === 'image' && fold(d.name) === fold(COVER_PROP)) ??
+    defs.find((d) => d.type === 'image') ??
+    propertyFor(db, profileId, defs.some((d) => fold(d.name) === fold(COVER_PROP)) ? `${COVER_PROP} del libro` : COVER_PROP, '', 'image')!
+  );
+}
+const COVER_PROP = 'Portada';
+
 /** Comprueba y adapta el valor al tipo de la propiedad (y añade opciones nuevas a una lista). */
 export function coerceProp(db: Db, def: PropertyDef, value: unknown): unknown {
   if (value === null) return null;

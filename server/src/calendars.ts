@@ -18,7 +18,7 @@ export type CalEvent = {
   location?: string;
 };
 
-export type Fetcher = (url: string, init: { signal: AbortSignal; headers: Record<string, string> }) => Promise<Response>;
+export type Fetcher = (url: string, init: { signal: AbortSignal; headers: Record<string, string>; redirect?: RequestRedirect }) => Promise<Response>;
 
 const TTL = 15 * 60_000;
 const TIMEOUT = 15_000;

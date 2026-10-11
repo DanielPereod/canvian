@@ -62,7 +62,7 @@ export function parseCard(html: string, url: string): LinkCard {
 }
 
 // Solo direcciones de fuera: nada de la red de casa ni del propio servidor.
-function external(u: URL) {
+export function external(u: URL) {
   const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (!/^https?:$/.test(u.protocol)) return false;
   if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.lan') || !h.includes('.') && !h.includes(':')) return false;
