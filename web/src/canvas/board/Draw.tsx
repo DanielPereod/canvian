@@ -11,6 +11,8 @@ type LayerProps = {
   drawings: Drawing[];
   draft: Drawing | null;
   selected: string | null;
+  // Varios dibujos elegidos a la vez (con tarjetas o sin ellas).
+  many?: Set<string>;
   erasing: Set<string>;
   typing: Typing | null;
   onShapeDown: (e: ReactPointerEvent, id: string) => void;
@@ -69,7 +71,7 @@ function SelectionBox({ id }: { id: string }) {
   );
 }
 
-export function DrawLayer({ drawings, draft, selected, erasing, typing, onShapeDown, onTextEdit, onTyping, onTypingDone }: LayerProps) {
+export function DrawLayer({ drawings, draft, selected, many, erasing, typing, onShapeDown, onTextEdit, onTyping, onTypingDone }: LayerProps) {
   return (
     <>
       <svg className="draw-layer" width={1} height={1} aria-hidden>
@@ -80,6 +82,9 @@ export function DrawLayer({ drawings, draft, selected, erasing, typing, onShapeD
         )}
         {draft && <Shape d={draft} />}
         {selected && !typing && <SelectionBox id={selected} />}
+        {[...(many ?? [])].map((id) => (
+          <SelectionBox key={id} id={id} />
+        ))}
       </svg>
       {typing && (
         <textarea

@@ -506,6 +506,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     setEdges(f.edges);
     setDrawings(b.drawings ?? []);
     setSel(null);
+    setMany(new Set());
     setHistTick((n) => n + 1);
   };
   const current = () => JSON.stringify(fromFlow(flow.getNodes() as Node<Data>[], flow.getEdges(), drawingsRef.current));
@@ -559,6 +560,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const selectAll = () => {
     setSel(null);
     setNodes((ns) => ns.map((n) => (n.selected ? n : { ...n, selected: true })));
+    setMany(new Set(drawingsRef.current.map((d) => d.id)));
   };
   // Sin tarjetas elegidas, lo que se ordena o duplica es el dibujo elegido.
   const order = (ids: Set<string>, how: Order) => {
@@ -566,7 +568,15 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     else if (sel) setDrawings((ds) => reorder(ds, new Set([sel]), how));
   };
   const duplicate = (ids: Set<string>) => {
+    const extra = manyRef.current;
+    if (extra.size) {
+      const copies = drawingsRef.current.filter((d) => extra.has(d.id)).map((d) => ({ ...translate(d, 32, 32), id: ulid() }));
+      setDrawings((ds) => [...ds, ...copies]);
+      setMany(new Set(copies.map((d) => d.id)));
+      if (!ids.size) setNodes((ns) => ns.map((n) => (n.selected ? { ...n, selected: false } : n)));
+    }
     if (!ids.size) {
+      if (extra.size) return;
       const d = sel && drawingsRef.current.find((x) => x.id === sel);
       if (!d) return;
       const copy = { ...translate(d, 24, 24), id: ulid() };
@@ -593,13 +603,24 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   };
   const paint = (ids: Set<string>, color: string | null) =>
     setNodes((ns) => ns.map((n) => (ids.has(n.id) ? { ...n, data: { ...n.data, color: color ?? undefined } } : n)));
-  const remove = (ids: Set<string>) => void flow.deleteElements({ nodes: [...ids].map((id) => ({ id })) });
+  const removeMany = () => {
+    const gone = manyRef.current;
+    if (!gone.size) return;
+    setDrawings((ds) => ds.filter((d) => !gone.has(d.id)));
+    setMany(new Set());
+  };
+  const remove = (ids: Set<string>) => {
+    removeMany();
+    void flow.deleteElements({ nodes: [...ids].map((id) => ({ id })) });
+  };
 
   // ── Grupos: un recuadro con nombre; lo que cae dentro se mueve con él ──
   const group = (ids: Set<string>) => {
     const picked = flow.getNodes().filter((n) => ids.has(n.id));
-    if (!picked.length) return;
-    const r = groupAround(picked.map(rectOf));
+    const extra = drawingsRef.current.filter((d) => manyRef.current.has(d.id));
+    if (!picked.length && !extra.length) return;
+    const r = groupAround([...picked.map(rectOf), ...extra.map(drawingBox)]);
+    setMany(new Set());
     const g: Node<Data> = { id: ulid(), type: 'group', position: { x: r.x, y: r.y }, width: r.w, height: r.h, zIndex: -1, selected: true, data: { label: '' } };
     // Va el primero de la lista: detrás de los grupos que ya hubiera dentro.
     setNodes((ns) => [g, ...ns.map((n) => (n.selected ? { ...n, selected: false } : n))]);
@@ -620,7 +641,8 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const startCarry = (lead: Node, dragged: Node[]) => {
     carry.current = null;
     const groups = dragged.filter((n) => n.type === 'group');
-    if (!groups.length) return;
+    const extra = manyRef.current;
+    if (!groups.length && !extra.size) return;
     const moving = new Set(dragged.map((n) => n.id));
     const boxes = groups.map(rectOf);
     const within = (r: { x: number; y: number; w: number; h: number }) => boxes.some((g) => inside(r, g));
@@ -630,7 +652,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         .filter((n) => !moving.has(n.id) && within(rectOf(n)))
         .map((n) => [n.id, { ...n.position }]),
     );
-    const drawings = new Map(drawingsRef.current.filter((d) => within(drawingBox(d))).map((d) => [d.id, d]));
+    const drawings = new Map(drawingsRef.current.filter((d) => extra.has(d.id) || within(drawingBox(d))).map((d) => [d.id, d]));
     if (nodes.size || drawings.size) carry.current = { lead: lead.id, from: { ...lead.position }, nodes, drawings };
   };
   const moveCarry = (lead: Node) => {
@@ -645,7 +667,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
           return p ? { ...n, position: { x: p.x + dx, y: p.y + dy } } : n;
         }),
       );
-    if (c.drawings.size) setDrawings((ds) => ds.map((d) => (c.drawings.has(d.id) ? translate(c.drawings.get(d.id)!, dx, dy) : d)));
+    if (c.drawings.size) setDrawings((ds) => ds.map((d) => (c.drawings.has(d.id) ? tidy(translate(c.drawings.get(d.id)!, dx, dy)) : d)));
   };
 
   // ── Dibujo ─────────────────────────────────────────────────────────
@@ -653,12 +675,30 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const [style, setStyleState] = useState(loadStyle);
   const [draft, setDraft] = useState<Drawing | null>(null);
   const [sel, setSel] = useState<string | null>(null);
+  // Dibujos elegidos junto con otras cosas (con el recuadro, Mayúsculas y clic
+  // o Ctrl A): se mueven, duplican, agrupan y borran con las tarjetas elegidas.
+  const [many, setManyState] = useState<Set<string>>(new Set());
+  const manyRef = useRef(many);
+  const setMany = (next: Set<string>) => {
+    if (!next.size && !manyRef.current.size) return;
+    manyRef.current = next;
+    setManyState(next);
+  };
   const [erasing, setErasing] = useState<Set<string>>(new Set());
   const [typing, setTypingState] = useState<Typing | null>(null);
   const drawingsRef = useRef(drawings);
   drawingsRef.current = drawings;
   const typingRef = useRef<Typing | null>(null);
-  const gesture = useRef<{ pointer: number; kind: 'draw' | 'erase' | 'move'; start: { x: number; y: number }; client: { x: number; y: number }; orig?: Drawing } | null>(null);
+  const gesture = useRef<{
+    pointer: number;
+    kind: 'draw' | 'erase' | 'move';
+    start: { x: number; y: number };
+    client: { x: number; y: number };
+    orig?: Drawing;
+    // Al mover varios a la vez: los dibujos y las tarjetas, como estaban.
+    all?: Map<string, Drawing>;
+    nodes?: Map<string, { x: number; y: number }>;
+  } | null>(null);
   const draftRef = useRef<Drawing | null>(null);
   const erasingRef = useRef<Set<string>>(new Set());
   // Dedos (o punteros) apoyados ahora, para mover y acercar con dos.
@@ -705,7 +745,10 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     setTyping({ id: d.id, x: d.x, y: d.y, text: d.text, color: d.color, size: d.size });
   };
 
-  const deselectNodes = () => setNodes((ns) => (ns.some((n) => n.selected) ? ns.map((n) => (n.selected ? { ...n, selected: false } : n)) : ns));
+  const deselectNodes = () => {
+    setMany(new Set());
+    setNodes((ns) => (ns.some((n) => n.selected) ? ns.map((n) => (n.selected ? { ...n, selected: false } : n)) : ns));
+  };
   const pickTool = (next: Tool) => {
     commitTyping();
     setSel(null);
@@ -789,6 +832,31 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     const orig = drawingsRef.current.find((d) => d.id === id);
     if (!orig) return;
     e.stopPropagation();
+    // Mayúsculas (o Ctrl/⌘) y clic: se suma o se quita de lo elegido.
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      const next = new Set(manyRef.current);
+      if (sel && sel !== id) next.add(sel);
+      if (next.has(id) || sel === id) next.delete(id);
+      else next.add(id);
+      setSel(null);
+      setMany(next);
+      return;
+    }
+    // Uno de varios elegidos: se arrastra todo lo elegido.
+    if (manyRef.current.has(id)) {
+      host.current!.setPointerCapture(e.pointerId);
+      const set = manyRef.current;
+      gesture.current = {
+        pointer: e.pointerId,
+        kind: 'move',
+        start: toFlowPoint(e),
+        client: { x: e.clientX, y: e.clientY },
+        orig,
+        all: new Map(drawingsRef.current.filter((d) => set.has(d.id)).map((d) => [d.id, d])),
+        nodes: new Map(flow.getNodes().filter((n) => n.selected).map((n) => [n.id, { ...n.position }])),
+      };
+      return;
+    }
     setSel(id);
     deselectNodes();
     host.current!.setPointerCapture(e.pointerId);
@@ -817,6 +885,20 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     }
     const g = gesture.current;
     if (!g || g.pointer !== e.pointerId) return;
+    if (g.kind === 'move' && g.all) {
+      const p = toFlowPoint(e);
+      const dx = p.x - g.start.x;
+      const dy = p.y - g.start.y;
+      setDrawings((ds) => ds.map((d) => (g.all!.has(d.id) ? tidy(translate(g.all!.get(d.id)!, dx, dy)) : d)));
+      if (g.nodes?.size)
+        setNodes((ns) =>
+          ns.map((n) => {
+            const o = g.nodes!.get(n.id);
+            return o ? { ...n, position: { x: o.x + dx, y: o.y + dy } } : n;
+          }),
+        );
+      return;
+    }
     if (g.kind === 'move') {
       const p = toFlowPoint(e);
       const moved = translate(g.orig!, p.x - g.start.x, p.y - g.start.y);
@@ -885,13 +967,18 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
       const picked = selectedIds();
       if (mod && e.code === 'KeyZ') e.shiftKey ? redo() : undo();
       else if (mod && !e.shiftKey && e.code === 'KeyY') redo();
-      else if (mod && !e.shiftKey && e.code === 'KeyD' && (picked.size || sel)) duplicate(picked);
+      else if (mod && !e.shiftKey && e.code === 'KeyD' && (picked.size || sel || manyRef.current.size)) duplicate(picked);
       else if (mod && !e.shiftKey && e.code === 'KeyA') selectAll();
-      else if (mod && !e.shiftKey && e.code === 'KeyG' && picked.size) group(picked);
+      else if (mod && !e.shiftKey && e.code === 'KeyG' && (picked.size || manyRef.current.size)) group(picked);
       else if (mod && e.shiftKey && e.code === 'KeyG' && picked.size) ungroup(picked);
       else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft') && (picked.size || sel))
         order(picked, e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward');
-      else if (e.key === 'Escape' && picked.size && !sel) deselectNodes();
+      else if (e.key === 'Escape' && (picked.size || manyRef.current.size) && !sel) deselectNodes();
+      // Las tarjetas las borra React Flow; los dibujos elegidos con ellas, esto.
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && manyRef.current.size) {
+        removeMany();
+        return;
+      }
       else if (e.key === 'Escape' && (sel || tool !== 'select')) sel ? setSel(null) : pickTool('select');
       else if ((e.key === 'Delete' || e.key === 'Backspace') && sel) {
         setDrawings((ds) => ds.filter((d) => d.id !== sel));
@@ -906,6 +993,9 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
 
   const ctx: Ctx = { rows: byId, onOpenNote, setData, onBodyClick };
   const picked = nodes.filter((n) => n.selected);
+  const boxFrom = useRef<{ x: number; y: number } | null>(null);
+  // Cuántas cosas hay elegidas: tarjetas y dibujos.
+  const count = picked.length + drawings.filter((d) => many.has(d.id)).length;
   const pickedIds = new Set(picked.map((n) => n.id));
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
@@ -1043,7 +1133,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
       className={`board${drawing ? ' is-drawing' : ''}`}
       data-tool={tool}
       // La hoja deja el Esc al lienzo mientras haya herramienta, dibujo o tarjetas elegidas.
-      data-esc={tool !== 'select' || sel || picked.length ? '' : undefined}
+      data-esc={tool !== 'select' || sel || count ? '' : undefined}
       onPointerDownCapture={onDrawDown}
       onPointerMove={onDrawMove}
       onPointerUp={onDrawUp}
@@ -1056,6 +1146,11 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         e.preventDefault();
         e.stopPropagation();
         commitTyping();
+        // Sobre uno de varios elegidos, el menú es para todo lo elegido.
+        if (manyRef.current.has(id)) {
+          setMenu({ kind: 'nodes', ids: nodes.filter((x) => x.selected).map((x) => x.id), x: e.clientX, y: e.clientY });
+          return;
+        }
         deselectNodes();
         setSel(id);
         setMenu({ kind: 'shape', id, x: e.clientX, y: e.clientY });
@@ -1084,10 +1179,28 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         }
         onPaneClick={(e) => {
           setSel(null);
+          setMany(new Set());
           // Doble clic en el vacío: tarjeta nueva, ya escribiendo.
           if (e.detail === 2) add('text', flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }), { editing: true });
         }}
-        onNodeClick={() => setSel(null)}
+        onNodeClick={(e) => {
+          setSel(null);
+          if (!e.shiftKey && !e.ctrlKey && !e.metaKey) setMany(new Set());
+        }}
+        // El recuadro elige también los dibujos que abarca enteros.
+        onSelectionStart={(e) => {
+          boxFrom.current = toFlowPoint(e);
+          setSel(null);
+        }}
+        onSelectionEnd={(e) => {
+          const a = boxFrom.current;
+          boxFrom.current = null;
+          if (!a) return;
+          const b = toFlowPoint(e);
+          const r = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+          if (r.w * flow.getZoom() < 4 && r.h * flow.getZoom() < 4) return;
+          setMany(new Set(drawingsRef.current.filter((d) => inside(drawingBox(d), r)).map((d) => d.id)));
+        }}
         onNodeDragStart={(_, n, dragged) => startCarry(n, dragged)}
         onNodeDrag={(_, n) => moveCarry(n)}
         onNodeDragStop={(_, n) => {
@@ -1106,6 +1219,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
           setSel(null);
           // Sobre algo no elegido, el menú es solo para eso.
           const ids = n.selected ? nodes.filter((x) => x.selected).map((x) => x.id) : [n.id];
+          if (!n.selected) setMany(new Set());
           if (!n.selected) setNodes((ns) => ns.map((x) => (x.selected === (x.id === n.id) ? x : { ...x, selected: x.id === n.id })));
           setMenu({ kind: 'nodes', ids, x: e.clientX, y: e.clientY });
         }}
@@ -1158,6 +1272,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
             drawings={drawings}
             draft={draft}
             selected={sel}
+            many={many}
             erasing={erasing}
             typing={typing}
             onShapeDown={onShapeDown}
@@ -1185,12 +1300,12 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
           {t('Doble clic para una')} <em>{t('tarjeta')}</em>{t(', o pega o suelta un archivo')}
         </p>
       )}
-      {picked.length > 1 || picked.some((n) => n.type === 'group') ? (
+      {count > 1 || picked.some((n) => n.type === 'group') ? (
         <nav className="board-tools surface-2" aria-label={t('Lo elegido')}>
-          <span className="board-tools-count meta">{tn(picked.length, '{n} elegido', '{n} elegidos')}</span>
+          <span className="board-tools-count meta">{tn(count, '{n} elegido', '{n} elegidos')}</span>
           <span className="board-tools-sep" />
           {picked.some((n) => n.type === 'group') && <button onClick={() => ungroup(pickedIds)}>{t('Desagrupar')}</button>}
-          {picked.length > 1 && <button onClick={() => group(pickedIds)}>{t('Agrupar')}</button>}
+          {count > 1 && <button onClick={() => group(pickedIds)}>{t('Agrupar')}</button>}
           <button onClick={() => duplicate(pickedIds)}>{t('Duplicar')}</button>
           <button onClick={() => remove(pickedIds)}>{t('Borrar')}</button>
           <span className="board-tools-sep" />
