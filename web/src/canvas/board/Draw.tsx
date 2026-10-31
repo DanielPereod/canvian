@@ -114,6 +114,16 @@ const icon = (children: ReactNode) => (
 
 const TOOLS: { id: Tool; label: string; icon: ReactNode }[] = [
   { id: 'select', label: 'Seleccionar', icon: icon(<path d="M6.5 4 18 10.2l-5.3 1.7-2.3 5.4z" />) },
+  {
+    id: 'box',
+    label: 'Seleccionar varios',
+    icon: icon(
+      <>
+        <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M12 4h2M18 4h.5A1.5 1.5 0 0 1 20 5.5V8M4 12v2M4 18v.5A1.5 1.5 0 0 0 5.5 20H8" />
+        <path d="M12.5 12.5 20 16l-3.4 1.1-1.5 3.4z" />
+      </>,
+    ),
+  },
   { id: 'pen', label: 'Lápiz', icon: icon(<path d="M4.5 19.5l1-4.2L16 4.8l3.2 3.2L8.7 18.5zM14 6.8l3.2 3.2" />) },
   { id: 'line', label: 'Línea', icon: icon(<path d="M5 19 19 5" />) },
   { id: 'arrow', label: 'Flecha', icon: icon(<path d="M5 19 19 5M10.5 5H19v8.5" />) },

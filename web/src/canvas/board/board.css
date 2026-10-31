@@ -91,6 +91,14 @@
 .board-tools button:hover, .board-tools-file:hover { color: var(--text); background: var(--accent-soft); }
 .board-tools-file input { display: none; }
 .board-tools-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+.board-tools-count { padding: 0 8px 0 10px; white-space: nowrap; color: var(--text-muted); }
+/* El recuadro de elegir. */
+.board .react-flow__selection, .board .react-flow__nodesselection-rect { background: var(--accent-soft); border: 1px dashed var(--accent-line); border-radius: 4px; }
+/* Con el recuadro, el fondo de un grupo deja empezarlo dentro de él; el grupo se
+   elige abarcándolo entero. */
+.board[data-tool='box'] .react-flow__node-group { pointer-events: none; }
+.board[data-tool='box'] .board-group-label { pointer-events: auto; }
+.board[data-tool='box'] .react-flow__pane { cursor: crosshair; }
 
 /* La hoja de una nota canvas: el lienzo ocupa todo; solo el ⋯ flota arriba a la derecha.
    El nombre se cambia en la ruta de la barra de arriba. */
