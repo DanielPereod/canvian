@@ -20,7 +20,8 @@ export type Drawing =
   | ({ id: string; kind: ShapeKind; x1: number; y1: number; x2: number; y2: number; seed: number } & Style)
   | ({ id: string; kind: 'text'; x: number; y: number; text: string } & Style);
 
-export type Tool = 'select' | 'pen' | ShapeKind | 'text' | 'eraser';
+// `box`: arrastrar en el vacío hace un recuadro que elige lo que abarca.
+export type Tool = 'select' | 'box' | 'pen' | ShapeKind | 'text' | 'eraser';
 
 const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
 
@@ -54,6 +55,20 @@ export function translate(d: Drawing, dx: number, dy: number): Drawing {
   if (d.kind === 'pen') return { ...d, pts: d.pts.map((n, i) => (i % 3 === 0 ? n + dx : i % 3 === 1 ? n + dy : n)) };
   if (d.kind === 'text') return { ...d, x: d.x + dx, y: d.y + dy };
   return { ...d, x1: d.x1 + dx, y1: d.y1 + dy, x2: d.x2 + dx, y2: d.y2 + dy };
+}
+
+// El recuadro que ocupa un dibujo (el de un texto, aproximado).
+export function drawingBox(d: Drawing): { x: number; y: number; w: number; h: number } {
+  if (d.kind === 'text') {
+    const fs = fontSize(d.size);
+    const lines = d.text.split('\n');
+    return { x: d.x, y: d.y - fs, w: Math.max(...lines.map((l) => l.length)) * fs * 0.55, h: lines.length * fs * 1.25 };
+  }
+  const xs = d.kind === 'pen' ? d.pts.filter((_, i) => i % 3 === 0) : [d.x1, d.x2];
+  const ys = d.kind === 'pen' ? d.pts.filter((_, i) => i % 3 === 1) : [d.y1, d.y2];
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
 }
 
 // ── Trazo libre: perfect-freehand da el contorno de una pincelada ─────

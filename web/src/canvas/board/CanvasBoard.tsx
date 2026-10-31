@@ -9,6 +9,7 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
+  SelectionMode,
   applyEdgeChanges,
   applyNodeChanges,
   getBezierPath,
@@ -28,15 +29,15 @@ import '@xyflow/react/dist/base.css';
 import { ulid } from 'ulidx';
 import type { NoteRow } from '../../api';
 import { fileExt, fileSize, openFile, uploadMedia } from '../media';
-import { boardText, parseBoard, type Board, type BoardNode } from './board';
-import { constrain, fontSize, tidy, translate, type DrawColor, type DrawSize, type Drawing, type ShapeKind, type Tool } from './draw';
+import { boardIds, boardText, groupAround, inside, mergeBoards, parseBoard, type Board, type BoardNode } from './board';
+import { constrain, drawingBox, fontSize, tidy, translate, type DrawColor, type DrawSize, type Drawing, type ShapeKind, type Tool } from './draw';
 import { DrawBar, DrawLayer, type Typing } from './Draw';
 import { BoardMenu, cardTint, type BoardMenuItem } from './BoardMenu';
 import { bodyToHtml, parseBody, splitTitle } from '../editor';
 import { markdownToDoc } from '../markdown';
 import { splitWiki } from '../obsidian';
 import { goToAnchor } from '../anchor';
-import { t } from '../../i18n';
+import { t, tn } from '../../i18n';
 import './board.css';
 
 // El lienzo de una nota de tipo canvas: tarjetas de texto, notas enlazadas,
@@ -297,6 +298,13 @@ const fromFlow = (nodes: Node<Data>[], edges: Edge[], drawings: Drawing[]): Boar
   ...(drawings.length ? { drawings } : {}),
 });
 
+// El cuerpo guardado tal y como lo escribiría este lienzo, para comparar.
+const normalJson = (bodyJson: string | null) => {
+  const b = parseBoard(bodyJson);
+  const f = toFlow(b);
+  return JSON.stringify(fromFlow(f.nodes, f.edges, b.drawings ?? []));
+};
+
 // Color y grosor con los que se dibuja, recordados en este navegador.
 const STYLE_KEY = 'canvian:draw';
 function loadStyle(): { color: DrawColor; size: DrawSize } {
@@ -397,6 +405,13 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   };
   useEffect(() => flush, []);
   const boardJson = JSON.stringify(fromFlow(nodes, edges, drawings));
+  // Lo último que se sabe que hay guardado: lo que se guardó desde aquí o lo
+  // que llegó de otro dispositivo.
+  const synced = useRef(normalJson(note.bodyJson));
+  // Lo último que llegó de fuera, y todo lo que se sabe que ha estado guardado
+  // (para unir lo que llegue: ver mergeBoards).
+  const base = useRef(synced.current);
+  const known = useRef(new Set(boardIds(initialBoard)));
   useEffect(() => {
     if (first.current) {
       first.current = false;
@@ -409,8 +424,16 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     const drawn = JSON.stringify(board.drawings ?? []);
     if (drawn !== lastDrawn.current && gesture.current?.kind !== 'move') record(json);
     lastDrawn.current = drawn;
+    // Lo que acaba de llegar de fuera ya está guardado: no se devuelve.
+    if (json === synced.current) {
+      pending.current = null;
+      record(json);
+      return;
+    }
     pending.current = () => {
       record(json);
+      synced.current = json;
+      for (const id of boardIds(board)) known.current.add(id);
       onSaveRef.current({ bodyJson: json, bodyText: boardText(board, byId) });
     };
     const t = setTimeout(flush, 450);
@@ -418,6 +441,52 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     // Solo el contenido: posiciones, tamaños, textos, flechas y dibujos.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardJson]);
+
+  // ── En vivo: lo cambiado en otro dispositivo (o pestaña) aparece aquí ──
+  // Llega como una nota nueva desde arriba y se une con lo de aquí cosa a cosa
+  // (ver mergeBoards). Si se está arrastrando o cambiando de tamaño algo,
+  // espera a que se suelte.
+  const [remote, setRemote] = useState<string | null>(null);
+  useEffect(() => {
+    const json = normalJson(note.bodyJson);
+    if (json !== synced.current) setRemote(json);
+  }, [note.bodyJson]);
+  const busy = nodes.some((n) => n.dragging || n.resizing);
+  useEffect(() => {
+    if (!remote || busy) return;
+    setRemote(null);
+    const localNodes = flow.getNodes() as Node<Data>[];
+    const localEdges = flow.getEdges();
+    const local = fromFlow(localNodes, localEdges, drawingsRef.current);
+    const theirs = parseBoard(remote);
+    const merged = mergeBoards(parseBoard(base.current), local, theirs, known.current);
+    base.current = synced.current = remote;
+    for (const id of boardIds(theirs)) known.current.add(id);
+    if (JSON.stringify(merged) === JSON.stringify(local)) return;
+    // Lo que no ha cambiado se queda tal cual (con su selección y lo que se
+    // esté escribiendo en ello).
+    const before = new Map(local.nodes.map((n) => [n.id, JSON.stringify(n)]));
+    const now = new Map(merged.nodes.map((n) => [n.id, JSON.stringify(n)]));
+    const old = new Map(localNodes.map((n) => [n.id, n]));
+    const oldEdges = new Map(localEdges.map((e) => [e.id, e]));
+    const f = toFlow(merged);
+    setNodes(
+      f.nodes.map((n) => {
+        const o = old.get(n.id);
+        if (!o) return n;
+        if (before.get(n.id) === now.get(n.id)) return o;
+        return { ...n, selected: o.selected, data: { ...n.data, editing: o.data.editing } };
+      }),
+    );
+    setEdges(
+      f.edges.map((e) => {
+        const o = oldEdges.get(e.id);
+        return o && o.source === e.source && o.target === e.target && !o.markerEnd === !e.markerEnd ? o : { ...e, selected: o?.selected };
+      }),
+    );
+    setDrawings(merged.drawings ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remote, busy]);
 
   // ── Deshacer y rehacer: cada estado guardado del lienzo es un paso ──
   const hist = useRef({ stack: [JSON.stringify(fromFlow(initial.nodes, initial.edges, initialBoard.drawings ?? []))], at: 0 });
@@ -526,6 +595,59 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     setNodes((ns) => ns.map((n) => (ids.has(n.id) ? { ...n, data: { ...n.data, color: color ?? undefined } } : n)));
   const remove = (ids: Set<string>) => void flow.deleteElements({ nodes: [...ids].map((id) => ({ id })) });
 
+  // ── Grupos: un recuadro con nombre; lo que cae dentro se mueve con él ──
+  const group = (ids: Set<string>) => {
+    const picked = flow.getNodes().filter((n) => ids.has(n.id));
+    if (!picked.length) return;
+    const r = groupAround(picked.map(rectOf));
+    const g: Node<Data> = { id: ulid(), type: 'group', position: { x: r.x, y: r.y }, width: r.w, height: r.h, zIndex: -1, selected: true, data: { label: '' } };
+    // Va el primero de la lista: detrás de los grupos que ya hubiera dentro.
+    setNodes((ns) => [g, ...ns.map((n) => (n.selected ? { ...n, selected: false } : n))]);
+  };
+  // Quita los grupos elegidos y deja elegido lo que tenían dentro.
+  const ungroup = (ids: Set<string>) => {
+    const all = flow.getNodes();
+    const groups = all.filter((n) => ids.has(n.id) && n.type === 'group');
+    if (!groups.length) return;
+    const gone = new Set(groups.map((g) => g.id));
+    const freed = new Set(all.filter((n) => !gone.has(n.id) && groups.some((g) => inside(rectOf(n), rectOf(g)))).map((n) => n.id));
+    setNodes((ns) => ns.filter((n) => !gone.has(n.id)).map((n) => (freed.has(n.id) !== !!n.selected ? { ...n, selected: freed.has(n.id) } : n)));
+    setEdges((es) => es.filter((e) => !gone.has(e.source) && !gone.has(e.target)));
+  };
+  // Al arrastrar un grupo, lo que tiene dentro (tarjetas, otros grupos y
+  // dibujos) va con él, como en Obsidian.
+  const carry = useRef<{ lead: string; from: { x: number; y: number }; nodes: Map<string, { x: number; y: number }>; drawings: Map<string, Drawing> } | null>(null);
+  const startCarry = (lead: Node, dragged: Node[]) => {
+    carry.current = null;
+    const groups = dragged.filter((n) => n.type === 'group');
+    if (!groups.length) return;
+    const moving = new Set(dragged.map((n) => n.id));
+    const boxes = groups.map(rectOf);
+    const within = (r: { x: number; y: number; w: number; h: number }) => boxes.some((g) => inside(r, g));
+    const nodes = new Map(
+      flow
+        .getNodes()
+        .filter((n) => !moving.has(n.id) && within(rectOf(n)))
+        .map((n) => [n.id, { ...n.position }]),
+    );
+    const drawings = new Map(drawingsRef.current.filter((d) => within(drawingBox(d))).map((d) => [d.id, d]));
+    if (nodes.size || drawings.size) carry.current = { lead: lead.id, from: { ...lead.position }, nodes, drawings };
+  };
+  const moveCarry = (lead: Node) => {
+    const c = carry.current;
+    if (!c || c.lead !== lead.id) return;
+    const dx = lead.position.x - c.from.x;
+    const dy = lead.position.y - c.from.y;
+    if (c.nodes.size)
+      setNodes((ns) =>
+        ns.map((n) => {
+          const p = c.nodes.get(n.id);
+          return p ? { ...n, position: { x: p.x + dx, y: p.y + dy } } : n;
+        }),
+      );
+    if (c.drawings.size) setDrawings((ds) => ds.map((d) => (c.drawings.has(d.id) ? translate(c.drawings.get(d.id)!, dx, dy) : d)));
+  };
+
   // ── Dibujo ─────────────────────────────────────────────────────────
   const [tool, setTool] = useState<Tool>('select');
   const [style, setStyleState] = useState(loadStyle);
@@ -544,7 +666,8 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const pinch = useRef<{ vp: { x: number; y: number; zoom: number }; mid: { x: number; y: number }; dist: number } | null>(null);
   // Arrastrar con el botón central del ratón mueve el lienzo.
   const pan = useRef<{ pointer: number; vp: { x: number; y: number; zoom: number }; x: number; y: number } | null>(null);
-  const drawing = tool !== 'select';
+  // Con la flecha o el recuadro se eligen y mueven tarjetas; lo demás dibuja.
+  const drawing = tool !== 'select' && tool !== 'box';
 
   const setStyle = (next: Partial<{ color: DrawColor; size: DrawSize }>) => {
     const s = { ...style, ...next };
@@ -587,7 +710,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     commitTyping();
     setSel(null);
     setTool(next);
-    if (next !== 'select') deselectNodes();
+    if (next !== 'select' && next !== 'box') deselectNodes();
   };
 
   const toFlowPoint = (e: { clientX: number; clientY: number }) => flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
@@ -764,8 +887,11 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
       else if (mod && !e.shiftKey && e.code === 'KeyY') redo();
       else if (mod && !e.shiftKey && e.code === 'KeyD' && (picked.size || sel)) duplicate(picked);
       else if (mod && !e.shiftKey && e.code === 'KeyA') selectAll();
+      else if (mod && !e.shiftKey && e.code === 'KeyG' && picked.size) group(picked);
+      else if (mod && e.shiftKey && e.code === 'KeyG' && picked.size) ungroup(picked);
       else if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft') && (picked.size || sel))
         order(picked, e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : e.shiftKey ? 'back' : 'backward');
+      else if (e.key === 'Escape' && picked.size && !sel) deselectNodes();
       else if (e.key === 'Escape' && (sel || tool !== 'select')) sel ? setSel(null) : pickTool('select');
       else if ((e.key === 'Delete' || e.key === 'Backspace') && sel) {
         setDrawings((ds) => ds.filter((d) => d.id !== sel));
@@ -779,6 +905,8 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   });
 
   const ctx: Ctx = { rows: byId, onOpenNote, setData, onBodyClick };
+  const picked = nodes.filter((n) => n.selected);
+  const pickedIds = new Set(picked.map((n) => n.id));
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
   const nodeTypes = useMemo(
@@ -893,6 +1021,8 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
       one?.type === 'note' && one.data.noteId && byId.has(one.data.noteId) ? { label: t('Abrir nota'), run: () => onOpenNote(one.data.noteId!) } : null,
       one && doc ? { label: t('Abrir archivo'), run: () => openFile(one.data.file!, one.data.name || one.data.file!.split('/').pop() || '') } : null,
       { label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(ids) },
+      { label: t('Agrupar'), key: `${MOD} G`, run: () => group(ids) },
+      nodes.some((n) => ids.has(n.id) && n.type === 'group') ? { label: t('Desagrupar'), key: `${MOD} ⇧ G`, run: () => ungroup(ids) } : null,
       null,
       ...orderItems(ids),
       null,
@@ -912,8 +1042,8 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
       ref={host}
       className={`board${drawing ? ' is-drawing' : ''}`}
       data-tool={tool}
-      // La hoja deja el Esc al lienzo mientras haya herramienta o dibujo elegido.
-      data-esc={drawing || sel ? '' : undefined}
+      // La hoja deja el Esc al lienzo mientras haya herramienta, dibujo o tarjetas elegidas.
+      data-esc={tool !== 'select' || sel || picked.length ? '' : undefined}
       onPointerDownCapture={onDrawDown}
       onPointerMove={onDrawMove}
       onPointerUp={onDrawUp}
@@ -958,6 +1088,19 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
           if (e.detail === 2) add('text', flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }), { editing: true });
         }}
         onNodeClick={() => setSel(null)}
+        onNodeDragStart={(_, n, dragged) => startCarry(n, dragged)}
+        onNodeDrag={(_, n) => moveCarry(n)}
+        onNodeDragStop={(_, n) => {
+          moveCarry(n);
+          carry.current = null;
+        }}
+        // Lo elegido con el recuadro se arrastra por su marco.
+        onSelectionDragStart={(_, ns) => ns[0] && startCarry(ns[0], ns)}
+        onSelectionDrag={(_, ns) => ns[0] && moveCarry(ns[0])}
+        onSelectionDragStop={(_, ns) => {
+          if (ns[0]) moveCarry(ns[0]);
+          carry.current = null;
+        }}
         onNodeContextMenu={(e, n) => {
           e.preventDefault();
           setSel(null);
@@ -989,7 +1132,14 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         nodesDraggable={!drawing}
         nodesConnectable={!drawing}
         elementsSelectable={!drawing}
-        panOnDrag={!drawing}
+        // Con el recuadro, arrastrar en el vacío elige; el lienzo se mueve con
+        // la rueda, con dos dedos o con el botón central.
+        panOnDrag={drawing ? false : tool === 'box' ? [1] : true}
+        selectionOnDrag={tool === 'box'}
+        selectionMode={SelectionMode.Full}
+        // Mayúsculas (o Ctrl/⌘) y clic suma o quita una tarjeta de lo elegido;
+        // Mayúsculas y arrastrar en el vacío hace el recuadro.
+        multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
         connectionMode={ConnectionMode.Loose}
         defaultEdgeOptions={{ type: 'arrow', markerEnd: ARROW }}
         connectionLineStyle={{ stroke: 'var(--board-edge)', strokeWidth: 1.5 }}
@@ -1035,25 +1185,40 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
           {t('Doble clic para una')} <em>{t('tarjeta')}</em>{t(', o pega o suelta un archivo')}
         </p>
       )}
-      <nav className="board-tools surface-2" aria-label={t('Añadir al lienzo')}>
-        <button onClick={() => add('text', center(), { editing: true })}>{t('Tarjeta')}</button>
-        <button onClick={() => onPickNote((id) => add('note', center(), { noteId: id }))}>{t('Nota')}</button>
-        <button onClick={() => add('group', center(), { label: '' })}>{t('Grupo')}</button>
-        <label className="board-tools-file">
-          {t('Archivo')}
-          <input
-            type="file"
-            multiple
-            onChange={(e) => {
-              const files = [...(e.target.files ?? [])];
-              e.target.value = '';
-              if (files.length) void addMedia(files, center());
-            }}
-          />
-        </label>
-        <span className="board-tools-sep" />
-        <button onClick={() => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 })}>{t('Encuadrar')}</button>
-      </nav>
+      {picked.length > 1 || picked.some((n) => n.type === 'group') ? (
+        <nav className="board-tools surface-2" aria-label={t('Lo elegido')}>
+          <span className="board-tools-count meta">{tn(picked.length, '{n} elegido', '{n} elegidos')}</span>
+          <span className="board-tools-sep" />
+          {picked.some((n) => n.type === 'group') && <button onClick={() => ungroup(pickedIds)}>{t('Desagrupar')}</button>}
+          {picked.length > 1 && <button onClick={() => group(pickedIds)}>{t('Agrupar')}</button>}
+          <button onClick={() => duplicate(pickedIds)}>{t('Duplicar')}</button>
+          <button onClick={() => remove(pickedIds)}>{t('Borrar')}</button>
+          <span className="board-tools-sep" />
+          <button onClick={deselectNodes} aria-label={t('Soltar la selección')} title={t('Soltar la selección')}>
+            ✕
+          </button>
+        </nav>
+      ) : (
+        <nav className="board-tools surface-2" aria-label={t('Añadir al lienzo')}>
+          <button onClick={() => add('text', center(), { editing: true })}>{t('Tarjeta')}</button>
+          <button onClick={() => onPickNote((id) => add('note', center(), { noteId: id }))}>{t('Nota')}</button>
+          <button onClick={() => add('group', center(), { label: '' })}>{t('Grupo')}</button>
+          <label className="board-tools-file">
+            {t('Archivo')}
+            <input
+              type="file"
+              multiple
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])];
+                e.target.value = '';
+                if (files.length) void addMedia(files, center());
+              }}
+            />
+          </label>
+          <span className="board-tools-sep" />
+          <button onClick={() => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 })}>{t('Encuadrar')}</button>
+        </nav>
+      )}
       {menu && <BoardMenu x={menu.x} y={menu.y} items={menuItems(menu)} color={menuColor(menu)} onClose={() => setMenu(null)} />}
     </div>
   );
