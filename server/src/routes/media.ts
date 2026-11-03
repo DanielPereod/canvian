@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { createReadStream, mkdirSync, statSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -83,48 +83,50 @@ export function mediaRoutes(dir: string) {
   });
 
   // Con soporte de Range para poder saltar dentro de un vídeo o un audio.
-  r.get('/media/:name', (c) => {
-    const name = c.req.param('name');
-    const m = NAME.exec(name);
-    if (!m) return c.json({ error: 'No encontrado' }, 404);
-    const shown = MIME[m[1]] ?? VIEW[m[1]];
-    const path = join(dir, name);
-    let size: number;
-    try {
-      size = statSync(path).size;
-    } catch {
-      return c.json({ error: 'No encontrado' }, 404);
-    }
-    const headers: Record<string, string> = {
-      'content-type': shown ?? 'application/octet-stream',
-      ...(shown ? {} : { 'content-disposition': 'attachment' }),
-      'accept-ranges': 'bytes',
-      'x-content-type-options': 'nosniff',
-      // El nombre es único y el archivo nunca cambia.
-      'cache-control': 'private, max-age=31536000, immutable',
-    };
-    let start = 0;
-    let end = size - 1;
-    let status: 200 | 206 = 200;
-    const range = /^bytes=(\d*)-(\d*)$/.exec(c.req.header('range') ?? '');
-    if (range && (range[1] || range[2])) {
-      if (range[1]) {
-        start = Number(range[1]);
-        if (range[2]) end = Math.min(end, Number(range[2]));
-      } else {
-        start = Math.max(0, size - Number(range[2]));
-      }
-      if (start > end || start >= size) {
-        return c.body(null, 416, { 'content-range': `bytes */${size}` });
-      }
-      status = 206;
-      headers['content-range'] = `bytes ${start}-${end}/${size}`;
-    }
-    headers['content-length'] = String(end - start + 1);
-    if (c.req.method === 'HEAD') return c.body(null, status, headers);
-    const stream = Readable.toWeb(createReadStream(path, { start, end })) as ReadableStream;
-    return c.body(stream, status, headers);
-  });
+  r.get('/media/:name', (c) => sendMedia(c, dir, c.req.param('name')));
 
   return r;
+}
+
+// Manda un archivo guardado (también lo usan las notas públicas).
+export function sendMedia(c: Context, dir: string, name: string, cache = 'private, max-age=31536000, immutable') {
+  const m = NAME.exec(name);
+  if (!m) return c.json({ error: 'No encontrado' }, 404);
+  const shown = MIME[m[1]] ?? VIEW[m[1]];
+  const path = join(dir, name);
+  let size: number;
+  try {
+    size = statSync(path).size;
+  } catch {
+    return c.json({ error: 'No encontrado' }, 404);
+  }
+  const headers: Record<string, string> = {
+    'content-type': shown ?? 'application/octet-stream',
+    ...(shown ? {} : { 'content-disposition': 'attachment' }),
+    'accept-ranges': 'bytes',
+    'x-content-type-options': 'nosniff',
+    // El nombre es único y el archivo nunca cambia.
+    'cache-control': cache,
+  };
+  let start = 0;
+  let end = size - 1;
+  let status: 200 | 206 = 200;
+  const range = /^bytes=(\d*)-(\d*)$/.exec(c.req.header('range') ?? '');
+  if (range && (range[1] || range[2])) {
+    if (range[1]) {
+      start = Number(range[1]);
+      if (range[2]) end = Math.min(end, Number(range[2]));
+    } else {
+      start = Math.max(0, size - Number(range[2]));
+    }
+    if (start > end || start >= size) {
+      return c.body(null, 416, { 'content-range': `bytes */${size}` });
+    }
+    status = 206;
+    headers['content-range'] = `bytes ${start}-${end}/${size}`;
+  }
+  headers['content-length'] = String(end - start + 1);
+  if (c.req.method === 'HEAD') return c.body(null, status, headers);
+  const stream = Readable.toWeb(createReadStream(path, { start, end })) as ReadableStream;
+  return c.body(stream, status, headers);
 }

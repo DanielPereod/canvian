@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
-import { parseProps, type NoteInput, type NoteRow, type PropertyDef } from '../api';
+import { api, parseProps, type NoteInput, type NoteRow, type PropertyDef, type Share } from '../api';
+import { ShareDialog } from './ShareDialog';
 import { applyRemote, bodyToHtml, editingExtensions, extensions, joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from './editor';
 import { repairDoc, sourceOf, sourceToDoc } from './markdown';
 import { NoteProps } from './NoteProps';
@@ -668,6 +669,20 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
   const editorRef = useRef<Editor | null>(null);
   const filePick = useRef<HTMLInputElement>(null);
   const [moving, setMoving] = useState(false);
+  // Si es pública (su enlace), y el cuadro para compartirla.
+  const [share, setShare] = useState<{ id: string; share: Share | null } | null>(null);
+  const [sharing, setSharing] = useState(false);
+  useEffect(() => {
+    let on = true;
+    api
+      .share(note.id)
+      .then((s) => on && setShare({ id: note.id, share: s }))
+      .catch(() => {});
+    return () => {
+      on = false;
+    };
+  }, [note.id]);
+  const shared = share?.id === note.id ? share.share : null;
   const [folded, toggleFolded] = useReaderFolded();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   // El clic que cierra el menú al pulsar fuera no debe volver a abrirlo si cae en su botón.
@@ -873,6 +888,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       },
       { label: t('Mover a…'), title: t('Meterla dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
       { label: t('Enlazar con…'), run: onLink },
+      { label: shared ? t('Compartida en la web…') : t('Compartir…'), title: t('Un enlace para que otros la lean, con contraseña si quieres'), run: () => setSharing(true) },
       { label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de ella'), keys: keysOf(keymap.archive), run: onArchive },
       { label: t('Borrar'), danger: true, run: () => close(() => onDelete(note.id)) },
     ];
@@ -900,6 +916,14 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
             <span className="reader-meta">
               {madre ? madre.title || t('Nota sin título') : t('Arriba del todo')} · {kindOf(note, kids)} · {t('editada {date}', { date: editedLabel(note.updatedAt) })}
               {source && ' · Markdown'}
+              {shared && (
+                <>
+                  {' · '}
+                  <button className="reader-public" onClick={() => setSharing(true)} title={t('Cambiar cómo se comparte')}>
+                    {shared.hasPassword ? t('Pública, con contraseña') : t('Pública')}
+                  </button>
+                </>
+              )}
             </span>
             {!note.cover && (
               <div className="reader-addons">
@@ -1025,6 +1049,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
         )}
         {menu && <SheetMenu x={menu.x} y={menu.y} items={items} onClose={closeMenu} />}
         {picker}
+        {sharing && <ShareDialog note={note} rows={rows} share={shared} onChange={(s) => setShare({ id: note.id, share: s })} onNotice={onNotice} onError={onError} onClose={() => setSharing(false)} />}
       </div>
     );
   }

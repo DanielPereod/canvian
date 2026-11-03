@@ -108,6 +108,14 @@ export function startTheme() {
   paint();
 }
 
+/** El aspecto de otro (una nota pública), sin guardarlo aquí. */
+export function previewTheme(v: unknown) {
+  const saved = clean(v);
+  if (!saved) return;
+  current = saved;
+  paint();
+}
+
 function cleanMap(v: unknown): Record<string, Appearance> {
   const out: Record<string, Appearance> = {};
   if (v && typeof v === 'object') {

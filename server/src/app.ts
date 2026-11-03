@@ -22,6 +22,7 @@ import { mediaRoutes } from './routes/media.js';
 import { prefRoutes } from './routes/prefs.js';
 import { calendarRoutes } from './routes/calendars.js';
 import { unfurlRoutes } from './routes/unfurl.js';
+import { publicRoutes, shareRoutes } from './routes/shares.js';
 import type { Fetcher } from './calendars.js';
 import { createHub, scopeOf } from './live.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
@@ -101,6 +102,9 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
     deleteCookie(c, SESSION_COOKIE, { path: '/' });
     return c.json({ ok: true });
   });
+
+  // Las notas públicas se leen sin sesión (con su contraseña, si la tienen).
+  api.route('/public', publicRoutes(db, opts.mediaDir));
 
   // Todo lo que viene después requiere sesión.
   api.use('*', async (c, next) => {
@@ -213,6 +217,7 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
 
   api.route('/', koreaderSettingsRoutes(db));
   api.route('/', canvasRoutes(db));
+  api.route('/', shareRoutes(db));
   api.route('/', propertyRoutes(db));
   api.route('/', lensRoutes(db));
   api.route('/', prefRoutes(db));

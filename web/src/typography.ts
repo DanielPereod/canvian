@@ -128,7 +128,7 @@ function set(style: CSSStyleDeclaration, names: string[], value: string | null) 
 
 const stackOf = (id: string) => (id === SAME_AS_UI ? 'var(--font-ui)' : (fontOf(id)?.stack ?? null));
 
-function apply(t: Typography) {
+function apply(t: Typography, keep = true) {
   current = t;
   const root = document.documentElement.style;
   set(root, ['--font-ui'], stackOf(t.ui));
@@ -139,7 +139,7 @@ function apply(t: Typography) {
     set(body, ['--read-font'], stackOf(t.text));
     set(body, ['--font-mono'], stackOf(t.code));
   }
-  try {
+  if (keep) try {
     localStorage.setItem(LOCAL, JSON.stringify(t));
   } catch {
     // Sin almacenamiento local llega igual desde el servidor.
@@ -164,6 +164,12 @@ export function loadTypography() {
       if (saved) apply(saved);
     })
     .catch(() => {});
+}
+
+/** Las letras de otro (una nota pública), sin guardarlas aquí. */
+export function previewTypography(v: unknown) {
+  const saved = clean(v);
+  if (saved) apply(saved, false);
 }
 
 export function setTypography(change: Partial<Typography>) {

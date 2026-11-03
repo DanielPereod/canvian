@@ -85,6 +85,13 @@ export type LayoutItem = {
 export type KoreaderStatus = { token: string | null; publicUrl: string | null; folders: Record<string, string | null> };
 export type McpStatus = { enabled: boolean; fromEnv: boolean; token: string | null; publicUrl: string | null };
 
+// Una nota pública: su enlace (id), qué hijas se ven y si pide contraseña.
+export type ShareScope = 'note' | 'all' | 'some';
+export type Share = { id: string; noteId: string; scope: ShareScope; childIds: string[]; hasPassword: boolean; createdAt: string; updatedAt: string };
+// Lo que ve quien abre el enlace.
+export type PublicPage = { id: string; kind: NoteKind; title: string | null; parentId: string | null; bodyJson: string | null; cover: string | null; updatedAt: string };
+export type PublicShare = { id: string; rootId: string; look: { appearance: unknown; type: unknown; accent: string | null }; notes: PublicPage[] };
+
 export type SearchHit = { id: string; title: string | null; bodyText: string | null; kind: NoteKind };
 
 // Lo que se envía al servidor: igual que una fila pero con `props` como objeto.
@@ -203,6 +210,12 @@ export const api = {
   createKoreaderToken: () => request<{ token: string }>('POST', '/koreader/token'),
   revokeKoreaderToken: () => request('DELETE', '/koreader/token'),
   setKoreaderFolder: (profileId: string, noteId: string | null) => request<KoreaderStatus>('PUT', '/koreader/folder', { profileId, noteId }),
+  shares: (profileId: string) => request<Share[]>('GET', `/profiles/${profileId}/shares`),
+  share: (noteId: string) => request<Share | null>('GET', `/notes/${noteId}/share`),
+  saveShare: (noteId: string, body: { scope: ShareScope; childIds: string[]; password?: string | null }) => request<Share>('PUT', `/notes/${noteId}/share`, body),
+  deleteShare: (noteId: string) => request('DELETE', `/notes/${noteId}/share`),
+  publicShare: (slug: string) => request<PublicShare>('GET', `/public/${encodeURIComponent(slug)}`),
+  unlockShare: (slug: string, password: string) => request('POST', `/public/${encodeURIComponent(slug)}/unlock`, { password }),
   search: (profileId: string, q: string) =>
     request<SearchHit[]>('GET', `/profiles/${profileId}/search?q=${encodeURIComponent(q)}`),
 };
