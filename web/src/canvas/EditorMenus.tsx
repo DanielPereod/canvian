@@ -4,6 +4,7 @@ import type { Editor } from '@tiptap/react';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import { t } from '../i18n';
 import { attachFiles, youtubeId } from './media';
+import { APP_TEMPLATE, editNextApp } from './miniapp';
 import { TOUCH } from './touch';
 import type { SlashQuery } from './slash';
 import { promptLink } from './editor';
@@ -157,6 +158,18 @@ function slashItems(editor: Editor): SlashItem[] {
   items.push(
     { id: 'wiki', label: 'Enlace a una nota', icon: '↗', group: 'Enlaces', words: 'link nota page enlace wiki mention mencion [[', hint: '[[', run: (ed) => void ed.chain().focus().insertContent('[[').run() },
     { id: 'link', label: 'Enlace web', icon: '🔗', group: 'Enlaces', words: 'link url web enlace bookmark', hint: `${MOD} K`, run: (ed) => promptLink(ed) },
+    {
+      id: 'app',
+      label: 'Mini app',
+      icon: '⚙',
+      group: 'Otros',
+      words: 'app mini html javascript js script calculadora calculator widget programa codigo embed',
+      hint: '```app',
+      run: (ed) => {
+        editNextApp();
+        ed.chain().focus().insertContent({ type: 'miniApp', attrs: { code: APP_TEMPLATE } }).run();
+      },
+    },
     { id: 'date', label: 'Fecha de hoy', icon: '📅', group: 'Otros', words: 'date fecha hoy today dia', run: (ed) => void ed.chain().focus().insertContent(today()).run() },
   );
   return items;

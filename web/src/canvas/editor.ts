@@ -8,6 +8,7 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import { mediaNodes } from './media';
 import { embedNodes } from './embeds';
+import { MiniApp } from './miniapp';
 import { getLang, t } from '../i18n';
 import { markdownToDoc } from './markdown';
 import { Highlight, MarkdownLinkInput, WikiLink, tasks } from './obsidian';
@@ -51,6 +52,8 @@ export const extensions = [
   ...mediaNodes,
   // Enlaces vistos incrustados: la ficha de una web y otra nota entera.
   ...embedNodes,
+  // Mini apps: HTML y JS propios, aislados en un iframe.
+  MiniApp,
   // Lo propio de Obsidian: [[enlaces]], ==resaltado== y casillas.
   WikiLink,
   Highlight,

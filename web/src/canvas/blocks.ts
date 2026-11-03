@@ -51,7 +51,7 @@ export const BlockColor = Extension.create({
 // Solo lo tienen los bloques a los que se ha copiado un enlace. No pasa al
 // partir la línea con Intro, y si un bloque se duplica o se pega otra vez, la
 // copia se queda sin él: el enlace sigue llevando al de antes.
-const WITH_ID = [...COLORED.filter((n) => !n.endsWith('List')), 'codeBlock', 'table', 'columns', 'horizontalRule', 'image', 'video', 'audio', 'youtube', 'bookmark', 'noteEmbed', 'file'];
+const WITH_ID = [...COLORED.filter((n) => !n.endsWith('List')), 'codeBlock', 'table', 'columns', 'horizontalRule', 'image', 'video', 'audio', 'youtube', 'bookmark', 'noteEmbed', 'file', 'miniApp'];
 
 export const BlockId = Extension.create({
   name: 'blockId',
