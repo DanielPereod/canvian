@@ -168,6 +168,18 @@ describe('mcp', () => {
     expect((await tool(client, 'get_note', { note: other.created.id })).markdown).toContain('[[Plan#^dec1]]');
   });
 
+  it('writes and reads mini apps', async () => {
+    const client = await connect(token);
+    const app = '```app\n<button id="b">+1</button> <output id="o">0</output>\n<script>b.onclick = () => o.textContent = +o.textContent + 1</script>\n```';
+    const made = await tool(client, 'create_note', { title: 'Contador', markdown: `Un contador.\n\n${app}` });
+    const read = await tool(client, 'get_note', { note: made.created.id });
+    expect(read.markdown).toContain(app);
+    // En la web es un bloque de mini app, no un bloque de código.
+    const canvas = await (await call('GET', `/api/profiles/${(await (await call('GET', '/api/profiles')).json())[0].id}/canvas`)).json();
+    const row = canvas.notes.find((n: { id: string }) => n.id === made.created.id);
+    expect(JSON.parse(row.bodyJson).content.some((n: { type: string }) => n.type === 'miniApp')).toBe(true);
+  });
+
   it('handles tasks: inbox, today, done', async () => {
     const client = await connect(token);
     const today = localDay();

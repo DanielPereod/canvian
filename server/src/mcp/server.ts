@@ -60,6 +60,7 @@ const INSTRUCTIONS = `Canvian es la app de notas de Dani (en español). Cómo fu
 - El texto de las notas se lee y escribe en Markdown (estilo Obsidian): [[Otra nota]] enlaza notas, ==resaltado==, > [!note] avisos.
 - Un bloque puede llevar un id al final de su línea («texto ^abc123»); [[Nota#^abc123]] enlaza ese punto exacto y [[Nota#Encabezado]] esa sección. get_note con «Nota#^abc123» lee solo ese trozo.
 - Las tareas no son notas: son las casillas «- [ ] texto» dentro de las notas. Detrás del texto llevan «📅 AAAA-MM-DD» (fecha), «⏫ 🔼 🔽» (prioridad alta/media/baja), «#etiqueta», «🔁 every week» si se repite (como en Obsidian Tasks) y, hechas, «✅ AAAA-MM-DD». Al hacer una que se repite se apunta encima la siguiente vez, con su fecha. «[/]» es en curso y «[!]» bloqueada. Una casilla sangrada bajo otra es su subtarea.
+- Una mini app (calculadora, conversor, contador…) es un bloque de código \`\`\`app con HTML, CSS y <script> dentro: en la nota se ejecuta aislada (sin acceso a la sesión ni a la API, ni a localStorage) y mide lo que su contenido. Los <button>, <input>, <select>, <label>, <output> y las clases .row, .grid, .card y .muted ya llevan el estilo del tema; para colores usa var(--text), var(--accent), var(--surface-1), var(--line)…
 - Lo que se apunta sin decir dónde va a la nota «${INBOX}».
 - Hay perfiles (por ejemplo Personal y Trabajo) que no se mezclan; sin indicar ninguno se usa el primero.
 - Archivar oculta una nota (y lo que tiene dentro) sin borrarla.
@@ -288,7 +289,7 @@ export function createMcpServer(db: Db, hub?: Hub, opts: { mediaDir?: string; fe
     'create_note',
     {
       title: 'Crear nota',
-      description: 'Crea una nota con su título y texto en Markdown (puede llevar [[enlaces]] a otras notas por su título, casillas «- [ ]», tablas…).',
+      description: 'Crea una nota con su título y texto en Markdown (puede llevar [[enlaces]] a otras notas por su título, casillas «- [ ]», tablas, mini apps en bloques ```app…).',
       inputSchema: {
         title: z.string().trim().min(1).max(200),
         markdown: z.string().max(200_000).optional().describe('El texto, sin repetir el título.'),

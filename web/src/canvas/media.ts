@@ -251,7 +251,7 @@ export const mediaNodes = [
 ];
 
 // Una nota con solo una imagen o un adjunto no está vacía.
-export const hasMedia = (bodyJson: string | null) => !!bodyJson && /"type":"(image|video|audio|file|youtube|bookmark|noteEmbed)"/.test(bodyJson);
+export const hasMedia = (bodyJson: string | null) => !!bodyJson && /"type":"(image|video|audio|file|youtube|bookmark|noteEmbed|miniApp)"/.test(bodyJson);
 
 // Lo que se ve dentro de la nota (sin SVG, que puede llevar código).
 export const isMedia = (f: File) => /^(image|video|audio)\//.test(f.type) && f.type !== 'image/svg+xml';

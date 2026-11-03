@@ -261,7 +261,9 @@ function parseBlocks(lines: string[], ctx: Ctx): JSONContent[] {
       i++;
       while (i < lines.length && !close.test(lines[i])) code.push(dedent(lines[i++], indentOf(pad)));
       i++;
-      content.push({ type: 'codeBlock', attrs: { language: lang || null }, content: code.length ? [{ type: 'text', text: code.join('\n') }] : [] });
+      // ```app: una mini app (HTML y JS que se ejecutan aislados en la nota).
+      if (lang.toLowerCase() === 'app') content.push({ type: 'miniApp', attrs: { code: code.join('\n') } });
+      else content.push({ type: 'codeBlock', attrs: { language: lang || null }, content: code.length ? [{ type: 'text', text: code.join('\n') }] : [] });
       continue;
     }
     if (/^(-{3,}|\*{3,})\s*$/.test(line)) {
@@ -424,6 +426,11 @@ export function docToMarkdown(doc: JSONContent | null): string {
         const code = inl(n);
         const fence = '`'.repeat(Math.max(3, ...(code.match(/`{3,}/g) ?? []).map((f) => f.length + 1)));
         return [fence + String(n.attrs?.language ?? ''), ...code.split('\n'), fence].map((l) => (l ? indent + l : l)).join('\n');
+      }
+      case 'miniApp': {
+        const code = String(n.attrs?.code ?? '');
+        const fence = '`'.repeat(Math.max(3, ...(code.match(/`{3,}/g) ?? []).map((f) => f.length + 1)));
+        return [fence + 'app', ...code.split('\n'), fence].map((l) => (l ? indent + l : l)).join('\n');
       }
       case 'horizontalRule':
         return '---';
