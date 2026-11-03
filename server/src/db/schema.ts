@@ -149,3 +149,20 @@ export const viewports = sqliteTable('viewports', {
   y: real('y').notNull().default(0),
   zoom: real('zoom').notNull().default(1),
 });
+
+// Notas públicas: un enlace (su id) que deja leer una nota sin entrar, con
+// contraseña si se quiere. Si la nota tiene hijas, `scope` dice cuáles se ven:
+// ninguna (note), todas (all, también las que se creen después) o las de
+// `childIds` (some).
+export const shares = sqliteTable('shares', {
+  id: text('id').primaryKey(),
+  noteId: text('note_id')
+    .notNull()
+    .unique()
+    .references(() => notes.id, { onDelete: 'cascade' }),
+  passwordHash: text('password_hash'),
+  scope: text('scope').notNull().default('note'), // note | all | some
+  childIds: text('child_ids').notNull().default('[]'),
+  createdAt: text('created_at').notNull().default(now),
+  updatedAt: text('updated_at').notNull().default(now),
+});

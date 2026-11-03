@@ -3,11 +3,19 @@ import { api } from './api';
 import { AuthCard, AuthScreen } from './AuthCard';
 import { Workspace } from './Workspace';
 import { Styleguide } from './Styleguide';
+import { PublicNote, publicSlug } from './PublicNote';
 import { t } from './i18n';
 
 type State = 'loading' | 'setup' | 'login' | 'ready' | 'offline';
 
 export function App() {
+  // Una nota pública se lee sin entrar.
+  const [slug] = useState(publicSlug);
+  if (slug) return <PublicNote slug={slug} />;
+  return <Private />;
+}
+
+function Private() {
   const [hash, setHash] = useState(location.hash);
   useEffect(() => {
     const onHash = () => setHash(location.hash);

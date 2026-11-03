@@ -72,6 +72,15 @@ Las tareas no son notas aparte: son las casillas que escribes dentro de cualquie
 
 Al actualizar desde una versión en la que las tareas eran notas, el servidor las pasa solo, una vez, a casillas dentro de su nota madre (con su estado, fecha, prioridad y etiquetas). Una tarea que tenía más texto, notas dentro o enlaces se queda como nota y su casilla la enlaza (`- [ ] [[Título]]`); las tareas rápidas y las que no estaban dentro de ninguna nota van a una nota «Tareas».
 
+## Notas públicas
+
+Cualquier nota se puede compartir por un enlace: en el lector, menú de los tres puntos › **Compartir…** y enciende «Pública en la web». Quien tenga el enlace (`/p/<código>`) la lee sin entrar en Canvian, con tu tema, y sin poder cambiar nada. Opciones:
+
+- **Pedir contraseña:** hay que escribirla antes de ver la nota (se recuerda 30 días en ese navegador; si la cambias, hay que escribir la nueva).
+- **Notas de dentro**, si la nota tiene hijas: *Solo esta*, *Todas* (también las que añadas después) o *Elegir* las que se ven, marcándolas en el árbol.
+
+Las imágenes y archivos de lo compartido se ven también; los `[[enlaces]]` a notas que no se comparten quedan como texto. Para que el enlace funcione fuera de casa, pon tu dirección pública (https://…) en Configuración › Asistentes IA. Para dejar de compartir, apaga «Pública en la web» (el enlace deja de funcionar; si vuelves a compartirla, sale uno nuevo). Archivar o borrar la nota también la quita.
+
 ## Conectar con Claude (MCP)
 
 Canvian lleva un servidor MCP en `/mcp` para que Claude lea y escriba tus notas: buscar y leer notas, crearlas y editarlas en Markdown (con `[[enlaces]]`), listar, añadir y completar tareas, mover, archivar y poner propiedades, y un resumen de la actividad reciente. Respeta los perfiles.
