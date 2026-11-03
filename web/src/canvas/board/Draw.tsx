@@ -19,6 +19,8 @@ type LayerProps = {
   onTextEdit: (d: Drawing) => void;
   onTyping: (text: string) => void;
   onTypingDone: () => void;
+  // Solo para mirar: los dibujos no se eligen y el lienzo se arrastra también encima de ellos.
+  still?: boolean;
 };
 
 function Shape({ d, faded, onDown, onEdit }: { d: Drawing; faded?: boolean; onDown?: (e: ReactPointerEvent) => void; onEdit?: () => void }) {
@@ -30,7 +32,7 @@ function Shape({ d, faded, onDown, onEdit }: { d: Drawing; faded?: boolean; onDo
         <text
           x={d.x}
           y={d.y}
-          className="draw-text draw-hit-text nopan nodrag"
+          className={`draw-text draw-hit-text${onDown ? " nopan nodrag" : ""}`}
           data-draw-id={d.id}
           style={{ fontSize: fs }}
           onPointerDown={onDown}
@@ -71,13 +73,13 @@ function SelectionBox({ id }: { id: string }) {
   );
 }
 
-export function DrawLayer({ drawings, draft, selected, many, erasing, typing, onShapeDown, onTextEdit, onTyping, onTypingDone }: LayerProps) {
+export function DrawLayer({ drawings, draft, selected, many, erasing, typing, onShapeDown, onTextEdit, onTyping, onTypingDone, still }: LayerProps) {
   return (
     <>
       <svg className="draw-layer" width={1} height={1} aria-hidden>
         {drawings.map((d) =>
           typing?.id === d.id ? null : (
-            <Shape key={d.id} d={d} faded={erasing.has(d.id)} onDown={(e) => onShapeDown(e, d.id)} onEdit={() => onTextEdit(d)} />
+            <Shape key={d.id} d={d} faded={erasing.has(d.id)} onDown={still ? undefined : (e) => onShapeDown(e, d.id)} onEdit={still ? undefined : () => onTextEdit(d)} />
           ),
         )}
         {draft && <Shape d={draft} />}

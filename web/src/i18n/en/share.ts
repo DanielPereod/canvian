@@ -50,7 +50,10 @@ export const EN_SHARE: Record<string, string> = {
   'El enlace no existe o ya no se comparte. Pide a quien te lo pasó que te mande uno nuevo.': 'The link does not exist or is no longer shared. Ask whoever sent it for a new one.',
   'No se pudo abrir la nota. Comprueba tu conexión y recarga la página.': 'The note could not be opened. Check your connection and reload the page.',
   'Esta nota está vacía.': 'This note is empty.',
-  'Los canvas todavía no se pueden ver en una nota pública.': 'Canvases cannot be viewed in a public note yet.',
+  'Nota no compartida': 'Note not shared',
+  'Toca para abrir': 'Tap to open',
+  'Este canvas está vacío': 'This canvas is empty',
+  'Lienzo': 'Canvas',
   'Ruta': 'Path',
   'editada el {date}': 'edited {date}',
   // Del servidor
