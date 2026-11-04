@@ -154,4 +154,18 @@ describe('notas públicas', () => {
     expect((await anon('GET', `/api/public/${data.id}/media/${outside.split('/').pop()}`)).status).toBe(404);
     expect((await anon('GET', inside)).status).toBe(401);
   });
+
+  it('enseña el resultado de las consultas ```db``` de lo compartido, y solo esas', async () => {
+    const t = await (await call('POST', `/api/profiles/${profileId}/db/tables`, { name: 'Gastos' })).json();
+    await call('POST', `/api/db/tables/${t.id}/rows`, { values: { Nombre: 'Luz' } });
+    const q = 'SELECT nombre FROM gastos';
+    const body = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Casa' }] }, { type: 'dbQuery', attrs: { query: q } }] });
+    await call('PATCH', '/api/notes/01CASA000000000000000000000', { bodyJson: body });
+    const { data } = await share('01CASA000000000000000000000', { scope: 'note' });
+    const ask = (query: string) => anon('POST', `/api/public/${data.id}/db`, { query });
+    const ok = await ask(q);
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).rows).toEqual([['Luz']]);
+    expect((await ask('SELECT count(*) FROM gastos')).status).toBe(403);
+  });
 });

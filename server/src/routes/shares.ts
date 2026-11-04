@@ -7,6 +7,9 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { notes, profiles, settings, shares } from '../db/schema.js';
 import { sendMedia } from './media.js';
+import { tablesOf } from '../databases/model.js';
+import { runQuery } from '../databases/query.js';
+import { localDay } from './databases.js';
 
 // Notas públicas. Desde la app (con sesión) se crea, cambia o quita el enlace
 // de una nota; desde fuera (sin sesión), quien tenga el enlace la lee, después
@@ -243,6 +246,24 @@ export function publicRoutes(db: Db, mediaDir?: string) {
     return c.json({ ok: true });
   });
 
+  // Las consultas ```db``` de lo que se comparte, y solo esas (tal cual están
+  // escritas): quien tiene el enlace ve sus resultados, nunca otra consulta.
+  r.post('/:slug/db', async (c) => {
+    const s = find(c.req.param('slug'));
+    const list = s ? sharedNotes(db, s) : [];
+    if (!s || !list.length) return gone(c);
+    if (!unlocked(c, s)) return c.json({ error: 'Esta nota tiene contraseña', locked: true }, 401);
+    const body = z.object({ query: z.string().min(1).max(5000) }).safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: 'Consulta no válida' }, 400);
+    const q = body.data.query;
+    if (!list.some((n) => queriesIn(n.bodyJson).includes(q))) return c.json({ error: 'Esta consulta no está en lo que se comparte' }, 403);
+    try {
+      return c.json(runQuery(db, tablesOf(db, list[0].profileId), q, localDay()));
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 400);
+    }
+  });
+
   // Solo los archivos que salen en lo que se comparte.
   r.get('/:slug/media/:name', (c) => {
     const s = find(c.req.param('slug'));
@@ -256,4 +277,22 @@ export function publicRoutes(db: Db, mediaDir?: string) {
   });
 
   return r;
+}
+
+// Las consultas de los bloques ```db``` de una nota.
+export function queriesIn(bodyJson: string | null): string[] {
+  if (!bodyJson || !bodyJson.includes('"dbQuery"')) return [];
+  const out: string[] = [];
+  const walk = (n: unknown) => {
+    if (!n || typeof n !== 'object') return;
+    const node = n as { type?: string; attrs?: { query?: unknown }; content?: unknown[] };
+    if (node.type === 'dbQuery' && typeof node.attrs?.query === 'string') out.push(node.attrs.query);
+    node.content?.forEach(walk);
+  };
+  try {
+    walk(JSON.parse(bodyJson));
+  } catch {
+    return [];
+  }
+  return out;
 }

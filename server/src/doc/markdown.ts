@@ -263,6 +263,8 @@ function parseBlocks(lines: string[], ctx: Ctx): JSONContent[] {
       i++;
       // ```app: una mini app (HTML y JS que se ejecutan aislados en la nota).
       if (lang.toLowerCase() === 'app') content.push({ type: 'miniApp', attrs: { code: code.join('\n') } });
+      // ```db: una consulta a las bases de datos, que se ve como su resultado.
+      else if (lang.toLowerCase() === 'db') content.push({ type: 'dbQuery', attrs: { query: code.join('\n') } });
       else content.push({ type: 'codeBlock', attrs: { language: lang || null }, content: code.length ? [{ type: 'text', text: code.join('\n') }] : [] });
       continue;
     }
@@ -431,6 +433,11 @@ export function docToMarkdown(doc: JSONContent | null): string {
         const code = String(n.attrs?.code ?? '');
         const fence = '`'.repeat(Math.max(3, ...(code.match(/`{3,}/g) ?? []).map((f) => f.length + 1)));
         return [fence + 'app', ...code.split('\n'), fence].map((l) => (l ? indent + l : l)).join('\n');
+      }
+      case 'dbQuery': {
+        const query = String(n.attrs?.query ?? '');
+        const fence = '`'.repeat(Math.max(3, ...(query.match(/`{3,}/g) ?? []).map((f) => f.length + 1)));
+        return [fence + 'db', ...query.split('\n'), fence].map((l) => (l ? indent + l : l)).join('\n');
       }
       case 'horizontalRule':
         return '---';
