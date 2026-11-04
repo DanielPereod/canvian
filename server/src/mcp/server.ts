@@ -40,6 +40,9 @@ import {
 import { fromBase64, fromUrl, sniffImage } from './images.js';
 import { storeImage } from '../routes/media.js';
 import type { Fetcher } from '../calendars.js';
+import { ulid } from 'ulidx';
+import { COLUMN_TYPES, DbError, addColumn, createTable, deleteRow, findTable, keyOf, normalizeValues, primaryOf, rowsOf, saveRow, tablesOf, titlesOf, type Row, type Table } from '../databases/model.js';
+import { runQuery } from '../databases/query.js';
 
 // El servidor MCP de Canvian: deja que Claude (u otro cliente MCP) lea y
 // escriba las notas y tareas. Cada petición crea uno nuevo (sin estado).
@@ -60,10 +63,11 @@ const INSTRUCTIONS = `Canvian es la app de notas de Dani (en español). Cómo fu
 - El texto de las notas se lee y escribe en Markdown (estilo Obsidian): [[Otra nota]] enlaza notas, ==resaltado==, > [!note] avisos.
 - Un bloque puede llevar un id al final de su línea («texto ^abc123»); [[Nota#^abc123]] enlaza ese punto exacto y [[Nota#Encabezado]] esa sección. get_note con «Nota#^abc123» lee solo ese trozo.
 - Las tareas no son notas: son las casillas «- [ ] texto» dentro de las notas. Detrás del texto llevan «📅 AAAA-MM-DD» (fecha), «⏫ 🔼 🔽» (prioridad alta/media/baja), «#etiqueta», «🔁 every week» si se repite (como en Obsidian Tasks) y, hechas, «✅ AAAA-MM-DD». Al hacer una que se repite se apunta encima la siguiente vez, con su fecha. «[/]» es en curso y «[!]» bloqueada. Una casilla sangrada bajo otra es su subtarea.
-- Una mini app (calculadora, conversor, contador…) es un bloque de código \`\`\`app con HTML, CSS y <script> dentro: en la nota se ejecuta aislada (sin acceso a la sesión ni a la API, ni a localStorage) y mide lo que su contenido. Los <button>, <input>, <select>, <label>, <output> y las clases .row, .grid, .card y .muted ya llevan el estilo del tema; para colores usa var(--text), var(--accent), var(--surface-1), var(--line)…
+- Una mini app (calculadora, conversor, contador…) es un bloque de código \`\`\`app con HTML, CSS y <script> dentro: en la nota se ejecuta aislada (sin acceso a la sesión ni a la API, ni a localStorage) y mide lo que su contenido. Puede leer las bases de datos con «await canvian.db.query('SELECT …')» (devuelve { columns, rows: [{columna: valor}] }) y «canvian.db.watch('SELECT …', (r) => pintar(r))», que vuelve a llamar cuando cambian los datos. Los <button>, <input>, <select>, <label>, <output> y las clases .row, .grid, .card y .muted ya llevan el estilo del tema; para colores usa var(--text), var(--accent), var(--surface-1), var(--line)…
 - Lo que se apunta sin decir dónde va a la nota «${INBOX}».
 - Hay perfiles (por ejemplo Personal y Trabajo) que no se mezclan; sin indicar ninguno se usa el primero.
 - Archivar oculta una nota (y lo que tiene dentro) sin borrarla.
+- Aparte de las notas hay bases de datos: tablas con columnas tipadas (texto, número, opciones, etiquetas, fecha, casilla, enlace, imagen, nota y relación con otra tabla). list_databases las enseña, query_database las consulta con un SELECT de solo lectura (las relaciones se siguen con un punto: autor.nombre; autor.count() cuenta los enlaces) y add_rows/update_row/delete_row las cambian. En una nota, un bloque \`\`\`db con un SELECT dentro enseña su resultado como tabla (y siempre al día).
 Usa los ids que devuelven las herramientas para referirte a notas y tareas. Escribe en el idioma de las notas.`;
 
 // «Nota#^abc123» o «Nota#Encabezado»: la nota y el punto. Si el título
@@ -106,7 +110,7 @@ function recurArg(rule: string): string {
 }
 const priorityName = (p: number) => (['none', 'low', 'medium', 'high'] as const)[p] ?? 'none';
 
-type Hub = { publish: (e: { scope: 'canvas'; client: string | null }) => void };
+type Hub = { publish: (e: { scope: 'canvas' | 'db'; client: string | null }) => void };
 
 const text = (value: string) => ({ content: [{ type: 'text' as const, text: value }] });
 const data = (value: unknown) => text(JSON.stringify(value, null, 2));
@@ -681,6 +685,172 @@ export function createMcpServer(db: Db, hub?: Hub, opts: { mediaDir?: string; fe
       }),
     );
   }
+
+  // ── Bases de datos ──────────────────────────────────────────────────
+
+  const dbChanged = () => hub?.publish({ scope: 'db', client: 'mcp' });
+  const dbRun =
+    <A,>(fn: (args: A) => ReturnType<typeof text>) =>
+    run((args: A) => {
+      try {
+        return fn(args);
+      } catch (e) {
+        if (e instanceof DbError) throw new McpError(e.message);
+        throw e;
+      }
+    });
+  const tableArg = z.string().min(1).describe('La tabla: su nombre o id.');
+  const valuesArg = z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(z.string())]))
+    .describe('Valores por nombre de columna. Etiquetas: lista; relación: lista de nombres (o ids) de filas de la otra tabla; fecha: AAAA-MM-DD; null vacía la celda.');
+  const pickTable = (profile: string | undefined, ref: string) => {
+    const p = resolveProfile(db, profile);
+    const tables = tablesOf(db, p.id);
+    const t = findTable(tables, ref);
+    if (!t) throw new McpError(`No hay ninguna tabla «${ref}». ${tables.length ? `Tablas: ${tables.map((x) => x.name).join(', ')}.` : 'Aún no hay tablas.'}`);
+    return { p, tables, t };
+  };
+  const rowOut = (tables: Table[], t: Table, r: Row) => {
+    const rel = t.columns.filter((c) => c.type === 'relation').flatMap((c) => (r.values[c.id] as string[] | undefined) ?? []);
+    const titles = titlesOf(db, tables, rel);
+    const out: Record<string, unknown> = { id: r.id };
+    for (const c of t.columns) {
+      const v = r.values[c.id];
+      if (v === undefined) continue;
+      out[c.name] = c.type === 'relation' && Array.isArray(v) ? v.map((id) => titles[id] ?? id) : v;
+    }
+    return out;
+  };
+
+  server.registerTool(
+    'list_databases',
+    { title: 'Bases de datos', description: 'Las tablas de las bases de datos del perfil, con sus columnas (nombre, tipo, opciones, a qué tabla apunta cada relación) y cuántas filas tienen.', inputSchema: { profile: profileArg }, annotations: { readOnlyHint: true } },
+    dbRun(({ profile }) => {
+      const p = resolveProfile(db, profile);
+      const tables = tablesOf(db, p.id);
+      return data(
+        tables.map((t) => ({
+          id: t.id,
+          name: t.name,
+          rows: rowsOf(db, t).length,
+          columns: t.columns.map((c) => ({
+            name: c.name,
+            in_queries: keyOf(c.name),
+            type: c.type,
+            ...(c.options.choices?.length ? { choices: c.options.choices } : {}),
+            ...(c.type === 'relation' ? { to: tables.find((x) => x.id === c.options.target)?.name } : {}),
+            ...(c.options.primary ? { primary: true } : {}),
+          })),
+        })),
+      );
+    }),
+  );
+
+  server.registerTool(
+    'query_database',
+    {
+      title: 'Consultar base de datos',
+      description:
+        "Consulta una tabla con un SELECT de solo lectura: SELECT columnas FROM tabla [WHERE …] [GROUP BY …] [ORDER BY …] [LIMIT n]. Los nombres van sin tildes y con _ en vez de espacios (o entre comillas dobles). Las relaciones se siguen con un punto (autor.nombre) y autor.count() cuenta los enlaces; en WHERE, «autor.pais = 'Chile'» es que alguno lo cumple. etiquetas CONTAINS 'x', LIKE, IN, BETWEEN, IS NULL, count/sum/avg/min/max, lower, upper, round, coalesce, today(), year(), month(), day(), date_add(fecha, n), days(a, b). Sin JOIN ni escrituras.",
+      inputSchema: { query: z.string().min(1).max(5000), profile: profileArg },
+      annotations: { readOnlyHint: true },
+    },
+    dbRun(({ query, profile }) => {
+      const p = resolveProfile(db, profile);
+      const r = runQuery(db, tablesOf(db, p.id), query, localDay());
+      return data({ columns: r.columns.map((c) => c.name), rows: r.rows.map((row, i) => (r.ids ? [...row, r.ids[i]] : row)), ...(r.ids ? { last_column_is_row_id: true } : {}), ...(r.more ? { truncated: true } : {}) });
+    }),
+  );
+
+  server.registerTool(
+    'create_table',
+    {
+      title: 'Crear tabla',
+      description: 'Crea una tabla en las bases de datos, con su primera columna «Nombre» (texto) y las que se pidan. Las relaciones crean también su columna pareja en la otra tabla.',
+      inputSchema: {
+        name: z.string().trim().min(1).max(80),
+        columns: z
+          .array(z.object({ name: z.string().trim().min(1).max(80), type: z.enum(COLUMN_TYPES), choices: z.array(z.string()).optional(), to: z.string().optional().describe('Relaciones: la otra tabla.') }))
+          .max(60)
+          .optional(),
+        profile: profileArg,
+      },
+    },
+    dbRun(({ name, columns = [], profile }) => {
+      const p = resolveProfile(db, profile);
+      let t = createTable(db, p.id, name);
+      for (const c of columns) {
+        const tables = tablesOf(db, p.id);
+        const target = c.type === 'relation' ? findTable(tables, c.to ?? '') : null;
+        if (c.type === 'relation' && !target) throw new McpError(`La relación «${c.name}» necesita en «to» una tabla que exista.`);
+        if (keyOf(c.name) === 'nombre') continue;
+        addColumn(db, tables, t, { name: c.name, type: c.type, choices: c.choices, target: target?.id });
+        t = tablesOf(db, p.id).find((x) => x.id === t.id)!;
+      }
+      dbChanged();
+      return data({ id: t.id, name: t.name, columns: t.columns.map((c) => ({ name: c.name, type: c.type })) });
+    }),
+  );
+
+  server.registerTool(
+    'add_rows',
+    {
+      title: 'Añadir filas',
+      description: 'Añade filas a una tabla. Cada fila es un objeto con los valores por nombre de columna.',
+      inputSchema: { table: tableArg, rows: z.array(valuesArg).min(1).max(500), profile: profileArg },
+    },
+    dbRun(({ table, rows, profile }) => {
+      const { tables, t } = pickTable(profile, table);
+      const added = db.transaction((tx) => rows.map((values) => saveRow(tx as unknown as Db, t, ulid(), normalizeValues(tx as unknown as Db, tables, t, values, true), {})));
+      dbChanged();
+      return data(added.map((r) => rowOut(tables, t, r)));
+    }),
+  );
+
+  const findRow = (tables: Table[], t: Table, ref: string) => {
+    const rows = rowsOf(db, t);
+    const prim = primaryOf(t);
+    const hit = rows.find((r) => r.id === ref) ?? rows.filter((r) => keyOf(String(r.values[prim.id] ?? '')) === keyOf(ref));
+    if (Array.isArray(hit)) {
+      if (hit.length > 1) throw new McpError(`Hay ${hit.length} filas «${ref}» en «${t.name}»: usa su id (${hit.map((r) => r.id).join(', ')}).`);
+      if (!hit.length) throw new McpError(`En «${t.name}» no hay ninguna fila «${ref}».`);
+      return hit[0];
+    }
+    return hit;
+  };
+
+  server.registerTool(
+    'update_row',
+    {
+      title: 'Cambiar fila',
+      description: 'Cambia los valores de una fila (solo las columnas que se pasan).',
+      inputSchema: { table: tableArg, row: z.string().min(1).describe('La fila: su id o su nombre (primera columna).'), values: valuesArg, profile: profileArg },
+    },
+    dbRun(({ table, row, values, profile }) => {
+      const { tables, t } = pickTable(profile, table);
+      const r = findRow(tables, t, row);
+      const saved = saveRow(db, t, r.id, normalizeValues(db, tables, t, values, true), null);
+      dbChanged();
+      return data(rowOut(tables, t, saved));
+    }),
+  );
+
+  server.registerTool(
+    'delete_row',
+    {
+      title: 'Borrar fila',
+      description: 'Borra una fila de una tabla (y sus enlaces).',
+      inputSchema: { table: tableArg, row: z.string().min(1).describe('La fila: su id o su nombre (primera columna).'), profile: profileArg },
+      annotations: { destructiveHint: true },
+    },
+    dbRun(({ table, row, profile }) => {
+      const { tables, t } = pickTable(profile, table);
+      const r = findRow(tables, t, row);
+      deleteRow(db, r.id);
+      dbChanged();
+      return text(`Fila borrada de «${t.name}».`);
+    }),
+  );
 
   return server;
 }

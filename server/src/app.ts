@@ -17,6 +17,7 @@ import {
 } from './auth.js';
 import { canvasRoutes } from './routes/canvas.js';
 import { propertyRoutes } from './routes/properties.js';
+import { databaseRoutes } from './routes/databases.js';
 import { lensRoutes } from './routes/lenses.js';
 import { mediaRoutes } from './routes/media.js';
 import { prefRoutes } from './routes/prefs.js';
@@ -219,6 +220,7 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
   api.route('/', canvasRoutes(db));
   api.route('/', shareRoutes(db));
   api.route('/', propertyRoutes(db));
+  api.route('/', databaseRoutes(db));
   api.route('/', lensRoutes(db));
   api.route('/', prefRoutes(db));
   api.route('/', calendarRoutes(db, opts.fetchCalendar));

@@ -243,4 +243,25 @@ describe('mcp', () => {
     expect(await tool(client, 'search_notes', { query: 'informe' })).toEqual([]);
     expect(await tool(client, 'search_notes', { query: 'informe', profile: 'trabajo' })).toHaveLength(1);
   });
+
+  it('crea, rellena y consulta bases de datos', async () => {
+    const client = await connect(token);
+    await tool(client, 'create_table', { name: 'Autores', columns: [{ name: 'País', type: 'select' }] });
+    const libros = await tool(client, 'create_table', { name: 'Libros', columns: [{ name: 'Nota', type: 'number' }, { name: 'Autor', type: 'relation', to: 'autores' }] });
+    expect(libros.columns.map((c: { name: string }) => c.name)).toEqual(['Nombre', 'Nota', 'Autor']);
+    await tool(client, 'add_rows', { table: 'Autores', rows: [{ Nombre: 'Borges', País: 'Argentina' }] });
+    const added = await tool(client, 'add_rows', { table: 'libros', rows: [{ Nombre: 'Ficciones', Nota: 5, Autor: ['Borges'] }, { Nombre: 'El Aleph', Nota: '4' }] });
+    expect(added[0]).toMatchObject({ Nombre: 'Ficciones', Nota: 5, Autor: ['Borges'] });
+    await expect(tool(client, 'add_rows', { table: 'libros', rows: [{ Nombre: 'X', Autor: ['Nadie'] }] })).rejects.toThrow(/Nadie/);
+    await tool(client, 'update_row', { table: 'libros', row: 'el aleph', values: { Autor: ['Borges'] } });
+    const q = await tool(client, 'query_database', { query: "SELECT nombre, nota FROM libros WHERE autor.pais = 'Argentina' ORDER BY nota DESC" });
+    expect(q.rows.map((r: unknown[]) => r.slice(0, 2))).toEqual([
+      ['Ficciones', 5],
+      ['El Aleph', 4],
+    ]);
+    const list = await tool(client, 'list_databases');
+    expect(list.find((t: { name: string }) => t.name === 'Autores').columns.map((c: { name: string }) => c.name)).toEqual(['Nombre', 'País', 'Libros']);
+    await tool(client, 'delete_row', { table: 'libros', row: 'Ficciones' });
+    expect((await tool(client, 'query_database', { query: 'SELECT count(*) FROM libros' })).rows).toEqual([[1]]);
+  });
 });

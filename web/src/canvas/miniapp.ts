@@ -1,14 +1,18 @@
 import { Node } from '@tiptap/react';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { t } from '../i18n';
+import type { DbResult } from '../api';
+import { dbSource } from './dbquery';
+import { onDbChange } from './dbEvents';
 
 // Mini apps: un bloque con HTML, CSS y JS propios (una calculadora, un
 // conversor…) que se ejecuta dentro de la nota. Va en un iframe con
 // `sandbox="allow-scripts"` y sin `allow-same-origin`: su origen es opaco, así
 // que no ve la sesión, ni las cookies, ni la API, ni el resto de la página.
-// Solo habla con la nota por postMessage, y solo para dos cosas: decir cuánto
-// mide y recibir los colores y letras del tema. En Markdown es un bloque
-// ```app con el código dentro.
+// Solo habla con la nota por postMessage: para decir cuánto mide, recibir los
+// colores y letras del tema y consultar las bases de datos (solo leer, con
+// canvian.db.query y canvian.db.watch; la nota hace la consulta por ella). En
+// Markdown es un bloque ```app con el código dentro.
 
 const SANDBOX = 'allow-scripts allow-forms allow-popups';
 const MAX_HEIGHT = 2000;
@@ -72,6 +76,12 @@ addEventListener('message',function(e){var d=e.data;if(e.source!==parent||!d||!d
 addEventListener('error',function(e){send({error:String(e.message||e),line:e.lineno||0})});
 addEventListener('unhandledrejection',function(e){send({error:String(e.reason&&e.reason.message||e.reason)})});
 addEventListener('load',size);
+var reqs={},n=0;
+addEventListener('message',function(e){var d=e.data;if(e.source!==parent||!d||!d.canvianDb)return;var r=reqs[d.canvianDb];if(!r)return;if(!r.watch)delete reqs[d.canvianDb];if(d.error){if(r.watch)r.onError&&r.onError(new Error(d.error));else r.ko(new Error(d.error))}else if(r.watch)r.cb(d.result);else r.ok(d.result)});
+window.canvian={db:{
+query:function(q){return new Promise(function(ok,ko){var id=++n;reqs[id]={ok:ok,ko:ko};send({dbQuery:String(q),req:id})})},
+watch:function(q,cb,onError){var id=++n;reqs[id]={watch:1,cb:cb,onError:onError};send({dbWatch:String(q),req:id});return function(){delete reqs[id];send({dbUnwatch:id})}}
+}};
 if(window.ResizeObserver)new ResizeObserver(size).observe(root);else setInterval(size,500);
 send({ready:1});
 })();`;
@@ -102,14 +112,54 @@ const sendTheme = (f: HTMLIFrameElement) => {
   f.contentWindow?.postMessage({ canvianTheme: theme.vars, scheme: theme.scheme }, '*');
 };
 
+// Lo que recibe la mini app de una consulta: las filas como objetos (por
+// nombre de columna), además de las columnas y el id de cada fila.
+const forApp = (r: DbResult) => ({
+  table: r.table.name,
+  columns: r.columns.map((c) => c.name),
+  rows: r.rows.map((row, i) => ({ ...Object.fromEntries(r.columns.map((c, j) => [c.name, row[j]])), ...(r.ids ? { _id: r.ids[i] } : {}) })),
+  more: r.more,
+});
+type Watch = { frame: HTMLIFrameElement; req: number; query: string };
+const watches: Watch[] = [];
+let stopWatching: (() => void) | null = null;
+function answer(f: HTMLIFrameElement, req: number, query: string) {
+  const src = dbSource();
+  const reply = (m: Record<string, unknown>) => f.contentWindow?.postMessage({ canvianDb: req, ...m }, '*');
+  if (!src) return reply({ error: t('Aquí no hay bases de datos') });
+  src.run(query).then(
+    (r) => reply({ result: forApp(r) }),
+    (e: Error) => reply({ error: e.message }),
+  );
+}
+function rewatch() {
+  for (let i = watches.length - 1; i >= 0; i--) if (!watches[i].frame.isConnected) watches.splice(i, 1);
+  if (!watches.length) {
+    stopWatching?.();
+    stopWatching = null;
+    return;
+  }
+  for (const w of watches) answer(w.frame, w.req, w.query);
+}
+
 function listen() {
   if (listening || typeof window === 'undefined') return;
   listening = true;
   window.addEventListener('message', (e) => {
-    const d = e.data as { canvianApp?: number; ready?: number; height?: number; error?: string; line?: number } | null;
+    const d = e.data as { canvianApp?: number; ready?: number; height?: number; error?: string; line?: number; dbQuery?: string; dbWatch?: string; dbUnwatch?: number; req?: number } | null;
     if (!d || d.canvianApp !== 1 || !e.source) return;
     for (const f of frames()) {
       if (f.contentWindow !== e.source) continue;
+      if (typeof d.dbQuery === 'string' && typeof d.req === 'number') answer(f, d.req, d.dbQuery.slice(0, 5000));
+      if (typeof d.dbWatch === 'string' && typeof d.req === 'number') {
+        watches.push({ frame: f, req: d.req, query: d.dbWatch.slice(0, 5000) });
+        answer(f, d.req, d.dbWatch.slice(0, 5000));
+        if (!stopWatching && dbSource()?.live) stopWatching = onDbChange(rewatch);
+      }
+      if (typeof d.dbUnwatch === 'number') {
+        const i = watches.findIndex((w) => w.frame === f && w.req === d.dbUnwatch);
+        if (i >= 0) watches.splice(i, 1);
+      }
       if (d.ready) sendTheme(f);
       if (typeof d.height === 'number') f.style.height = `${Math.max(32, Math.min(MAX_HEIGHT, d.height))}px`;
       if (d.error) f.dispatchEvent(new CustomEvent('apperror', { detail: d.line && d.line > codeStart ? `${d.error} (${t('línea {n}', { n: d.line - codeStart })})` : d.error }));
@@ -267,7 +317,7 @@ export const MiniApp = Node.create({
         area.addEventListener('blur', save);
         const hint = document.createElement('div');
         hint.className = 'note-app-hint';
-        hint.textContent = t('Se ejecuta aislada: no ve tus notas ni tu sesión.');
+        hint.textContent = t('Se ejecuta aislada: no ve tus notas ni tu sesión. Puede leer tus bases de datos con canvian.db.query(…).');
         panel.append(area, hint);
         dom.append(panel);
         area.focus();

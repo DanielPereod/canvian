@@ -2,7 +2,7 @@
 // abiertos, que vuelven a pedir lo que haya cambiado. Solo se dice qué parte
 // cambió (y quién lo cambió), nunca los datos: esos siguen yendo por la API.
 
-export type LiveScope = 'canvas' | 'prefs' | 'profiles';
+export type LiveScope = 'canvas' | 'prefs' | 'profiles' | 'db';
 export type LiveEvent = { scope: LiveScope; client: string | null };
 
 export function createHub() {
@@ -28,6 +28,9 @@ export function scopeOf(method: string, path: string): LiveScope | null {
   const p = path.replace(/^\/api/, '');
   if (p.startsWith('/auth') || p.startsWith('/media') || p.startsWith('/mcp') || p.startsWith('/koreader') || p.endsWith('/viewport')) return null;
   if (p.startsWith('/prefs')) return 'prefs';
+  // Las bases de datos (consultar no cambia nada).
+  if (/^\/profiles\/[^/]+\/db\/query$/.test(p)) return null;
+  if (p.startsWith('/db/') || /^\/profiles\/[^/]+\/db(\/|$)/.test(p)) return 'db';
   if (/^\/profiles(\/[^/]+)?$/.test(p)) return 'profiles';
   return 'canvas';
 }

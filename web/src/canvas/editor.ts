@@ -9,6 +9,7 @@ import { common, createLowlight } from 'lowlight';
 import { mediaNodes } from './media';
 import { embedNodes } from './embeds';
 import { MiniApp } from './miniapp';
+import { DbQuery } from './dbquery';
 import { getLang, t } from '../i18n';
 import { markdownToDoc } from './markdown';
 import { Highlight, MarkdownLinkInput, WikiLink, tasks } from './obsidian';
@@ -54,6 +55,8 @@ export const extensions = [
   ...embedNodes,
   // Mini apps: HTML y JS propios, aislados en un iframe.
   MiniApp,
+  // Consultas a las bases de datos (```db), con su resultado.
+  DbQuery,
   // Lo propio de Obsidian: [[enlaces]], ==resaltado== y casillas.
   WikiLink,
   Highlight,

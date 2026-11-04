@@ -166,3 +166,71 @@ export const shares = sqliteTable('shares', {
   createdAt: text('created_at').notNull().default(now),
   updatedAt: text('updated_at').notNull().default(now),
 });
+
+// Bases de datos: tablas propias, aparte de las notas (ver routes/databases.ts).
+export const dbTables = sqliteTable(
+  'db_tables',
+  {
+    id: text('id').primaryKey(),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    icon: text('icon'),
+    position: integer('position').notNull().default(0),
+    createdAt: text('created_at').notNull().default(now),
+    updatedAt: text('updated_at').notNull().default(now),
+  },
+  (t) => [index('idx_db_tables_profile').on(t.profileId)],
+);
+
+// type: text | number | select | tags | date | checkbox | url | image | note | relation.
+// options (JSON): { choices?: string[], target?: tableId, pair?: columnId, owner?: boolean, primary?: boolean }.
+export const dbColumns = sqliteTable(
+  'db_columns',
+  {
+    id: text('id').primaryKey(),
+    tableId: text('table_id')
+      .notNull()
+      .references(() => dbTables.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    type: text('type').notNull(),
+    options: text('options').notNull().default('{}'),
+    position: integer('position').notNull().default(0),
+  },
+  (t) => [index('idx_db_columns_table').on(t.tableId)],
+);
+
+export const dbRows = sqliteTable(
+  'db_rows',
+  {
+    id: text('id').primaryKey(),
+    tableId: text('table_id')
+      .notNull()
+      .references(() => dbTables.id, { onDelete: 'cascade' }),
+    data: text('data').notNull().default('{}'),
+    position: real('position').notNull().default(0),
+    createdAt: text('created_at').notNull().default(now),
+    updatedAt: text('updated_at').notNull().default(now),
+  },
+  (t) => [index('idx_db_rows_table').on(t.tableId, t.position)],
+);
+
+// Cada enlace de una relación se guarda una vez, con la columna «dueña»; la
+// columna pareja de la otra tabla lo lee al revés (de to_id a from_id).
+export const dbLinks = sqliteTable(
+  'db_links',
+  {
+    columnId: text('column_id')
+      .notNull()
+      .references(() => dbColumns.id, { onDelete: 'cascade' }),
+    fromId: text('from_id')
+      .notNull()
+      .references(() => dbRows.id, { onDelete: 'cascade' }),
+    toId: text('to_id')
+      .notNull()
+      .references(() => dbRows.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.columnId, t.fromId, t.toId] }), index('idx_db_links_to').on(t.columnId, t.toId)],
+);

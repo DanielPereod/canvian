@@ -38,6 +38,7 @@ import './canvas/biblioteca.css';
 import './canvas/collection.css';
 import './canvas/timeline.css';
 import './canvas/share.css';
+import './canvas/database.css';
 import { startTheme } from './theme';
 import { startTypography } from './typography';
 import { startLang, useLang } from './i18n';
