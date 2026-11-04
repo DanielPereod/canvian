@@ -77,6 +77,10 @@
 .dbv-form-actions { display: flex; align-items: center; gap: var(--space-2); }
 .dbv-spacer { flex: 1; }
 .dbv-danger { color: var(--danger); }
+.dbv-confirm { display: grid; gap: var(--space-3); padding: var(--space-2) var(--space-1); }
+.dbv-pop > .dbv-confirm { padding: var(--space-3); }
+.dbv-confirm-text { margin: 0; font-size: var(--text-sm); color: var(--text); line-height: 1.45; }
+.btn.dbv-danger-solid { background: var(--danger); color: #fff; }
 @media (hover: none) { .dbv-search, .dbv-input, .dbv-picker-search, .dbv-new-table, .dbv-field .field { font-size: 16px; } }
 @media (max-width: 640px) {
   .dbv-main { padding: var(--space-3) var(--space-3) 0; }
