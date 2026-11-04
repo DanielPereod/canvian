@@ -79,7 +79,7 @@ Cualquier nota se puede compartir por un enlace: en el lector, menú de los tres
 - **Pedir contraseña:** hay que escribirla antes de ver la nota (se recuerda 30 días en ese navegador; si la cambias, hay que escribir la nueva).
 - **Notas de dentro**, si la nota tiene hijas: *Solo esta*, *Todas* (también las que añadas después) o *Elegir* las que se ven, marcándolas en el árbol.
 
-Las imágenes y archivos de lo compartido se ven también; los `[[enlaces]]` a notas que no se comparten quedan como texto. Para que el enlace funcione fuera de casa, pon tu dirección pública (https://…) en Configuración › Asistentes IA. Para dejar de compartir, apaga «Pública en la web» (el enlace deja de funcionar; si vuelves a compartirla, sale uno nuevo). Archivar o borrar la nota también la quita.
+Las imágenes y archivos de lo compartido se ven también; los `[[enlaces]]` a notas que no se comparten quedan como texto. Un canvas se ve entero (tarjetas, flechas, grupos y dibujos), solo para mirar: se mueve y se acerca, y un toque en una tarjeta de nota la abre si también se comparte; las de notas que no se comparten salen como «Nota no compartida». Para que el enlace funcione fuera de casa, pon tu dirección pública (https://…) en Configuración › Asistentes IA. Para dejar de compartir, apaga «Pública en la web» (el enlace deja de funcionar; si vuelves a compartirla, sale uno nuevo). Archivar o borrar la nota también la quita.
 
 ## Conectar con Claude (MCP)
 

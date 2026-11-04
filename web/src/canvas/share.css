@@ -92,6 +92,18 @@
 .pub-inside-it { display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 var(--space-2); border-radius: var(--radius-sm); text-align: left; color: var(--text); }
 .pub-inside-it:hover { background: var(--surface-hover); color: var(--accent-ink); }
 
+
+/* Un canvas en la nota pública: el lienzo ocupa todo, con su nombre encima. */
+.pub-canvas { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pub-canvas-head { flex: none; display: grid; gap: var(--space-1); padding: var(--space-4) var(--space-6) var(--space-3); border-bottom: 1px solid var(--line); }
+.pub-canvas-title { margin: 0; font-family: var(--title-font); font-size: calc(26px * var(--title-scale) * var(--type-scale, 1)); line-height: 1.15; color: var(--text); overflow-wrap: anywhere; }
+.pub-board { position: relative; flex: 1; min-height: 0; }
+.board.is-view .board-card, .board.is-view .board-group { cursor: grab; }
+.board.is-view .board-handle { opacity: 0 !important; pointer-events: none; }
+.board.is-view .board-group-label { pointer-events: none; }
+.board.is-view .board-note:not(.is-missing) { cursor: pointer; }
+.board.is-view .board-note.is-missing .board-note-title { color: var(--text-faint); font-weight: 500; }
+
 @media (max-width: 760px) {
   .share-overlay { padding: var(--space-4) var(--space-3); align-items: flex-end; }
   .share-dlg { max-height: calc(100dvh - 2 * var(--space-4)); padding: var(--space-5) var(--space-4) var(--space-6); }
@@ -106,4 +118,6 @@
   .pub.is-nav-open .pub-nav { display: block; animation: rise-in var(--dur-base) var(--ease-out) both; }
   .pub-nav-it { min-height: 42px; }
   .sheet.is-reader.pub-sheet .sheet-title { font-size: calc(30px * var(--title-scale) * var(--type-scale, 1)); }
+  .pub-canvas-head { padding: var(--space-3) var(--space-4); }
+  .pub-canvas-title { font-size: calc(22px * var(--title-scale) * var(--type-scale, 1)); }
 }

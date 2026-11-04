@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
-import { api, ApiError, type PublicPage, type PublicShare } from './api';
+import { api, ApiError, type NoteRow, type PublicPage, type PublicShare } from './api';
+import { BoardView } from './canvas/board/CanvasBoard';
 import { AuthScreen } from './AuthCard';
 import { Glyph } from './Wordmark';
 import { extensions, parseBody, splitTitle, bodyToHtml } from './canvas/editor';
@@ -162,6 +163,8 @@ function Reader({ share }: { share: PublicShare }) {
   const inside = kids.get(page.id) ?? [];
   const many = pages.length > 1;
   const cover = parseCover(page.cover);
+  // Las tarjetas de nota del lienzo, con lo que se comparte.
+  const rows = useMemo(() => pages.map((p) => ({ ...p, bodyText: null, zoneId: p.parentId, props: '{}' }) as unknown as NoteRow), [pages]);
   const edited = new Date(page.updatedAt).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 
   const tree = (id: string, depth: number): React.ReactNode => {
@@ -202,6 +205,27 @@ function Reader({ share }: { share: PublicShare }) {
             <ul>{tree(share.rootId, 0)}</ul>
           </nav>
         )}
+        {page.kind === 'canvas' ? (
+          <div className="pub-canvas" key={page.id}>
+            <header className="pub-canvas-head">
+              {path.length > 1 && (
+                <nav className="pub-crumbs" aria-label={t('Ruta')}>
+                  {path.slice(0, -1).map((p) => (
+                    <span key={p.id}>
+                      <button onClick={() => go(p.id)}>{titleOf(p)}</button>
+                      <span aria-hidden="true"> › </span>
+                    </span>
+                  ))}
+                </nav>
+              )}
+              <h1 className="pub-canvas-title">{titleOf(page)}</h1>
+              <span className="reader-meta">{t('editada el {date}', { date: edited })}</span>
+            </header>
+            <div className="pub-board">
+              <BoardView bodyJson={page.bodyJson} rows={rows} onOpenNote={go} />
+            </div>
+          </div>
+        ) : (
         <div className="sheet is-reader pub-sheet">
           <div className="reader-main" ref={main}>
             {cover && (
@@ -222,11 +246,7 @@ function Reader({ share }: { share: PublicShare }) {
               )}
               <span className="reader-meta">{t('editada el {date}', { date: edited })}</span>
               <h1 className="sheet-title">{titleOf(page)}</h1>
-              {page.kind === 'canvas' ? (
-                <p className="pub-empty">{t('Los canvas todavía no se pueden ver en una nota pública.')}</p>
-              ) : (
-                <Body page={page} find={find} onOpen={go} />
-              )}
+              <Body page={page} find={find} onOpen={go} />
               {inside.length > 0 && (
                 <section className="pub-inside" aria-label={t('Dentro')}>
                   <span className="reader-side-h">{t('Dentro')}</span>
@@ -245,6 +265,7 @@ function Reader({ share }: { share: PublicShare }) {
             </article>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

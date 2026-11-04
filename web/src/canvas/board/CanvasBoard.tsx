@@ -63,6 +63,8 @@ type Ctx = {
   setData: (id: string, data: Partial<Data>) => void;
   // Clic dentro del texto de una tarjeta: enlaces y casillas.
   onBodyClick: (e: ReactMouseEvent<HTMLElement>, cardId?: string) => void;
+  // Solo para mirar (una nota pública): nada se escribe ni se mueve.
+  readOnly?: boolean;
 };
 
 // Las tarjetas se leen como el resto de notas: su texto es Markdown.
@@ -107,7 +109,7 @@ function TextCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ct
     }
   }, [editing]);
   return (
-    <div className={`board-card board-text${selected ? ' is-selected' : ''}${tint.cls}`} style={tint.style} onDoubleClick={() => ctx.setData(id, { editing: true })}>
+    <div className={`board-card board-text${selected ? ' is-selected' : ''}${tint.cls}`} style={tint.style} onDoubleClick={() => !ctx.readOnly && ctx.setData(id, { editing: true })}>
       <NodeResizer isVisible={selected} minWidth={120} minHeight={48} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
       {handles}
       {editing ? (
@@ -128,7 +130,7 @@ function TextCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ct
         <div className="board-text-body prose" onClick={(e) => ctx.onBodyClick(e, id)} dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
         <div className="board-text-body">
-          <span className="faint">{t('Doble clic para escribir')}</span>
+          {!ctx.readOnly && <span className="faint">{t('Doble clic para escribir')}</span>}
         </div>
       )}
     </div>
@@ -152,13 +154,13 @@ function NoteCard({ data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ctx })
       <NodeResizer isVisible={selected} minWidth={160} minHeight={60} lineClassName="board-resize-line" handleClassName="board-resize-handle" />
       {handles}
       <span className="board-note-kind meta">{row?.kind === 'canvas' ? t('Canvas') : t('Nota')}</span>
-      <strong className="board-note-title">{row ? row.title || t('Nota sin título') : t('Nota borrada')}</strong>
+      <strong className="board-note-title">{row ? row.title || t('Nota sin título') : ctx.readOnly ? t('Nota no compartida') : t('Nota borrada')}</strong>
       {html ? (
         <div className="board-note-body prose" onClick={(e) => ctx.onBodyClick(e)} dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
         body && <p className="board-note-body is-plain">{body}</p>
       )}
-      {row && <span className="board-note-open meta">{t('Doble clic para abrir')}</span>}
+      {row && <span className="board-note-open meta">{ctx.readOnly ? t('Toca para abrir') : t('Doble clic para abrir')}</span>}
     </div>
   );
 }
@@ -207,6 +209,8 @@ function GroupCard({ id, data, selected, ctx }: NodeProps<Node<Data>> & { ctx: C
       <input
         className="board-group-label nodrag"
         value={data.label ?? ''}
+        readOnly={ctx.readOnly}
+        tabIndex={ctx.readOnly ? -1 : undefined}
         placeholder={t('Grupo')}
         onChange={(e) => ctx.setData(id, { label: e.target.value })}
         onKeyDown={(e) => {
@@ -1347,3 +1351,106 @@ export function CanvasBoard(props: Props) {
   );
 }
 
+// ── Solo para mirar (las notas públicas) ─────────────────────────────
+// El mismo lienzo, con sus tarjetas, flechas y dibujos, pero sin escribir,
+// mover ni guardar nada: solo se desplaza y se acerca. `rows` son las notas
+// que se pueden ver; las tarjetas de otras notas salen como no compartidas.
+
+type ViewProps = { bodyJson: string | null; rows: NoteRow[]; onOpenNote: (id: string) => void };
+
+function ViewInner({ bodyJson, rows, onOpenNote }: ViewProps) {
+  const board = useMemo(() => parseBoard(bodyJson), [bodyJson]);
+  // En el estado, para que React Flow apunte lo que mide cada tarjeta (sin eso no pinta las flechas).
+  const [nodes, setNodes] = useState<Node<Data>[]>(() => toFlow(board).nodes);
+  const edges = useMemo(() => toFlow(board).edges, [board]);
+  useEffect(() => setNodes(toFlow(board).nodes), [board]);
+  const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
+  const flow = useReactFlow();
+  const none = useMemo(() => new Set<string>(), []);
+  const onBodyClick = (e: ReactMouseEvent<HTMLElement>) => {
+    const el = e.target as HTMLElement;
+    const wiki = el.closest<HTMLElement>('a[data-wikilink]');
+    if (wiki) {
+      e.preventDefault();
+      const name = splitWiki(wiki.dataset.target ?? '').note.trim().toLowerCase();
+      const id = (wiki.dataset.id && byId.has(wiki.dataset.id) ? wiki.dataset.id : null) || [...byId.values()].find((r) => (r.title ?? '').trim().toLowerCase() === name)?.id;
+      if (id) onOpenNote(id);
+      return;
+    }
+    const a = el.closest<HTMLAnchorElement>('a[href]');
+    if (a) {
+      e.preventDefault();
+      window.open(a.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (el instanceof HTMLInputElement && el.type === 'checkbox') e.preventDefault();
+  };
+  const ctx: Ctx = { rows: byId, onOpenNote, setData: () => {}, onBodyClick, readOnly: true };
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+  const nodeTypes = useMemo(
+    () => ({
+      text: (p: NodeProps<Node<Data>>) => <TextCard {...p} ctx={ctxRef.current} />,
+      note: (p: NodeProps<Node<Data>>) => <NoteCard {...p} ctx={ctxRef.current} />,
+      file: FileCard,
+      group: (p: NodeProps<Node<Data>>) => <GroupCard {...p} ctx={ctxRef.current} />,
+    }),
+    [],
+  );
+  const edgeTypes = useMemo(() => ({ arrow: FloatingArrow }), []);
+  const empty = !nodes.length && !(board.drawings ?? []).length;
+  return (
+    <div className="board is-view">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodesChange={(c: NodeChange<Node<Data>>[]) => setNodes((ns) => applyNodeChanges(c, ns))}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        // Las tarjetas solo tienen asas de salida: las flechas van de una a otra como en el editor.
+        connectionMode={ConnectionMode.Loose}
+        elementsSelectable={false}
+        nodesFocusable={false}
+        edgesFocusable={false}
+        // Un clic (o un toque) en una tarjeta de nota la abre, si se comparte.
+        onNodeClick={(_, n) => n.type === 'note' && n.data.noteId && byId.has(n.data.noteId) && onOpenNote(n.data.noteId)}
+        panOnDrag
+        zoomOnDoubleClick={false}
+        deleteKeyCode={null}
+        minZoom={0.1}
+        maxZoom={3}
+        fitView={!empty}
+        fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
+        proOptions={{ hideAttribution: true }}
+        colorMode="dark"
+      >
+        <Background variant={BackgroundVariant.Dots} gap={28} size={1.2} className="board-dots" />
+        <ViewportPortal>
+          <DrawLayer drawings={board.drawings ?? []} draft={null} selected={null} erasing={none} typing={null} onShapeDown={() => {}} onTextEdit={() => {}} onTyping={() => {}} onTypingDone={() => {}} still />
+        </ViewportPortal>
+      </ReactFlow>
+      {empty && <p className="board-empty">{t('Este canvas está vacío')}</p>}
+      {!empty && (
+        <nav className="board-tools surface-2" aria-label={t('Lienzo')}>
+          <button onClick={() => flow.zoomOut({ duration: 200 })} aria-label={t('Alejar')}>
+            −
+          </button>
+          <button onClick={() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 500 })}>{t('Encuadrar')}</button>
+          <button onClick={() => flow.zoomIn({ duration: 200 })} aria-label={t('Acercar')}>
+            +
+          </button>
+        </nav>
+      )}
+    </div>
+  );
+}
+
+export function BoardView(props: ViewProps) {
+  return (
+    <ReactFlowProvider>
+      <ViewInner {...props} />
+    </ReactFlowProvider>
+  );
+}
