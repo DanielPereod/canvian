@@ -23,7 +23,7 @@ export type ColumnOptions = {
 };
 
 export type Column = { id: string; tableId: string; name: string; type: ColumnType; options: ColumnOptions; position: number };
-export type Table = { id: string; profileId: string; name: string; icon: string | null; position: number; columns: Column[] };
+export type Table = { id: string; profileId: string; name: string; icon: string | null; folder: string | null; position: number; columns: Column[] };
 export type Value = string | number | boolean | null | string[];
 export type Row = { id: string; tableId: string; position: number; values: Record<string, Value>; createdAt: string; updatedAt: string };
 
@@ -70,7 +70,7 @@ export function tablesOf(db: Db, profileId: string): Table[] {
     .orderBy(asc(dbColumns.position))
     .all()
     .map(toColumn);
-  return tables.map((t) => ({ id: t.id, profileId: t.profileId, name: t.name, icon: t.icon, position: t.position, columns: cols.filter((c) => c.tableId === t.id) }));
+  return tables.map((t) => ({ id: t.id, profileId: t.profileId, name: t.name, icon: t.icon, folder: t.folder, position: t.position, columns: cols.filter((c) => c.tableId === t.id) }));
 }
 
 export function tableById(db: Db, id: string): Table | null {
@@ -295,12 +295,12 @@ export function deleteRow(db: Db, rowId: string) {
 
 // ── Tablas y columnas ─────────────────────────────────────────────────
 
-export function createTable(db: Db, profileId: string, name: string, id = ulid()): Table {
+export function createTable(db: Db, profileId: string, name: string, id = ulid(), folder: string | null = null): Table {
   const tables = tablesOf(db, profileId);
   if (!keyOf(name)) throw new DbError('El nombre necesita alguna letra o número');
   if (tables.some((t) => keyOf(t.name) === keyOf(name))) throw new DbError('Ya hay una tabla con ese nombre', 409);
   db.transaction((tx) => {
-    tx.insert(dbTables).values({ id, profileId, name, position: tables.length ? Math.max(...tables.map((t) => t.position)) + 1 : 0 }).run();
+    tx.insert(dbTables).values({ id, profileId, name, folder, position: tables.length ? Math.max(...tables.map((t) => t.position)) + 1 : 0 }).run();
     tx.insert(dbColumns).values({ id: ulid(), tableId: id, name: 'Nombre', type: 'text', options: JSON.stringify({ primary: true }), position: 0 }).run();
   });
   return tableById(db, id)!;

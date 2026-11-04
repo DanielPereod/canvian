@@ -177,6 +177,8 @@ export const dbTables = sqliteTable(
       .references(() => profiles.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     icon: text('icon'),
+    // La carpeta en la que se ve (solo para ordenar; no cambia las consultas).
+    folder: text('folder'),
     position: integer('position').notNull().default(0),
     createdAt: text('created_at').notNull().default(now),
     updatedAt: text('updated_at').notNull().default(now),

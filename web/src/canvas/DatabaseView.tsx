@@ -38,6 +38,7 @@ export const keyOf = (name: string) =>
     .replace(/^_+|_+$/g, '');
 
 type NoteRef = { id: string; title: string };
+const FOLDED_KEY = 'canvian.db.folded';
 type Props = {
   profileId: string;
   notes: NoteRef[];
@@ -56,6 +57,7 @@ type Pop =
   | { kind: 'column'; col: string; at: Anchor }
   | { kind: 'addColumn'; at: Anchor }
   | { kind: 'table'; at: Anchor }
+  | { kind: 'folder'; at: Anchor }
   | { kind: 'deleteTable'; at: Anchor };
 
 const anchorOf = (el: Element): Anchor => {
@@ -76,6 +78,28 @@ export function DatabaseView(p: Props) {
   const [sort, setSort] = useState<Sort>(null);
   const [search, setSearch] = useState('');
   const [newTable, setNewTable] = useState<string | null>(null);
+  // La carpeta en la que se crea la tabla nueva; y la carpeta que se está creando o renombrando.
+  const [newIn, setNewIn] = useState<string | null>(null);
+  const [folderEdit, setFolderEdit] = useState<{ from: string | null; name: string } | null>(null);
+  const [folded, setFolded] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]') as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const toggleFolder = (name: string) =>
+    setFolded((f) => {
+      const next = new Set(f);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      try {
+        localStorage.setItem(FOLDED_KEY, JSON.stringify([...next]));
+      } catch {
+        // Sin almacenamiento local, las carpetas se abren al volver.
+      }
+      return next;
+    });
   const [renaming, setRenaming] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -152,12 +176,23 @@ export function DatabaseView(p: Props) {
       .catch(fail);
   };
 
-  const addRow = (focus = true) => {
+  // Una fila nueva al final, arriba del todo o justo debajo de otra.
+  const addRow = (where: 'end' | 'top' | { after: string } = 'end', focus = true) => {
     if (!table) return;
     const id = ulid();
-    const position = rows.length ? Math.max(...rows.map((r) => r.position)) + 1 : 1;
+    const ordered = [...rows].sort((a, b) => a.position - b.position);
+    let position: number;
+    if (!ordered.length) position = 1;
+    else if (where === 'end') position = ordered[ordered.length - 1].position + 1;
+    else if (where === 'top') position = ordered[0].position - 1;
+    else {
+      const i = ordered.findIndex((r) => r.id === where.after);
+      const here = ordered[i]?.position ?? ordered[ordered.length - 1].position;
+      const next = ordered[i + 1]?.position;
+      position = next === undefined ? here + 1 : (here + next) / 2;
+    }
     const row: DbRow = { id, tableId: table.id, position, values: {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    setRows((rs) => [...rs, row]);
+    setRows((rs) => [...rs, row].sort((a, b) => a.position - b.position));
     setSort(null);
     setSearch('');
     if (focus) setEditing({ row: id, col: table.columns[0].id });
@@ -177,10 +212,12 @@ export function DatabaseView(p: Props) {
 
   const createTable = async (name: string) => {
     const clean = name.trim();
+    const folder = newIn;
     setNewTable(null);
+    setNewIn(null);
     if (!clean) return;
     try {
-      const made = await api.createDbTable(p.profileId, { id: ulid(), name: clean });
+      const made = await api.createDbTable(p.profileId, { id: ulid(), name: clean, folder });
       setTables((ts) => [...(ts ?? []), { ...made, rows: 0 }]);
       setCurrent(made.id);
       dbTouched();
@@ -246,7 +283,7 @@ export function DatabaseView(p: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
-      if (pop || editing || newTable !== null || renaming) return;
+      if (pop || editing || newTable !== null || renaming || folderEdit) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest('input, textarea, [contenteditable="true"]')) return;
       p.onClose();
@@ -296,42 +333,163 @@ export function DatabaseView(p: Props) {
 
   if (!tables) return <div className="tasks-view tv dbv" />;
 
+  // ── Carpetas ───────────────────────────────────────────────────────
+
+  const folders = [...new Set(tables.flatMap((x) => (x.folder ? [x.folder] : [])))].sort((a, b) => a.localeCompare(b, locale(), { numeric: true, sensitivity: 'base' }));
+
+  const moveToFolder = async (folder: string | null) => {
+    setPop(null);
+    if (!table || (table.folder ?? null) === folder) return;
+    setTables((ts) => ts?.map((x) => (x.id === table.id ? { ...x, folder } : x)) ?? ts);
+    try {
+      await api.updateDbTable(table.id, { folder });
+      touched();
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  // Renombrar una carpeta es cambiar la de sus tablas; una carpeta nueva
+  // empieza con su primera tabla.
+  const saveFolder = async () => {
+    const edit = folderEdit;
+    setFolderEdit(null);
+    const name = edit?.name.trim() ?? '';
+    if (!edit || !name) return;
+    if (edit.from === null) {
+      setNewIn(name);
+      setNewTable('');
+      return;
+    }
+    if (name === edit.from) return;
+    const ids = tables.filter((x) => x.folder === edit.from).map((x) => x.id);
+    setTables((ts) => ts?.map((x) => (ids.includes(x.id) ? { ...x, folder: name } : x)) ?? ts);
+    try {
+      await Promise.all(ids.map((id) => api.updateDbTable(id, { folder: name })));
+      touched();
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const tableItem = (x: DbTable) => (
+    <button key={x.id} className={`tv-nav-item${x.id === current ? ' is-on' : ''}`} onClick={() => setCurrent(x.id)}>
+      <span className="tv-nav-icon" aria-hidden="true">
+        ▤
+      </span>
+      <span className="tv-nav-name">{x.name}</span>
+      {!!x.rows && <span className="tv-nav-n">{x.rows}</span>}
+    </button>
+  );
+
+  const newTableInput = (
+    <input
+      className="dbv-new-table"
+      autoFocus
+      value={newTable ?? ''}
+      placeholder={newIn ? t('Tabla nueva en {folder}', { folder: newIn }) : t('Nombre de la tabla')}
+      aria-label={t('Nombre de la tabla')}
+      onChange={(e) => setNewTable(e.target.value)}
+      onBlur={() => void createTable(newTable ?? '')}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') void createTable(newTable ?? '');
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setNewTable(null);
+          setNewIn(null);
+        }
+      }}
+    />
+  );
+
+  const folderInput = (
+    <input
+      className="dbv-new-table"
+      autoFocus
+      value={folderEdit?.name ?? ''}
+      placeholder={t('Nombre de la carpeta')}
+      aria-label={t('Nombre de la carpeta')}
+      onChange={(e) => setFolderEdit((f) => (f ? { ...f, name: e.target.value } : f))}
+      onBlur={() => void saveFolder()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') void saveFolder();
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setFolderEdit(null);
+        }
+      }}
+    />
+  );
+
   return (
     <div className="tasks-view tv dbv">
       <nav className="tv-side" aria-label={t('Tablas')}>
         <div className="tv-side-title dbv-side-title">{t('Bases de datos')}</div>
-        {tables.map((x) => (
-          <button key={x.id} className={`tv-nav-item${x.id === current ? ' is-on' : ''}`} onClick={() => setCurrent(x.id)}>
-            <span className="tv-nav-icon" aria-hidden="true">
-              ▤
-            </span>
-            <span className="tv-nav-name">{x.name}</span>
-            {!!x.rows && <span className="tv-nav-n">{x.rows}</span>}
-          </button>
+        {tables.filter((x) => !x.folder).map(tableItem)}
+        {newTable !== null && newIn === null && newTableInput}
+        {folders.map((f) => (
+          <div key={f} className="dbv-folder">
+            {folderEdit && folderEdit.from === f ? (
+              folderInput
+            ) : (
+              <div className="dbv-folder-head">
+                <button className="tv-nav-item dbv-folder-name" onClick={() => toggleFolder(f)} aria-expanded={!folded.has(f)}>
+                  <span className="tv-nav-icon" aria-hidden="true">
+                    {folded.has(f) ? '▸' : '▾'}
+                  </span>
+                  <span className="tv-nav-name">{f}</span>
+                </button>
+                <button className="dbv-folder-tool" onClick={() => setFolderEdit({ from: f, name: f })} aria-label={t('Cambiar el nombre de la carpeta')} title={t('Cambiar el nombre de la carpeta')}>
+                  ✎
+                </button>
+                <button
+                  className="dbv-folder-tool"
+                  onClick={() => {
+                    if (folded.has(f)) toggleFolder(f);
+                    setNewIn(f);
+                    setNewTable('');
+                  }}
+                  aria-label={t('Nueva tabla en {folder}', { folder: f })}
+                  title={t('Nueva tabla en {folder}', { folder: f })}
+                >
+                  +
+                </button>
+              </div>
+            )}
+            {!folded.has(f) && (
+              <div className="dbv-folder-items">
+                {tables.filter((x) => x.folder === f).map(tableItem)}
+                {newTable !== null && newIn === f && newTableInput}
+              </div>
+            )}
+          </div>
         ))}
-        {newTable !== null ? (
-          <input
-            className="dbv-new-table"
-            autoFocus
-            value={newTable}
-            placeholder={t('Nombre de la tabla')}
-            aria-label={t('Nombre de la tabla')}
-            onChange={(e) => setNewTable(e.target.value)}
-            onBlur={() => void createTable(newTable)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void createTable(newTable);
-              if (e.key === 'Escape') {
-                e.preventDefault();
-                setNewTable(null);
-              }
-            }}
-          />
-        ) : (
+        {folderEdit && folderEdit.from === null && folderInput}
+        {newTable !== null && newIn !== null && !folders.includes(newIn) && (
+          <div className="dbv-folder">
+            <div className="tv-nav-item dbv-folder-name is-new">
+              <span className="tv-nav-icon" aria-hidden="true">
+                ▾
+              </span>
+              <span className="tv-nav-name">{newIn}</span>
+            </div>
+            <div className="dbv-folder-items">{newTableInput}</div>
+          </div>
+        )}
+        {newTable !== null ? null : (
           <button className="tv-nav-item dbv-add-table" onClick={() => setNewTable('')}>
             <span className="tv-nav-icon" aria-hidden="true">
               +
             </span>
             <span className="tv-nav-name">{t('Nueva tabla')}</span>
+          </button>
+        )}
+        {!folderEdit && (
+          <button className="tv-nav-item dbv-add-table" onClick={() => setFolderEdit({ from: null, name: '' })}>
+            <span className="tv-nav-icon" aria-hidden="true">
+              ▸
+            </span>
+            <span className="tv-nav-name">{t('Nueva carpeta')}</span>
           </button>
         )}
       </nav>
@@ -373,6 +531,9 @@ export function DatabaseView(p: Props) {
               </h1>
               <div className="tv-head-tools dbv-tools">
                 <input className="dbv-search" type="search" value={search} placeholder={t('Buscar en la tabla')} aria-label={t('Buscar en la tabla')} onChange={(e) => setSearch(e.target.value)} />
+                <button className="btn btn-primary btn-sm" onClick={() => addRow('top')} title={t('Añadir una fila arriba del todo')}>
+                  + {t('Fila')}
+                </button>
                 <button className="btn btn-ghost btn-sm" onClick={(e) => setPop({ kind: 'table', at: anchorOf(e.currentTarget) })} aria-haspopup="menu">
                   {t('Más')} ▾
                 </button>
@@ -441,6 +602,9 @@ export function DatabaseView(p: Props) {
                         </td>
                       ))}
                       <td className="dbv-td-tools">
+                        <button className="dbv-row-add" onClick={() => addRow({ after: r.id })} aria-label={t('Añadir una fila debajo')} title={t('Añadir una fila debajo')}>
+                          +
+                        </button>
                         <button className="dbv-row-del" onClick={() => deleteRow(r)} aria-label={t('Borrar la fila')} title={t('Borrar la fila')}>
                           ×
                         </button>
@@ -450,7 +614,7 @@ export function DatabaseView(p: Props) {
                 </tbody>
               </table>
               {!shown.length && search && <p className="dbv-none">{t('Ninguna fila tiene «{q}»', { q: search })}</p>}
-              <button className="dbv-add-row" onClick={() => addRow()}>
+              <button className="dbv-add-row" onClick={() => addRow('end')}>
                 + {t('Nueva fila')}
               </button>
             </div>
@@ -494,6 +658,7 @@ export function DatabaseView(p: Props) {
                   fileRef.current?.click();
                 }}
               />
+              <MenuItem icon="▸" label={t('Mover a una carpeta…')} onClick={() => setPop({ kind: 'folder', at: pop.at })} />
               <MenuItem
                 icon="✎"
                 label={t('Cambiar el nombre')}
@@ -511,6 +676,16 @@ export function DatabaseView(p: Props) {
               text={t('¿Borrar la tabla «{name}» con sus {n} filas? Las relaciones de otras tablas con ella también se borran.', { name: table.name, n: rows.length })}
               onCancel={() => setPop(null)}
               onConfirm={() => void removeTable()}
+            />
+          )}
+          {pop.kind === 'folder' && (
+            <Picker
+              multi={false}
+              items={folders.map((f) => ({ id: f, label: f }))}
+              value={table.folder ? [table.folder] : []}
+              placeholder={t('Buscar o crear una carpeta')}
+              onCreate={(name) => void moveToFolder(name)}
+              onChange={(ids) => void moveToFolder(ids[0] ?? null)}
             />
           )}
           {pop.kind === 'addColumn' && (

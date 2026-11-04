@@ -71,6 +71,13 @@
       "when": 1790560000000,
       "tag": "0009_databases",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1790570000000,
+      "tag": "0010_db_folders",
+      "breakpoints": true
     }
   ]
 }

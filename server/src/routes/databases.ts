@@ -32,8 +32,9 @@ import { runQuery } from '../databases/query.js';
 
 const id = z.string().min(10).max(40);
 const name = z.string().trim().min(1).max(80);
-const tableCreate = z.object({ id: id.optional(), name });
-const tablePatch = z.object({ name, icon: z.string().max(40).nullable(), position: z.number().int() }).partial();
+const folder = z.string().trim().max(80).nullable().transform((v) => v || null);
+const tableCreate = z.object({ id: id.optional(), name, folder: folder.optional() });
+const tablePatch = z.object({ name, icon: z.string().max(40).nullable(), position: z.number().int(), folder }).partial();
 const choices = z.array(z.string().trim().min(1).max(80)).max(2000);
 const columnCreate = z.object({ id: id.optional(), name, type: z.enum(COLUMN_TYPES), choices: choices.optional(), target: id.optional() });
 const columnPatch = z.object({ name, type: z.enum(COLUMN_TYPES), choices, position: z.number().int() }).partial();
@@ -91,7 +92,7 @@ export function databaseRoutes(db: Db) {
     const body = tableCreate.safeParse(await json(c));
     if (!body.success) return c.json({ error: 'Tabla no válida' }, 400);
     try {
-      return c.json(createTable(db, pid, body.data.name, body.data.id), 201);
+      return c.json(createTable(db, pid, body.data.name, body.data.id, body.data.folder ?? null), 201);
     } catch (e) {
       return fail(c, e);
     }
