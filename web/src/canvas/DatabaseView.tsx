@@ -55,7 +55,8 @@ type Pop =
   | { kind: 'cell'; row: string; col: string; at: Anchor }
   | { kind: 'column'; col: string; at: Anchor }
   | { kind: 'addColumn'; at: Anchor }
-  | { kind: 'table'; at: Anchor };
+  | { kind: 'table'; at: Anchor }
+  | { kind: 'deleteTable'; at: Anchor };
 
 const anchorOf = (el: Element): Anchor => {
   const r = el.getBoundingClientRect();
@@ -202,7 +203,6 @@ export function DatabaseView(p: Props) {
   const removeTable = async () => {
     if (!table) return;
     setPop(null);
-    if (!window.confirm(t('¿Borrar la tabla «{name}» con sus {n} filas? Las relaciones de otras tablas con ella también se borran.', { name: table.name, n: rows.length }))) return;
     try {
       await api.deleteDbTable(table.id);
       setCurrent(null);
@@ -502,8 +502,16 @@ export function DatabaseView(p: Props) {
                   setRenaming(true);
                 }}
               />
-              <MenuItem icon="🗑" label={t('Borrar la tabla')} danger onClick={() => void removeTable()} />
+              <MenuItem icon="🗑" label={t('Borrar la tabla')} danger onClick={() => setPop({ kind: 'deleteTable', at: pop.at })} />
             </ul>
+          )}
+          {/* Se confirma aquí y no con window.confirm, que en algunos navegadores y en la app no sale. */}
+          {pop.kind === 'deleteTable' && (
+            <Confirm
+              text={t('¿Borrar la tabla «{name}» con sus {n} filas? Las relaciones de otras tablas con ella también se borran.', { name: table.name, n: rows.length })}
+              onCancel={() => setPop(null)}
+              onConfirm={() => void removeTable()}
+            />
           )}
           {pop.kind === 'addColumn' && (
             <ColumnForm
@@ -536,11 +544,13 @@ export function DatabaseView(p: Props) {
                     setPop(null);
                   }}
                   onCancel={() => setPop(null)}
-                  onDelete={async () => {
-                    setPop(null);
+                  deleteText={(() => {
                     const pair = col.type === 'relation' ? tables.flatMap((x) => x.columns).find((x) => x.id === col.options.pair) : null;
                     const extra = pair ? ' ' + t('También se borra «{col}» de «{table}».', { col: pair.name, table: tables.find((x) => x.id === pair.tableId)?.name ?? '' }) : '';
-                    if (!window.confirm(t('¿Borrar la columna «{name}» y sus valores?', { name: col.name }) + extra)) return;
+                    return t('¿Borrar la columna «{name}» y sus valores?', { name: col.name }) + extra;
+                  })()}
+                  onDelete={async () => {
+                    setPop(null);
                     try {
                       await api.deleteDbColumn(col.id);
                       touched();
@@ -806,8 +816,9 @@ function Popup({ at, onClose, wide, children }: { at: Anchor; onClose: () => voi
     const r = el.getBoundingClientRect();
     const left = Math.max(8, Math.min(at.x, window.innerWidth - r.width - 8));
     const top = at.y + r.height > window.innerHeight - 8 ? Math.max(8, at.y - r.height - 40) : at.y;
-    setPos({ left, top });
-  }, [at.x, at.y]);
+    // Se mide cada vez: lo de dentro cambia (un menú que pasa a pedir confirmación).
+    setPos((p) => (p.left === left && p.top === top ? p : { left, top }));
+  });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -929,12 +940,14 @@ function ColumnForm(p: {
   onSort?: (dir: 1 | -1 | 0) => void;
   onCancel: () => void;
   onDelete?: () => void;
+  deleteText?: string;
   onSave: (body: { name: string; type: DbColumnType; target?: string }) => void;
 }) {
   const [name, setName] = useState(p.col?.name ?? '');
   const [type, setType] = useState<DbColumnType>(p.col?.type ?? 'text');
   const [target, setTarget] = useState<string | null>(p.col?.options.target ?? p.tables.find((x) => x.id !== p.table.id)?.id ?? p.table.id);
   const primary = !!p.col?.options.primary;
+  const [confirming, setConfirming] = useState(false);
   const relation = p.col?.type === 'relation';
   const save = () => {
     if (!name.trim()) return;
@@ -978,9 +991,12 @@ function ColumnForm(p: {
           </button>
         </div>
       )}
+      {confirming && p.onDelete ? (
+        <Confirm text={p.deleteText ?? ''} onCancel={() => setConfirming(false)} onConfirm={p.onDelete} />
+      ) : (
       <div className="dbv-form-actions">
         {p.onDelete && !primary && (
-          <button type="button" className="btn btn-ghost btn-sm dbv-danger" onClick={p.onDelete}>
+          <button type="button" className="btn btn-ghost btn-sm dbv-danger" onClick={() => setConfirming(true)}>
             {t('Borrar')}
           </button>
         )}
@@ -992,6 +1008,24 @@ function ColumnForm(p: {
           {p.col ? t('Guardar') : t('Añadir')}
         </button>
       </div>
+      )}
     </form>
+  );
+}
+
+function Confirm({ text, onCancel, onConfirm }: { text: string; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="dbv-confirm" role="alertdialog" aria-label={text}>
+      <p className="dbv-confirm-text">{text}</p>
+      <div className="dbv-form-actions">
+        <span className="dbv-spacer" />
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>
+          {t('Cancelar')}
+        </button>
+        <button type="button" className="btn btn-primary btn-sm dbv-danger-solid" autoFocus onClick={onConfirm}>
+          {t('Borrar')}
+        </button>
+      </div>
+    </div>
   );
 }
