@@ -165,4 +165,11 @@ describe('bases de datos', () => {
     expect(doc.content?.[1]).toEqual({ type: 'dbQuery', attrs: { query: 'SELECT nombre FROM libros\nWHERE nota > 3' } });
     expect(docToMarkdown(doc)).toContain('```db\nSELECT nombre FROM libros\nWHERE nota > 3\n```');
   });
+
+  it('guarda las tablas en carpetas', async () => {
+    const t = (await call('POST', `/api/profiles/${profileId}/db/tables`, { name: 'Gastos', folder: ' Casa ' })).data;
+    expect(t.folder).toBe('Casa');
+    expect((await call('PATCH', `/api/db/tables/${libros.id}`, { folder: 'Ocio' })).data.folder).toBe('Ocio');
+    expect((await call('PATCH', `/api/db/tables/${libros.id}`, { folder: '' })).data.folder).toBeNull();
+  });
 });

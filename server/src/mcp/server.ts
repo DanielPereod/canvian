@@ -732,6 +732,7 @@ export function createMcpServer(db: Db, hub?: Hub, opts: { mediaDir?: string; fe
         tables.map((t) => ({
           id: t.id,
           name: t.name,
+          ...(t.folder ? { folder: t.folder } : {}),
           rows: rowsOf(db, t).length,
           columns: t.columns.map((c) => ({
             name: c.name,
@@ -773,12 +774,13 @@ export function createMcpServer(db: Db, hub?: Hub, opts: { mediaDir?: string; fe
           .array(z.object({ name: z.string().trim().min(1).max(80), type: z.enum(COLUMN_TYPES), choices: z.array(z.string()).optional(), to: z.string().optional().describe('Relaciones: la otra tabla.') }))
           .max(60)
           .optional(),
+        folder: z.string().trim().max(80).optional().describe('La carpeta donde se ve en la web (solo para ordenar).'),
         profile: profileArg,
       },
     },
-    dbRun(({ name, columns = [], profile }) => {
+    dbRun(({ name, columns = [], folder, profile }) => {
       const p = resolveProfile(db, profile);
-      let t = createTable(db, p.id, name);
+      let t = createTable(db, p.id, name, ulid(), folder || null);
       for (const c of columns) {
         const tables = tablesOf(db, p.id);
         const target = c.type === 'relation' ? findTable(tables, c.to ?? '') : null;

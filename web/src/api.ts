@@ -102,7 +102,7 @@ export type DbColumn = {
   options: { choices?: string[]; target?: string; pair?: string; owner?: boolean; primary?: boolean };
   position: number;
 };
-export type DbTable = { id: string; profileId: string; name: string; icon: string | null; position: number; columns: DbColumn[]; rows: number };
+export type DbTable = { id: string; profileId: string; name: string; icon: string | null; folder: string | null; position: number; columns: DbColumn[]; rows: number };
 export type DbValue = string | number | boolean | null | string[];
 export type DbRow = { id: string; tableId: string; position: number; values: Record<string, DbValue>; createdAt: string; updatedAt: string };
 export type DbResultType = 'text' | 'number' | 'date' | 'checkbox' | 'url' | 'image' | 'note' | 'select' | 'list' | 'any';
@@ -233,8 +233,8 @@ export const api = {
   publicShare: (slug: string) => request<PublicShare>('GET', `/public/${encodeURIComponent(slug)}`),
   unlockShare: (slug: string, password: string) => request('POST', `/public/${encodeURIComponent(slug)}/unlock`, { password }),
   dbTables: (profileId: string) => request<DbTable[]>('GET', `/profiles/${profileId}/db`),
-  createDbTable: (profileId: string, body: { id: string; name: string }) => request<DbTable>('POST', `/profiles/${profileId}/db/tables`, body),
-  updateDbTable: (id: string, patch: { name?: string; icon?: string | null; position?: number }) => request<DbTable>('PATCH', `/db/tables/${id}`, patch),
+  createDbTable: (profileId: string, body: { id: string; name: string; folder?: string | null }) => request<DbTable>('POST', `/profiles/${profileId}/db/tables`, body),
+  updateDbTable: (id: string, patch: { name?: string; icon?: string | null; position?: number; folder?: string | null }) => request<DbTable>('PATCH', `/db/tables/${id}`, patch),
   deleteDbTable: (id: string) => request('DELETE', `/db/tables/${id}`),
   dbRows: (tableId: string) => request<{ rows: DbRow[]; titles: Record<string, string> }>('GET', `/db/tables/${tableId}/rows`),
   createDbColumn: (tableId: string, body: { id: string; name: string; type: DbColumnType; choices?: string[]; target?: string }) => request<DbColumn>('POST', `/db/tables/${tableId}/columns`, body),
