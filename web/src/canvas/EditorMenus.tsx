@@ -5,6 +5,7 @@ import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import { t } from '../i18n';
 import { attachFiles, youtubeId } from './media';
 import { APP_TEMPLATE, editNextApp } from './miniapp';
+import { DB_TEMPLATE, editNextDb } from './dbquery';
 import { TOUCH } from './touch';
 import type { SlashQuery } from './slash';
 import { promptLink } from './editor';
@@ -168,6 +169,18 @@ function slashItems(editor: Editor): SlashItem[] {
       run: (ed) => {
         editNextApp();
         ed.chain().focus().insertContent({ type: 'miniApp', attrs: { code: APP_TEMPLATE } }).run();
+      },
+    },
+    {
+      id: 'db',
+      label: 'Consulta a una base de datos',
+      icon: '▤',
+      group: 'Otros',
+      words: 'db base datos database tabla table sql select consulta query',
+      hint: '```db',
+      run: (ed) => {
+        editNextDb();
+        ed.chain().focus().insertContent({ type: 'dbQuery', attrs: { query: DB_TEMPLATE } }).run();
       },
     },
     { id: 'date', label: 'Fecha de hoy', icon: '📅', group: 'Otros', words: 'date fecha hoy today dia', run: (ed) => void ed.chain().focus().insertContent(today()).run() },

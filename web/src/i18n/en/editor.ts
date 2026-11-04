@@ -31,7 +31,7 @@ export const EN_EDITOR: Record<string, string> = {
   'Listo': 'Done',
   'Reiniciar': 'Restart',
   'Código de la mini app': 'Mini app code',
-  'Se ejecuta aislada: no ve tus notas ni tu sesión.': "Runs isolated: it can't see your notes or your session.",
+  'Se ejecuta aislada: no ve tus notas ni tu sesión. Puede leer tus bases de datos con canvian.db.query(…).': "Runs isolated: it can't see your notes or your session. It can read your databases with canvian.db.query(…).",
   'línea {n}': 'line {n}',
   'Bloques básicos': 'Basic blocks',
   'Diseño': 'Layout',

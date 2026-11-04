@@ -6,8 +6,8 @@ import { CLIENT } from './api';
 // pestaña (el móvil corta las conexiones en segundo plano) o si el canal lleva
 // rato mudo (un proxy que lo retiene), se pide todo de nuevo por si acaso.
 
-export type LiveScope = 'canvas' | 'prefs' | 'profiles';
-const ALL = ['canvas', 'prefs', 'profiles'] as const;
+export type LiveScope = 'canvas' | 'prefs' | 'profiles' | 'db';
+const ALL = ['canvas', 'prefs', 'profiles', 'db'] as const;
 // El servidor late cada 15 s; tres latidos perdidos es que el canal no llega.
 const SILENCE = 45_000;
 const CHECK = 10_000;

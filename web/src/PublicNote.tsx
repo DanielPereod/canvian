@@ -4,6 +4,7 @@ import { api, ApiError, type PublicPage, type PublicShare } from './api';
 import { AuthScreen } from './AuthCard';
 import { Glyph } from './Wordmark';
 import { extensions, parseBody, splitTitle, bodyToHtml } from './canvas/editor';
+import { setDbSource } from './canvas/dbquery';
 import { setNoteSource } from './canvas/embeds';
 import { splitWiki } from './canvas/obsidian';
 import { parseCover } from './canvas/cover';
@@ -25,6 +26,8 @@ const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').trim().toL
 
 export function PublicNote({ slug }: { slug: string }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
+  // Los bloques ```db``` se consultan por el enlace (solo las consultas que hay en lo compartido).
+  useMemo(() => setDbSource({ run: (q) => api.publicDbQuery(slug, q), live: false }), [slug]);
 
   const load = () =>
     api

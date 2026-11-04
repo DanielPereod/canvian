@@ -17,6 +17,8 @@ import { parseBody, retitle } from './editor';
 import { hasMedia, uploadMedia } from './media';
 import { emptyBoard, parseBoard } from './board/board';
 import { Inspector } from './Inspector';
+import { DatabaseView } from './DatabaseView';
+import { setDbSource } from './dbquery';
 import { INBOX, TasksView, rememberTasksView, type TaskWhen } from './TasksView';
 import { addTaskItem, changeTask, listedTasks, contentOf, newTaskItem, removeTask, takeTask, type Task, type TaskChange } from './tasks';
 import { mergeTags, splitTags } from './tags';
@@ -53,7 +55,7 @@ const spotIn = (r: Rect) => ({ x: r.x + 40 + Math.random() * Math.max(0, r.w - N
 
 // Dónde estás (la nota abierta, la vista, el centro de los nodos) se recuerda
 // en este navegador y por perfil: al recargar vuelves al mismo sitio.
-type Place = { note: string | null; center: string | null; tasks: boolean; diary?: boolean };
+type Place = { note: string | null; center: string | null; tasks: boolean; diary?: boolean; db?: boolean; dbTable?: string | null };
 const placeKey = (profileId: string) => `canvian.place.${profileId}`;
 function readPlace(profileId: string): Partial<Place> {
   try {
@@ -96,6 +98,10 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const [tasksKey, setTasksKey] = useState(0);
   // Y el Diario: un feed de entradas, lo nuevo arriba (si está en este perfil).
   const [diaryOpen, setDiaryOpen] = useState(false);
+  // Las bases de datos (y la tabla que se miraba).
+  const [dbOpen, setDbOpen] = useState(false);
+  const [dbTable, setDbTable] = useState<string | null>(null);
+  const [dbKey, setDbKey] = useState(0);
   const diaryOn = useDiaryOn(profile.id);
   const [fabMenu, setFabMenu] = useState<{ x: number; y: number } | null>(null);
   const [defs, setDefs] = useState<PropertyDef[]>([]);
@@ -168,13 +174,13 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
 
   useEffect(() => {
     if (!loaded) return;
-    const place: Place = { note: focusId, center, tasks: tasksOpen, diary: diaryOpen };
+    const place: Place = { note: focusId, center, tasks: tasksOpen, diary: diaryOpen, db: dbOpen, dbTable };
     try {
       localStorage.setItem(placeKey(profile.id), JSON.stringify(place));
     } catch {
       // Sin almacenamiento local, al recargar se empieza desde el principio.
     }
-  }, [loaded, profile.id, focusId, center, tasksOpen, diaryOpen]);
+  }, [loaded, profile.id, focusId, center, tasksOpen, diaryOpen, dbOpen, dbTable]);
 
   const patchRow = useCallback((id: string, patch: Partial<NoteRow>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r))), []);
 
@@ -193,6 +199,10 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       if (exists(place.note)) setFocusId(place.note!);
       else if (place.tasks) setTasksOpen(true);
       else if (place.diary) setDiaryOpen(true);
+      else if (place.db) {
+        setDbTable(place.dbTable ?? null);
+        setDbOpen(true);
+      }
       setLoaded(true);
     }, report);
     return () => {
@@ -545,6 +555,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const openDiary = () => {
     if (focused) closeFocused();
     setTasksOpen(false);
+    setDbOpen(false);
     setDiaryOpen(true);
   };
   // Si se quita del perfil en Configuración, se cierra.
@@ -604,6 +615,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     setFocusId(null);
     setTasksOpen(false);
     setDiaryOpen(false);
+    setDbOpen(false);
     setCenter(id);
     setBibLayout('nodos');
   };
@@ -700,6 +712,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         e.preventDefault();
         if (focused) closeFocused();
             setDiaryOpen(false);
+            setDbOpen(false);
         rememberTasksView('cal');
         setTasksKey((k) => k + 1);
         setTasksOpen(true);
@@ -739,7 +752,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         setInspectId(null);
         return;
       }
-      if (isTyping(e.target) || paletteOpen || focusId || tasksOpen || diaryOpen) return;
+      if (isTyping(e.target) || paletteOpen || focusId || tasksOpen || diaryOpen || dbOpen) return;
       if (action === 'tasks') {
         e.preventDefault();
         setTasksOpen(true);
@@ -916,6 +929,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
   const bibOpen = (id: string) => {
     setTasksOpen(false);
     setDiaryOpen(false);
+    setDbOpen(false);
     if (focused) flush(focused.id);
     setCenter(family.parent.get(id) ?? null);
     openNote(id);
@@ -955,6 +969,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
                 setPeekBack(null);
                 setTasksOpen(false);
                 setDiaryOpen(false);
+                setDbOpen(false);
               }}
               title={t('Ir a la nota')}
               aria-label={t('Ir a la nota')}
@@ -994,11 +1009,12 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
 
   // ── Barra lateral, ruta y la colección ──────────────────────────────
   const family = useFamily(rows);
-  const bibView: BibView = focused && !peek ? 'note' : tasksOpen ? 'tasks' : diaryOpen ? 'diary' : 'library';
+  const bibView: BibView = focused && !peek ? 'note' : tasksOpen ? 'tasks' : diaryOpen ? 'diary' : dbOpen ? 'db' : 'library';
   const goLibrary = (id: string | null) => {
     if (focused) closeFocused();
     setTasksOpen(false);
     setDiaryOpen(false);
+    setDbOpen(false);
     setCenter(id);
   };
   const bibCrumbs: { id: string | null; title: string }[] =
@@ -1006,7 +1022,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       ? [{ id: null, title: t('Tareas') }]
       : bibView === 'diary'
         ? [{ id: null, title: t('Diario') }]
-        : [
+        : bibView === 'db'
+          ? [{ id: null, title: t('Bases de datos') }]
+          : [
             { id: null, title: t('Todas las notas') },
             ...(center === LOOSE && !focused ? [{ id: LOOSE as string | null, title: t('Sueltas') }] : []),
             ...family.pathTo(focused ? focused.id : center === LOOSE ? null : center).map((r) => ({ id: r.id as string | null, title: bibTitle(r) })),
@@ -1022,7 +1040,9 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         ? () => setTasksOpen(false)
         : bibView === 'diary'
           ? () => setDiaryOpen(false)
-          : center !== null
+          : bibView === 'db'
+            ? () => setDbOpen(false)
+            : center !== null
             ? () => setCenter(center === LOOSE ? null : (family.parent.get(center) ?? null))
             : null;
   // Gestos del móvil: deslizar de lado abre y cierra el cajón, hacia abajo
@@ -1049,6 +1069,39 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     else bibUp();
     return true;
   });
+  // Los bloques ```db``` de las notas consultan este perfil; sus filas llevan a
+  // la tabla y sus notas, a la nota.
+  const dbHooks = useRef({ rows, openNote: (_id: string) => {}, openTable: (_id: string) => {} });
+  dbHooks.current = {
+    rows,
+    openNote: (id) => {
+      setPeek(true);
+      openNote(id);
+    },
+    openTable: (id) => {
+      if (focused) closeFocused();
+      setTasksOpen(false);
+      setDiaryOpen(false);
+      setDbTable(id);
+      setDbKey((k) => k + 1);
+      setDbOpen(true);
+    },
+  };
+  useMemo(
+    () =>
+      setDbSource({
+        run: (q) => api.dbQuery(profile.id, q),
+        live: true,
+        noteTitle: (id) => {
+          const r = dbHooks.current.rows.find((x) => x.id === id);
+          return r ? bibTitle(r) : null;
+        },
+        onOpenNote: (id) => dbHooks.current.openNote(id),
+        onOpenTable: (id) => dbHooks.current.openTable(id),
+      }),
+    [profile.id],
+  );
+  const dbNotes = useMemo(() => (dbOpen ? rows.filter((r) => !r.archivedAt).map((r) => ({ id: r.id, title: bibTitle(r) })) : []), [dbOpen, rows]);
   const openTasksCount = useMemo(() => listedTasks(rows).filter((t) => t.status !== 'done').length, [rows]);
 
   return (
@@ -1077,10 +1130,16 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             profileName={profile.name}
             family={family}
             view={bibView}
-            here={bibView === 'tasks' || bibView === 'diary' ? undefined : focused ? focused.id : center}
+            here={bibView === 'tasks' || bibView === 'diary' || bibView === 'db' ? undefined : focused ? focused.id : center}
             tasks={openTasksCount}
             diary={diaryOn}
             onDiary={openDiary}
+            onDb={() => {
+              if (focused) closeFocused();
+              setTasksOpen(false);
+              setDiaryOpen(false);
+              setDbOpen(true);
+            }}
             showArchived={showArchived}
             folded={bibFolded}
             width={bibWidth}
@@ -1093,6 +1152,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
               if (focused) closeFocused();
               setTasksOpen(false);
               setDiaryOpen(false);
+              setDbOpen(false);
                         setLamp((q) => q ?? '');
               setLampOpen(true);
             }}
@@ -1104,6 +1164,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             onTasks={() => {
               if (focused) closeFocused();
                         setDiaryOpen(false);
+                        setDbOpen(false);
               setTasksOpen(true);
             }}
             onArchived={() => setShowArchived((v) => !v)}
@@ -1112,6 +1173,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
               if (focused) closeFocused();
               setTasksOpen(false);
                         setDiaryOpen(false);
+                        setDbOpen(false);
               setCenter(null);
               if (kind === 'canvas') newCanvas(null);
               else newNote(null);
@@ -1122,7 +1184,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             view={bibView}
             layout={bibLayout}
             onCrumb={(id) => {
-              if (bibView === 'tasks' || bibView === 'diary') return;
+              if (bibView === 'tasks' || bibView === 'diary' || bibView === 'db') return;
               if (bibView === 'note' && id) bibOpen(id);
               else goLibrary(id);
             }}
@@ -1181,7 +1243,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           profileId={profile.id}
           defs={defs}
           gallery={bibGallery}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || diaryOpen || !!inspectId}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || diaryOpen || dbOpen || !!inspectId}
           lit={lit}
           hide={mode === 'hide'}
           onCenter={setCenter}
@@ -1203,7 +1265,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           rows={rows}
           links={links}
           center={center}
-          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || diaryOpen}
+          paused={!!focusId || !!paletteOpen || !!renaming || tasksOpen || diaryOpen || dbOpen}
           onCenter={setCenter}
           onOpen={(id) => openNote(id)}
           onAction={act}
@@ -1315,6 +1377,21 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           onClose={() => setDiaryOpen(false)}
         />
       )}
+      {dbOpen && (
+        <DatabaseView
+          key={dbKey}
+          profileId={profile.id}
+          notes={dbNotes}
+          initial={dbTable}
+          onTable={setDbTable}
+          onOpenNote={(id) => {
+            setPeek(true);
+            openNote(id);
+          }}
+          onError={report}
+          onClose={() => setDbOpen(false)}
+        />
+      )}
       {focused && wrapPeek(
         <NoteSheet
           note={focused}
@@ -1398,6 +1475,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
               setPeekBack(null);
               setTasksOpen(false);
               setDiaryOpen(false);
+              setDbOpen(false);
             }
             setZen(on);
           }}

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { openDb } from '../src/db/index.js';
+import { docToMarkdown, markdownToDoc } from '../src/doc/markdown.js';
 
 let app: ReturnType<typeof createApp>;
 let cookie = '';
@@ -156,5 +157,12 @@ describe('bases de datos', () => {
       ['Ficciones; cuentos', 1944],
       ['Dune', 1965],
     ]);
+  });
+
+  it('los bloques ```db``` van y vuelven en Markdown', () => {
+    const md = 'Mis libros\n\n```db\nSELECT nombre FROM libros\nWHERE nota > 3\n```';
+    const { doc } = markdownToDoc(md);
+    expect(doc.content?.[1]).toEqual({ type: 'dbQuery', attrs: { query: 'SELECT nombre FROM libros\nWHERE nota > 3' } });
+    expect(docToMarkdown(doc)).toContain('```db\nSELECT nombre FROM libros\nWHERE nota > 3\n```');
   });
 });

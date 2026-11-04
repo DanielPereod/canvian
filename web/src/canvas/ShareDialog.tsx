@@ -198,6 +198,10 @@ export function ShareDialog({ note, rows, share, onChange, onNotice, onError, on
                 {t('Abrir')}
               </a>
             </div>
+            {/* Los bloques ```db``` enseñan datos de las tablas a quien tenga el enlace. */}
+            {[note, ...kids.map((k) => k.row).filter((r) => share.scope === 'all' || (share.scope === 'some' && share.childIds.includes(r.id)))].some((r) => r.bodyJson?.includes('"dbQuery"')) && (
+              <p className="share-hint share-warn">{t('Esta nota consulta tus bases de datos: quien tenga el enlace verá el resultado de esas consultas (y solo de esas).')}</p>
+            )}
             {local && <p className="share-hint share-warn">{t('Esta dirección solo funciona en tu red. Para compartir fuera, pon tu dirección pública (https://…) en Configuración › Asistentes IA.')}</p>}
 
             <div className="share-sep" />

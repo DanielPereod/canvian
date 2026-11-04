@@ -92,6 +92,22 @@ export type Share = { id: string; noteId: string; scope: ShareScope; childIds: s
 export type PublicPage = { id: string; kind: NoteKind; title: string | null; parentId: string | null; bodyJson: string | null; cover: string | null; updatedAt: string };
 export type PublicShare = { id: string; rootId: string; look: { appearance: unknown; type: unknown; accent: string | null }; notes: PublicPage[] };
 
+// Bases de datos: tablas propias, aparte de las notas.
+export type DbColumnType = 'text' | 'number' | 'select' | 'tags' | 'date' | 'checkbox' | 'url' | 'image' | 'note' | 'relation';
+export type DbColumn = {
+  id: string;
+  tableId: string;
+  name: string;
+  type: DbColumnType;
+  options: { choices?: string[]; target?: string; pair?: string; owner?: boolean; primary?: boolean };
+  position: number;
+};
+export type DbTable = { id: string; profileId: string; name: string; icon: string | null; position: number; columns: DbColumn[]; rows: number };
+export type DbValue = string | number | boolean | null | string[];
+export type DbRow = { id: string; tableId: string; position: number; values: Record<string, DbValue>; createdAt: string; updatedAt: string };
+export type DbResultType = 'text' | 'number' | 'date' | 'checkbox' | 'url' | 'image' | 'note' | 'select' | 'list' | 'any';
+export type DbResult = { table: { id: string; name: string }; columns: { name: string; type: DbResultType }[]; rows: unknown[][]; ids: string[] | null; more: boolean };
+
 export type SearchHit = { id: string; title: string | null; bodyText: string | null; kind: NoteKind };
 
 // Lo que se envía al servidor: igual que una fila pero con `props` como objeto.
@@ -216,6 +232,25 @@ export const api = {
   deleteShare: (noteId: string) => request('DELETE', `/notes/${noteId}/share`),
   publicShare: (slug: string) => request<PublicShare>('GET', `/public/${encodeURIComponent(slug)}`),
   unlockShare: (slug: string, password: string) => request('POST', `/public/${encodeURIComponent(slug)}/unlock`, { password }),
+  dbTables: (profileId: string) => request<DbTable[]>('GET', `/profiles/${profileId}/db`),
+  createDbTable: (profileId: string, body: { id: string; name: string }) => request<DbTable>('POST', `/profiles/${profileId}/db/tables`, body),
+  updateDbTable: (id: string, patch: { name?: string; icon?: string | null; position?: number }) => request<DbTable>('PATCH', `/db/tables/${id}`, patch),
+  deleteDbTable: (id: string) => request('DELETE', `/db/tables/${id}`),
+  dbRows: (tableId: string) => request<{ rows: DbRow[]; titles: Record<string, string> }>('GET', `/db/tables/${tableId}/rows`),
+  createDbColumn: (tableId: string, body: { id: string; name: string; type: DbColumnType; choices?: string[]; target?: string }) => request<DbColumn>('POST', `/db/tables/${tableId}/columns`, body),
+  updateDbColumn: (id: string, patch: { name?: string; type?: DbColumnType; choices?: string[]; position?: number }) => request<DbColumn>('PATCH', `/db/columns/${id}`, patch),
+  deleteDbColumn: (id: string) => request('DELETE', `/db/columns/${id}`),
+  createDbRow: (tableId: string, body: { id: string; values?: Record<string, DbValue>; position?: number }) => request<DbRow>('POST', `/db/tables/${tableId}/rows`, body),
+  updateDbRow: (id: string, patch: { values?: Record<string, DbValue>; position?: number }) => request<DbRow>('PATCH', `/db/rows/${id}`, patch),
+  deleteDbRow: (id: string) => request('DELETE', `/db/rows/${id}`),
+  importDbCsv: async (tableId: string, csv: string) => {
+    const res = await fetch(`/api/db/tables/${tableId}/csv`, { method: 'POST', headers: { 'content-type': 'text/csv', 'x-canvian-client': CLIENT }, body: csv, credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(t(data.error ?? 'Algo ha fallado'), res.status);
+    return data as { rows: number; columns: number };
+  },
+  dbQuery: (profileId: string, query: string) => request<DbResult>('POST', `/profiles/${profileId}/db/query`, { query }),
+  publicDbQuery: (slug: string, query: string) => request<DbResult>('POST', `/public/${encodeURIComponent(slug)}/db`, { query }),
   search: (profileId: string, q: string) =>
     request<SearchHit[]>('GET', `/profiles/${profileId}/search?q=${encodeURIComponent(q)}`),
 };
