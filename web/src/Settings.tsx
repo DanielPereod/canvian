@@ -159,10 +159,6 @@ export function Settings({ profile, profiles, onClose, onProfiles }: Props) {
               {t(s.name)}
             </button>
           ))}
-          <div className="set-nav-title">{t('Más')}</div>
-          <button className="set-nav-item" onClick={onProfiles}>
-            {t('Perfiles y sesión')}
-          </button>
         </nav>
 
         <main className="set-main" key={section}>

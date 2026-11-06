@@ -180,7 +180,7 @@
 .bib-profile { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: calc(30px * var(--type-scale, 1)); padding: 0 8px; border-radius: var(--radius-sm); color: var(--text) !important; font-weight: 600 !important; transition: background var(--dur-fast); }
 .bib-profile-chev { color: var(--text-faint); flex: none; }
 .bib-profile:hover, .bib-icon:hover { background: var(--surface-hover); }
-.bib-profile-dot { width: 18px; height: 18px; border-radius: var(--radius-xs); background: var(--accent); flex: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
+.bib-profile-dot { width: 18px; height: 18px; border-radius: var(--radius-xs); background: var(--profile, var(--accent)); flex: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
 .bib-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-sm); color: var(--text-faint) !important; transition: background var(--dur-fast), color var(--dur-fast); flex: none; }
 .bib-icon:hover { color: var(--text) !important; }
 

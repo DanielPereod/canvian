@@ -498,7 +498,7 @@ export function DatabaseView(p: Props) {
         {!table ? (
           <div className="dbv-empty">
             <p className="dbv-empty-title">{t('Aún no hay tablas')}</p>
-            <p className="dbv-empty-text">{t('Una tabla guarda datos con columnas de tipos (número, fecha, opciones…) y se relaciona con otras. No son notas: se consultan desde las notas con un bloque ```db``` y desde las mini apps.')}</p>
+            <p className="dbv-empty-text">{t('Como una hoja de cálculo con columnas de tipos (número, fecha, opciones…) que se enlazan entre sí: libros y autores, gastos y meses, recetas e ingredientes. Luego puedes enseñarlas dentro de cualquier nota.')}</p>
             <button className="btn btn-primary btn-sm" onClick={() => setNewTable('')}>
               {t('Crear la primera tabla')}
             </button>
