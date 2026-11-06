@@ -4,6 +4,8 @@ import type { NoteRow } from '../api';
 import { actionFor, keysBlocked, type ActionId } from '../keys';
 import { parentMap } from './sections';
 import { t, tn } from '../i18n';
+import { hueOf } from './Biblioteca';
+import { useSidebarPrefs } from './sidebarPrefs';
 
 // Vista de nodos, como el grafo de Obsidian: todas las notas como puntos que
 // se ordenan solos (fuerzas), unidos por sus enlaces y por la jerarquía
@@ -38,9 +40,9 @@ type GNode = SimulationNodeDatum & { id: string; row: NoteRow; title: string; de
 type GEdge = { source: GNode; target: GNode; kind: 'tree' | 'link' };
 
 // Ajustes del grafo, como el panel de Obsidian. Se recuerdan en este navegador.
-type Opts = { local: boolean; depth: number; tree: boolean; orphans: boolean; arrows: boolean };
+type Opts = { local: boolean; depth: number; tree: boolean; orphans: boolean; arrows: boolean; colors: boolean };
 const OPTS_KEY = 'canvian.graph';
-const DEFAULT_OPTS: Opts = { local: false, depth: 1, tree: true, orphans: true, arrows: false };
+const DEFAULT_OPTS: Opts = { local: false, depth: 1, tree: true, orphans: true, arrows: false, colors: true };
 function loadOpts(): Opts {
   try {
     return { ...DEFAULT_OPTS, ...JSON.parse(localStorage.getItem(OPTS_KEY) ?? '{}') };
@@ -122,6 +124,32 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
   const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
   const parent = useMemo(() => parentMap(rows), [rows]);
   const focusId = center && center !== LOOSE && byId.has(center) ? center : null;
+
+  // Cada punto con el color de su nota madre de arriba, el mismo de su punto
+  // en la barra lateral (o el que le hayas puesto a ella o a una madre más
+  // cercana): así se ven de un vistazo los grupos, como en Obsidian.
+  const prefs = useSidebarPrefs();
+  const tints = useMemo(() => {
+    const out = new Map<string, string>();
+    if (!opts.colors) return out;
+    const hasKids = new Set([...parent.values()].filter(Boolean) as string[]);
+    for (const r of rows) {
+      let tint: string | null = null;
+      let top = r.id;
+      for (let cur: string | null = r.id; cur; cur = parent.get(cur) ?? null) {
+        tint ??= prefs.colors[cur] ?? null;
+        top = cur;
+      }
+      tint ??= hasKids.has(top) ? `oklch(0.66 0.13 ${hueOf(top)})` : null;
+      if (tint) out.set(r.id, tint);
+    }
+    return out;
+  }, [rows, parent, prefs.colors, opts.colors]);
+  const tintsRef = useRef(tints);
+  if (tintsRef.current !== tints) {
+    tintsRef.current = tints;
+    dirty.current = true;
+  }
 
   useEffect(() => {
     const el = host.current!;
@@ -392,7 +420,8 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
       const on = isNear(n.id);
       ctx.globalAlpha = base * (on || !h ? 1 : 1 - f * 0.8);
       const isFocus = n.id === focusId;
-      ctx.fillStyle = h && n.id === h.id && f > 0 ? pal.accent : isFocus ? pal.nodeStrong : on && f > 0 ? pal.lineStrong : pal.node;
+      const tint = tintsRef.current.get(n.id);
+      ctx.fillStyle = h && n.id === h.id && f > 0 ? pal.accent : isFocus ? pal.nodeStrong : (tint ?? (on && f > 0 ? pal.lineStrong : pal.node));
       ctx.beginPath();
       ctx.arc(n.x!, n.y!, n.r, 0, Math.PI * 2);
       ctx.fill();
@@ -656,6 +685,10 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
           <label className="graph-opt">
             <input type="checkbox" checked={opts.orphans} onChange={(e) => setOpts({ orphans: e.target.checked })} />
             <span>{t('Notas sin relaciones')}</span>
+          </label>
+          <label className="graph-opt">
+            <input type="checkbox" checked={opts.colors} onChange={(e) => setOpts({ colors: e.target.checked })} />
+            <span>{t('Colores por nota madre')}</span>
           </label>
           <label className="graph-opt">
             <input type="checkbox" checked={opts.arrows} onChange={(e) => setOpts({ arrows: e.target.checked })} />

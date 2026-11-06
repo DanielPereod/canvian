@@ -94,6 +94,7 @@ export const EN_LIBRARY: Record<string, string> = {
   'Líneas madre → hija': 'Parent → child lines',
   'Notas sin relaciones': 'Notes without connections',
   'Flechas en los enlaces': 'Arrows on links',
+  'Colores por nota madre': 'Colour by parent note',
   '{n} relación': '{n} connection',
   '{n} relaciones': '{n} connections',
   'sin relaciones': 'no connections',
