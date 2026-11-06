@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { DRAW_COLORS, DRAW_SIZES, drawingPaths, fontSize, hitPath, penWidth, type DrawColor, type DrawSize, type Drawing, type Tool } from './draw';
+import { DRAW_COLORS, DRAW_SIZES, drawPaint, drawingPaths, fontSize, hitPath, penWidth, type DrawColor, type DrawSize, type Drawing, type Tool } from './draw';
+import { ColorPick } from '../ColorPick';
 import { t } from '../../i18n';
 
 // La capa de dibujo (va dentro del lienzo, así que se mueve y se acerca con
@@ -24,11 +25,12 @@ type LayerProps = {
 };
 
 function Shape({ d, faded, onDown, onEdit }: { d: Drawing; faded?: boolean; onDown?: (e: ReactPointerEvent) => void; onEdit?: () => void }) {
-  const cls = `draw-shape draw-c-${d.color}${faded ? ' is-erasing' : ''}`;
+  const paint = drawPaint(d.color);
+  const cls = `draw-shape ${paint.cls}${faded ? ' is-erasing' : ''}`;
   if (d.kind === 'text') {
     const fs = fontSize(d.size);
     return (
-      <g className={cls} data-draw={d.id}>
+      <g className={cls} style={paint.style} data-draw={d.id}>
         <text
           x={d.x}
           y={d.y}
@@ -48,7 +50,7 @@ function Shape({ d, faded, onDown, onEdit }: { d: Drawing; faded?: boolean; onDo
     );
   }
   return (
-    <g className={cls} data-draw={d.id}>
+    <g className={cls} style={paint.style} data-draw={d.id}>
       {drawingPaths(d).map((p, i) => (d.kind === 'pen' ? <path key={i} d={p} className="draw-ink" /> : <path key={i} d={p} className="draw-line" />))}
       {onDown && <path d={hitPath(d)} className="draw-hit nopan nodrag" data-draw-id={d.id} onPointerDown={onDown} />}
     </g>
@@ -90,8 +92,8 @@ export function DrawLayer({ drawings, draft, selected, many, erasing, typing, on
       </svg>
       {typing && (
         <textarea
-          className={`draw-textarea nopan nodrag nowheel draw-c-${typing.color}`}
-          style={{ left: typing.x, top: typing.y, fontSize: fontSize(typing.size) }}
+          className={`draw-textarea nopan nodrag nowheel ${drawPaint(typing.color).cls}`}
+          style={{ left: typing.x, top: typing.y, fontSize: fontSize(typing.size), ...drawPaint(typing.color).style }}
           value={typing.text}
           rows={Math.max(1, typing.text.split('\n').length)}
           placeholder={t('Escribe…')}
@@ -140,7 +142,7 @@ const TOOLS: { id: Tool; label: string; icon: ReactNode }[] = [
   { id: 'eraser', label: 'Goma', icon: icon(<path d="M9 19.5h10M6 15.5l8.6-8.6a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L11 18.5H9z" />) },
 ];
 
-const COLOR_NAMES: Record<DrawColor, string> = { ink: 'Tinta', accent: 'Acento', red: 'Rojo', orange: 'Naranja', green: 'Verde', blue: 'Azul' };
+const COLOR_NAMES: Record<(typeof DRAW_COLORS)[number], string> = { ink: 'Tinta', accent: 'Acento', red: 'Rojo', orange: 'Naranja', green: 'Verde', blue: 'Azul' };
 const SIZE_NAMES: Record<DrawSize, string> = { 1: 'Fino', 2: 'Medio', 3: 'Grueso' };
 
 type BarProps = {
@@ -204,6 +206,7 @@ export function DrawBar({ tool, color, size, showStyle, canUndo, canRedo, onTool
               <span />
             </button>
           ))}
+          <ColorPick className="draw-swatch" value={color.startsWith('#') ? color : null} onPick={(c) => onColor(c as DrawColor)} />
           <span className="draw-style-sep" />
           {DRAW_SIZES.map((s) => (
             <button key={s} className={`draw-width${size === s ? ' is-on' : ''}`} title={t(SIZE_NAMES[s])} aria-label={t(SIZE_NAMES[s])} aria-pressed={size === s} onClick={() => onSize(s)}>

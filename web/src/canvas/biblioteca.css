@@ -269,10 +269,26 @@
 .bib-menu-check { margin-left: auto; padding-left: 16px; color: var(--accent-ink); }
 .bib-menu-k { margin-left: auto; padding-left: 16px; font-size: var(--text-xs); color: var(--text-faint); }
 .bib-menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
-.bib-menu-colors { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 9px 5px; }
+.bib-menu-colors { display: flex; flex-wrap: wrap; gap: 5px; padding: 6px 9px 5px; }
 .bib-swatch { width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; background: var(--tint); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1); transition: transform var(--dur-fast); }
 .bib-swatch:hover { transform: scale(1.15); }
 .bib-swatch.is-on { box-shadow: 0 0 0 2px var(--surface-1, var(--bg)), 0 0 0 3.5px var(--text); }
+/* «Otro color…»: el selector del sistema, escondido dentro de la muestra.
+   Sin elegir, un aro de arcoíris con un «+»; elegido, el color mismo. */
+.color-pick { position: relative; cursor: pointer; }
+.color-pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: 0; }
+.color-pick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bib-swatch.color-pick:not(.is-set),
+.draw-swatch.color-pick:not(.is-set) span {
+  background:
+    radial-gradient(circle, var(--surface-1, var(--bg)) 0 52%, transparent 54%),
+    conic-gradient(oklch(0.68 0.17 25), oklch(0.78 0.15 85), oklch(0.7 0.15 150), oklch(0.66 0.14 230), oklch(0.62 0.17 300), oklch(0.68 0.17 25));
+  box-shadow: none;
+}
+.color-pick:not(.is-set)::after {
+  content: ''; position: absolute; inset: 0; margin: auto; width: 6px; height: 6px; pointer-events: none;
+  background: linear-gradient(var(--text-muted), var(--text-muted)) center / 100% 1.4px no-repeat, linear-gradient(var(--text-muted), var(--text-muted)) center / 1.4px 100% no-repeat;
+}
 .bib-swatch.is-auto { background: conic-gradient(from 0deg, oklch(0.7 0.13 0), oklch(0.7 0.13 120), oklch(0.7 0.13 240), oklch(0.7 0.13 360)); }
 
 /* Colores elegidos en portadas y lomos. */

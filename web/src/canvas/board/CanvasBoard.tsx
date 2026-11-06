@@ -30,8 +30,9 @@ import { ulid } from 'ulidx';
 import type { NoteRow } from '../../api';
 import { fileExt, fileSize, openFile, uploadMedia } from '../media';
 import { boardIds, boardText, groupAround, inside, mergeBoards, parseBoard, type Board, type BoardNode } from './board';
-import { constrain, drawingBox, fontSize, tidy, translate, type DrawColor, type DrawSize, type Drawing, type ShapeKind, type Tool } from './draw';
+import { constrain, drawingBox, fontSize, isDrawColor, tidy, translate, type DrawColor, type DrawSize, type Drawing, type ShapeKind, type Tool } from './draw';
 import { DrawBar, DrawLayer, type Typing } from './Draw';
+import { BoardNav } from './BoardNav';
 import { BoardMenu, cardTint, type BoardMenuItem } from './BoardMenu';
 import { NavIcon } from '../Biblioteca';
 import { notePreviewHtml } from '../NotePeek';
@@ -320,7 +321,7 @@ const STYLE_KEY = 'canvian:draw';
 function loadStyle(): { color: DrawColor; size: DrawSize } {
   try {
     const v = JSON.parse(localStorage.getItem(STYLE_KEY) ?? 'null');
-    if (v && typeof v.color === 'string' && [1, 2, 3].includes(v.size)) return v;
+    if (v && isDrawColor(v.color) && [1, 2, 3].includes(v.size)) return v;
   } catch {
     // Sin almacenamiento local se empieza con tinta y trazo medio.
   }
@@ -818,7 +819,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const onDrawDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!drawing) return;
     const target = e.target as HTMLElement;
-    if (target.closest('.draw-ui, .board-tools, .draw-textarea')) return;
+    if (target.closest('.draw-ui, .board-tools, .board-nav, .draw-textarea')) return;
     e.stopPropagation();
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -1321,6 +1322,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         colorMode="dark"
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1.2} className="board-dots" />
+        <BoardNav hasNodes={nodes.length > 0} />
         <ViewportPortal>
           <DrawLayer
             drawings={drawings}
@@ -1492,6 +1494,7 @@ function ViewInner({ bodyJson, rows, onOpenNote }: ViewProps) {
         colorMode="dark"
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1.2} className="board-dots" />
+        <BoardNav hasNodes={nodes.length > 0} />
         <ViewportPortal>
           <DrawLayer drawings={board.drawings ?? []} draft={null} selected={null} erasing={none} typing={null} onShapeDown={() => {}} onTextEdit={() => {}} onTyping={() => {}} onTypingDone={() => {}} still />
         </ViewportPortal>
@@ -1499,12 +1502,9 @@ function ViewInner({ bodyJson, rows, onOpenNote }: ViewProps) {
       {empty && <p className="board-empty">{t('Este canvas está vacío')}</p>}
       {!empty && (
         <nav className="board-tools surface-2" aria-label={t('Lienzo')}>
-          <button onClick={() => flow.zoomOut({ duration: 200 })} aria-label={t('Alejar')}>
-            −
-          </button>
-          <button onClick={() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 500 })}>{t('Encuadrar')}</button>
-          <button onClick={() => flow.zoomIn({ duration: 200 })} aria-label={t('Acercar')}>
-            +
+          <button onClick={() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 500 })}>
+            <NavIcon name="fit" />
+            {t('Encuadrar')}
           </button>
         </nav>
       )}

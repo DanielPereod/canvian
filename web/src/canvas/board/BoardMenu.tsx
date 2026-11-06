@@ -1,6 +1,7 @@
 import { useRef, type CSSProperties } from 'react';
 import { NavIcon, useContextMenu } from '../Biblioteca';
 import { t } from '../../i18n';
+import { ColorPick, isHex } from '../ColorPick';
 
 // El menú del clic derecho en el lienzo: sobre una tarjeta, una flecha, un
 // dibujo o el vacío. Usa el mismo aspecto que los demás menús de la app.
@@ -84,6 +85,7 @@ export function BoardMenu({ x, y, items, color, onClose }: Props) {
               aria-label={t('Sin color')}
               onClick={() => color.onPick(null)}
             />
+            <ColorPick role="menuitemradio" value={isHex(color.value) ? color.value : null} onPick={color.onPick} />
           </div>
         </>
       )}

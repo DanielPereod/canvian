@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { TEMPLATES } from './templates';
 import { COLORS, setColor, setOrder, sortByOrder, toggleFav, useSidebarPrefs } from './sidebarPrefs';
+import { ColorPick } from './ColorPick';
 import type { NoteRow } from '../api';
 import { keyParts, useKeymap, type ActionId } from '../keys';
 
@@ -738,6 +739,7 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
           />
         ))}
         <button role="menuitemradio" aria-checked={!color} className={`bib-swatch is-auto${!color ? ' is-on' : ''}`} style={{ '--h': hueOf(row.id) } as CSSProperties} title={t('Automático')} aria-label={t('Color automático')} onClick={() => void setColor(row.id, null).catch(() => {})} />
+        <ColorPick role="menuitemradio" value={color && !COLORS.some((c) => c.hex === color) ? color : null} onPick={(hex) => void setColor(row.id, hex).catch(() => {})} />
       </div>
     </div>
   );

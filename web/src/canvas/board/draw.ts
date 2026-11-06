@@ -7,7 +7,13 @@ import rough from 'roughjs';
 // así que se mueve y se acerca con él.
 
 export const DRAW_COLORS = ['ink', 'accent', 'red', 'orange', 'green', 'blue'] as const;
-export type DrawColor = (typeof DRAW_COLORS)[number];
+// Uno de los de la paleta (siguen al tema) o uno propio, #rrggbb.
+export type DrawColor = (typeof DRAW_COLORS)[number] | `#${string}`;
+export const isDrawColor = (c: unknown): c is DrawColor =>
+  typeof c === 'string' && ((DRAW_COLORS as readonly string[]).includes(c) || /^#[0-9a-f]{6}$/i.test(c));
+// La clase y el estilo con los que se pinta un color.
+export const drawPaint = (c: DrawColor) =>
+  c.startsWith('#') ? { cls: 'draw-c-own', style: { '--draw-c': c } as Record<string, string> } : { cls: `draw-c-${c}`, style: undefined };
 export type DrawSize = 1 | 2 | 3;
 export const DRAW_SIZES: DrawSize[] = [1, 2, 3];
 
@@ -30,7 +36,7 @@ export function cleanDrawings(v: unknown): Drawing[] {
   if (!Array.isArray(v)) return [];
   return v.filter((d): d is Drawing => {
     if (!d || typeof d !== 'object' || typeof d.id !== 'string') return false;
-    if (!DRAW_COLORS.includes(d.color) || !DRAW_SIZES.includes(d.size)) return false;
+    if (!isDrawColor(d.color) || !DRAW_SIZES.includes(d.size)) return false;
     if (d.kind === 'pen') return Array.isArray(d.pts) && d.pts.length >= 3 && d.pts.every(num);
     if (d.kind === 'text') return num(d.x) && num(d.y) && typeof d.text === 'string';
     return ['line', 'arrow', 'rect', 'ellipse'].includes(d.kind) && [d.x1, d.y1, d.x2, d.y2, d.seed].every(num);
