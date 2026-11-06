@@ -158,6 +158,7 @@ type SideProps = {
   onFold: () => void;
   onProfiles: () => void;
   onCommands: () => void;
+  onSearch: () => void;
   onLantern: () => void;
   onSettings: () => void;
   onLibrary: (id: string | null) => void;
@@ -175,6 +176,24 @@ type SideProps = {
 // demás, cada grupo por orden alfabético.
 const byDefault = (count: (id: string) => number) => (a: NoteRow, b: NoteRow) =>
   Number(!!count(b.id)) - Number(!!count(a.id)) || titleOf(a).localeCompare(titleOf(b), 'es', { numeric: true });
+
+// Los iconos de la barra: trazo fino, como los de Linear o Notion.
+const NAV_ICON: Record<string, ReactNode> = {
+  search: <><circle cx="7" cy="7" r="4.3" /><path d="m10.3 10.3 3.2 3.2" /></>,
+  new: <path d="M11.2 2.3a1.4 1.4 0 0 1 2 2L6.5 11 3.5 12l1-3zM9.8 3.7l2 2" />,
+  all: <><path d="M2.5 4.5c0-.8.6-1.5 1.5-1.5h2.6l1.3 1.5H12c.8 0 1.5.7 1.5 1.5v5c0 .8-.7 1.5-1.5 1.5H4c-.9 0-1.5-.7-1.5-1.5z" /></>,
+  diary: <><rect x="3" y="2.5" width="10" height="11" rx="1.5" /><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3" /></>,
+  tasks: <><circle cx="8" cy="8" r="5.5" /><path d="m5.6 8.1 1.7 1.7 3.2-3.4" /></>,
+  db: <><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="M2.5 6.5h11M2.5 9.8h11M6.5 6.5v6.5" /></>,
+  archive: <><rect x="2.5" y="3" width="11" height="3" rx="1" /><path d="M3.5 6v6c0 .6.4 1 1 1h7c.6 0 1-.4 1-1V6M6.5 8.5h3" /></>,
+  filter: <path d="M2.5 3.5h11L9.2 8.6v3.9l-2.4 1V8.6z" />,
+  canvas: <><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" /><rect x="9" y="9" width="4.5" height="4.5" rx="1" /><path d="M7 4.7h2.3c.9 0 1.5.6 1.5 1.5V9" /></>,
+};
+const NavIcon = ({ name }: { name: string }) => (
+  <svg className="bib-it-ic" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+    {NAV_ICON[name]}
+  </svg>
+);
 
 export function BibSidebar(p: SideProps) {
   const key = useKeyText();
@@ -392,26 +411,41 @@ export function BibSidebar(p: SideProps) {
             <PanelIcon />
           </button>
         </div>
+        {/* Lo de cada día, siempre a mano: buscar y crear (como en Notion). */}
+        <div className="bib-quick">
+          <button className="bib-it" onClick={p.onSearch}>
+            <NavIcon name="search" />
+            {t('Buscar')}
+            <span className="bib-it-k">{key('search')}</span>
+          </button>
+          <button className="bib-it" onClick={() => p.onNewNote('text')}>
+            <NavIcon name="new" />
+            {t('Nota nueva')}
+            <span className="bib-it-k">{key('quickNote')}</span>
+          </button>
+        </div>
         <nav className="bib-nav">
           <button className={`bib-it${libraryOn && p.here === null ? ' is-on' : ''}`} onClick={() => p.onLibrary(null)} title={key('toRoot') || undefined}>
+            <NavIcon name="all" />
             {t('Todas las notas')}
           </button>
           {p.diary && (
             <button className={`bib-it${p.view === 'diary' ? ' is-on' : ''}`} onClick={p.onDiary} title={key('diary') || undefined}>
+              <NavIcon name="diary" />
               {t('Diario')}
             </button>
           )}
           <button className={`bib-it${p.view === 'tasks' ? ' is-on' : ''}`} onClick={p.onTasks} title={key('tasks') || undefined}>
+            <NavIcon name="tasks" />
             {t('Tareas')}<span className="bib-count">{p.tasks || ''}</span>
           </button>
           <button className={`bib-it${p.view === 'db' ? ' is-on' : ''}`} onClick={p.onDb}>
+            <NavIcon name="db" />
             {t('Bases de datos')}
-          </button>
-          <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title={key('showArchived') || undefined}>
-            {p.showArchived ? t('Ocultar archivadas') : t('Archivadas')}
           </button>
           {/* Sin teclado, lo que solo tenía atajo. */}
           <button className="bib-it bib-touch" onClick={p.onLantern}>
+            <NavIcon name="filter" />
             {t('Filtrar')}
           </button>
         </nav>
@@ -443,6 +477,11 @@ export function BibSidebar(p: SideProps) {
           {roots.map((r) => renderRow(r, 0))}
         </div>
         <div className="bib-side-foot">
+          {/* Lo archivado no es de cada día: abajo, como la papelera de Notion. */}
+          <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title={key('showArchived') || undefined}>
+            <NavIcon name="archive" />
+            {p.showArchived ? t('Ocultar archivadas') : t('Archivadas')}
+          </button>
           <button className="bib-it bib-touch" onClick={p.onCommands}>
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 7l5 5-5 5M12 17h7" />
@@ -541,8 +580,8 @@ export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number;
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
   const items: ({ kind: NewKind; label: string; key?: string } | null)[] = [
-    { kind: 'text', label: full ? t('Nota nueva') : t('Nota'), key: full ? key('newNote') : undefined },
-    { kind: 'canvas', label: full ? t('Canvas nuevo') : 'Canvas', key: full ? key('newCanvas') : undefined },
+    { kind: 'text', label: t('Nota nueva'), key: full ? key('newNote') : undefined },
+    { kind: 'canvas', label: t('Canvas nuevo'), key: full ? key('newCanvas') : undefined },
     ...(full ? [null, { kind: 'daily' as const, label: t('Nota de hoy'), key: key('daily') }] : []),
   ];
   return (
@@ -558,6 +597,7 @@ export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number;
               onPick(it.kind);
             }}
           >
+            <NavIcon name={it.kind === 'text' ? 'new' : it.kind === 'canvas' ? 'canvas' : 'diary'} />
             {it.label}
             {it.key && <span className="bib-menu-k">{it.key}</span>}
           </button>

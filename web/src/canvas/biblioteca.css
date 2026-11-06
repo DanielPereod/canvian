@@ -184,7 +184,12 @@
 .bib-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-sm); color: var(--text-faint) !important; transition: background var(--dur-fast), color var(--dur-fast); flex: none; }
 .bib-icon:hover { color: var(--text) !important; }
 
+.bib-quick { display: flex; flex-direction: column; gap: 1px; padding-bottom: 8px; }
 .bib-nav { display: flex; flex-direction: column; gap: 1px; padding-bottom: 6px; }
+.bib-it-ic { flex: none; color: var(--text-faint); }
+.bib-it:hover .bib-it-ic, .bib-it.is-on .bib-it-ic { color: var(--text-muted); }
+.bib-it-k { margin-left: auto; font-size: var(--text-2xs); color: var(--text-ghost); opacity: 0; transition: opacity var(--dur-fast); }
+.bib-it:hover .bib-it-k { opacity: 1; }
 .bib-it { display: flex; align-items: center; gap: 8px; width: 100%; height: var(--row); padding: 0 8px; box-sizing: border-box; border-radius: var(--radius-sm); color: var(--text-muted, var(--text)); transition: background var(--dur-fast), color var(--dur-fast); }
 .bib-it:hover { background: var(--surface-hover); color: var(--text); }
 .bib-it.is-on { background: var(--bib-sel, var(--surface-hover)); color: var(--text); font-weight: 500; }
@@ -217,7 +222,8 @@
 .bib-branch::before { content: ''; position: absolute; left: 22px; top: 2px; bottom: 2px; width: 1px; background: var(--line); }
 
 .bib-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--tint, oklch(0.66 0.13 var(--h))); }
-.bib-dot.is-sub { width: 7px; height: 7px; margin: 0 1px; background: color-mix(in oklab, var(--tint, oklch(0.66 0.13 var(--h))) 55%, var(--bib-side, var(--bg))); }
+/* Las notas sueltas, en gris salvo que se les dé un color: el arcoíris se queda para las carpetas. */
+.bib-dot.is-sub { width: 6px; height: 6px; margin: 0 1.5px; background: var(--tint, var(--text-ghost)); opacity: 0.8; }
 
 /* Soltar: una línea antes o después, o la fila entera si entra dentro. */
 .bib-tree-row.is-drop-before::after,
@@ -252,7 +258,9 @@
 @keyframes bib-menu-in { from { opacity: 0; transform: scale(0.97); } }
 .bib-new-menu { min-width: 140px; }
 .bib-menu-head { padding: 6px 9px 5px; font-size: var(--text-xs); color: var(--text-faint); }
-.bib-menu-it { display: flex; align-items: center; width: 100%; height: calc(28px * var(--type-scale, 1)); padding: 0 9px; border: 0; border-radius: var(--radius-xs); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.bib-menu-it { display: flex; align-items: center; gap: 8px; width: 100%; height: calc(28px * var(--type-scale, 1)); padding: 0 9px; border: 0; border-radius: var(--radius-xs); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.bib-menu-it .bib-it-ic { color: var(--text-faint); }
+.bib-new-menu { min-width: 200px; }
 .bib-menu-it:hover, .bib-menu-it:focus-visible { background: var(--bib-sel, var(--surface-hover)); outline: none; }
 .bib-menu-it.is-danger { color: #d13f3f; }
 .bib-menu-check { margin-left: auto; padding-left: 16px; color: var(--accent-ink); }

@@ -1148,6 +1148,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             onFold={toggleBibFolded}
             onProfiles={shell.onProfiles}
             onCommands={shell.onCommands}
+            onSearch={() => setPaletteOpen('open')}
             onLantern={() => {
               if (focused) closeFocused();
               setTasksOpen(false);
