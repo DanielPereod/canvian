@@ -76,7 +76,9 @@
 .board .react-flow__node:hover .board-handle, .board .react-flow__node.selected .board-handle { opacity: 1; }
 .board .board-handle:hover { scale: 1.4; }
 .board-resize-line { border-color: transparent !important; }
-.board-resize-handle { width: 9px !important; height: 9px !important; border-radius: 3px !important; background: var(--accent) !important; border: 0 !important; }
+.board-resize-line { border-color: transparent !important; }
+/* Esquinas para cambiar el tamaño: redondas y claras, con el borde del acento (como en Freeform o Figma). */
+.board-resize-handle { width: 9px !important; height: 9px !important; border-radius: 50% !important; background: var(--bg) !important; border: 1.5px solid var(--accent) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); }
 
 .board-edge { fill: none; stroke: var(--board-edge); stroke-width: 1.5; transition: stroke var(--dur-fast), stroke-width var(--dur-fast); }
 .board-edge.is-selected, .react-flow__edge:hover .board-edge { stroke: var(--accent); stroke-width: 2.2; }
@@ -87,7 +89,7 @@
   display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: var(--radius-pill); z-index: 5;
   animation: rise-in var(--dur-slow) var(--ease-out) 200ms both;
 }
-.board-tools button, .board-tools-file { background: none; border: 0; color: var(--text-muted); font: inherit; font-size: var(--text-sm); padding: 6px 12px; border-radius: var(--radius-pill); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }
+.board-tools button, .board-tools-file { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--text-muted); font: inherit; font-size: var(--text-sm); padding: 6px 12px; border-radius: var(--radius-pill); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }
 .board-tools button:hover, .board-tools-file:hover { color: var(--text); background: var(--accent-soft); }
 .board-tools-file input { display: none; }
 .board-tools-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
@@ -187,3 +189,7 @@
 
 /* El menú del clic derecho, por encima de tarjetas y dibujos. */
 .board-menu { z-index: 5000; }
+
+.board-tools .bib-it-ic { color: var(--text-faint); }
+.board-tools button:hover .bib-it-ic, .board-tools-file:hover .bib-it-ic { color: var(--text); }
+@media (max-width: 560px) { .board-tools button, .board-tools-file { padding: 6px 9px; } }

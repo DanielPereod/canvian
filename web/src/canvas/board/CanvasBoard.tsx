@@ -33,6 +33,8 @@ import { boardIds, boardText, groupAround, inside, mergeBoards, parseBoard, type
 import { constrain, drawingBox, fontSize, tidy, translate, type DrawColor, type DrawSize, type Drawing, type ShapeKind, type Tool } from './draw';
 import { DrawBar, DrawLayer, type Typing } from './Draw';
 import { BoardMenu, cardTint, type BoardMenuItem } from './BoardMenu';
+import { NavIcon } from '../Biblioteca';
+import { notePreviewHtml } from '../NotePeek';
 import { bodyToHtml, parseBody, splitTitle } from '../editor';
 import { markdownToDoc } from '../markdown';
 import { splitWiki } from '../obsidian';
@@ -146,7 +148,7 @@ function NoteCard({ data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ctx })
   // Una nota de texto se ve como en su hoja (sin el título, que va arriba);
   // un canvas, con lo escrito en sus tarjetas.
   const isText = !!row && row.kind !== 'canvas';
-  const html = useMemo(() => (isText ? bodyToHtml(JSON.stringify(splitTitle(parseBody(row!.bodyJson)).body)) : ''), [isText, row?.bodyJson]); // eslint-disable-line react-hooks/exhaustive-deps
+  const html = useMemo(() => (isText ? notePreviewHtml(row!) : ''), [isText, row?.bodyJson]); // eslint-disable-line react-hooks/exhaustive-deps
   const body = isText ? '' : row?.bodyText?.split('\n').join(' ').trim();
   const tint = tinted(data.color);
   return (
@@ -1111,7 +1113,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   });
 
   const orderItems = (ids: Set<string>): BoardMenuItem[] => [
-    { label: t('Traer al frente'), key: `${MOD} ⇧ ]`, run: () => order(ids, 'front') },
+    { icon: 'layers', label: t('Traer al frente'), key: `${MOD} ⇧ ]`, run: () => order(ids, 'front') },
     { label: t('Traer adelante'), key: `${MOD} ]`, run: () => order(ids, 'forward') },
     { label: t('Enviar atrás'), key: `${MOD} [`, run: () => order(ids, 'backward') },
     { label: t('Enviar al fondo'), key: `${MOD} ⇧ [`, run: () => order(ids, 'back') },
@@ -1119,12 +1121,12 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const menuItems = (m: Menu): BoardMenuItem[] => {
     if (m.kind === 'pane')
       return [
-        { label: t('Tarjeta aquí'), run: () => add('text', m.at, { editing: true }) },
-        { label: t('Nota aquí…'), run: () => onPickNote((id) => add('note', m.at, { noteId: id })) },
-        { label: t('Grupo aquí'), run: () => add('group', m.at, { label: '' }) },
+        { icon: 'card', label: t('Tarjeta aquí'), run: () => add('text', m.at, { editing: true }) },
+        { icon: 'page', label: t('Nota aquí…'), run: () => onPickNote((id) => add('note', m.at, { noteId: id })) },
+        { icon: 'group', label: t('Grupo aquí'), run: () => add('group', m.at, { label: '' }) },
         null,
-        { label: t('Seleccionar todo'), key: `${MOD} A`, run: selectAll },
-        { label: t('Encuadrar'), run: () => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 }) },
+        { icon: 'select', label: t('Seleccionar todo'), key: `${MOD} A`, run: selectAll },
+        { icon: 'fit', label: t('Encuadrar'), run: () => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 }) },
       ];
     if (m.kind === 'edge') {
       const e = edges.find((x) => x.id === m.id);
@@ -1133,17 +1135,18 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         { label: t('Invertir dirección'), run: () => setEdges((es) => es.map((x) => (x.id === m.id ? { ...x, source: x.target, target: x.source } : x))) },
         { label: e.markerEnd ? t('Quitar la punta') : t('Poner la punta'), run: () => setEdges((es) => es.map((x) => (x.id === m.id ? { ...x, markerEnd: x.markerEnd ? undefined : ARROW } : x))) },
         null,
-        { label: t('Borrar'), key: t('Supr'), danger: true, run: () => void flow.deleteElements({ edges: [{ id: m.id }] }) },
+        { icon: 'trash', label: t('Borrar'), key: t('Supr'), danger: true, run: () => void flow.deleteElements({ edges: [{ id: m.id }] }) },
       ];
     }
     if (m.kind === 'shape') {
       const none = new Set<string>();
       return [
-        { label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(none) },
+        { icon: 'copy', label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(none) },
         null,
         ...orderItems(none),
         null,
         {
+          icon: 'trash',
           label: t('Borrar'),
           key: t('Supr'),
           danger: true,
@@ -1158,16 +1161,16 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     const one = m.ids.length === 1 ? nodes.find((n) => n.id === m.ids[0]) : undefined;
     const doc = one?.type === 'file' && !/\.(png|jpe?g|gif|webp|avif|mp4|webm|mov|mp3|ogg|wav|weba|m4a|aac|flac)$/i.test(one.data.file ?? '');
     return [
-      one?.type === 'text' ? { label: t('Editar'), run: () => setData(one.id, { editing: true }) } : null,
-      one?.type === 'note' && one.data.noteId && byId.has(one.data.noteId) ? { label: t('Abrir nota'), run: () => onOpenNote(one.data.noteId!) } : null,
-      one && doc ? { label: t('Abrir archivo'), run: () => openFile(one.data.file!, one.data.name || one.data.file!.split('/').pop() || '') } : null,
-      { label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(ids) },
-      { label: t('Agrupar'), key: `${MOD} G`, run: () => group(ids) },
+      one?.type === 'text' ? { icon: 'rename', label: t('Editar'), run: () => setData(one.id, { editing: true }) } : null,
+      one?.type === 'note' && one.data.noteId && byId.has(one.data.noteId) ? { icon: 'open', label: t('Abrir nota'), run: () => onOpenNote(one.data.noteId!) } : null,
+      one && doc ? { icon: 'open', label: t('Abrir archivo'), run: () => openFile(one.data.file!, one.data.name || one.data.file!.split('/').pop() || '') } : null,
+      { icon: 'copy', label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(ids) },
+      { icon: 'group', label: t('Agrupar'), key: `${MOD} G`, run: () => group(ids) },
       nodes.some((n) => ids.has(n.id) && n.type === 'group') ? { label: t('Desagrupar'), key: `${MOD} ⇧ G`, run: () => ungroup(ids) } : null,
       null,
       ...orderItems(ids),
       null,
-      { label: t('Borrar'), key: t('Supr'), danger: true, run: () => remove(ids) },
+      { icon: 'trash', label: t('Borrar'), key: t('Supr'), danger: true, run: () => remove(ids) },
     ];
   };
   const menuColor = (m: Menu) => {
@@ -1368,10 +1371,20 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         </nav>
       ) : (
         <nav className="board-tools surface-2" aria-label={t('Añadir al lienzo')}>
-          <button onClick={() => add('text', center(), { editing: true })}>{t('Tarjeta')}</button>
-          <button onClick={() => onPickNote((id) => add('note', center(), { noteId: id }))}>{t('Nota')}</button>
-          <button onClick={() => add('group', center(), { label: '' })}>{t('Grupo')}</button>
+          <button onClick={() => add('text', center(), { editing: true })}>
+            <NavIcon name="card" />
+            {t('Tarjeta')}
+          </button>
+          <button onClick={() => onPickNote((id) => add('note', center(), { noteId: id }))}>
+            <NavIcon name="page" />
+            {t('Nota')}
+          </button>
+          <button onClick={() => add('group', center(), { label: '' })}>
+            <NavIcon name="group" />
+            {t('Grupo')}
+          </button>
           <label className="board-tools-file">
+            <NavIcon name="attach" />
             {t('Archivo')}
             <input
               type="file"
@@ -1384,7 +1397,10 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
             />
           </label>
           <span className="board-tools-sep" />
-          <button onClick={() => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 })}>{t('Encuadrar')}</button>
+          <button onClick={() => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 })}>
+            <NavIcon name="fit" />
+            {t('Encuadrar')}
+          </button>
         </nav>
       )}
       {menu && <BoardMenu x={menu.x} y={menu.y} items={menuItems(menu)} color={menuColor(menu)} onClose={() => setMenu(null)} />}

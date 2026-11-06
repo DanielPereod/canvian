@@ -1,11 +1,11 @@
 import { useRef, type CSSProperties } from 'react';
-import { useContextMenu } from '../Biblioteca';
+import { NavIcon, useContextMenu } from '../Biblioteca';
 import { t } from '../../i18n';
 
 // El menú del clic derecho en el lienzo: sobre una tarjeta, una flecha, un
 // dibujo o el vacío. Usa el mismo aspecto que los demás menús de la app.
 
-export type BoardMenuItem = { label: string; key?: string; danger?: boolean; run: () => void } | null;
+export type BoardMenuItem = { label: string; icon?: string; key?: string; danger?: boolean; run: () => void } | null;
 
 // Los colores de JSON Canvas: «1» a «6» son rojo, naranja, amarillo, verde,
 // turquesa y violeta (así los lee también Obsidian).
@@ -38,6 +38,7 @@ export function BoardMenu({ x, y, items, color, onClose }: Props) {
   const spot = useContextMenu(ref, x, y, onClose);
   // Sin separadores sueltos al principio, al final ni dos seguidos.
   const list = items.filter((it, i, a) => it || (i > 0 && i < a.length - 1 && a[i - 1]));
+  const icons = list.some((it) => it?.icon);
   return (
     <div className="bib-menu board-menu" ref={ref} role="menu" style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
       {list.map((it, i) =>
@@ -51,6 +52,7 @@ export function BoardMenu({ x, y, items, color, onClose }: Props) {
               it.run();
             }}
           >
+            {it.icon ? <NavIcon name={it.icon} /> : icons && <span className="bib-it-ic" aria-hidden="true" />}
             {it.label}
             {it.key && <span className="bib-menu-k">{it.key}</span>}
           </button>
