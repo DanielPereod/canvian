@@ -306,7 +306,7 @@
 .tv-nav-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; background: none; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); font: inherit; font-size: var(--text-sm); text-align: left; cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
 .tv-nav-item:hover { background: var(--surface-sunken); color: var(--text); }
 .tv-nav-item.is-on { background: var(--surface-sunken); color: var(--text); }
-.tv-nav-icon { width: 14px; flex: none; text-align: center; color: var(--text-faint); font-size: var(--text-xs); }
+.tv-nav-icon { width: 14px; flex: none; display: grid; place-items: center; color: var(--text-faint); }
 .tv-nav-item.is-on .tv-nav-icon { color: var(--accent-ink); }
 .tv-nav-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-nav-n { color: var(--text-ghost); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }

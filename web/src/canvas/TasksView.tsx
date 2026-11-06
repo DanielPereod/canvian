@@ -39,6 +39,21 @@ const STATUSES: { id: TaskStatus; name: string }[] = [
 // X avanza; una tarea bloqueada vuelve a pendiente al desbloquearla.
 const NEXT: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', blocked: 'todo', done: 'todo' };
 const PRIOS = ['Sin prioridad', 'Baja', 'Media', 'Alta'];
+// Los iconos de las listas de la izquierda, de trazo fino como los de la barra.
+const NAV: Record<string, ReactNode> = {
+  all: <><rect x="2.5" y="2.5" width="11" height="11" rx="2" /><path d="M2.5 9.5h3l1 1.5h3l1-1.5h3" /></>,
+  today: <><circle cx="8" cy="8" r="2.6" /><path d="M8 1.8v1.4M8 12.8v1.4M1.8 8h1.4M12.8 8h1.4M3.6 3.6l1 1M11.4 11.4l1 1M3.6 12.4l1-1M11.4 4.6l1-1" /></>,
+  week: <><rect x="2.5" y="3" width="11" height="10.5" rx="1.8" /><path d="M2.5 6.2h11M5.3 1.8v2.4M10.7 1.8v2.4M5 9h1.2M7.4 9h1.2M9.8 9h1.2" /></>,
+  note: <path d="M4 2h5.5L12.5 5v8.5c0 .3-.2.5-.5.5H4c-.3 0-.5-.2-.5-.5v-11c0-.3.2-.5.5-.5zM9.5 2v3h3" />,
+  tag: <path d="M5.5 2.5 4.5 13.5M11.5 2.5l-1 11M2.5 6h11M2 10h11" />,
+  cal: <><rect x="2.5" y="3" width="11" height="10.5" rx="1.8" /><path d="M2.5 6.2h11M6.2 6.2v7.3M9.8 6.2v7.3M2.5 9.8h11" /></>,
+  done: <><circle cx="8" cy="8" r="5.5" /><path d="m5.6 8.1 1.7 1.7 3.2-3.4" /></>,
+};
+const NavGlyph = ({ name }: { name: string }) => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+    {NAV[name]}
+  </svg>
+);
 // La prioridad, como una bandera de su color (la misma que en el texto de las notas).
 const Flag = () => (
   <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
@@ -225,9 +240,9 @@ export function TasksView(p: Props) {
 
   const due = (r: Task) => (r.dueAt ? daysUntil(r.dueAt) : null);
   const smart: { id: string; name: string; icon: string; test: (r: Task) => boolean }[] = [
-    { id: 'all', name: t('Todas'), icon: '◎', test: () => true },
-    { id: 'today', name: t('Hoy'), icon: '◐', test: (r) => due(r) !== null && due(r)! <= 0 },
-    { id: 'week', name: t('Próximos 7 días'), icon: '◔', test: (r) => due(r) !== null && due(r)! <= 7 },
+    { id: 'all', name: t('Todas'), icon: 'all', test: () => true },
+    { id: 'today', name: t('Hoy'), icon: 'today', test: (r) => due(r) !== null && due(r)! <= 0 },
+    { id: 'week', name: t('Próximos 7 días'), icon: 'week', test: (r) => due(r) !== null && due(r)! <= 7 },
   ];
 
   const current = useMemo(() => {
@@ -545,7 +560,7 @@ export function TasksView(p: Props) {
   const Nav = ({ id, name, n, icon, hint }: { id: string; name: string; n?: number; icon?: string; hint?: string }) => (
     <button className={`tv-nav-item${view === id ? ' is-on' : ''}`} aria-current={view === id} onClick={() => go(id)} title={hint}>
       <span className="tv-nav-icon" aria-hidden="true">
-        {icon}
+        {icon && <NavGlyph name={icon} />}
       </span>
       <span className="tv-nav-name">{name}</span>
       {!!n && <span className="tv-nav-n">{n}</span>}
@@ -568,15 +583,15 @@ export function TasksView(p: Props) {
         ))}
         {sections.length > 0 && <div className="tv-side-title">{t('En las notas')}</div>}
         {sections.map(({ row, n }) => (
-          <Nav key={row.id} id={`sec:${row.id}`} name={noteTitle(row)} hint={pathOf(row.id)} icon="◇" n={n} />
+          <Nav key={row.id} id={`sec:${row.id}`} name={noteTitle(row)} hint={pathOf(row.id)} icon="note" n={n} />
         ))}
         {tags.length > 0 && <div className="tv-side-title">{t('Etiquetas')}</div>}
         {tags.map(([t, n]) => (
-          <Nav key={t} id={`tag:${t}`} name={t} icon="#" n={n} />
+          <Nav key={t} id={`tag:${t}`} name={t} icon="tag" n={n} />
         ))}
         <div className="tv-side-sep" />
-        <Nav id="cal" name={t('Calendario')} icon="▦" />
-        <Nav id="done" name={t('Hechas')} icon="✓" n={done.length} />
+        <Nav id="cal" name={t('Calendario')} icon="cal" />
+        <Nav id="done" name={t('Hechas')} icon="done" n={done.length} />
       </nav>
 
       <Resizer size={sideWidth} edge="right" className="tv-side-resizer" />
@@ -895,8 +910,9 @@ export function TasksView(p: Props) {
         })()}
       </main>
 
-      <Resizer size={detailWidth} edge="left" className="tv-resizer" />
-      <Detail
+      {/* Sin tarea elegida (en el calendario), el panel no ocupa sitio: más días a la vista. */}
+      {cur && <Resizer size={detailWidth} edge="left" className="tv-resizer" />}
+      {cur && <Detail
         key={cur ? `${cur.id}\u0000${cur.source}` : 'none'}
         row={cur}
         p={p}
@@ -907,7 +923,7 @@ export function TasksView(p: Props) {
         onToggle={toggleDone}
         onPick={(r) => setCursorId(r.id)}
         onMove={() => cur && setMoving(cur.id)}
-      />
+      />}
       {menu && find(menu.id) && <TaskMenu row={find(menu.id)!} x={menu.x} y={menu.y} onPick={(a) => menuPick(find(menu.id)!, a)} onClose={() => setMenu(null)} />}
       {moving && find(moving) && (
         <SectionPicker
