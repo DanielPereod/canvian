@@ -3,6 +3,10 @@ import { api, type NoteRow, type SearchHit } from '../api';
 import { parentMap, pathText, resolvePath, routeText } from './sections';
 import { t } from '../i18n';
 import { withoutMarks } from './tasks';
+import { NavIcon } from './Biblioteca';
+
+// El mismo icono que en la barra lateral y la paleta de comandos.
+const KIND_ICON: Partial<Record<SearchHit['kind'], string>> = { canvas: 'canvas', image: 'image', link: 'link', code: 'code' };
 
 type Props = {
   profileId: string;
@@ -25,7 +29,9 @@ const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCas
 // El trozo del texto donde está lo buscado (sin la sintaxis de las tareas),
 // con lo que coincide resaltado, como en Obsidian o Raycast.
 function snippet(hit: SearchHit, words: string[]): ReactNode {
-  const lines = (hit.bodyText ?? '').split('\n').map(withoutMarks).filter(Boolean);
+  const lines = (hit.bodyText ?? '').split('\n')
+    // Sin las almohadillas de los títulos (los canvas guardan su texto en Markdown).
+    .map((l) => withoutMarks(l.replace(/^#{1,6}\s+/, ''))).filter(Boolean);
   if (hit.title && lines[0] === hit.title) lines.shift();
   const body = lines.join(' · ');
   if (!body) return null;
@@ -156,8 +162,8 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
           onKeyDown={onKeyDown}
         />
         <div className="popover-divider" />
-        {!query.trim() && hits.length > 0 && <div className="label">{t('Recientes')}</div>}
-        {route && route.found.length > 0 && !route.missing.length && <div className="label">{t('Dentro de {where}', { where: route.found.map((z) => z.title || t('Nota sin título')).join(' › ') })}</div>}
+        {!query.trim() && hits.length > 0 && <div className="list-group">{t('Recientes')}</div>}
+        {route && route.found.length > 0 && !route.missing.length && <div className="list-group">{t('Dentro de {where}', { where: route.found.map((z) => z.title || t('Nota sin título')).join(' › ') })}</div>}
         <ul className="list" role="listbox">
           {items.map((item, i) => (
             <li
@@ -170,7 +176,9 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
               onClick={() => run(item)}
             >
               {item.kind === 'note' ? (
-                <div className="hit">
+                <>
+                  <NavIcon name={KIND_ICON[item.hit.kind] ?? 'page'} />
+                  <div className="hit">
                   <span className="hit-title">
                     {item.hit.title ?? t('Nota sin título')}
                     {where?.(item.hit.id) && <span className="hit-path">{where(item.hit.id)}</span>}
@@ -179,15 +187,16 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
                     const body = snippet(item.hit, words);
                     return body && <span className="hit-snippet">{body}</span>;
                   })()}
-                </div>
+                  </div>
+                </>
               ) : item.kind === 'path' ? (
                 <>
-                  <span className="list-icon">+</span>
+                  <NavIcon name="child" />
                   {item.text}
                 </>
               ) : (
                 <>
-                  <span className="list-icon">+</span>
+                  <NavIcon name="page" />
                   {t('Crear nota «{name}»', { name: item.text })}
                 </>
               )}

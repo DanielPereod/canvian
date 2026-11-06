@@ -662,10 +662,15 @@
 
 .canvas.is-bib .tv-title { font-size: calc(26px * var(--title-scale) * var(--type-scale, 1)); }
 .canvas.is-bib .tv-title em { font-style: normal; color: inherit; }
-.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] { background: var(--accent-soft); color: var(--text); }
-.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] .hit-snippet,
-.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] .list-icon { color: var(--text-faint); }
-.canvas.is-bib #note-search { font-size: calc(22px * var(--type-scale, 1)); font-weight: 500; }
+/* El buscador (Ctrl P) y la paleta de comandos, con la letra y el aire de los menús. */
+:root:has(.canvas.is-bib) .popover > .field-bare { min-height: 44px; font-size: calc(16px * var(--type-scale, 1)); }
+:root:has(.canvas.is-bib) .popover .list-item { min-height: 34px; padding: 5px 10px; gap: 10px; font-size: var(--text-sm); border-radius: var(--radius-xs); }
+:root:has(.canvas.is-bib) .popover .list-item .bib-it-ic { width: 15px; height: 15px; color: var(--text-faint); flex: none; }
+:root:has(.canvas.is-bib) .popover .list-item[aria-selected='true'] { background: var(--bib-sel, var(--surface-hover)); color: var(--text); }
+:root:has(.canvas.is-bib) .popover .list-item[aria-selected='true']::before { box-shadow: none; }
+:root:has(.canvas.is-bib) .popover .list-item[aria-selected='true'] .hit-snippet,
+:root:has(.canvas.is-bib) .popover .list-item[aria-selected='true'] .list-icon { color: var(--text-faint); }
+:root:has(.canvas.is-bib) .popover .list-group { padding: 8px 10px 3px; }
 
 /* El móvil, también tumbado (poca altura y dedos): la barra lateral va en un cajón. */
 @media (max-width: 760px), (pointer: coarse) and (max-height: 520px) {
