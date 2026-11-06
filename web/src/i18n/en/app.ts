@@ -325,6 +325,8 @@ export const EN_APP: Record<string, string> = {
   'No se pudo conectar con el servidor': 'Couldn’t connect to the server',
   'Crea tu contraseña': 'Create your password',
   'Entra en Canvian': 'Sign in to Canvian',
+  'Ver contraseña': 'Show password',
+  'Ocultar contraseña': 'Hide password',
   'Elige una contraseña. Es la única cuenta de esta instalación y empezarás con los perfiles Personal y Trabajo.':
     'Choose a password. It’s the only account on this install and you’ll start with the Personal and Work profiles.',
   'Escribe tu contraseña para volver a tus notas.': 'Enter your password to get back to your notes.',

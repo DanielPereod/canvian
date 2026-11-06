@@ -65,6 +65,10 @@
   outline: none;
   transition: border-color var(--dur-fast);
 }
+.auth-pass { position: relative; }
+.auth-pass .auth-field { width: 100%; padding-right: 40px; }
+.auth-eye { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-xs); background: none; color: var(--text-faint); cursor: pointer; }
+.auth-eye:hover, .auth-eye:focus-visible { color: var(--text); background: var(--surface-hover); outline: none; }
 .auth-field::placeholder { color: var(--text-ghost); }
 .auth-field:focus-visible { border-color: var(--text-faint); box-shadow: none; }
 .auth-button {
