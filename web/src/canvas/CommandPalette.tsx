@@ -56,6 +56,17 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
   // La búsqueda del servidor no sabe de archivadas: se queda solo con las que se ven.
   const visible = useRef<Set<string> | null>(null);
   visible.current = rows ? new Set(rows.map((r) => r.id)) : null;
+  // Dónde está cada nota («Viaje a Japón › Qué ver»), para distinguir las que se llaman igual.
+  const where = useMemo(() => {
+    if (!rows) return null;
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const parent = parentMap(rows);
+    return (id: string) => {
+      const names: string[] = [];
+      for (let z = byId.get(parent.get(id) ?? ''); z; z = byId.get(parent.get(z.id) ?? '')) names.unshift(z.title || t('Nota sin título'));
+      return names.join(' › ');
+    };
+  }, [rows]);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,7 +171,10 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
             >
               {item.kind === 'note' ? (
                 <div className="hit">
-                  <span className="hit-title">{item.hit.title ?? t('Nota sin título')}</span>
+                  <span className="hit-title">
+                    {item.hit.title ?? t('Nota sin título')}
+                    {where?.(item.hit.id) && <span className="hit-path">{where(item.hit.id)}</span>}
+                  </span>
                   {(() => {
                     const body = snippet(item.hit, words);
                     return body && <span className="hit-snippet">{body}</span>;

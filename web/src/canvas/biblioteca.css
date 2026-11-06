@@ -720,3 +720,10 @@
    debajo de la portada, y todo se desplaza junto. */
 .reader-coll { align-self: stretch; flex: none; animation: bib-in 320ms var(--ease-out) both; }
 .reader-coll > .bib-lib { position: relative; inset: auto; overflow: visible; }
+
+/* Vista previa de una nota al dejar el ratón sobre su fila. */
+.note-peek { position: fixed; z-index: 70; max-height: 300px; overflow: hidden; padding: 14px 18px; border-radius: var(--radius-md); background: var(--surface-1, var(--bg)); color: var(--text); box-shadow: 0 0 0 1px var(--line), 0 16px 40px -12px rgba(0, 0, 0, 0.3); pointer-events: none; animation: bib-menu-in 140ms var(--ease-out) both; }
+.note-peek-in { font-size: var(--text-sm); line-height: 1.55; }
+.note-peek-in > :first-child { margin-top: 0; }
+.note-peek-in h1, .note-peek-in h2, .note-peek-in h3 { font-size: 1.05em; margin: 0.8em 0 0.3em; }
+.note-peek-in img { max-height: 120px; border-radius: var(--radius-xs); }

@@ -15,6 +15,7 @@ import { importanceOf } from './sections';
 import { ROOT_KEY, sortByOrder, useSidebarPrefs } from './sidebarPrefs';
 import { taskCount } from './tasks';
 import { Timeline } from './Timeline';
+import { useNotePeek } from './NotePeek';
 import { longPress, TOUCH } from './touch';
 import {
   applyView,
@@ -298,6 +299,7 @@ export function Library(p: LibProps) {
     },
   });
 
+  const peek = useNotePeek();
   const [sel, setSel] = useState(0);
   useEffect(() => setSel(0), [p.center, view.id]);
   const at = Math.min(sel, Math.max(0, items.length - 1));
@@ -515,7 +517,11 @@ export function Library(p: LibProps) {
                 role="listitem"
                 className={`bib-row cv-row${i === at ? ' is-sel' : ''}${dim(r) ? ' is-dim' : ''}${prefs.colors[r.id] ? ' has-tint' : ''}`}
                 {...itemProps(r, i)}
-                onMouseEnter={() => setSel(i)}
+                {...peek.props(r)}
+                onMouseEnter={(e) => {
+                  setSel(i);
+                  peek.props(r).onMouseEnter(e);
+                }}
                 onClick={() => enter(r)}
               >
                 <Spine row={r} kids={n} />
@@ -536,6 +542,7 @@ export function Library(p: LibProps) {
               </button>
             );
           })}
+          {peek.node}
         </div>
       )}
       {view.type === 'gallery' && (
