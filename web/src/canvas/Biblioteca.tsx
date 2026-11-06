@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { TEMPLATES } from './templates';
 import { COLORS, setColor, setOrder, sortByOrder, toggleFav, useSidebarPrefs } from './sidebarPrefs';
 import type { NoteRow } from '../api';
 import { keyParts, useKeymap, type ActionId } from '../keys';
@@ -204,6 +205,9 @@ const NAV_ICON: Record<string, ReactNode> = {
   zen: <path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z" />,
   image: <><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><circle cx="6" cy="6.5" r="1.1" /><path d="m2.5 11.5 3.5-3 3 2.5 2-1.5 2.5 2" /></>,
   props: <path d="M2.5 4.5h2M7 4.5h6.5M2.5 8h2M7 8h6.5M2.5 11.5h2M7 11.5h6.5" />,
+  people: <><circle cx="6" cy="5.5" r="2.2" /><path d="M2 13c.4-2.3 2-3.6 4-3.6s3.6 1.3 4 3.6" /><path d="M10.5 3.5a2.1 2.1 0 0 1 0 4M12 9.6c1.1.5 1.8 1.6 2 3.4" /></>,
+  flag: <path d="M3.5 14V2.8M3.5 3h8l-1.6 2.8L11.5 8.6h-8" />,
+  book: <path d="M8 4.2C6.8 3.2 5 2.8 2.5 3v9.5c2.5-.2 4.3.2 5.5 1.2 1.2-1 3-1.4 5.5-1.2V3C11 2.8 9.2 3.2 8 4.2zM8 4.2v9.5" />,
   star: <path d="M8 2.3l1.75 3.55 3.9.57-2.83 2.76.67 3.88L8 11.23l-3.49 1.83.67-3.88L2.35 6.42l3.9-.57z" />,
   attach: <path d="m12.5 7.5-4.8 4.8a2.8 2.8 0 0 1-4-4L8.8 3.2a1.9 1.9 0 0 1 2.7 2.7L6.6 10.8a.9.9 0 0 1-1.3-1.3L9.8 5" />,
 };
@@ -613,7 +617,7 @@ export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: n
   return spot;
 }
 
-export type NewKind = 'text' | 'canvas' | 'daily';
+export type NewKind = 'text' | 'canvas' | 'daily' | `tpl:${string}`;
 
 // Lo que se crea se elige al crearlo: luego una nota no pasa a ser canvas ni al revés.
 // `full`: el del clic derecho en la barra, que también trae la nota de hoy.
@@ -626,6 +630,8 @@ export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number;
     { kind: 'canvas', label: t('Canvas nuevo'), key: full ? key('newCanvas') : undefined },
     ...(full ? [null, { kind: 'daily' as const, label: t('Nota de hoy'), key: key('daily') }] : []),
   ];
+  // Debajo, las plantillas: una nota con su forma ya puesta.
+  const tpls = TEMPLATES.map((tp) => ({ kind: `tpl:${tp.id}` as NewKind, label: t(tp.name), icon: tp.icon }));
   return (
     <div className="bib-menu bib-new-menu" ref={ref} role="menu" aria-label={t('Crear')} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
       {items.map((it, i) =>
@@ -647,6 +653,22 @@ export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number;
           <div key={`s${i}`} className="bib-menu-sep" role="separator" />
         ),
       )}
+      <div className="bib-menu-sep" role="separator" />
+      <div className="bib-menu-head">{t('Plantillas')}</div>
+      {tpls.map((it) => (
+        <button
+          key={it.kind}
+          role="menuitem"
+          className="bib-menu-it"
+          onClick={() => {
+            onClose();
+            onPick(it.kind);
+          }}
+        >
+          <NavIcon name={it.icon} />
+          {it.label}
+        </button>
+      ))}
     </div>
   );
 }
