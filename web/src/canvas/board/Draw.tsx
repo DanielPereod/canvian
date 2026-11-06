@@ -155,9 +155,12 @@ type BarProps = {
   onSize: (s: DrawSize) => void;
   onUndo: () => void;
   onRedo: () => void;
+  /** Solo dibuja el lápiz; el dedo mueve el lienzo (y la mano apoyada no pinta). */
+  penOnly?: boolean;
+  onPenOnly?: (on: boolean) => void;
 };
 
-export function DrawBar({ tool, color, size, showStyle, canUndo, canRedo, onTool, onColor, onSize, onUndo, onRedo }: BarProps) {
+export function DrawBar({ tool, color, size, showStyle, canUndo, canRedo, onTool, onColor, onSize, onUndo, onRedo, penOnly, onPenOnly }: BarProps) {
   return (
     <div className="draw-ui">
       <nav className="draw-rail surface-2" aria-label={t('Dibujar')}>
@@ -173,6 +176,26 @@ export function DrawBar({ tool, color, size, showStyle, canUndo, canRedo, onTool
         <button title={`${t('Rehacer')} (Ctrl ⇧ Z)`} aria-label={t('Rehacer')} disabled={!canRedo} onClick={onRedo}>
           {icon(<path d="M15 13.5 19.5 9 15 4.5M19.5 9H10a5.5 5.5 0 0 0 0 11h3" />)}
         </button>
+        {onPenOnly && (
+          <>
+            <span className="draw-rail-sep" />
+            <button
+              className={penOnly ? 'is-on' : ''}
+              title={penOnly ? t('Solo lápiz: el dedo mueve el lienzo') : t('Dibujar también con el dedo')}
+              aria-label={t('Solo lápiz')}
+              aria-pressed={!!penOnly}
+              onClick={() => onPenOnly(!penOnly)}
+            >
+              {icon(
+                // Una mano: tachada cuando no dibuja (solo lápiz).
+                <>
+                  <path d="M8 12.5V6.2a1.3 1.3 0 0 1 2.6 0V11M10.6 10.5V4.8a1.3 1.3 0 0 1 2.6 0v5.7M13.2 10.5V6a1.3 1.3 0 0 1 2.6 0v6M15.8 11.5V9a1.3 1.3 0 0 1 2.6 0v5a6 6 0 0 1-6 6h-.6a6 6 0 0 1-4.6-2.2L4.8 15a1.4 1.4 0 0 1 2-1.9L8 14.3" />
+                  {penOnly && <path d="M3.5 3.5l17 17" />}
+                </>,
+              )}
+            </button>
+          </>
+        )}
       </nav>
       {showStyle && (
         <div className="draw-style surface-2">

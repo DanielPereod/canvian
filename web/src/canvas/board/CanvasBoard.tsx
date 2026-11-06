@@ -40,6 +40,10 @@ import { goToAnchor } from '../anchor';
 import { t, tn } from '../../i18n';
 import './board.css';
 
+const PEN_KEY = 'canvian.penOnly';
+// En pantallas táctiles se ofrece «solo lápiz» aunque aún no se haya usado uno.
+const TOUCH_SCREEN = typeof window !== 'undefined' && !!window.matchMedia?.('(any-pointer: coarse)').matches;
+
 // El lienzo de una nota de tipo canvas: tarjetas de texto, notas enlazadas,
 // archivos (imágenes, PDF, documentos…) y grupos que se colocan libremente y se unen con flechas, como un
 // canvas de Obsidian, y encima se puede dibujar a mano (ver draw.ts). Guarda en
@@ -676,6 +680,34 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
 
   // ── Dibujo ─────────────────────────────────────────────────────────
   const [tool, setTool] = useState<Tool>('select');
+  // Solo lápiz, como en GoodNotes: con él puesto, al dibujar el dedo mueve el
+  // lienzo y la mano apoyada no pinta. Se enciende solo la primera vez que se
+  // usa un lápiz y se recuerda en este dispositivo.
+  const [penOnly, setPenOnlyState] = useState(() => {
+    try {
+      return localStorage.getItem(PEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const penOnlyRef = useRef(penOnly);
+  penOnlyRef.current = penOnly;
+  const [penSeen, setPenSeen] = useState(() => {
+    try {
+      return localStorage.getItem(PEN_KEY) !== null;
+    } catch {
+      return false;
+    }
+  });
+  const setPenOnly = (on: boolean) => {
+    setPenOnlyState(on);
+    setPenSeen(true);
+    try {
+      localStorage.setItem(PEN_KEY, on ? '1' : '0');
+    } catch {
+      /* solo para esta vez */
+    }
+  };
   const [style, setStyleState] = useState(loadStyle);
   const [draft, setDraft] = useState<Drawing | null>(null);
   const [sel, setSel] = useState<string | null>(null);
@@ -793,7 +825,22 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
       return;
     }
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // El primer lápiz que se ve enciende «solo lápiz» (se puede apagar en la barra).
+    if (e.pointerType === 'pen' && !penSeen) setPenOnly(true);
+    const penMode = penOnlyRef.current || (e.pointerType === 'pen' && !penSeen);
+    if (penMode && e.pointerType === 'touch') {
+      // Mientras el lápiz dibuja, la mano apoyada no hace nada.
+      if (gesture.current) return;
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.current.size > 1) {
+        pan.current = null;
+        const [a, b] = [...pointers.current.values()];
+        pinch.current = { vp: flow.getViewport(), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)) };
+      } else pan.current = { pointer: e.pointerId, vp: flow.getViewport(), x: e.clientX, y: e.clientY };
+      return;
+    }
+    // Con solo lápiz, el lápiz no cuenta como «dedo»: un toque de la mano no corta el trazo.
+    if (!(penMode && e.pointerType === 'pen')) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     // Dos dedos: se mueve y se acerca el lienzo, no se dibuja. Lo empezado con
     // el primero se descarta.
     if (pointers.current.size > 1) {
@@ -1298,6 +1345,8 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         onSize={(size) => setStyle({ size })}
         onUndo={undo}
         onRedo={redo}
+        penOnly={penOnly}
+        onPenOnly={penSeen || TOUCH_SCREEN ? setPenOnly : undefined}
       />
       {!nodes.length && !drawings.length && !drawing && (
         <p className="board-empty">
