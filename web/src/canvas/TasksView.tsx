@@ -12,6 +12,7 @@ import { repeatLabel } from './repeat';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { Resizer, useSideWidth } from './Resizer';
 import { DatePicker } from './DatePicker';
+import { notePreviewHtml } from './NotePeek';
 import { Combo, type ComboItem } from './Combo';
 import { useContextMenu } from './Biblioteca';
 import { useCalendarEvents, useCalendars } from '../calendars';
@@ -1146,6 +1147,9 @@ function Detail({
         />
       </div>
 
+      {/* La nota donde vive la tarea, para leerla sin salir de Tareas. */}
+      <NoteInside row={row} note={p.rows.find((r) => r.id === row.noteId)} onOpen={() => p.onOpen(row)} />
+
       <div className="tv-detail-foot">
         <button
           className="set-button tv-danger tv-expand"
@@ -1258,3 +1262,54 @@ function TimePick({ label, value, onChange }: { label: string; value: string | n
   const items = value ? [{ id: '', label: t('Quitar hora') }, ...QUARTERS] : QUARTERS;
   return <Combo className="tv-time" items={items} value={value ?? null} missing={value ?? undefined} placeholder={t('Hora')} label={label} onChange={(v) => onChange(v || null)} />;
 }
+
+// El contenido de la nota de la tarea, plegable, con la tarea marcada.
+function NoteInside({ row, note, onOpen }: { row: Task; note: NoteRow | undefined; onOpen: () => void }) {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem('canvian.taskNote') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const body = useRef<HTMLDivElement>(null);
+  const html = useMemo(() => (note ? notePreviewHtml(note) : ''), [note]);
+  // La tarea, a la vista y resaltada dentro del texto.
+  useEffect(() => {
+    const el = body.current;
+    if (!el || !open) return;
+    el.querySelectorAll('.is-here').forEach((x) => x.classList.remove('is-here'));
+    const want = titleOf(row).trim();
+    const hit = [...el.querySelectorAll('li')].find((li) => (li.querySelector(':scope > div, :scope > p')?.textContent ?? li.textContent ?? '').trim().startsWith(want));
+    if (hit) {
+      hit.classList.add('is-here');
+      el.scrollTop = Math.max(0, hit.offsetTop - el.offsetTop - 40);
+    }
+  }, [html, row, open]);
+  if (!note) return null;
+  const flip = () => {
+    setOpen((v) => {
+      try {
+        localStorage.setItem('canvian.taskNote', v ? '0' : '1');
+      } catch {
+        /* solo para esta vez */
+      }
+      return !v;
+    });
+  };
+  return (
+    <section className={`tv-note${open ? ' is-open' : ''}`} aria-label={t('Contenido de la nota')}>
+      <div className="tv-note-head">
+        <button className="tv-note-flip" onClick={flip} aria-expanded={open}>
+          <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true"><path d="M3.5 2 6.5 5 3.5 8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span className="bib-ellipsis">{note.title || t('Nota sin título')}</span>
+        </button>
+        <button className="tv-note-open" onClick={onOpen} title={t('Abrir su nota (Enter)')}>
+          {t('Ir a la nota')}
+        </button>
+      </div>
+      {open && (html ? <div ref={body} className="prose tv-note-body" dangerouslySetInnerHTML={{ __html: html }} /> : <p className="tv-note-empty">{t('Sin texto todavía.')}</p>)}
+    </section>
+  );
+}
+

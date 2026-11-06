@@ -36,9 +36,11 @@ export function useNotePeek() {
   return { props, node, hide };
 }
 
+/** El texto de la nota en HTML, sin el título ni la sintaxis de las tareas. */
+export const notePreviewHtml = (row: NoteRow) => bodyToHtml(JSON.stringify(clean(splitTitle(parseBody(row.bodyJson)).body)));
+
 function Peek({ row, rect }: { row: NoteRow; rect: DOMRect }) {
-  const body = splitTitle(parseBody(row.bodyJson)).body;
-  const html = bodyToHtml(JSON.stringify(clean(body)));
+  const html = notePreviewHtml(row);
   if (!html) return null;
   const W = 420;
   const H = 300;

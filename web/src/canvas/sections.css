@@ -749,3 +749,18 @@ button.tv-agenda-date:hover { background: var(--surface-sunken); }
 .note-app-error { margin-top: 4px; color: var(--danger); font-family: var(--font-mono); font-size: var(--text-xs); white-space: pre-wrap; }
 @media (hover: none) { .note-app-code { font-size: 16px; } }
 @media (hover: none) { .prose .note-app .note-youtube-bar { position: static; justify-content: flex-end; margin-bottom: 6px; } }
+
+/* La nota de la tarea, dentro del detalle: se lee sin salir de Tareas. */
+.tv-note { display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.tv-note-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tv-note-flip { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; padding: 4px 0; border: 0; background: none; font: inherit; font-size: var(--text-sm); font-weight: 600; color: var(--text); text-align: left; cursor: pointer; }
+.tv-note-flip svg { flex: none; color: var(--text-faint); transition: transform var(--dur-fast); }
+.tv-note.is-open .tv-note-flip svg { transform: rotate(90deg); }
+.tv-note-open { flex: none; padding: 3px 8px; border: 0; border-radius: var(--radius-xs); background: var(--surface-hover); font: inherit; font-size: var(--text-xs); color: var(--text-muted); cursor: pointer; }
+.tv-note-open:hover, .tv-note-open:focus-visible { color: var(--text); background: var(--accent-soft); outline: none; }
+.tv-note-body { position: relative; max-height: 380px; overflow-y: auto; padding: 4px 2px 8px; font-size: var(--text-sm); line-height: 1.55; color: var(--text-muted); }
+.tv-note-body > :first-child { margin-top: 0; }
+.tv-note-body h1, .tv-note-body h2, .tv-note-body h3 { font-size: 1.05em; margin: 0.9em 0 0.3em; color: var(--text); }
+.tv-note-body img { max-height: 160px; border-radius: var(--radius-xs); }
+.tv-note-body li.is-here > div, .tv-note-body li.is-here > p { color: var(--text); background: var(--accent-soft); border-radius: var(--radius-xs); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tv-note-empty { margin: 0; font-size: var(--text-sm); color: var(--text-faint); }
