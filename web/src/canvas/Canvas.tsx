@@ -473,6 +473,15 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     openNote(row.id);
   };
 
+  // Una plantilla propia: una copia de esa nota (texto o canvas), arriba del todo.
+  const newFromNote = (id: string) => {
+    const src = rowsRef.current.find((r) => r.id === id);
+    if (!src) return newNote(null);
+    const now = { ...src, ...pending.current.get(id) };
+    const row = createNote(spotFor(null), src.kind === 'canvas' ? 'canvas' : 'text', { zoneId: null, title: now.title, bodyJson: now.bodyJson, bodyText: now.bodyText });
+    openNote(row.id);
+  };
+
   // ── Tareas: las casillas de las notas ───────────────────────────────
   // La nota tal y como está ahora, con lo escrito que aún no ha salido al servidor.
   const rowNow = (id: string): NoteRow | undefined => {
@@ -960,7 +969,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     else if (a === 'child') act('section', id, null);
     else if (a === 'childCanvas') act('createCanvas', null, id);
     else if (a === 'move') setMovingId(id);
-    else if (a !== 'fav') act(a, id, null);
+    else if (a !== 'fav' && a !== 'tpl') act(a, id, null);
   };
 
   // En grande, en el centro, con un botón para ir a la nota de verdad.
@@ -1187,6 +1196,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
               setCenter(null);
               if (kind === 'canvas') newCanvas(null);
               else if (kind.startsWith('tpl:')) newFromTemplate(kind.slice(4));
+              else if (kind.startsWith('mine:')) newFromNote(kind.slice(5));
               else newNote(null);
             }}
           />
