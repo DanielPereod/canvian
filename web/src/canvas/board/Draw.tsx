@@ -206,7 +206,7 @@ export function DrawBar({ tool, color, size, showStyle, canUndo, canRedo, onTool
               <span />
             </button>
           ))}
-          <ColorPick className="draw-swatch" value={color.startsWith('#') ? color : null} onPick={(c) => onColor(c as DrawColor)} />
+          <ColorPick className="draw-swatch" side="left" value={color.startsWith('#') ? color : null} onPick={(c) => onColor(c as DrawColor)} />
           <span className="draw-style-sep" />
           {DRAW_SIZES.map((s) => (
             <button key={s} className={`draw-width${size === s ? ' is-on' : ''}`} title={t(SIZE_NAMES[s])} aria-label={t(SIZE_NAMES[s])} aria-pressed={size === s} onClick={() => onSize(s)}>

@@ -25,6 +25,8 @@ const sidebar = z.object({
   colors: z.record(id, z.string().regex(/^#[0-9a-f]{6}$/i)).refine((m) => Object.keys(m).length <= 5000),
   // Las notas fijadas arriba de la barra, en su orden.
   favs: z.array(id).max(200).optional(),
+  // Las notas que sirven de plantilla (se copian desde el menú «+»).
+  tpls: z.array(id).max(100).optional(),
 });
 // Las notas que se leen en modo ancho.
 const wide = z.array(id).max(5000);

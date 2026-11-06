@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { TEMPLATES } from './templates';
-import { COLORS, setColor, setOrder, sortByOrder, toggleFav, useSidebarPrefs } from './sidebarPrefs';
+import { COLORS, setColor, setOrder, sortByOrder, toggleFav, toggleTpl, useSidebarPrefs } from './sidebarPrefs';
 import { ColorPick } from './ColorPick';
 import type { NoteRow } from '../api';
 import { keyParts, useKeymap, type ActionId } from '../keys';
@@ -555,6 +555,7 @@ export function BibSidebar(p: SideProps) {
           x={newAt.x}
           y={newAt.y}
           full={newAt.full}
+          mine={(prefs.tpls ?? []).map((id) => p.family.byId.get(id)).filter((r): r is NoteRow => !!r && !r.archivedAt)}
           onPick={(kind) => {
             // Manteniendo pulsado no hay clic que cierre el cajón del móvil.
             p.onDrawer(false);
@@ -570,7 +571,7 @@ export function BibSidebar(p: SideProps) {
 
 // ── Menú contextual ───────────────────────────────────────────────────
 
-export type MenuAction = 'fav' | 'open' | 'library' | 'nodes' | 'child' | 'childCanvas' | 'rename' | 'move' | 'archive' | 'delete';
+export type MenuAction = 'fav' | 'tpl' | 'open' | 'library' | 'nodes' | 'child' | 'childCanvas' | 'rename' | 'move' | 'archive' | 'delete';
 
 type MenuProps = {
   row: NoteRow;
@@ -596,7 +597,8 @@ export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: n
   }, [x, y]);
 
   useEffect(() => {
-    const away = (e: Event) => !ref.current?.contains(e.target as Node) && onClose();
+    // El selector de color se abre fuera del menú (encima de todo), pero es parte de él.
+    const away = (e: Event) => !ref.current?.contains(e.target as Node) && !(e.target as Element).closest?.('.color-pop') && onClose();
     const onKey = (e: KeyboardEvent) => {
       const list = buttons();
       const at = list.indexOf(document.activeElement as HTMLButtonElement);
@@ -624,11 +626,11 @@ export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: n
   return spot;
 }
 
-export type NewKind = 'text' | 'canvas' | 'daily' | `tpl:${string}`;
+export type NewKind = 'text' | 'canvas' | 'daily' | `tpl:${string}` | `mine:${string}`;
 
 // Lo que se crea se elige al crearlo: luego una nota no pasa a ser canvas ni al revés.
 // `full`: el del clic derecho en la barra, que también trae la nota de hoy.
-export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number; full?: boolean; onPick: (kind: NewKind) => void; onClose: () => void }) {
+export function NewMenu({ x, y, full, mine = [], onPick, onClose }: { x: number; y: number; full?: boolean; mine?: NoteRow[]; onPick: (kind: NewKind) => void; onClose: () => void }) {
   const key = useKeyText();
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
@@ -638,7 +640,11 @@ export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number;
     ...(full ? [null, { kind: 'daily' as const, label: t('Nota de hoy'), key: key('daily') }] : []),
   ];
   // Debajo, las plantillas: una nota con su forma ya puesta.
-  const tpls = TEMPLATES.map((tp) => ({ kind: `tpl:${tp.id}` as NewKind, label: t(tp.name), icon: tp.icon }));
+  // Primero las propias (las notas marcadas «Usar como plantilla»), luego las que trae la app.
+  const tpls = [
+    ...mine.map((r) => ({ kind: `mine:${r.id}` as NewKind, label: titleOf(r), icon: r.kind === 'canvas' ? 'canvas' : 'page' })),
+    ...TEMPLATES.map((tp) => ({ kind: `tpl:${tp.id}` as NewKind, label: t(tp.name), icon: tp.icon })),
+  ];
   return (
     <div className="bib-menu bib-new-menu" ref={ref} role="menu" aria-label={t('Crear')} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
       {items.map((it, i) =>
@@ -673,7 +679,7 @@ export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number;
           }}
         >
           <NavIcon name={it.icon} />
-          {it.label}
+          <span className="bib-ellipsis">{it.label}</span>
         </button>
       ))}
     </div>
@@ -690,6 +696,7 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
     ...(kids ? [{ a: 'library' as const, icon: 'grid', label: t('Ver como colección') }] : []),
     { a: 'nodes', icon: 'nodes', label: t('Ver en nodos'), key: key('nodes') },
     { a: 'fav', icon: 'star', label: prefs.favs?.includes(row.id) ? t('Quitar de favoritos') : t('Añadir a favoritos') },
+    { a: 'tpl', icon: 'copy', label: prefs.tpls?.includes(row.id) ? t('Dejar de usar como plantilla') : t('Usar como plantilla') },
     null,
     { a: 'child', icon: 'child', label: t('Nota dentro'), key: key('newSection') },
     { a: 'childCanvas', icon: 'canvas', label: t('Canvas dentro') },
@@ -713,6 +720,7 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
             onClick={() => {
               onClose();
               if (it.a === 'fav') void toggleFav(row.id).catch(() => {});
+              else if (it.a === 'tpl') void toggleTpl(row.id).catch(() => {});
               else onPick(it.a);
             }}
           >

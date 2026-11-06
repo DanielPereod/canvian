@@ -4,7 +4,7 @@ import { api } from '../api';
 // Lo que se elige a mano en la barra lateral: el orden de las hijas de cada
 // nota (arrastrando) y el color de cada una. Se guarda en el servidor.
 
-export type SidebarPrefs = { order: Record<string, string[]>; colors: Record<string, string>; favs?: string[] };
+export type SidebarPrefs = { order: Record<string, string[]>; colors: Record<string, string>; favs?: string[]; tpls?: string[] };
 
 export const ROOT_KEY = 'root';
 export const COLORS: { hex: string; name: string }[] = [
@@ -26,7 +26,7 @@ const listeners = new Set<() => void>();
 
 const clean = (v: unknown): SidebarPrefs | null => {
   const p = v as Partial<SidebarPrefs> | null;
-  return p && typeof p.order === 'object' && typeof p.colors === 'object' ? { order: p.order ?? {}, colors: p.colors ?? {}, favs: Array.isArray(p.favs) ? p.favs : [] } : null;
+  return p && typeof p.order === 'object' && typeof p.colors === 'object' ? { order: p.order ?? {}, colors: p.colors ?? {}, favs: Array.isArray(p.favs) ? p.favs : [], tpls: Array.isArray(p.tpls) ? p.tpls : [] } : null;
 };
 
 function apply(p: SidebarPrefs) {
@@ -81,6 +81,13 @@ export const isFav = (id: string, prefs = current) => !!prefs.favs?.includes(id)
 export function toggleFav(id: string) {
   const favs = current.favs ?? [];
   return save({ ...current, favs: favs.includes(id) ? favs.filter((f) => f !== id) : [...favs, id] });
+}
+
+// Plantillas propias: notas que sirven de modelo. «+ › Plantillas» hace una copia.
+export const isTpl = (id: string, prefs = current) => !!prefs.tpls?.includes(id);
+export function toggleTpl(id: string) {
+  const tpls = current.tpls ?? [];
+  return save({ ...current, tpls: tpls.includes(id) ? tpls.filter((f) => f !== id) : [...tpls, id] });
 }
 
 // Ordena las hijas: primero las que tienen sitio elegido, luego el resto como siempre.
