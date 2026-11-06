@@ -856,39 +856,51 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       const { [NO_TASKS]: _old, ...rest } = parseProps(note.props);
       onChange(note.id, { props: noTasks ? rest : { ...rest, [NO_TASKS]: true } });
     };
+    // Como en Notion: arriba lo que se hace con la nota (compartir, enlazar,
+    // mover), luego cómo se ve, luego lo que se le añade y abajo archivar y
+    // borrar. Lo que no aplica a esta nota no sale.
     const items: SheetItem[] = [
-      ...(asColl ? [] : [{ label: t('Adjuntar archivos…'), title: t('PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto'), run: () => filePick.current?.click() }]),
-      {
-        label: asColl ? t('Ver como nota') : t('Ver como colección'),
-        title: asColl ? t('Volver a su texto') : t('Sus notas de dentro en tabla, lista, galería, tablero o calendario'),
-        run: flipColl,
-      },
-      {
-        label: t('Abrir siempre como colección'),
-        title: collDefault ? t('Volver a abrirla como texto') : t('Su vista por defecto: se abre como colección hasta que lo quites'),
-        checked: collDefault,
-        run: flipDefault,
-      },
-      { label: t('Ver en nodos'), title: t('Esta nota en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
+      { label: shared ? t('Compartida en la web…') : t('Compartir…'), title: t('Un enlace para que otros la lean, con contraseña si quieres'), run: () => setSharing(true) },
+      { label: t('Enlazar con…'), run: onLink },
+      { label: t('Mover a…'), title: t('Meterla dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
       null,
+      ...(kids > 0 || asColl || collDefault
+        ? [
+            {
+              label: asColl ? t('Ver como nota') : t('Ver como colección'),
+              title: asColl ? t('Volver a su texto') : t('Sus notas de dentro en tabla, lista, galería, tablero o calendario'),
+              run: flipColl,
+            },
+            {
+              label: t('Abrir siempre como colección'),
+              title: collDefault ? t('Volver a abrirla como texto') : t('Su vista por defecto: se abre como colección hasta que lo quites'),
+              checked: collDefault,
+              run: flipDefault,
+            },
+          ]
+        : []),
+      { label: t('Ver en nodos'), title: t('Esta nota en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
       ...(asColl
         ? []
         : [
             { label: source ? t('Ver el texto') : t('Ver el Markdown'), keys: keysOf(keymap.markdownSource), run: () => setSource((s) => !s) },
             { label: wide ? t('Texto estrecho') : t('Texto ancho'), keys: keysOf(keymap.wideNote), run: flipWide },
             { label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
-            null,
           ]),
+      null,
       { label: note.cover ? t('Quitar portada') : t('Añadir portada'), run: () => setCover(note.cover ? null : randomCover()) },
       { label: t('Propiedades'), run: () => onProps(note.id) },
-      {
-        label: noTasks ? t('Incluir en Tareas') : t('Excluir de Tareas'),
-        title: noTasks ? t('Sus tareas vuelven a salir en Tareas y en el calendario') : t('Sus tareas dejan de salir en Tareas y en el calendario (las notas de dentro no cambian)'),
-        run: flipNoTasks,
-      },
-      { label: t('Mover a…'), title: t('Meterla dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
-      { label: t('Enlazar con…'), run: onLink },
-      { label: shared ? t('Compartida en la web…') : t('Compartir…'), title: t('Un enlace para que otros la lean, con contraseña si quieres'), run: () => setSharing(true) },
+      ...(asColl ? [] : [{ label: t('Adjuntar archivos…'), title: t('PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto'), run: () => filePick.current?.click() }]),
+      ...(tasks.total > 0 || noTasks
+        ? [
+            {
+              label: noTasks ? t('Incluir en Tareas') : t('Excluir de Tareas'),
+              title: noTasks ? t('Sus tareas vuelven a salir en Tareas y en el calendario') : t('Sus tareas dejan de salir en Tareas y en el calendario (las notas de dentro no cambian)'),
+              run: flipNoTasks,
+            },
+          ]
+        : []),
+      null,
       { label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de ella'), keys: keysOf(keymap.archive), run: onArchive },
       { label: t('Borrar'), danger: true, run: () => close(() => onDelete(note.id)) },
     ];
