@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { DRAW_COLORS, DRAW_SIZES, drawingPaths, fontSize, hitPath, penWidth, type DrawColor, type DrawSize, type Drawing, type Tool } from './draw';
+import { DRAW_COLORS, DRAW_SIZES, drawPaint, drawingPaths, fontSize, hitPath, penWidth, type DrawColor, type DrawSize, type Drawing, type Tool } from './draw';
+import { ColorPick } from '../ColorPick';
 import { t } from '../../i18n';
 
 // La capa de dibujo (va dentro del lienzo, así que se mueve y se acerca con
@@ -24,11 +25,12 @@ type LayerProps = {
 };
 
 function Shape({ d, faded, onDown, onEdit }: { d: Drawing; faded?: boolean; onDown?: (e: ReactPointerEvent) => void; onEdit?: () => void }) {
-  const cls = `draw-shape draw-c-${d.color}${faded ? ' is-erasing' : ''}`;
+  const paint = drawPaint(d.color);
+  const cls = `draw-shape ${paint.cls}${faded ? ' is-erasing' : ''}`;
   if (d.kind === 'text') {
     const fs = fontSize(d.size);
     return (
-      <g className={cls} data-draw={d.id}>
+      <g className={cls} style={paint.style} data-draw={d.id}>
         <text
           x={d.x}
           y={d.y}
@@ -48,7 +50,7 @@ function Shape({ d, faded, onDown, onEdit }: { d: Drawing; faded?: boolean; onDo
     );
   }
   return (
-    <g className={cls} data-draw={d.id}>
+    <g className={cls} style={paint.style} data-draw={d.id}>
       {drawingPaths(d).map((p, i) => (d.kind === 'pen' ? <path key={i} d={p} className="draw-ink" /> : <path key={i} d={p} className="draw-line" />))}
       {onDown && <path d={hitPath(d)} className="draw-hit nopan nodrag" data-draw-id={d.id} onPointerDown={onDown} />}
     </g>
@@ -90,8 +92,8 @@ export function DrawLayer({ drawings, draft, selected, many, erasing, typing, on
       </svg>
       {typing && (
         <textarea
-          className={`draw-textarea nopan nodrag nowheel draw-c-${typing.color}`}
-          style={{ left: typing.x, top: typing.y, fontSize: fontSize(typing.size) }}
+          className={`draw-textarea nopan nodrag nowheel ${drawPaint(typing.color).cls}`}
+          style={{ left: typing.x, top: typing.y, fontSize: fontSize(typing.size), ...drawPaint(typing.color).style }}
           value={typing.text}
           rows={Math.max(1, typing.text.split('\n').length)}
           placeholder={t('Escribe…')}
@@ -140,7 +142,7 @@ const TOOLS: { id: Tool; label: string; icon: ReactNode }[] = [
   { id: 'eraser', label: 'Goma', icon: icon(<path d="M9 19.5h10M6 15.5l8.6-8.6a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L11 18.5H9z" />) },
 ];
 
-const COLOR_NAMES: Record<DrawColor, string> = { ink: 'Tinta', accent: 'Acento', red: 'Rojo', orange: 'Naranja', green: 'Verde', blue: 'Azul' };
+const COLOR_NAMES: Record<(typeof DRAW_COLORS)[number], string> = { ink: 'Tinta', accent: 'Acento', red: 'Rojo', orange: 'Naranja', green: 'Verde', blue: 'Azul' };
 const SIZE_NAMES: Record<DrawSize, string> = { 1: 'Fino', 2: 'Medio', 3: 'Grueso' };
 
 type BarProps = {
@@ -155,9 +157,12 @@ type BarProps = {
   onSize: (s: DrawSize) => void;
   onUndo: () => void;
   onRedo: () => void;
+  /** Solo dibuja el lápiz; el dedo mueve el lienzo (y la mano apoyada no pinta). */
+  penOnly?: boolean;
+  onPenOnly?: (on: boolean) => void;
 };
 
-export function DrawBar({ tool, color, size, showStyle, canUndo, canRedo, onTool, onColor, onSize, onUndo, onRedo }: BarProps) {
+export function DrawBar({ tool, color, size, showStyle, canUndo, canRedo, onTool, onColor, onSize, onUndo, onRedo, penOnly, onPenOnly }: BarProps) {
   return (
     <div className="draw-ui">
       <nav className="draw-rail surface-2" aria-label={t('Dibujar')}>
@@ -173,6 +178,26 @@ export function DrawBar({ tool, color, size, showStyle, canUndo, canRedo, onTool
         <button title={`${t('Rehacer')} (Ctrl ⇧ Z)`} aria-label={t('Rehacer')} disabled={!canRedo} onClick={onRedo}>
           {icon(<path d="M15 13.5 19.5 9 15 4.5M19.5 9H10a5.5 5.5 0 0 0 0 11h3" />)}
         </button>
+        {onPenOnly && (
+          <>
+            <span className="draw-rail-sep" />
+            <button
+              className={penOnly ? 'is-on' : ''}
+              title={penOnly ? t('Solo lápiz: el dedo mueve el lienzo') : t('Dibujar también con el dedo')}
+              aria-label={t('Solo lápiz')}
+              aria-pressed={!!penOnly}
+              onClick={() => onPenOnly(!penOnly)}
+            >
+              {icon(
+                // Una mano: tachada cuando no dibuja (solo lápiz).
+                <>
+                  <path d="M8 12.5V6.2a1.3 1.3 0 0 1 2.6 0V11M10.6 10.5V4.8a1.3 1.3 0 0 1 2.6 0v5.7M13.2 10.5V6a1.3 1.3 0 0 1 2.6 0v6M15.8 11.5V9a1.3 1.3 0 0 1 2.6 0v5a6 6 0 0 1-6 6h-.6a6 6 0 0 1-4.6-2.2L4.8 15a1.4 1.4 0 0 1 2-1.9L8 14.3" />
+                  {penOnly && <path d="M3.5 3.5l17 17" />}
+                </>,
+              )}
+            </button>
+          </>
+        )}
       </nav>
       {showStyle && (
         <div className="draw-style surface-2">
@@ -181,6 +206,7 @@ export function DrawBar({ tool, color, size, showStyle, canUndo, canRedo, onTool
               <span />
             </button>
           ))}
+          <ColorPick className="draw-swatch" value={color.startsWith('#') ? color : null} onPick={(c) => onColor(c as DrawColor)} />
           <span className="draw-style-sep" />
           {DRAW_SIZES.map((s) => (
             <button key={s} className={`draw-width${size === s ? ' is-on' : ''}`} title={t(SIZE_NAMES[s])} aria-label={t(SIZE_NAMES[s])} aria-pressed={size === s} onClick={() => onSize(s)}>

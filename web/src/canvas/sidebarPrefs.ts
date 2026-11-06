@@ -4,7 +4,7 @@ import { api } from '../api';
 // Lo que se elige a mano en la barra lateral: el orden de las hijas de cada
 // nota (arrastrando) y el color de cada una. Se guarda en el servidor.
 
-export type SidebarPrefs = { order: Record<string, string[]>; colors: Record<string, string> };
+export type SidebarPrefs = { order: Record<string, string[]>; colors: Record<string, string>; favs?: string[] };
 
 export const ROOT_KEY = 'root';
 export const COLORS: { hex: string; name: string }[] = [
@@ -26,7 +26,7 @@ const listeners = new Set<() => void>();
 
 const clean = (v: unknown): SidebarPrefs | null => {
   const p = v as Partial<SidebarPrefs> | null;
-  return p && typeof p.order === 'object' && typeof p.colors === 'object' ? { order: p.order ?? {}, colors: p.colors ?? {} } : null;
+  return p && typeof p.order === 'object' && typeof p.colors === 'object' ? { order: p.order ?? {}, colors: p.colors ?? {}, favs: Array.isArray(p.favs) ? p.favs : [] } : null;
 };
 
 function apply(p: SidebarPrefs) {
@@ -73,6 +73,14 @@ export function setColor(id: string, hex: string | null) {
   if (hex) colors[id] = hex;
   else delete colors[id];
   return save({ ...current, colors });
+}
+
+// Favoritos: las notas fijadas arriba de la barra, como en Notion. La última
+// que se añade va al final.
+export const isFav = (id: string, prefs = current) => !!prefs.favs?.includes(id);
+export function toggleFav(id: string) {
+  const favs = current.favs ?? [];
+  return save({ ...current, favs: favs.includes(id) ? favs.filter((f) => f !== id) : [...favs, id] });
 }
 
 // Ordena las hijas: primero las que tienen sitio elegido, luego el resto como siempre.

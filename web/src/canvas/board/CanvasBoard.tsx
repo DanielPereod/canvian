@@ -30,15 +30,22 @@ import { ulid } from 'ulidx';
 import type { NoteRow } from '../../api';
 import { fileExt, fileSize, openFile, uploadMedia } from '../media';
 import { boardIds, boardText, groupAround, inside, mergeBoards, parseBoard, type Board, type BoardNode } from './board';
-import { constrain, drawingBox, fontSize, tidy, translate, type DrawColor, type DrawSize, type Drawing, type ShapeKind, type Tool } from './draw';
+import { constrain, drawingBox, fontSize, isDrawColor, tidy, translate, type DrawColor, type DrawSize, type Drawing, type ShapeKind, type Tool } from './draw';
 import { DrawBar, DrawLayer, type Typing } from './Draw';
+import { BoardNav } from './BoardNav';
 import { BoardMenu, cardTint, type BoardMenuItem } from './BoardMenu';
+import { NavIcon } from '../Biblioteca';
+import { notePreviewHtml } from '../NotePeek';
 import { bodyToHtml, parseBody, splitTitle } from '../editor';
 import { markdownToDoc } from '../markdown';
 import { splitWiki } from '../obsidian';
 import { goToAnchor } from '../anchor';
 import { t, tn } from '../../i18n';
 import './board.css';
+
+const PEN_KEY = 'canvian.penOnly';
+// En pantallas táctiles se ofrece «solo lápiz» aunque aún no se haya usado uno.
+const TOUCH_SCREEN = typeof window !== 'undefined' && !!window.matchMedia?.('(any-pointer: coarse)').matches;
 
 // El lienzo de una nota de tipo canvas: tarjetas de texto, notas enlazadas,
 // archivos (imágenes, PDF, documentos…) y grupos que se colocan libremente y se unen con flechas, como un
@@ -142,7 +149,7 @@ function NoteCard({ data, selected, ctx }: NodeProps<Node<Data>> & { ctx: Ctx })
   // Una nota de texto se ve como en su hoja (sin el título, que va arriba);
   // un canvas, con lo escrito en sus tarjetas.
   const isText = !!row && row.kind !== 'canvas';
-  const html = useMemo(() => (isText ? bodyToHtml(JSON.stringify(splitTitle(parseBody(row!.bodyJson)).body)) : ''), [isText, row?.bodyJson]); // eslint-disable-line react-hooks/exhaustive-deps
+  const html = useMemo(() => (isText ? notePreviewHtml(row!) : ''), [isText, row?.bodyJson]); // eslint-disable-line react-hooks/exhaustive-deps
   const body = isText ? '' : row?.bodyText?.split('\n').join(' ').trim();
   const tint = tinted(data.color);
   return (
@@ -314,7 +321,7 @@ const STYLE_KEY = 'canvian:draw';
 function loadStyle(): { color: DrawColor; size: DrawSize } {
   try {
     const v = JSON.parse(localStorage.getItem(STYLE_KEY) ?? 'null');
-    if (v && typeof v.color === 'string' && [1, 2, 3].includes(v.size)) return v;
+    if (v && isDrawColor(v.color) && [1, 2, 3].includes(v.size)) return v;
   } catch {
     // Sin almacenamiento local se empieza con tinta y trazo medio.
   }
@@ -676,6 +683,34 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
 
   // ── Dibujo ─────────────────────────────────────────────────────────
   const [tool, setTool] = useState<Tool>('select');
+  // Solo lápiz, como en GoodNotes: con él puesto, al dibujar el dedo mueve el
+  // lienzo y la mano apoyada no pinta. Se enciende solo la primera vez que se
+  // usa un lápiz y se recuerda en este dispositivo.
+  const [penOnly, setPenOnlyState] = useState(() => {
+    try {
+      return localStorage.getItem(PEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const penOnlyRef = useRef(penOnly);
+  penOnlyRef.current = penOnly;
+  const [penSeen, setPenSeen] = useState(() => {
+    try {
+      return localStorage.getItem(PEN_KEY) !== null;
+    } catch {
+      return false;
+    }
+  });
+  const setPenOnly = (on: boolean) => {
+    setPenOnlyState(on);
+    setPenSeen(true);
+    try {
+      localStorage.setItem(PEN_KEY, on ? '1' : '0');
+    } catch {
+      /* solo para esta vez */
+    }
+  };
   const [style, setStyleState] = useState(loadStyle);
   const [draft, setDraft] = useState<Drawing | null>(null);
   const [sel, setSel] = useState<string | null>(null);
@@ -784,7 +819,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const onDrawDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!drawing) return;
     const target = e.target as HTMLElement;
-    if (target.closest('.draw-ui, .board-tools, .draw-textarea')) return;
+    if (target.closest('.draw-ui, .board-tools, .board-nav, .draw-textarea')) return;
     e.stopPropagation();
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -793,7 +828,22 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
       return;
     }
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // El primer lápiz que se ve enciende «solo lápiz» (se puede apagar en la barra).
+    if (e.pointerType === 'pen' && !penSeen) setPenOnly(true);
+    const penMode = penOnlyRef.current || (e.pointerType === 'pen' && !penSeen);
+    if (penMode && e.pointerType === 'touch') {
+      // Mientras el lápiz dibuja, la mano apoyada no hace nada.
+      if (gesture.current) return;
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.current.size > 1) {
+        pan.current = null;
+        const [a, b] = [...pointers.current.values()];
+        pinch.current = { vp: flow.getViewport(), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)) };
+      } else pan.current = { pointer: e.pointerId, vp: flow.getViewport(), x: e.clientX, y: e.clientY };
+      return;
+    }
+    // Con solo lápiz, el lápiz no cuenta como «dedo»: un toque de la mano no corta el trazo.
+    if (!(penMode && e.pointerType === 'pen')) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     // Dos dedos: se mueve y se acerca el lienzo, no se dibuja. Lo empezado con
     // el primero se descarta.
     if (pointers.current.size > 1) {
@@ -1064,7 +1114,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   });
 
   const orderItems = (ids: Set<string>): BoardMenuItem[] => [
-    { label: t('Traer al frente'), key: `${MOD} ⇧ ]`, run: () => order(ids, 'front') },
+    { icon: 'layers', label: t('Traer al frente'), key: `${MOD} ⇧ ]`, run: () => order(ids, 'front') },
     { label: t('Traer adelante'), key: `${MOD} ]`, run: () => order(ids, 'forward') },
     { label: t('Enviar atrás'), key: `${MOD} [`, run: () => order(ids, 'backward') },
     { label: t('Enviar al fondo'), key: `${MOD} ⇧ [`, run: () => order(ids, 'back') },
@@ -1072,12 +1122,12 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const menuItems = (m: Menu): BoardMenuItem[] => {
     if (m.kind === 'pane')
       return [
-        { label: t('Tarjeta aquí'), run: () => add('text', m.at, { editing: true }) },
-        { label: t('Nota aquí…'), run: () => onPickNote((id) => add('note', m.at, { noteId: id })) },
-        { label: t('Grupo aquí'), run: () => add('group', m.at, { label: '' }) },
+        { icon: 'card', label: t('Tarjeta aquí'), run: () => add('text', m.at, { editing: true }) },
+        { icon: 'page', label: t('Nota aquí…'), run: () => onPickNote((id) => add('note', m.at, { noteId: id })) },
+        { icon: 'group', label: t('Grupo aquí'), run: () => add('group', m.at, { label: '' }) },
         null,
-        { label: t('Seleccionar todo'), key: `${MOD} A`, run: selectAll },
-        { label: t('Encuadrar'), run: () => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 }) },
+        { icon: 'select', label: t('Seleccionar todo'), key: `${MOD} A`, run: selectAll },
+        { icon: 'fit', label: t('Encuadrar'), run: () => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 }) },
       ];
     if (m.kind === 'edge') {
       const e = edges.find((x) => x.id === m.id);
@@ -1086,17 +1136,18 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         { label: t('Invertir dirección'), run: () => setEdges((es) => es.map((x) => (x.id === m.id ? { ...x, source: x.target, target: x.source } : x))) },
         { label: e.markerEnd ? t('Quitar la punta') : t('Poner la punta'), run: () => setEdges((es) => es.map((x) => (x.id === m.id ? { ...x, markerEnd: x.markerEnd ? undefined : ARROW } : x))) },
         null,
-        { label: t('Borrar'), key: t('Supr'), danger: true, run: () => void flow.deleteElements({ edges: [{ id: m.id }] }) },
+        { icon: 'trash', label: t('Borrar'), key: t('Supr'), danger: true, run: () => void flow.deleteElements({ edges: [{ id: m.id }] }) },
       ];
     }
     if (m.kind === 'shape') {
       const none = new Set<string>();
       return [
-        { label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(none) },
+        { icon: 'copy', label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(none) },
         null,
         ...orderItems(none),
         null,
         {
+          icon: 'trash',
           label: t('Borrar'),
           key: t('Supr'),
           danger: true,
@@ -1111,16 +1162,16 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     const one = m.ids.length === 1 ? nodes.find((n) => n.id === m.ids[0]) : undefined;
     const doc = one?.type === 'file' && !/\.(png|jpe?g|gif|webp|avif|mp4|webm|mov|mp3|ogg|wav|weba|m4a|aac|flac)$/i.test(one.data.file ?? '');
     return [
-      one?.type === 'text' ? { label: t('Editar'), run: () => setData(one.id, { editing: true }) } : null,
-      one?.type === 'note' && one.data.noteId && byId.has(one.data.noteId) ? { label: t('Abrir nota'), run: () => onOpenNote(one.data.noteId!) } : null,
-      one && doc ? { label: t('Abrir archivo'), run: () => openFile(one.data.file!, one.data.name || one.data.file!.split('/').pop() || '') } : null,
-      { label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(ids) },
-      { label: t('Agrupar'), key: `${MOD} G`, run: () => group(ids) },
+      one?.type === 'text' ? { icon: 'rename', label: t('Editar'), run: () => setData(one.id, { editing: true }) } : null,
+      one?.type === 'note' && one.data.noteId && byId.has(one.data.noteId) ? { icon: 'open', label: t('Abrir nota'), run: () => onOpenNote(one.data.noteId!) } : null,
+      one && doc ? { icon: 'open', label: t('Abrir archivo'), run: () => openFile(one.data.file!, one.data.name || one.data.file!.split('/').pop() || '') } : null,
+      { icon: 'copy', label: t('Duplicar'), key: `${MOD} D`, run: () => duplicate(ids) },
+      { icon: 'group', label: t('Agrupar'), key: `${MOD} G`, run: () => group(ids) },
       nodes.some((n) => ids.has(n.id) && n.type === 'group') ? { label: t('Desagrupar'), key: `${MOD} ⇧ G`, run: () => ungroup(ids) } : null,
       null,
       ...orderItems(ids),
       null,
-      { label: t('Borrar'), key: t('Supr'), danger: true, run: () => remove(ids) },
+      { icon: 'trash', label: t('Borrar'), key: t('Supr'), danger: true, run: () => remove(ids) },
     ];
   };
   const menuColor = (m: Menu) => {
@@ -1271,6 +1322,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         colorMode="dark"
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1.2} className="board-dots" />
+        <BoardNav hasNodes={nodes.length > 0} />
         <ViewportPortal>
           <DrawLayer
             drawings={drawings}
@@ -1298,6 +1350,8 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         onSize={(size) => setStyle({ size })}
         onUndo={undo}
         onRedo={redo}
+        penOnly={penOnly}
+        onPenOnly={penSeen || TOUCH_SCREEN ? setPenOnly : undefined}
       />
       {!nodes.length && !drawings.length && !drawing && (
         <p className="board-empty">
@@ -1319,10 +1373,20 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         </nav>
       ) : (
         <nav className="board-tools surface-2" aria-label={t('Añadir al lienzo')}>
-          <button onClick={() => add('text', center(), { editing: true })}>{t('Tarjeta')}</button>
-          <button onClick={() => onPickNote((id) => add('note', center(), { noteId: id }))}>{t('Nota')}</button>
-          <button onClick={() => add('group', center(), { label: '' })}>{t('Grupo')}</button>
+          <button onClick={() => add('text', center(), { editing: true })}>
+            <NavIcon name="card" />
+            {t('Tarjeta')}
+          </button>
+          <button onClick={() => onPickNote((id) => add('note', center(), { noteId: id }))}>
+            <NavIcon name="page" />
+            {t('Nota')}
+          </button>
+          <button onClick={() => add('group', center(), { label: '' })}>
+            <NavIcon name="group" />
+            {t('Grupo')}
+          </button>
           <label className="board-tools-file">
+            <NavIcon name="attach" />
             {t('Archivo')}
             <input
               type="file"
@@ -1335,7 +1399,10 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
             />
           </label>
           <span className="board-tools-sep" />
-          <button onClick={() => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 })}>{t('Encuadrar')}</button>
+          <button onClick={() => flow.fitView({ padding: 0.25, maxZoom: 1, duration: 500 })}>
+            <NavIcon name="fit" />
+            {t('Encuadrar')}
+          </button>
         </nav>
       )}
       {menu && <BoardMenu x={menu.x} y={menu.y} items={menuItems(menu)} color={menuColor(menu)} onClose={() => setMenu(null)} />}
@@ -1427,6 +1494,7 @@ function ViewInner({ bodyJson, rows, onOpenNote }: ViewProps) {
         colorMode="dark"
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1.2} className="board-dots" />
+        <BoardNav hasNodes={nodes.length > 0} />
         <ViewportPortal>
           <DrawLayer drawings={board.drawings ?? []} draft={null} selected={null} erasing={none} typing={null} onShapeDown={() => {}} onTextEdit={() => {}} onTyping={() => {}} onTypingDone={() => {}} still />
         </ViewportPortal>
@@ -1434,12 +1502,9 @@ function ViewInner({ bodyJson, rows, onOpenNote }: ViewProps) {
       {empty && <p className="board-empty">{t('Este canvas está vacío')}</p>}
       {!empty && (
         <nav className="board-tools surface-2" aria-label={t('Lienzo')}>
-          <button onClick={() => flow.zoomOut({ duration: 200 })} aria-label={t('Alejar')}>
-            −
-          </button>
-          <button onClick={() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 500 })}>{t('Encuadrar')}</button>
-          <button onClick={() => flow.zoomIn({ duration: 200 })} aria-label={t('Acercar')}>
-            +
+          <button onClick={() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 500 })}>
+            <NavIcon name="fit" />
+            {t('Encuadrar')}
           </button>
         </nav>
       )}

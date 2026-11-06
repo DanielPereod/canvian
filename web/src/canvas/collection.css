@@ -172,9 +172,11 @@ button.cv-th-cell:hover,
 .cv-chip.is-dim { opacity: 0.35; }
 
 @media (max-width: 720px) {
-  .cv-bar { flex-wrap: wrap; gap: 0; }
-  .cv-tabs { flex-basis: 100%; }
-  .cv-tools { padding: 4px 0; }
+  /* Vistas y herramientas en una sola fila: las pestañas se desplazan si no caben. */
+  .cv-bar { gap: 4px; }
+  .cv-tabs { flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .cv-tools { font-size: var(--text-xs); }
+  .cv-tool { padding-left: 6px; padding-right: 6px; }
   .bib-row.cv-row .cv-row-fields { display: none; }
   .cv-day { min-height: 64px; }
   .cv-chip { font-size: var(--text-2xs); padding: 2px 3px; }

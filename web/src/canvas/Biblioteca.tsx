@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { COLORS, setColor, setOrder, sortByOrder, useSidebarPrefs } from './sidebarPrefs';
+import { TEMPLATES } from './templates';
+import { COLORS, setColor, setOrder, sortByOrder, toggleFav, useSidebarPrefs } from './sidebarPrefs';
+import { ColorPick } from './ColorPick';
 import type { NoteRow } from '../api';
 import { keyParts, useKeymap, type ActionId } from '../keys';
 
 import { parentMap } from './sections';
+import { withoutMarks } from './tasks';
 import { Resizer, type SideWidth } from './Resizer';
 import { longPress, TOUCH } from './touch';
 import { locale, t, tn } from '../i18n';
@@ -94,7 +97,8 @@ export function kindOf(r: NoteRow, kids: number) {
 
 // El texto de la nota sin su título, para el resumen.
 export const snippetOf = (r: NoteRow) => {
-  const lines = (r.bodyText ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+  // Sin la sintaxis de las tareas (📅 2026-11-15 ⏫…): solo lo que dicen.
+  const lines = (r.bodyText ?? '').split('\n').map(withoutMarks).filter(Boolean);
   if (r.title && lines[0] === r.title) lines.shift();
   return lines.join(' · ');
 };
@@ -156,6 +160,7 @@ type SideProps = {
   onFold: () => void;
   onProfiles: () => void;
   onCommands: () => void;
+  onSearch: () => void;
   onLantern: () => void;
   onSettings: () => void;
   onLibrary: (id: string | null) => void;
@@ -174,6 +179,51 @@ type SideProps = {
 const byDefault = (count: (id: string) => number) => (a: NoteRow, b: NoteRow) =>
   Number(!!count(b.id)) - Number(!!count(a.id)) || titleOf(a).localeCompare(titleOf(b), 'es', { numeric: true });
 
+// Los iconos de la barra: trazo fino, como los de Linear o Notion.
+const NAV_ICON: Record<string, ReactNode> = {
+  search: <><circle cx="7" cy="7" r="4.3" /><path d="m10.3 10.3 3.2 3.2" /></>,
+  new: <path d="M11.2 2.3a1.4 1.4 0 0 1 2 2L6.5 11 3.5 12l1-3zM9.8 3.7l2 2" />,
+  all: <><path d="M2.5 4.5c0-.8.6-1.5 1.5-1.5h2.6l1.3 1.5H12c.8 0 1.5.7 1.5 1.5v5c0 .8-.7 1.5-1.5 1.5H4c-.9 0-1.5-.7-1.5-1.5z" /></>,
+  diary: <><rect x="3" y="2.5" width="10" height="11" rx="1.5" /><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3" /></>,
+  tasks: <><circle cx="8" cy="8" r="5.5" /><path d="m5.6 8.1 1.7 1.7 3.2-3.4" /></>,
+  db: <><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="M2.5 6.5h11M2.5 9.8h11M6.5 6.5v6.5" /></>,
+  archive: <><rect x="2.5" y="3" width="11" height="3" rx="1" /><path d="M3.5 6v6c0 .6.4 1 1 1h7c.6 0 1-.4 1-1V6M6.5 8.5h3" /></>,
+  filter: <path d="M2.5 3.5h11L9.2 8.6v3.9l-2.4 1V8.6z" />,
+  canvas: <><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" /><rect x="9" y="9" width="4.5" height="4.5" rx="1" /><path d="M7 4.7h2.3c.9 0 1.5.6 1.5 1.5V9" /></>,
+  // Los de los menús de una nota.
+  open: <path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v2.5c0 .8-.7 1.5-1.5 1.5H4c-.8 0-1.5-.7-1.5-1.5V6c0-.8.7-1.5 1.5-1.5h2.5" />,
+  grid: <><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" /><rect x="9" y="2.5" width="4.5" height="4.5" rx="1" /><rect x="2.5" y="9" width="4.5" height="4.5" rx="1" /><rect x="9" y="9" width="4.5" height="4.5" rx="1" /></>,
+  page: <><path d="M4 2.5h5l3 3v8H4z" /><path d="M9 2.5v3h3" /></>,
+  nodes: <><circle cx="4" cy="4.5" r="1.7" /><circle cx="12" cy="6" r="1.7" /><circle cx="6.5" cy="12" r="1.7" /><path d="m5.6 5 4.7.8M5 6 6 10.3M10.7 7.2 7.8 10.8" /></>,
+  child: <><path d="M4 2.5h5l3 3v8H4z" /><path d="M8 7.5v4M6 9.5h4" /></>,
+  rename: <path d="M11.2 2.3a1.4 1.4 0 0 1 2 2L6.5 11 3.5 12l1-3zM9.8 3.7l2 2" />,
+  move: <><path d="M2.5 4.5c0-.8.6-1.5 1.5-1.5h2.6l1.3 1.5H12c.8 0 1.5.7 1.5 1.5v5c0 .8-.7 1.5-1.5 1.5H4c-.9 0-1.5-.7-1.5-1.5z" /><path d="M6 8.5h4M8.5 7l1.5 1.5L8.5 10" /></>,
+  trash: <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.1c0 .5.5.9 1 .9h3.8c.5 0 1-.4 1-.9l.6-8.1M7 7v4M9 7v4" />,
+  share: <><path d="M8 2.5v7.5M5.3 5.2 8 2.5l2.7 2.7" /><path d="M4.5 7.5H4c-.8 0-1.5.7-1.5 1.5v3c0 .8.7 1.5 1.5 1.5h8c.8 0 1.5-.7 1.5-1.5V9c0-.8-.7-1.5-1.5-1.5h-.5" /></>,
+  link: <path d="M7 9a2.5 2.5 0 0 0 3.5 0l2-2A2.5 2.5 0 0 0 9 3.5l-.7.7M9 7a2.5 2.5 0 0 0-3.5 0l-2 2A2.5 2.5 0 0 0 7 12.5l.7-.7" />,
+  code: <path d="m5.5 4.5-3 3.5 3 3.5M10.5 4.5l3 3.5-3 3.5M9 3 7 13" />,
+  wide: <path d="M2.5 8h11M5 5.5 2.5 8 5 10.5M11 5.5l2.5 2.5-2.5 2.5" />,
+  zen: <path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z" />,
+  image: <><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><circle cx="6" cy="6.5" r="1.1" /><path d="m2.5 11.5 3.5-3 3 2.5 2-1.5 2.5 2" /></>,
+  props: <path d="M2.5 4.5h2M7 4.5h6.5M2.5 8h2M7 8h6.5M2.5 11.5h2M7 11.5h6.5" />,
+  people: <><circle cx="6" cy="5.5" r="2.2" /><path d="M2 13c.4-2.3 2-3.6 4-3.6s3.6 1.3 4 3.6" /><path d="M10.5 3.5a2.1 2.1 0 0 1 0 4M12 9.6c1.1.5 1.8 1.6 2 3.4" /></>,
+  flag: <path d="M3.5 14V2.8M3.5 3h8l-1.6 2.8L11.5 8.6h-8" />,
+  book: <path d="M8 4.2C6.8 3.2 5 2.8 2.5 3v9.5c2.5-.2 4.3.2 5.5 1.2 1.2-1 3-1.4 5.5-1.2V3C11 2.8 9.2 3.2 8 4.2zM8 4.2v9.5" />,
+  card: <><rect x="2.5" y="3.5" width="11" height="9" rx="1.5" /><path d="M5 7h6M5 9.5h4" /></>,
+  group: <path d="M2.5 5V4a1.5 1.5 0 0 1 1.5-1.5h1M11 2.5h1A1.5 1.5 0 0 1 13.5 4v1M13.5 11v1a1.5 1.5 0 0 1-1.5 1.5h-1M5 13.5H4A1.5 1.5 0 0 1 2.5 12v-1M7 2.5h2M7 13.5h2M2.5 7v2M13.5 7v2" />,
+  fit: <path d="M2.5 6V3.5a1 1 0 0 1 1-1H6M10 2.5h2.5a1 1 0 0 1 1 1V6M13.5 10v2.5a1 1 0 0 1-1 1H10M6 13.5H3.5a1 1 0 0 1-1-1V10" />,
+  copy: <><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" /><path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5" /></>,
+  layers: <path d="m8 2.5 5.5 3L8 8.5l-5.5-3zM2.5 8.5 8 11.5l5.5-3M2.5 11 8 14l5.5-3" />,
+  select: <path d="M3 2.5l4 11 1.6-4.4L13 7.5z" />,
+  star: <path d="M8 2.3l1.75 3.55 3.9.57-2.83 2.76.67 3.88L8 11.23l-3.49 1.83.67-3.88L2.35 6.42l3.9-.57z" />,
+  attach: <path d="m12.5 7.5-4.8 4.8a2.8 2.8 0 0 1-4-4L8.8 3.2a1.9 1.9 0 0 1 2.7 2.7L6.6 10.8a.9.9 0 0 1-1.3-1.3L9.8 5" />,
+};
+export const NavIcon = ({ name }: { name: string }) => (
+  <svg className="bib-it-ic" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+    {NAV_ICON[name]}
+  </svg>
+);
+
 export function BibSidebar(p: SideProps) {
   const key = useKeyText();
   const { kids, count, pathTo, parent } = p.family;
@@ -189,6 +239,10 @@ export function BibSidebar(p: SideProps) {
   });
   // Lo que estás viendo siempre tiene abierta su rama.
   const trail = useMemo(() => new Set(pathTo(p.here ?? null).map((r) => r.id)), [pathTo, p.here]);
+  // Las fijadas arriba, en el orden en que se añadieron; las archivadas no salen.
+  const favs = (prefs.favs ?? []).map((id) => p.family.byId.get(id)).filter((r): r is NoteRow => !!r && !r.archivedAt);
+  // Su punto lleva el color de la nota de arriba del todo, como en el árbol.
+  const rootOf = (id: string) => pathTo(id)[0]?.id ?? id;
   // …salvo que la pliegues tú; al ir a otra nota vuelve a abrirse su rama.
   const [shutTrail, setShutTrail] = useState<Set<string>>(() => new Set());
   useEffect(() => setShutTrail(new Set()), [p.here]);
@@ -390,29 +444,64 @@ export function BibSidebar(p: SideProps) {
             <PanelIcon />
           </button>
         </div>
+        {/* Lo de cada día, siempre a mano: buscar y crear (como en Notion). */}
+        <div className="bib-quick">
+          <button className="bib-it" onClick={p.onSearch}>
+            <NavIcon name="search" />
+            {t('Buscar')}
+            <span className="bib-it-k">{key('search')}</span>
+          </button>
+          <button className="bib-it" onClick={() => p.onNewNote('text')}>
+            <NavIcon name="new" />
+            {t('Nota nueva')}
+            <span className="bib-it-k">{key('quickNote')}</span>
+          </button>
+        </div>
         <nav className="bib-nav">
           <button className={`bib-it${libraryOn && p.here === null ? ' is-on' : ''}`} onClick={() => p.onLibrary(null)} title={key('toRoot') || undefined}>
+            <NavIcon name="all" />
             {t('Todas las notas')}
           </button>
           {p.diary && (
             <button className={`bib-it${p.view === 'diary' ? ' is-on' : ''}`} onClick={p.onDiary} title={key('diary') || undefined}>
+              <NavIcon name="diary" />
               {t('Diario')}
             </button>
           )}
           <button className={`bib-it${p.view === 'tasks' ? ' is-on' : ''}`} onClick={p.onTasks} title={key('tasks') || undefined}>
+            <NavIcon name="tasks" />
             {t('Tareas')}<span className="bib-count">{p.tasks || ''}</span>
           </button>
           <button className={`bib-it${p.view === 'db' ? ' is-on' : ''}`} onClick={p.onDb}>
+            <NavIcon name="db" />
             {t('Bases de datos')}
-          </button>
-          <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title={key('showArchived') || undefined}>
-            {p.showArchived ? t('Ocultar archivadas') : t('Archivadas')}
           </button>
           {/* Sin teclado, lo que solo tenía atajo. */}
           <button className="bib-it bib-touch" onClick={p.onLantern}>
+            <NavIcon name="filter" />
             {t('Filtrar')}
           </button>
         </nav>
+        {favs.length > 0 && (
+          <nav className="bib-favs" aria-label={t('Favoritos')}>
+            <div className="bib-side-label is-plain">{t('Favoritos')}</div>
+            {favs.map((row) => (
+              <button
+                key={row.id}
+                className={`bib-it${p.here === row.id ? ' is-on' : ''}`}
+                onClick={() => p.onOpen(row.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  p.onMenu(row.id, e.clientX, e.clientY);
+                }}
+              >
+                <span className="bib-fav-dot" style={dotStyle(prefs.colors, rootOf(row.id), 0)} aria-hidden="true" />
+                <span className="bib-ellipsis">{titleOf(row)}</span>
+              </button>
+            ))}
+          </nav>
+        )}
         <div className={`bib-side-label${drop && drop.id === null ? ' is-drop-inside' : ''}`} {...rootDrop} title={t('Suelta aquí para sacar una nota arriba del todo')}>
           {t('Mi biblioteca')}
           <span className="bib-label-tools">
@@ -441,6 +530,11 @@ export function BibSidebar(p: SideProps) {
           {roots.map((r) => renderRow(r, 0))}
         </div>
         <div className="bib-side-foot">
+          {/* Lo archivado no es de cada día: abajo, como la papelera de Notion. */}
+          <button className={`bib-it${p.showArchived ? ' is-on' : ''}`} onClick={p.onArchived} title={key('showArchived') || undefined}>
+            <NavIcon name="archive" />
+            {p.showArchived ? t('Ocultar archivadas') : t('Archivadas')}
+          </button>
           <button className="bib-it bib-touch" onClick={p.onCommands}>
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 7l5 5-5 5M12 17h7" />
@@ -476,7 +570,7 @@ export function BibSidebar(p: SideProps) {
 
 // ── Menú contextual ───────────────────────────────────────────────────
 
-export type MenuAction = 'open' | 'library' | 'nodes' | 'child' | 'childCanvas' | 'rename' | 'move' | 'archive' | 'delete';
+export type MenuAction = 'fav' | 'open' | 'library' | 'nodes' | 'child' | 'childCanvas' | 'rename' | 'move' | 'archive' | 'delete';
 
 type MenuProps = {
   row: NoteRow;
@@ -530,7 +624,7 @@ export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: n
   return spot;
 }
 
-export type NewKind = 'text' | 'canvas' | 'daily';
+export type NewKind = 'text' | 'canvas' | 'daily' | `tpl:${string}`;
 
 // Lo que se crea se elige al crearlo: luego una nota no pasa a ser canvas ni al revés.
 // `full`: el del clic derecho en la barra, que también trae la nota de hoy.
@@ -539,10 +633,12 @@ export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number;
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
   const items: ({ kind: NewKind; label: string; key?: string } | null)[] = [
-    { kind: 'text', label: full ? t('Nota nueva') : t('Nota'), key: full ? key('newNote') : undefined },
-    { kind: 'canvas', label: full ? t('Canvas nuevo') : 'Canvas', key: full ? key('newCanvas') : undefined },
+    { kind: 'text', label: t('Nota nueva'), key: full ? key('newNote') : undefined },
+    { kind: 'canvas', label: t('Canvas nuevo'), key: full ? key('newCanvas') : undefined },
     ...(full ? [null, { kind: 'daily' as const, label: t('Nota de hoy'), key: key('daily') }] : []),
   ];
+  // Debajo, las plantillas: una nota con su forma ya puesta.
+  const tpls = TEMPLATES.map((tp) => ({ kind: `tpl:${tp.id}` as NewKind, label: t(tp.name), icon: tp.icon }));
   return (
     <div className="bib-menu bib-new-menu" ref={ref} role="menu" aria-label={t('Crear')} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
       {items.map((it, i) =>
@@ -556,6 +652,7 @@ export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number;
               onPick(it.kind);
             }}
           >
+            <NavIcon name={it.kind === 'text' ? 'new' : it.kind === 'canvas' ? 'canvas' : 'diary'} />
             {it.label}
             {it.key && <span className="bib-menu-k">{it.key}</span>}
           </button>
@@ -563,6 +660,22 @@ export function NewMenu({ x, y, full, onPick, onClose }: { x: number; y: number;
           <div key={`s${i}`} className="bib-menu-sep" role="separator" />
         ),
       )}
+      <div className="bib-menu-sep" role="separator" />
+      <div className="bib-menu-head">{t('Plantillas')}</div>
+      {tpls.map((it) => (
+        <button
+          key={it.kind}
+          role="menuitem"
+          className="bib-menu-it"
+          onClick={() => {
+            onClose();
+            onPick(it.kind);
+          }}
+        >
+          <NavIcon name={it.icon} />
+          {it.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -572,18 +685,19 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
   const prefs = useSidebarPrefs();
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
-  const items: ({ a: MenuAction; label: string; key?: string; danger?: boolean } | null)[] = [
-    { a: 'open', label: t('Abrir') },
-    ...(kids ? [{ a: 'library' as const, label: t('Ver como colección') }] : []),
-    { a: 'nodes', label: t('Ver en nodos'), key: key('nodes') },
+  const items: ({ a: MenuAction; label: string; icon: string; key?: string; danger?: boolean } | null)[] = [
+    { a: 'open', icon: 'open', label: t('Abrir') },
+    ...(kids ? [{ a: 'library' as const, icon: 'grid', label: t('Ver como colección') }] : []),
+    { a: 'nodes', icon: 'nodes', label: t('Ver en nodos'), key: key('nodes') },
+    { a: 'fav', icon: 'star', label: prefs.favs?.includes(row.id) ? t('Quitar de favoritos') : t('Añadir a favoritos') },
     null,
-    { a: 'child', label: t('Nota dentro'), key: key('newSection') },
-    { a: 'childCanvas', label: t('Canvas dentro') },
-    { a: 'rename', label: t('Renombrar'), key: key('rename') },
-    { a: 'move', label: t('Mover a…'), key: key('move') },
+    { a: 'child', icon: 'child', label: t('Nota dentro'), key: key('newSection') },
+    { a: 'childCanvas', icon: 'canvas', label: t('Canvas dentro') },
+    { a: 'rename', icon: 'rename', label: t('Renombrar'), key: key('rename') },
+    { a: 'move', icon: 'move', label: t('Mover a…'), key: key('move') },
     null,
-    { a: 'archive', label: row.archivedAt ? t('Desarchivar') : t('Archivar'), key: key('archive') },
-    { a: 'delete', label: t('Borrar'), key: key('deleteCell'), danger: true },
+    { a: 'archive', icon: 'archive', label: row.archivedAt ? t('Desarchivar') : t('Archivar'), key: key('archive') },
+    { a: 'delete', icon: 'trash', label: t('Borrar'), key: key('deleteCell'), danger: true },
   ];
 
   const color = prefs.colors[row.id] ?? null;
@@ -598,9 +712,11 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
             className={`bib-menu-it${it.danger ? ' is-danger' : ''}`}
             onClick={() => {
               onClose();
-              onPick(it.a);
+              if (it.a === 'fav') void toggleFav(row.id).catch(() => {});
+              else onPick(it.a);
             }}
           >
+            <NavIcon name={it.icon} />
             {it.label}
             {it.key && <span className="bib-menu-k">{it.key}</span>}
           </button>
@@ -623,6 +739,7 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
           />
         ))}
         <button role="menuitemradio" aria-checked={!color} className={`bib-swatch is-auto${!color ? ' is-on' : ''}`} style={{ '--h': hueOf(row.id) } as CSSProperties} title={t('Automático')} aria-label={t('Color automático')} onClick={() => void setColor(row.id, null).catch(() => {})} />
+        <ColorPick role="menuitemradio" value={color && !COLORS.some((c) => c.hex === color) ? color : null} onPick={(hex) => void setColor(row.id, hex).catch(() => {})} />
       </div>
     </div>
   );
@@ -736,7 +853,21 @@ export function BibBar(p: BarProps) {
         <button className="bib-up" onClick={p.onUp ?? undefined} disabled={!p.onUp} aria-label={t('Subir')} title={t('Subir (Retroceso)')}>
           ‹
         </button>
-        {p.crumbs.map((c, i) => (
+        {p.crumbs.map((c, i) => {
+          // Con una ruta larga, como en Notion: la primera, «…» y las dos últimas.
+          const n = p.crumbs.length;
+          const hidden = n > 3 && i > 0 && i < n - 2;
+          if (hidden && i > 1) return null;
+          if (hidden)
+            return (
+              <span key="more" className="bib-crumb-wrap is-more">
+                <span className="bib-sep">/</span>
+                <button className="bib-crumb" onClick={() => p.onCrumb(p.crumbs[n - 3].id)} title={p.crumbs.slice(1, n - 2).map((x) => x.title).join(' / ')}>
+                  …
+                </button>
+              </span>
+            );
+          return (
           <span key={`${c.id}:${i}`} className="bib-crumb-wrap">
             {i > 0 && <span className="bib-sep">/</span>}
             {p.rename && i === p.crumbs.length - 1 ? (
@@ -747,7 +878,8 @@ export function BibBar(p: BarProps) {
               </button>
             )}
           </span>
-        ))}
+          );
+        })}
       </nav>
       <button className="bib-search" onClick={p.onSearch}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { TEMPLATES, fromTemplate } from './templates';
 import { ulid } from 'ulidx';
 import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type NoteKind, type NoteRow, type Profile, type PropertyDef, type PropertyType } from '../api';
 import type { NoteContent } from './NoteSheet';
@@ -461,6 +462,14 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       const bodyJson = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
       saveContent(row.id, { bodyJson, bodyText: text, title: text.slice(0, 120) });
     }
+    openNote(row.id);
+  };
+
+  // Una nota hecha con una plantilla (reunión, proyecto…), arriba del todo.
+  const newFromTemplate = (id: string) => {
+    const tpl = TEMPLATES.find((x) => x.id === id);
+    if (!tpl) return newNote(null);
+    const row = createNote(spotFor(null), 'text', { zoneId: null, ...fromTemplate(tpl) });
     openNote(row.id);
   };
 
@@ -951,7 +960,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     else if (a === 'child') act('section', id, null);
     else if (a === 'childCanvas') act('createCanvas', null, id);
     else if (a === 'move') setMovingId(id);
-    else act(a, id, null);
+    else if (a !== 'fav') act(a, id, null);
   };
 
   // En grande, en el centro, con un botón para ir a la nota de verdad.
@@ -1148,6 +1157,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
             onFold={toggleBibFolded}
             onProfiles={shell.onProfiles}
             onCommands={shell.onCommands}
+            onSearch={() => setPaletteOpen('open')}
             onLantern={() => {
               if (focused) closeFocused();
               setTasksOpen(false);
@@ -1176,6 +1186,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
                         setDbOpen(false);
               setCenter(null);
               if (kind === 'canvas') newCanvas(null);
+              else if (kind.startsWith('tpl:')) newFromTemplate(kind.slice(4));
               else newNote(null);
             }}
           />

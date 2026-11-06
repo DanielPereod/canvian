@@ -306,7 +306,7 @@
 .tv-nav-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; background: none; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); font: inherit; font-size: var(--text-sm); text-align: left; cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
 .tv-nav-item:hover { background: var(--surface-sunken); color: var(--text); }
 .tv-nav-item.is-on { background: var(--surface-sunken); color: var(--text); }
-.tv-nav-icon { width: 14px; flex: none; text-align: center; color: var(--text-faint); font-size: var(--text-xs); }
+.tv-nav-icon { width: 14px; flex: none; display: grid; place-items: center; color: var(--text-faint); }
 .tv-nav-item.is-on .tv-nav-icon { color: var(--accent-ink); }
 .tv-nav-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-nav-n { color: var(--text-ghost); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
@@ -360,8 +360,8 @@
 
 .tv-check { flex: none; display: grid; place-items: center; width: 16px; height: 16px; padding: 0; border-radius: var(--radius-xs); border: 1.5px solid var(--text-ghost); background: none; cursor: pointer; transition: border-color var(--dur-fast), background var(--dur-fast); }
 .tv-check:hover { border-color: var(--text-muted); }
-.tv-check.prio-1 { border-color: color-mix(in oklab, var(--accent-ink) 55%, var(--text-ghost)); }
-.tv-check.prio-2 { border-color: var(--accent-ink); }
+.tv-check.prio-1 { border-color: var(--prio-1); }
+.tv-check.prio-2 { border-color: var(--prio-2); }
 .tv-check.prio-3 { border-color: var(--danger); }
 .tv-check.is-doing::after { content: ''; width: 6px; height: 6px; border-radius: 2px; background: var(--accent-ink); }
 .tv-check.is-blocked::after { content: ''; width: 8px; height: 1.5px; background: var(--text-faint); }
@@ -376,8 +376,13 @@
 .tv-prio { margin-left: auto; display: flex; gap: 2px; }
 .tv-prio button { background: none; border: 0; border-radius: var(--radius-xs); padding: 2px 7px; font: inherit; font-size: var(--text-xs); font-weight: 600; color: var(--text-ghost); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }
 .tv-prio button:hover { background: var(--surface-sunken); }
-.tv-prio button.is-on.prio-1 { color: color-mix(in oklab, var(--accent-ink) 60%, var(--text-muted)); }
-.tv-prio button.is-on.prio-2 { color: var(--accent-ink); }
+/* Cada bandera con su color: apagada si no es la elegida. */
+.tv-prio button.prio-1, .tv-menu-chip.prio-1 { color: var(--prio-1) !important; }
+.tv-prio button.prio-2, .tv-menu-chip.prio-2 { color: var(--prio-2) !important; }
+.tv-prio button.prio-3, .tv-menu-chip.prio-3 { color: var(--danger) !important; }
+.tv-prio button:not(.is-on) svg, .tv-menu-chip[class*='prio-']:not(.is-on):not(.prio-0) svg { opacity: 0.35; transition: opacity var(--dur-fast); }
+.tv-prio button:hover svg, .tv-menu-chip:hover svg { opacity: 1 !important; }
+.tv-prio button svg { display: block; }
 .tv-prio button.is-on.prio-3 { color: var(--danger); }
 .tv-detail-title { width: 100%; margin-top: var(--space-2); background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: calc(20px * var(--type-scale, 1)); font-weight: 600; letter-spacing: -0.01em; }
 .tv-detail-where { display: flex; align-items: baseline; gap: 8px; margin: -6px 0 0; padding: 2px 0; background: none; border: 0; color: var(--text-faint); font: inherit; font-size: var(--text-xs); text-align: left; cursor: pointer; }
@@ -421,8 +426,8 @@
 .tv-menu-chip { padding: 3px 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); background: none; font: inherit; font-size: var(--text-xs); color: var(--text-muted); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
 .tv-menu-chip:hover, .tv-menu-chip:focus-visible { background: var(--bib-sel, var(--surface-hover)); color: var(--text); outline: none; }
 .tv-menu-chip.is-on { background: var(--surface-sunken); border-color: transparent; color: var(--text); font-weight: 600; }
-.tv-menu-chip.prio-1.is-on { color: color-mix(in oklab, var(--accent-ink) 60%, var(--text-muted)); }
-.tv-menu-chip.prio-2.is-on { color: var(--accent-ink); }
+.tv-menu-chip.prio-1.is-on { color: var(--prio-1); }
+.tv-menu-chip.prio-2.is-on { color: var(--prio-2); }
 .tv-menu-chip.prio-3.is-on { color: var(--danger); }
 
 @media (max-width: 1100px) { .tv-detail, .tv-resizer { display: none; } }
@@ -744,3 +749,23 @@ button.tv-agenda-date:hover { background: var(--surface-sunken); }
 .note-app-error { margin-top: 4px; color: var(--danger); font-family: var(--font-mono); font-size: var(--text-xs); white-space: pre-wrap; }
 @media (hover: none) { .note-app-code { font-size: 16px; } }
 @media (hover: none) { .prose .note-app .note-youtube-bar { position: static; justify-content: flex-end; margin-bottom: 6px; } }
+
+/* La nota de la tarea, dentro del detalle: se lee sin salir de Tareas. */
+.tv-note { display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.tv-note-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tv-note-flip { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; padding: 4px 0; border: 0; background: none; font: inherit; font-size: var(--text-sm); font-weight: 600; color: var(--text); text-align: left; cursor: pointer; }
+.tv-note-flip svg { flex: none; color: var(--text-faint); transition: transform var(--dur-fast); }
+.tv-note.is-open .tv-note-flip svg { transform: rotate(90deg); }
+.tv-note-open { flex: none; padding: 3px 8px; border: 0; border-radius: var(--radius-xs); background: var(--surface-hover); font: inherit; font-size: var(--text-xs); color: var(--text-muted); cursor: pointer; }
+.tv-note-open:hover, .tv-note-open:focus-visible { color: var(--text); background: var(--accent-soft); outline: none; }
+.tv-note-body { position: relative; max-height: 380px; overflow-y: auto; padding: 4px 2px 8px; font-size: var(--text-sm); line-height: 1.55; color: var(--text-muted); }
+.tv-note-body > :first-child { margin-top: 0; }
+.tv-note-body h1, .tv-note-body h2, .tv-note-body h3 { font-size: 1.05em; margin: 0.9em 0 0.3em; color: var(--text); }
+.tv-note-body img { max-height: 160px; border-radius: var(--radius-xs); }
+.tv-note-body li.is-here > div, .tv-note-body li.is-here > p { color: var(--text); background: var(--accent-soft); border-radius: var(--radius-xs); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tv-note-empty { margin: 0; font-size: var(--text-sm); color: var(--text-faint); }
+/* Leyenda del grafo: qué color es cada nota madre. */
+.graph-legend { position: absolute; left: var(--space-4); bottom: var(--space-4); display: grid; gap: 4px; margin: 0; padding: 8px 12px; list-style: none; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--surface-1, var(--bg)) 88%, transparent); border: 1px solid var(--line); font-size: var(--text-xs); color: var(--text-muted); pointer-events: none; }
+.graph-legend li { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.graph-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+@media (max-width: 700px) { .graph-legend { display: none; } }

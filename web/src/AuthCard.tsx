@@ -27,6 +27,7 @@ export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: ()
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [shown, setShown] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -51,10 +52,11 @@ export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: ()
       }
     >
       <form className="auth-form" onSubmit={submit}>
+        <div className="auth-pass">
         <input
           id="password"
           className="auth-field"
-          type="password"
+          type={shown ? 'text' : 'password'}
           autoFocus
           aria-label={t('Contraseña')}
           autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
@@ -62,6 +64,22 @@ export function AuthCard({ mode, onDone }: { mode: 'setup' | 'login'; onDone: ()
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+          {/* Ver lo escrito, como en cualquier entrada: un ojo dentro del campo. */}
+          <button
+            type="button"
+            className="auth-eye"
+            aria-pressed={shown}
+            aria-label={shown ? t('Ocultar contraseña') : t('Ver contraseña')}
+            title={shown ? t('Ocultar contraseña') : t('Ver contraseña')}
+            onClick={() => setShown((v) => !v)}
+          >
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1.8 8S4 3.8 8 3.8 14.2 8 14.2 8 12 12.2 8 12.2 1.8 8 1.8 8z" />
+              <circle cx="8" cy="8" r="2" />
+              {shown && <path d="M2.5 13.5 13.5 2.5" />}
+            </svg>
+          </button>
+        </div>
         <button className="auth-button" type="submit" disabled={busy || password.length === 0}>
           {mode === 'setup' ? t('Crear y entrar') : t('Entrar')}
         </button>

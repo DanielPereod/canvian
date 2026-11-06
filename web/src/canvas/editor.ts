@@ -13,6 +13,7 @@ import { DbQuery } from './dbquery';
 import { getLang, t } from '../i18n';
 import { markdownToDoc } from './markdown';
 import { Highlight, MarkdownLinkInput, WikiLink, tasks } from './obsidian';
+import { TaskChips } from './taskChips';
 import { BlockKit, BlockSelection, blockNodes } from './blocks';
 import { joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from '../../../server/src/doc/json';
 
@@ -61,6 +62,8 @@ export const extensions = [
   WikiLink,
   Highlight,
   ...tasks,
+  // Lo escrito tras la casilla (fecha, prioridad, etiquetas), como fichas.
+  TaskChips,
   // Lo de Notion: columnas, avisos, desplegables y colores.
   ...blockNodes,
 ];

@@ -15,6 +15,7 @@ import { importanceOf } from './sections';
 import { ROOT_KEY, sortByOrder, useSidebarPrefs } from './sidebarPrefs';
 import { taskCount } from './tasks';
 import { Timeline } from './Timeline';
+import { useNotePeek } from './NotePeek';
 import { longPress, TOUCH } from './touch';
 import {
   applyView,
@@ -298,6 +299,7 @@ export function Library(p: LibProps) {
     },
   });
 
+  const peek = useNotePeek();
   const [sel, setSel] = useState(0);
   useEffect(() => setSel(0), [p.center, view.id]);
   const at = Math.min(sel, Math.max(0, items.length - 1));
@@ -515,7 +517,11 @@ export function Library(p: LibProps) {
                 role="listitem"
                 className={`bib-row cv-row${i === at ? ' is-sel' : ''}${dim(r) ? ' is-dim' : ''}${prefs.colors[r.id] ? ' has-tint' : ''}`}
                 {...itemProps(r, i)}
-                onMouseEnter={() => setSel(i)}
+                {...peek.props(r)}
+                onMouseEnter={(e) => {
+                  setSel(i);
+                  peek.props(r).onMouseEnter(e);
+                }}
                 onClick={() => enter(r)}
               >
                 <Spine row={r} kids={n} />
@@ -524,7 +530,7 @@ export function Library(p: LibProps) {
                     {pathOf(r)}
                     {titleOf(r)}
                   </span>
-                  <span className="bib-row-s">{snippetOf(r) || (n ? tn(n, '{n} nota dentro', '{n} notas dentro') : t('Sin texto todavía.'))}</span>
+                  {(snippetOf(r) || !n) && <span className="bib-row-s">{snippetOf(r) || t('Sin texto todavía.')}</span>}
                 </span>
                 <span className="cv-row-fields">
                   {shown.map((f) => (
@@ -536,6 +542,7 @@ export function Library(p: LibProps) {
               </button>
             );
           })}
+          {peek.node}
         </div>
       )}
       {view.type === 'gallery' && (
@@ -619,12 +626,19 @@ export function Library(p: LibProps) {
 
 // El lomo de cada fila: la cuenta de una colección o, si tiene tareas, una
 // casilla (llena cuando están todas hechas).
+// El icono de cada fila: carpeta si tiene notas dentro, lienzo si es un canvas,
+// casillas si es una lista de tareas y una hoja si no (como en Notion o Craft).
 function Spine({ row, kids }: { row: NoteRow; kids: number }) {
   const tasks = taskCount(row);
-  const glyph = kids ? String(kids) : tasks.total ? (tasks.open.length ? '□' : '■') : '';
+  const kind = kids ? 'folder' : row.kind === 'canvas' ? 'canvas' : tasks.total ? 'tasks' : 'page';
   return (
-    <span className={`bib-spine${kids ? ' is-branch' : ''}`} aria-hidden="true">
-      {glyph}
+    <span className={`bib-spine is-${kind}${kids ? ' is-branch' : ''}`} aria-hidden="true">
+      <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+        {kind === 'folder' && <path d="M2 4.5c0-.8.6-1.5 1.5-1.5h2.8l1.4 1.6h4.8c.8 0 1.5.7 1.5 1.5v5.4c0 .8-.7 1.5-1.5 1.5h-9c-.9 0-1.5-.7-1.5-1.5z" />}
+        {kind === 'page' && <path d="M4 2h5.5L12.5 5v8.5c0 .3-.2.5-.5.5H4c-.3 0-.5-.2-.5-.5v-11c0-.3.2-.5.5-.5zM9.5 2v3h3M5.8 8h4.4M5.8 10.5h3" />}
+        {kind === 'tasks' && <path d="M2.5 3.5h3v3h-3zM2.5 9.5h3v3h-3zM8 5h5.5M8 11h5.5" />}
+        {kind === 'canvas' && <path d="M2.5 3h4v4h-4zM9.5 9h4v4h-4zM6.5 5h2.5c.8 0 1.5.7 1.5 1.5V9" />}
+      </svg>
     </span>
   );
 }
@@ -650,6 +664,7 @@ function Shown({ r, f, count, quiet }: { r: NoteRow; f: Field; count: (id: strin
   const v = valueOf(r, f, count);
   if (isEmpty(v) || v === false) return quiet ? null : <span className="cv-none">—</span>;
   if (f.id === 'kind') return <span className="bib-pill">{kindName(String(v))}</span>;
+  if (f.id === 'kids' && !Number(v)) return quiet ? null : <span className="cv-none" />;
   if (f.id === 'kids') return <span className="bib-muted">{tn(Number(v), '{n} nota', '{n} notas')}</span>;
   if (f.id === 'tasks') return <span className="bib-muted">{tn(Number(v), '{n} tarea', '{n} tareas')}</span>;
   if (f.id === 'updated') return <span className="bib-muted">{editedLabel(String(v))}</span>;

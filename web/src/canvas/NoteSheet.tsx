@@ -17,7 +17,9 @@ import { CanvasBoard } from './board/CanvasBoard';
 import { Resizer, useSideWidth } from './Resizer';
 import { parentMap } from './sections';
 import { decodeTime } from 'ulidx';
-import { editedLabel, kindOf, useContextMenu } from './Biblioteca';
+import { NavIcon, editedLabel, kindOf, useContextMenu } from './Biblioteca';
+import { toggleFav, useSidebarPrefs } from './sidebarPrefs';
+import { NoteOutline } from './NoteOutline';
 import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian';
 import { WikiMenu, type WikiItem } from './WikiMenu';
 import { SlashSuggest, type SlashQuery } from './slash';
@@ -77,12 +79,14 @@ const DotsIcon = () => (
 );
 
 // `checked`: una opción que se enciende y se apaga, con su marca.
-type SheetItem = { label: string; title?: string; keys?: string; danger?: boolean; checked?: boolean; run: () => void } | null;
+type SheetItem = { label: string; icon?: string; title?: string; keys?: string; danger?: boolean; checked?: boolean; run: () => void } | null;
 
 // Las acciones de la nota, en un menú desde el botón de los tres puntos.
 function SheetMenu({ x, y, items, onClose }: { x: number; y: number; items: SheetItem[]; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
+  // Si alguna lleva icono, las demás dejan su hueco para que el texto quede alineado.
+  const icons = items.some((it) => it?.icon);
   return (
     <div className="bib-menu reader-menu" ref={ref} role="menu" aria-label={t('Acciones de la nota')} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()}>
       {items.map((it, i) =>
@@ -98,6 +102,7 @@ function SheetMenu({ x, y, items, onClose }: { x: number; y: number; items: Shee
               it.run();
             }}
           >
+            {it.icon ? <NavIcon name={it.icon} /> : icons && <span className="bib-it-ic" aria-hidden="true" />}
             {it.label}
             {it.keys && <span className="bib-menu-k">{it.keys}</span>}
             {it.checked && (
@@ -663,6 +668,7 @@ type Props = {
 };
 
 export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onChange, onDefsChange, profileId, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen, collection, shownAsCollection, onNotice }: Props) {
+  const fav = !!useSidebarPrefs().favs?.includes(note.id);
   const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -856,41 +862,56 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
       const { [NO_TASKS]: _old, ...rest } = parseProps(note.props);
       onChange(note.id, { props: noTasks ? rest : { ...rest, [NO_TASKS]: true } });
     };
+    // Como en Notion: arriba lo que se hace con la nota (compartir, enlazar,
+    // mover), luego cómo se ve, luego lo que se le añade y abajo archivar y
+    // borrar. Lo que no aplica a esta nota no sale.
     const items: SheetItem[] = [
-      ...(asColl ? [] : [{ label: t('Adjuntar archivos…'), title: t('PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto'), run: () => filePick.current?.click() }]),
-      {
-        label: asColl ? t('Ver como nota') : t('Ver como colección'),
-        title: asColl ? t('Volver a su texto') : t('Sus notas de dentro en tabla, lista, galería, tablero o calendario'),
-        run: flipColl,
-      },
-      {
-        label: t('Abrir siempre como colección'),
-        title: collDefault ? t('Volver a abrirla como texto') : t('Su vista por defecto: se abre como colección hasta que lo quites'),
-        checked: collDefault,
-        run: flipDefault,
-      },
-      { label: t('Ver en nodos'), title: t('Esta nota en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
+      { icon: 'share', label: shared ? t('Compartida en la web…') : t('Compartir…'), title: t('Un enlace para que otros la lean, con contraseña si quieres'), run: () => setSharing(true) },
+      { icon: 'link', label: t('Enlazar con…'), run: onLink },
+      { icon: 'star', label: fav ? t('Quitar de favoritos') : t('Añadir a favoritos'), run: () => void toggleFav(note.id).catch(() => {}) },
+      { icon: 'move', label: t('Mover a…'), title: t('Meterla dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
       null,
+      ...(kids > 0 || asColl || collDefault
+        ? [
+            {
+              icon: asColl ? 'page' : 'grid',
+              label: asColl ? t('Ver como nota') : t('Ver como colección'),
+              title: asColl ? t('Volver a su texto') : t('Sus notas de dentro en tabla, lista, galería, tablero o calendario'),
+              run: flipColl,
+            },
+            {
+              label: t('Abrir siempre como colección'),
+              title: collDefault ? t('Volver a abrirla como texto') : t('Su vista por defecto: se abre como colección hasta que lo quites'),
+              checked: collDefault,
+              run: flipDefault,
+            },
+          ]
+        : []),
+      { icon: 'nodes', label: t('Ver en nodos'), title: t('Esta nota en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
       ...(asColl
         ? []
         : [
-            { label: source ? t('Ver el texto') : t('Ver el Markdown'), keys: keysOf(keymap.markdownSource), run: () => setSource((s) => !s) },
-            { label: wide ? t('Texto estrecho') : t('Texto ancho'), keys: keysOf(keymap.wideNote), run: flipWide },
-            { label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
-            null,
+            { icon: 'code', label: source ? t('Ver el texto') : t('Ver el Markdown'), keys: keysOf(keymap.markdownSource), run: () => setSource((s) => !s) },
+            { icon: 'wide', label: wide ? t('Texto estrecho') : t('Texto ancho'), keys: keysOf(keymap.wideNote), run: flipWide },
+            { icon: 'zen', label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el texto (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
           ]),
-      { label: note.cover ? t('Quitar portada') : t('Añadir portada'), run: () => setCover(note.cover ? null : randomCover()) },
-      { label: t('Propiedades'), run: () => onProps(note.id) },
-      {
-        label: noTasks ? t('Incluir en Tareas') : t('Excluir de Tareas'),
-        title: noTasks ? t('Sus tareas vuelven a salir en Tareas y en el calendario') : t('Sus tareas dejan de salir en Tareas y en el calendario (las notas de dentro no cambian)'),
-        run: flipNoTasks,
-      },
-      { label: t('Mover a…'), title: t('Meterla dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
-      { label: t('Enlazar con…'), run: onLink },
-      { label: shared ? t('Compartida en la web…') : t('Compartir…'), title: t('Un enlace para que otros la lean, con contraseña si quieres'), run: () => setSharing(true) },
-      { label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de ella'), keys: keysOf(keymap.archive), run: onArchive },
-      { label: t('Borrar'), danger: true, run: () => close(() => onDelete(note.id)) },
+      null,
+      { icon: 'image', label: note.cover ? t('Quitar portada') : t('Añadir portada'), run: () => setCover(note.cover ? null : randomCover()) },
+      { icon: 'props', label: t('Propiedades'), run: () => onProps(note.id) },
+      ...(asColl ? [] : [{ icon: 'attach', label: t('Adjuntar archivos…'), title: t('PDF, documentos, imágenes… donde está el cursor; también se pueden pegar o soltar en el texto'), run: () => filePick.current?.click() }]),
+      ...(tasks.total > 0 || noTasks
+        ? [
+            {
+              icon: 'tasks',
+              label: noTasks ? t('Incluir en Tareas') : t('Excluir de Tareas'),
+              title: noTasks ? t('Sus tareas vuelven a salir en Tareas y en el calendario') : t('Sus tareas dejan de salir en Tareas y en el calendario (las notas de dentro no cambian)'),
+              run: flipNoTasks,
+            },
+          ]
+        : []),
+      null,
+      { icon: 'archive', label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de ella'), keys: keysOf(keymap.archive), run: onArchive },
+      { icon: 'trash', label: t('Borrar'), danger: true, run: () => close(() => onDelete(note.id)) },
     ];
     const tools = (
       <>
@@ -912,9 +933,11 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
               {collection(flipColl)}
             </div>
           ) : (
+          <>
+          <NoteOutline editorRef={editorRef} noteId={note.id} />
           <article className={`reader-body${note.cover ? ' has-cover' : ''}`} key={note.id + note.kind}>
             <span className="reader-meta">
-              {madre ? madre.title || t('Nota sin título') : t('Arriba del todo')} · {kindOf(note, kids)} · {t('editada {date}', { date: editedLabel(note.updatedAt) })}
+              {t('Editada {date}', { date: editedLabel(note.updatedAt) })} · {tn(words, '{n} palabra', '{n} palabras')}
               {source && ' · Markdown'}
               {shared && (
                 <>
@@ -947,6 +970,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
               between={<NoteProps key={note.id} note={note} defs={defs} profileId={profileId} onChange={onChange} onDefsChange={onDefsChange} onError={onError} />}
             />
           </article>
+          </>
           )}
         </div>
         {/* Los botones de la nota van en la barra de arriba, a la altura de los de la barra lateral;
@@ -970,39 +994,10 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
             <div className="reader-side-top">
               <span className="reader-side-h">{t('Detalles')}</span>
             </div>
-            <dl className="reader-facts">
-              <dt>{t('Tipo')}</dt>
-              <dd>{kindOf(note, kids)}</dd>
-              <dt>{t('Madre')}</dt>
-              <dd>
-                <button className="reader-madre" onClick={() => setMoving(true)} title={t('Mover dentro de otra nota')}>
-                  {madre ? madre.title || t('Nota sin título') : t('Arriba del todo')}
-                </button>
-              </dd>
-              {kids > 0 && (
-                <>
-                  <dt>{t('Dentro')}</dt>
-                  <dd>{tn(kids, '{n} nota', '{n} notas')}</dd>
-                </>
-              )}
-              <dt>{t('Creada')}</dt>
-              <dd>{created}</dd>
-              <dt>{t('Editada')}</dt>
-              <dd>{editedLabel(note.updatedAt)}</dd>
-              <dt>{t('Palabras')}</dt>
-              <dd>{words}</dd>
-              {tasks.total > 0 && (
-                <>
-                  <dt>{t('Tareas')}</dt>
-                  <dd>{tasks.done === tasks.total ? tn(tasks.total, '{n} hecha', '{n} hechas') : t('{done} de {total} hechas', { done: tasks.done, total: tasks.total })}</dd>
-                </>
-              )}
-            </dl>
             {kids > 0 && (
               <>
-                <div className="reader-rule" />
                 <div className="reader-side-row">
-                  <span className="reader-side-h">{t('Dentro')}</span>
+                  <span className="reader-side-h">{t('Notas dentro')}</span>
                   <span className="reader-muted">{kids}</span>
                 </div>
                 <div className="reader-links">
@@ -1045,6 +1040,25 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
                 {t('＋ Enlazar')}
               </button>
             </div>
+            <div className="reader-rule" />
+            <dl className="reader-facts">
+              <dt>{t('Está en')}</dt>
+              <dd>
+                <button className="reader-madre" onClick={() => setMoving(true)} title={t('Mover dentro de otra nota')}>
+                  {madre ? madre.title || t('Nota sin título') : t('Biblioteca')}
+                </button>
+              </dd>
+              {tasks.total > 0 && (
+                <>
+                  <dt>{t('Tareas')}</dt>
+                  <dd>{tasks.done === tasks.total ? tn(tasks.total, '{n} hecha', '{n} hechas') : t('{done} de {total} hechas', { done: tasks.done, total: tasks.total })}</dd>
+                </>
+              )}
+              <dt>{t('Creada')}</dt>
+              <dd>{created}</dd>
+              <dt>{t('Editada')}</dt>
+              <dd>{editedLabel(note.updatedAt)}</dd>
+            </dl>
           </aside>
         )}
         {menu && <SheetMenu x={menu.x} y={menu.y} items={items} onClose={closeMenu} />}
@@ -1078,13 +1092,13 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
           x={menu.x}
           y={menu.y}
           items={[
-            { label: t('Ver en nodos'), title: t('Este canvas en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
-            { label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el canvas (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
+            { icon: 'nodes', label: t('Ver en nodos'), title: t('Este canvas en el centro, con sus relaciones'), keys: keysOf(keymap.nodes), run: onNodes },
+            { icon: 'zen', label: t('Modo zen'), title: t('Quitar toda la interfaz y quedarse solo con el canvas (Esc para salir)'), keys: keysOf(keymap.zen), run: () => setZen(true) },
             null,
-            { label: t('Mover a…'), title: t('Meterlo dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
-            { label: t('Propiedades'), run: () => onProps(note.id) },
-            { label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de él'), keys: keysOf(keymap.archive), run: onArchive },
-            { label: t('Borrar'), danger: true, run: () => close(() => onDelete(note.id)) },
+            { icon: 'move', label: t('Mover a…'), title: t('Meterlo dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
+            { icon: 'props', label: t('Propiedades'), run: () => onProps(note.id) },
+            { icon: 'archive', label: note.archivedAt ? t('Desarchivar') : t('Archivar'), title: t('Se oculta con lo que cuelga de él'), keys: keysOf(keymap.archive), run: onArchive },
+            { icon: 'trash', label: t('Borrar'), danger: true, run: () => close(() => onDelete(note.id)) },
           ]}
           onClose={closeMenu}
         />

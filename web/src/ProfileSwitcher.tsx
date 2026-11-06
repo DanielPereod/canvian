@@ -71,7 +71,7 @@ export function ProfileSwitcher({ profiles, activeId, onSelect, onCreate, onSign
               key={item.kind === 'profile' ? item.profile.id : item.kind}
               role="option"
               aria-selected={i === cursor}
-              className="list-item"
+              className={`list-item${item.kind === 'signout' ? ' is-apart' : ''}`}
               style={{ '--i': i } as React.CSSProperties}
               onMouseEnter={() => setCursor(i)}
               onClick={() => run(item)}
@@ -79,7 +79,7 @@ export function ProfileSwitcher({ profiles, activeId, onSelect, onCreate, onSign
               {item.kind === 'profile' && (
                 <>
                   <span className="list-icon">
-                    <span className="dot" style={{ background: item.profile.color ?? 'var(--accent)' }} />
+                    <span className="dot is-profile" style={{ background: item.profile.color ?? 'var(--accent)' }} />
                   </span>
                   {item.profile.name}
                   {item.profile.id === activeId && <span className="trail">{t('actual')}</span>}

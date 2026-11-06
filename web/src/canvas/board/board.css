@@ -76,7 +76,9 @@
 .board .react-flow__node:hover .board-handle, .board .react-flow__node.selected .board-handle { opacity: 1; }
 .board .board-handle:hover { scale: 1.4; }
 .board-resize-line { border-color: transparent !important; }
-.board-resize-handle { width: 9px !important; height: 9px !important; border-radius: 3px !important; background: var(--accent) !important; border: 0 !important; }
+.board-resize-line { border-color: transparent !important; }
+/* Esquinas para cambiar el tamaño: redondas y claras, con el borde del acento (como en Freeform o Figma). */
+.board-resize-handle { width: 9px !important; height: 9px !important; border-radius: 50% !important; background: var(--bg) !important; border: 1.5px solid var(--accent) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); }
 
 .board-edge { fill: none; stroke: var(--board-edge); stroke-width: 1.5; transition: stroke var(--dur-fast), stroke-width var(--dur-fast); }
 .board-edge.is-selected, .react-flow__edge:hover .board-edge { stroke: var(--accent); stroke-width: 2.2; }
@@ -87,7 +89,7 @@
   display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: var(--radius-pill); z-index: 5;
   animation: rise-in var(--dur-slow) var(--ease-out) 200ms both;
 }
-.board-tools button, .board-tools-file { background: none; border: 0; color: var(--text-muted); font: inherit; font-size: var(--text-sm); padding: 6px 12px; border-radius: var(--radius-pill); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }
+.board-tools button, .board-tools-file { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--text-muted); font: inherit; font-size: var(--text-sm); padding: 6px 12px; border-radius: var(--radius-pill); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }
 .board-tools button:hover, .board-tools-file:hover { color: var(--text); background: var(--accent-soft); }
 .board-tools-file input { display: none; }
 .board-tools-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
@@ -172,7 +174,8 @@
 .draw-rail button:disabled { opacity: 0.3; cursor: default; }
 .draw-rail-sep, .draw-style-sep { width: 18px; height: 1px; background: var(--line); margin: 4px 0; }
 .draw-style { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px; border-radius: var(--radius-pill); animation: fade var(--dur-base) var(--ease-out) both; }
-.draw-style button { width: 30px; height: 30px; }
+.draw-style button, .draw-style .color-pick { width: 30px; height: 30px; }
+.draw-style .color-pick { display: grid; place-items: center; border-radius: var(--radius-pill); }
 .draw-swatch span { width: 14px; height: 14px; border-radius: 50%; background: var(--draw-c); transition: box-shadow var(--dur-fast), scale var(--dur-fast); }
 .draw-swatch:hover span { scale: 1.15; }
 .draw-swatch.is-on span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--draw-c); }
@@ -187,3 +190,33 @@
 
 /* El menú del clic derecho, por encima de tarjetas y dibujos. */
 .board-menu { z-index: 5000; }
+
+.board-tools .bib-it-ic { color: var(--text-faint); }
+.board-tools button:hover .bib-it-ic, .board-tools-file:hover .bib-it-ic { color: var(--text); }
+@media (max-width: 560px) { .board-tools button, .board-tools-file { padding: 6px 9px; } }
+
+/* ── Zoom y minimapa, abajo a la izquierda ─────────────────────────── */
+.board {
+  --board-map-node: color-mix(in oklab, var(--text-faint) 45%, transparent);
+  --board-map-mask: color-mix(in oklab, var(--bg) 55%, transparent);
+}
+.board-nav {
+  position: absolute; left: var(--space-4); bottom: var(--space-5); z-index: 5;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  animation: rise-in var(--dur-slow) var(--ease-out) 260ms both;
+}
+.board-nav .react-flow__panel.board-map { position: static; margin: 0; }
+.board-map { border-radius: var(--radius-md, 10px); overflow: hidden; animation: fade var(--dur-base) var(--ease-out) both; }
+.board-map svg { display: block; }
+.board-zoom { display: flex; align-items: center; gap: 0; padding: 3px; border-radius: var(--radius-pill); }
+.board-zoom button {
+  display: grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; border: 0; border-radius: var(--radius-pill);
+  background: none; color: var(--text-muted); font: inherit; font-size: var(--text-xs, 12px); font-variant-numeric: tabular-nums; cursor: pointer;
+  transition: color var(--dur-fast), background var(--dur-fast);
+}
+.board-zoom button:hover { color: var(--text); background: var(--accent-soft); }
+.board-zoom button.is-on { color: var(--accent-ink, var(--accent)); }
+.board-zoom-pct { min-width: 48px !important; }
+.board-zoom .board-tools-sep { margin: 0 3px; }
+/* En el móvil se acerca con dos dedos y no hay sitio: fuera. */
+@media (max-width: 640px) { .board-nav { display: none; } }

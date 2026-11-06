@@ -5,8 +5,7 @@ export const EN_DATABASES: Record<string, string> = {
   'Nueva tabla': 'New table',
   'Nombre de la tabla': 'Table name',
   'Aún no hay tablas': 'No tables yet',
-  'Una tabla guarda datos con columnas de tipos (número, fecha, opciones…) y se relaciona con otras. No son notas: se consultan desde las notas con un bloque ```db``` y desde las mini apps.':
-    'A table stores data in typed columns (number, date, options…) and can relate to other tables. Tables are not notes: query them from a note with a ```db``` block, or from mini apps.',
+  'Como una hoja de cálculo con columnas de tipos (número, fecha, opciones…) que se enlazan entre sí: libros y autores, gastos y meses, recetas e ingredientes. Luego puedes enseñarlas dentro de cualquier nota.': 'Like a spreadsheet with typed columns (number, date, options…) that link to each other: books and authors, expenses and months, recipes and ingredients. Then you can show them inside any note.',
   'Crear la primera tabla': 'Create the first table',
   'Cambiar el nombre': 'Rename',
   'Buscar en la tabla': 'Search the table',

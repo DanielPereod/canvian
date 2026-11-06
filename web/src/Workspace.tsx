@@ -16,6 +16,7 @@ import { loadCalendars } from './calendars';
 import { Settings } from './Settings';
 import { Help } from './Help';
 import { ActionPalette } from './ActionPalette';
+import { DueChipPicker } from './canvas/DueChipPicker';
 
 const ACTIVE_KEY = 'canvian.activeProfile';
 
@@ -114,6 +115,9 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // los tokens derivados (--accent-soft, --glow-1…) se calculan ahí.
   useEffect(() => {
     if (active?.color) document.documentElement.style.setProperty('--accent', active.color);
+    // Algunos temas fijan su propio acento: el color del perfil sigue a mano para
+    // marcar en qué perfil estás (la barra y el selector, iguales).
+    if (active?.color) document.documentElement.style.setProperty('--profile', active.color);
   }, [active?.color]);
 
   if (!active) return <div className="backdrop" />;
@@ -133,6 +137,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           },
         }} />
 
+      <DueChipPicker />
       {commandsOpen && <ActionPalette onClose={() => setCommandsOpen(false)} />}
       {switcherOpen && (
         <ProfileSwitcher

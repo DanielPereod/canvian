@@ -34,6 +34,9 @@ type Props = {
   /** La repetición («every week»); con `onRepeat`, el selector la deja elegir. */
   repeat?: string | null;
   onRepeat?: (rule: string | null) => void;
+  /** Sin botón, ya abierto: para abrirlo desde otro sitio (una ficha de fecha en el texto). */
+  standalone?: boolean;
+  onClose?: () => void;
 };
 
 const PRESETS: { rule: string; name: string }[] = [
@@ -51,10 +54,14 @@ const UNITS: { id: RecurUnit; one: string; many: string }[] = [
 // De lunes a domingo (0 es domingo).
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
 
-export function DatePicker({ value, onChange, className, label, placeholder, repeat, onRepeat }: Props) {
+export function DatePicker({ value, onChange, className, label, placeholder, repeat, onRepeat, standalone, onClose }: Props) {
   label ??= t('Fecha');
   placeholder ??= t('Fecha');
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(!!standalone);
+  const setOpen = (v: boolean) => {
+    setOpenState(v);
+    if (!v) onClose?.();
+  };
   const today = isoOf(new Date());
   const [cursor, setCursor] = useState(value ?? today);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -109,14 +116,14 @@ export function DatePicker({ value, onChange, className, label, placeholder, rep
 
   return (
     <>
-      <button type="button" className={className} aria-label={label} title={repeat ? repeatLabel(repeat) : undefined} onClick={openAt}>
+      {!standalone && <button type="button" className={className} aria-label={label} title={repeat ? repeatLabel(repeat) : undefined} onClick={openAt}>
         {value ? cap(dueLabel(value)) : <span className="dp-placeholder">{placeholder}</span>}
         {repeat && (
           <span className="dp-recur" aria-label={repeatLabel(repeat)}>
             {' '}🔁
           </span>
         )}
-      </button>
+      </button>}
       {open && (
         <div className="overlay dp-overlay" onMouseDown={() => setOpen(false)}>
           <div className="surface-3 popover dp-pop" onMouseDown={(e) => e.stopPropagation()}>
@@ -169,7 +176,7 @@ export function DatePicker({ value, onChange, className, label, placeholder, rep
                 {t('Próximo lunes')}
               </button>
               {value && (
-                <button type="button" className="dp-quick dp-clear" onClick={() => onChange(null)}>
+                <button type="button" className="dp-quick dp-clear" onClick={() => { onChange(null); if (standalone) setOpen(false); }}>
                   {t('Quitar fecha')}
                 </button>
               )}

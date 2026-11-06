@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { parentMap } from './sections';
 import { longPress, TOUCH } from './touch';
@@ -12,6 +12,7 @@ import { repeatLabel } from './repeat';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { Resizer, useSideWidth } from './Resizer';
 import { DatePicker } from './DatePicker';
+import { notePreviewHtml } from './NotePeek';
 import { Combo, type ComboItem } from './Combo';
 import { useContextMenu } from './Biblioteca';
 import { useCalendarEvents, useCalendars } from '../calendars';
@@ -39,6 +40,28 @@ const STATUSES: { id: TaskStatus; name: string }[] = [
 // X avanza; una tarea bloqueada vuelve a pendiente al desbloquearla.
 const NEXT: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', blocked: 'todo', done: 'todo' };
 const PRIOS = ['Sin prioridad', 'Baja', 'Media', 'Alta'];
+// Los iconos de las listas de la izquierda, de trazo fino como los de la barra.
+const NAV: Record<string, ReactNode> = {
+  all: <><rect x="2.5" y="2.5" width="11" height="11" rx="2" /><path d="M2.5 9.5h3l1 1.5h3l1-1.5h3" /></>,
+  today: <><circle cx="8" cy="8" r="2.6" /><path d="M8 1.8v1.4M8 12.8v1.4M1.8 8h1.4M12.8 8h1.4M3.6 3.6l1 1M11.4 11.4l1 1M3.6 12.4l1-1M11.4 4.6l1-1" /></>,
+  week: <><rect x="2.5" y="3" width="11" height="10.5" rx="1.8" /><path d="M2.5 6.2h11M5.3 1.8v2.4M10.7 1.8v2.4M5 9h1.2M7.4 9h1.2M9.8 9h1.2" /></>,
+  note: <path d="M4 2h5.5L12.5 5v8.5c0 .3-.2.5-.5.5H4c-.3 0-.5-.2-.5-.5v-11c0-.3.2-.5.5-.5zM9.5 2v3h3" />,
+  tag: <path d="M5.5 2.5 4.5 13.5M11.5 2.5l-1 11M2.5 6h11M2 10h11" />,
+  cal: <><rect x="2.5" y="3" width="11" height="10.5" rx="1.8" /><path d="M2.5 6.2h11M6.2 6.2v7.3M9.8 6.2v7.3M2.5 9.8h11" /></>,
+  done: <><circle cx="8" cy="8" r="5.5" /><path d="m5.6 8.1 1.7 1.7 3.2-3.4" /></>,
+};
+const NavGlyph = ({ name }: { name: string }) => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+    {NAV[name]}
+  </svg>
+);
+// La prioridad, como una bandera de su color (la misma que en el texto de las notas).
+const Flag = () => (
+  <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+    <path d="M2.5 1.5v9.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    <path d="M3 1.8h6.6l-1.6 2.6 1.6 2.6H3z" fill="currentColor" />
+  </svg>
+);
 const GROUP_KEY = 'canvian.tasksGrouping';
 const VIEW_KEY = 'canvian.tasksView';
 const LAYOUT_KEY = 'canvian.tasksLayout';
@@ -218,9 +241,9 @@ export function TasksView(p: Props) {
 
   const due = (r: Task) => (r.dueAt ? daysUntil(r.dueAt) : null);
   const smart: { id: string; name: string; icon: string; test: (r: Task) => boolean }[] = [
-    { id: 'all', name: t('Todas'), icon: '◎', test: () => true },
-    { id: 'today', name: t('Hoy'), icon: '◐', test: (r) => due(r) !== null && due(r)! <= 0 },
-    { id: 'week', name: t('Próximos 7 días'), icon: '◔', test: (r) => due(r) !== null && due(r)! <= 7 },
+    { id: 'all', name: t('Todas'), icon: 'all', test: () => true },
+    { id: 'today', name: t('Hoy'), icon: 'today', test: (r) => due(r) !== null && due(r)! <= 0 },
+    { id: 'week', name: t('Próximos 7 días'), icon: 'week', test: (r) => due(r) !== null && due(r)! <= 7 },
   ];
 
   const current = useMemo(() => {
@@ -538,7 +561,7 @@ export function TasksView(p: Props) {
   const Nav = ({ id, name, n, icon, hint }: { id: string; name: string; n?: number; icon?: string; hint?: string }) => (
     <button className={`tv-nav-item${view === id ? ' is-on' : ''}`} aria-current={view === id} onClick={() => go(id)} title={hint}>
       <span className="tv-nav-icon" aria-hidden="true">
-        {icon}
+        {icon && <NavGlyph name={icon} />}
       </span>
       <span className="tv-nav-name">{name}</span>
       {!!n && <span className="tv-nav-n">{n}</span>}
@@ -561,15 +584,15 @@ export function TasksView(p: Props) {
         ))}
         {sections.length > 0 && <div className="tv-side-title">{t('En las notas')}</div>}
         {sections.map(({ row, n }) => (
-          <Nav key={row.id} id={`sec:${row.id}`} name={noteTitle(row)} hint={pathOf(row.id)} icon="◇" n={n} />
+          <Nav key={row.id} id={`sec:${row.id}`} name={noteTitle(row)} hint={pathOf(row.id)} icon="note" n={n} />
         ))}
         {tags.length > 0 && <div className="tv-side-title">{t('Etiquetas')}</div>}
         {tags.map(([t, n]) => (
-          <Nav key={t} id={`tag:${t}`} name={t} icon="#" n={n} />
+          <Nav key={t} id={`tag:${t}`} name={t} icon="tag" n={n} />
         ))}
         <div className="tv-side-sep" />
-        <Nav id="cal" name={t('Calendario')} icon="▦" />
-        <Nav id="done" name={t('Hechas')} icon="✓" n={done.length} />
+        <Nav id="cal" name={t('Calendario')} icon="cal" />
+        <Nav id="done" name={t('Hechas')} icon="done" n={done.length} />
       </nav>
 
       <Resizer size={sideWidth} edge="right" className="tv-side-resizer" />
@@ -850,8 +873,9 @@ export function TasksView(p: Props) {
             );
           })}
         </div>
-        <p className="tv-foot meta">
-          {[
+        {(() => {
+          // Una línea con lo básico; el resto, al pasar el ratón o con «?».
+          const all = ([
             ...(cal
               ? [
                   t('1–5 vista · ←→{arrows} día · [ ] {period} · T hoy · arrastra por los días (o las horas) para apuntar algo que los ocupe; una tarea, para moverla o, por su borde, estirarla', {
@@ -876,13 +900,20 @@ export function TasksView(p: Props) {
             foot('help', t('atajos')),
             t('Esc salir'),
           ]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
+            .filter(Boolean)) as string[];
+          const help = foot('help', t('todos los atajos'));
+          const basic = all.slice(0, -2).filter((h) => h.length < 40).slice(0, 2);
+          return (
+            <p className="tv-foot meta" title={all.join(' · ')}>
+              {[...basic, help].filter(Boolean).join(' · ')}
+            </p>
+          );
+        })()}
       </main>
 
-      <Resizer size={detailWidth} edge="left" className="tv-resizer" />
-      <Detail
+      {/* Sin tarea elegida (en el calendario), el panel no ocupa sitio: más días a la vista. */}
+      {cur && <Resizer size={detailWidth} edge="left" className="tv-resizer" />}
+      {cur && <Detail
         key={cur ? `${cur.id}\u0000${cur.source}` : 'none'}
         row={cur}
         p={p}
@@ -893,7 +924,7 @@ export function TasksView(p: Props) {
         onToggle={toggleDone}
         onPick={(r) => setCursorId(r.id)}
         onMove={() => cur && setMoving(cur.id)}
-      />
+      />}
       {menu && find(menu.id) && <TaskMenu row={find(menu.id)!} x={menu.x} y={menu.y} onPick={(a) => menuPick(find(menu.id)!, a)} onClose={() => setMenu(null)} />}
       {moving && find(moving) && (
         <SectionPicker
@@ -1002,7 +1033,7 @@ function Detail({
               className={`prio-${n}${row.priority === n ? ' is-on' : ''}`}
               onClick={() => p.onChange(row, { priority: row.priority === n ? 0 : n })}
             >
-              {'!'.repeat(n)}
+              <Flag />
             </button>
           ))}
         </div>
@@ -1116,6 +1147,9 @@ function Detail({
         />
       </div>
 
+      {/* La nota donde vive la tarea, para leerla sin salir de Tareas. */}
+      <NoteInside row={row} note={p.rows.find((r) => r.id === row.noteId)} onOpen={() => p.onOpen(row)} />
+
       <div className="tv-detail-foot">
         <button
           className="set-button tv-danger tv-expand"
@@ -1157,12 +1191,12 @@ function TaskMenu({ row, x, y, onPick, onClose }: { row: Task; x: number; y: num
     </button>
   );
   // Estado, prioridad y fecha, en una fila de botones cada uno.
-  const chips = (label: string, items: { a: TaskMenuAction; name: string; on: boolean; title?: string; className?: string }[]) => (
+  const chips = (label: string, items: { a: TaskMenuAction; name: ReactNode; on: boolean; title?: string; className?: string }[]) => (
     <div key={label} className="tv-menu-row" role="group" aria-label={label}>
       <span className="tv-menu-label">{label}</span>
       <div className="tv-menu-chips">
-        {items.map((it) => (
-          <button key={it.name} role="menuitemradio" aria-checked={it.on} className={`tv-menu-chip${it.on ? ' is-on' : ''}${it.className ? ` ${it.className}` : ''}`} title={it.title ?? it.name} onClick={() => pick(it.a)}>
+        {items.map((it, i) => (
+          <button key={i} role="menuitemradio" aria-checked={it.on} className={`tv-menu-chip${it.on ? ' is-on' : ''}${it.className ? ` ${it.className}` : ''}`} title={it.title ?? (typeof it.name === 'string' ? it.name : undefined)} onClick={() => pick(it.a)}>
             {it.name}
           </button>
         ))}
@@ -1184,7 +1218,7 @@ function TaskMenu({ row, x, y, onPick, onClose }: { row: Task; x: number; y: num
       {item('done', s === 'done' ? t('Marcar pendiente') : t('Marcar hecha'), t('Espacio'))}
       <div className="bib-menu-sep" role="separator" />
       {chips(t('Estado'), STATUSES.map((x) => ({ a: { status: x.id }, name: t(x.name), on: s === x.id })))}
-      {chips(t('Prioridad'), [0, 1, 2, 3].map((n) => ({ a: { priority: n }, name: n ? '!'.repeat(n) : '—', title: t(PRIOS[n]), on: row.priority === n, className: `prio-${n}` })))}
+      {chips(t('Prioridad'), [0, 1, 2, 3].map((n) => ({ a: { priority: n }, name: n ? <Flag /> : '—', title: t(PRIOS[n]), on: row.priority === n, className: `prio-${n}` })))}
       {chips(t('Fecha'), [
         ...soon.map((d) => ({ a: { dueAt: d.iso }, name: d.name, title: d.title ?? dueLabel(d.iso), on: dueDay === d.iso })),
         { a: { dueAt: null }, name: t('Sin fecha'), on: !dueDay },
@@ -1228,3 +1262,54 @@ function TimePick({ label, value, onChange }: { label: string; value: string | n
   const items = value ? [{ id: '', label: t('Quitar hora') }, ...QUARTERS] : QUARTERS;
   return <Combo className="tv-time" items={items} value={value ?? null} missing={value ?? undefined} placeholder={t('Hora')} label={label} onChange={(v) => onChange(v || null)} />;
 }
+
+// El contenido de la nota de la tarea, plegable, con la tarea marcada.
+function NoteInside({ row, note, onOpen }: { row: Task; note: NoteRow | undefined; onOpen: () => void }) {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem('canvian.taskNote') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const body = useRef<HTMLDivElement>(null);
+  const html = useMemo(() => (note ? notePreviewHtml(note) : ''), [note]);
+  // La tarea, a la vista y resaltada dentro del texto.
+  useEffect(() => {
+    const el = body.current;
+    if (!el || !open) return;
+    el.querySelectorAll('.is-here').forEach((x) => x.classList.remove('is-here'));
+    const want = titleOf(row).trim();
+    const hit = [...el.querySelectorAll('li')].find((li) => (li.querySelector(':scope > div, :scope > p')?.textContent ?? li.textContent ?? '').trim().startsWith(want));
+    if (hit) {
+      hit.classList.add('is-here');
+      el.scrollTop = Math.max(0, hit.offsetTop - el.offsetTop - 40);
+    }
+  }, [html, row, open]);
+  if (!note) return null;
+  const flip = () => {
+    setOpen((v) => {
+      try {
+        localStorage.setItem('canvian.taskNote', v ? '0' : '1');
+      } catch {
+        /* solo para esta vez */
+      }
+      return !v;
+    });
+  };
+  return (
+    <section className={`tv-note${open ? ' is-open' : ''}`} aria-label={t('Contenido de la nota')}>
+      <div className="tv-note-head">
+        <button className="tv-note-flip" onClick={flip} aria-expanded={open}>
+          <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true"><path d="M3.5 2 6.5 5 3.5 8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span className="bib-ellipsis">{note.title || t('Nota sin título')}</span>
+        </button>
+        <button className="tv-note-open" onClick={onOpen} title={t('Abrir su nota (Enter)')}>
+          {t('Ir a la nota')}
+        </button>
+      </div>
+      {open && (html ? <div ref={body} className="prose tv-note-body" dangerouslySetInnerHTML={{ __html: html }} /> : <p className="tv-note-empty">{t('Sin texto todavía.')}</p>)}
+    </section>
+  );
+}
+

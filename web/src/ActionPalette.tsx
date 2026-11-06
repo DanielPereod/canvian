@@ -3,6 +3,10 @@ import { ACTIONS, GROUPS, appliesIn, runAction, useKeymap, useView } from './key
 import { Keys } from './Kbd';
 import { MODES, THEMES, setMode, setTheme, useAppearance } from './theme';
 import { LANGS, setLang, t, useLang } from './i18n';
+import { NavIcon } from './canvas/Biblioteca';
+
+// Un icono por grupo, como en Linear: se reconoce de un vistazo qué hace cada orden.
+const GROUP_ICON: Record<string, string> = { Crear: 'new', 'Ir a': 'open', 'Lo señalado': 'rename', Nota: 'page', Tareas: 'tasks', Ver: 'grid', Aplicación: 'props', Aspecto: 'image' };
 
 // Paleta de comandos: los que sirven donde estás, agrupados, y además órdenes
 // sin tecla (temas, modo, secciones de Configuración). Elegir uno lo ejecuta
@@ -139,6 +143,7 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
               onMouseEnter={() => setCursor(i)}
               onClick={() => run(a)}
             >
+              <NavIcon name={GROUP_ICON[a.group] ?? 'open'} />
               <span className="palette-label">
                 {a.label}
                 {a.hint && <span className="palette-hint">{a.hint}</span>}
