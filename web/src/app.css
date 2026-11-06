@@ -25,12 +25,15 @@
 .settings-reset:hover { color: var(--text); }
 
 /* ── Lista de atajos ─────────────────────────────────────────────── */
-.help { background: color-mix(in oklab, var(--bg) 92%, transparent); backdrop-filter: blur(18px); width: min(760px, 100%); max-height: 76vh; overflow-y: auto; padding: var(--space-4); gap: var(--space-4); }
-.help-head { display: flex; justify-content: space-between; align-items: center; }
-.help-head .label { padding: 0; }
-.help-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4) var(--space-6); }
-.help-row { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-3); align-items: baseline; padding: 4px 0; font-size: var(--text-sm); color: var(--text-muted); }
-.help-row .keys { justify-content: flex-start; }
+.help { background: var(--surface-1, var(--bg)); width: min(820px, 100%); max-height: 80vh; overflow-y: auto; padding: 0 var(--space-5) var(--space-5); gap: var(--space-3); }
+.help-head { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; padding: var(--space-4) 0 var(--space-2); background: inherit; }
+.help-title { margin: 0; font-size: var(--text-md); font-weight: 600; color: var(--text); }
+.help-search { width: 100%; }
+.help-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4) var(--space-6); }
+.help-row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); min-height: 30px; padding: 3px 0; border-bottom: 1px solid color-mix(in oklab, var(--line) 50%, transparent); font-size: var(--text-sm); color: var(--text-muted); }
+.help-row:last-child { border-bottom: 0; }
+.help-row .keys { flex: none; justify-content: flex-end; }
+.help-none { grid-column: 1 / -1; text-align: center; padding: var(--space-5) 0; }
 
 /* ── Entrada: una columna estrecha sobre el fondo del tema ──────────── */
 .auth {

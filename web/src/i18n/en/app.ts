@@ -95,6 +95,8 @@ export const EN_APP: Record<string, string> = {
 
   // Ayuda de atajos
   'Atajos de teclado': 'Keyboard shortcuts',
+  'Buscar un atajo…': 'Search shortcuts…',
+  'Ningún atajo dice «{q}»': 'No shortcut matches “{q}”',
   Cambiarlos: 'Change them',
   'Aquí · {place}': 'Here · {place}',
   'Notas y nodos': 'Notes and nodes',
