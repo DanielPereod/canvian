@@ -596,7 +596,8 @@ export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: n
   }, [x, y]);
 
   useEffect(() => {
-    const away = (e: Event) => !ref.current?.contains(e.target as Node) && onClose();
+    // El selector de color se abre fuera del menú (encima de todo), pero es parte de él.
+    const away = (e: Event) => !ref.current?.contains(e.target as Node) && !(e.target as Element).closest?.('.color-pop') && onClose();
     const onKey = (e: KeyboardEvent) => {
       const list = buttons();
       const at = list.indexOf(document.activeElement as HTMLButtonElement);

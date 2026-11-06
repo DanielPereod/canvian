@@ -43,6 +43,7 @@ export const EN_LIBRARY: Record<string, string> = {
   Color: 'Colour',
   Automático: 'Automatic',
   'Otro color…': 'Other colour…',
+  'Código del color': 'Colour code',
   'Color automático': 'Automatic colour',
   Violeta: 'Violet',
   Azul: 'Blue',

@@ -273,11 +273,8 @@
 .bib-swatch { width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; background: var(--tint); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1); transition: transform var(--dur-fast); }
 .bib-swatch:hover { transform: scale(1.15); }
 .bib-swatch.is-on { box-shadow: 0 0 0 2px var(--surface-1, var(--bg)), 0 0 0 3.5px var(--text); }
-/* «Otro color…»: el selector del sistema, escondido dentro de la muestra.
-   Sin elegir, un aro de arcoíris con un «+»; elegido, el color mismo. */
+/* «Otro color…»: sin elegir, un aro de arcoíris con un «+»; elegido, el color mismo. */
 .color-pick { position: relative; cursor: pointer; }
-.color-pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: 0; }
-.color-pick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .bib-swatch.color-pick:not(.is-set),
 .draw-swatch.color-pick:not(.is-set) span {
   background:
@@ -289,6 +286,32 @@
   content: ''; position: absolute; inset: 0; margin: auto; width: 6px; height: 6px; pointer-events: none;
   background: linear-gradient(var(--text-muted), var(--text-muted)) center / 100% 1.4px no-repeat, linear-gradient(var(--text-muted), var(--text-muted)) center / 1.4px 100% no-repeat;
 }
+.bib-swatch.color-pick.is-open { box-shadow: 0 0 0 2px var(--surface-1, var(--bg)), 0 0 0 3.5px var(--accent); }
+
+/* El selector: cuadro de saturación y luz, barra de tono y el código. */
+.color-pop {
+  position: fixed; z-index: 80; display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  border-radius: var(--radius-sm); background: var(--surface-1, var(--bg));
+  box-shadow: 0 0 0 1px var(--line), 0 12px 32px -8px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.06);
+  animation: fade var(--dur-fast) var(--ease-out) both;
+}
+.color-pop-sv {
+  position: relative; height: 140px; border-radius: 8px; cursor: crosshair; touch-action: none;
+  background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, var(--hue));
+}
+.color-pop-hue {
+  position: relative; height: 12px; border-radius: 6px; cursor: pointer; touch-action: none;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.color-pop-knob {
+  position: absolute; width: 14px; height: 14px; border-radius: 50%; translate: -50% -50%; pointer-events: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.color-pop-hue .color-pop-knob { top: 50%; }
+.color-pop-row { display: flex; align-items: center; gap: 8px; }
+.color-pop-prev { flex: none; width: 26px; height: 26px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.color-pop .color-pop-hex { flex: 1; min-width: 0; height: 28px; padding: 0 8px; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-xs, 12px); border-radius: 6px; }
+.color-pop .color-pop-use { flex: none; height: 28px; padding: 0 12px; font-size: var(--text-sm); border-radius: 6px; }
 .bib-swatch.is-auto { background: conic-gradient(from 0deg, oklch(0.7 0.13 0), oklch(0.7 0.13 120), oklch(0.7 0.13 240), oklch(0.7 0.13 360)); }
 
 /* Colores elegidos en portadas y lomos. */

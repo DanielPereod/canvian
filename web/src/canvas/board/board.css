@@ -218,5 +218,8 @@
 .board-zoom button.is-on { color: var(--accent-ink, var(--accent)); }
 .board-zoom-pct { min-width: 48px !important; }
 .board-zoom .board-tools-sep { margin: 0 3px; }
+/* Si el lienzo es estrecho, la barra de abajo llegaría hasta aquí: el zoom sube encima. */
+.board { container: board / inline-size; }
+@container board (max-width: 900px) { .board-nav { bottom: calc(var(--space-5) + 54px); } }
 /* En el móvil se acerca con dos dedos y no hay sitio: fuera. */
 @media (max-width: 640px) { .board-nav { display: none; } }
