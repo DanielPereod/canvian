@@ -18,6 +18,7 @@ import { Resizer, useSideWidth } from './Resizer';
 import { parentMap } from './sections';
 import { decodeTime } from 'ulidx';
 import { NavIcon, editedLabel, kindOf, useContextMenu } from './Biblioteca';
+import { toggleFav, useSidebarPrefs } from './sidebarPrefs';
 import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian';
 import { WikiMenu, type WikiItem } from './WikiMenu';
 import { SlashSuggest, type SlashQuery } from './slash';
@@ -666,6 +667,7 @@ type Props = {
 };
 
 export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, onChange, onDefsChange, profileId, onNodes, onArchive, onLink, onConnect, onUnlink, onDelete, onClose, onError, sections, onMove, rows, onRename, onPickNote, onCreateLinked, zen, onZen, collection, shownAsCollection, onNotice }: Props) {
+  const fav = !!useSidebarPrefs().favs?.includes(note.id);
   const sideWidth = useSideWidth('canvian.readerWidth', 300, 240, 560);
   const ref = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
@@ -865,6 +867,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
     const items: SheetItem[] = [
       { icon: 'share', label: shared ? t('Compartida en la web…') : t('Compartir…'), title: t('Un enlace para que otros la lean, con contraseña si quieres'), run: () => setSharing(true) },
       { icon: 'link', label: t('Enlazar con…'), run: onLink },
+      { icon: 'star', label: fav ? t('Quitar de favoritos') : t('Añadir a favoritos'), run: () => void toggleFav(note.id).catch(() => {}) },
       { icon: 'move', label: t('Mover a…'), title: t('Meterla dentro de otra nota'), keys: keysOf(keymap.move), run: () => setMoving(true) },
       null,
       ...(kids > 0 || asColl || collDefault

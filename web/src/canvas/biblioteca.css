@@ -231,6 +231,9 @@
 .bib-tree-row.is-drop-before::after { top: -1px; }
 .bib-tree-row.is-drop-after::after { bottom: -1px; }
 .bib-tree-row.is-drop-inside,
+.bib-side-label.is-plain { font-weight: 600; }
+.bib-favs { display: grid; }
+.bib-fav-dot { flex: none; width: 7px; height: 7px; margin: 0 4px; border-radius: 50%; background: var(--tint, oklch(0.66 0.13 var(--h))); }
 .bib-side-label.is-drop-inside { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
 
 /* Soltar en el hueco del árbol: arriba del todo. */

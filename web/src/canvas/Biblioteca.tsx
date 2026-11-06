@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { COLORS, setColor, setOrder, sortByOrder, useSidebarPrefs } from './sidebarPrefs';
+import { COLORS, setColor, setOrder, sortByOrder, toggleFav, useSidebarPrefs } from './sidebarPrefs';
 import type { NoteRow } from '../api';
 import { keyParts, useKeymap, type ActionId } from '../keys';
 
@@ -204,6 +204,7 @@ const NAV_ICON: Record<string, ReactNode> = {
   zen: <path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z" />,
   image: <><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><circle cx="6" cy="6.5" r="1.1" /><path d="m2.5 11.5 3.5-3 3 2.5 2-1.5 2.5 2" /></>,
   props: <path d="M2.5 4.5h2M7 4.5h6.5M2.5 8h2M7 8h6.5M2.5 11.5h2M7 11.5h6.5" />,
+  star: <path d="M8 2.3l1.75 3.55 3.9.57-2.83 2.76.67 3.88L8 11.23l-3.49 1.83.67-3.88L2.35 6.42l3.9-.57z" />,
   attach: <path d="m12.5 7.5-4.8 4.8a2.8 2.8 0 0 1-4-4L8.8 3.2a1.9 1.9 0 0 1 2.7 2.7L6.6 10.8a.9.9 0 0 1-1.3-1.3L9.8 5" />,
 };
 export const NavIcon = ({ name }: { name: string }) => (
@@ -227,6 +228,10 @@ export function BibSidebar(p: SideProps) {
   });
   // Lo que estás viendo siempre tiene abierta su rama.
   const trail = useMemo(() => new Set(pathTo(p.here ?? null).map((r) => r.id)), [pathTo, p.here]);
+  // Las fijadas arriba, en el orden en que se añadieron; las archivadas no salen.
+  const favs = (prefs.favs ?? []).map((id) => p.family.byId.get(id)).filter((r): r is NoteRow => !!r && !r.archivedAt);
+  // Su punto lleva el color de la nota de arriba del todo, como en el árbol.
+  const rootOf = (id: string) => pathTo(id)[0]?.id ?? id;
   // …salvo que la pliegues tú; al ir a otra nota vuelve a abrirse su rama.
   const [shutTrail, setShutTrail] = useState<Set<string>>(() => new Set());
   useEffect(() => setShutTrail(new Set()), [p.here]);
@@ -466,6 +471,26 @@ export function BibSidebar(p: SideProps) {
             {t('Filtrar')}
           </button>
         </nav>
+        {favs.length > 0 && (
+          <nav className="bib-favs" aria-label={t('Favoritos')}>
+            <div className="bib-side-label is-plain">{t('Favoritos')}</div>
+            {favs.map((row) => (
+              <button
+                key={row.id}
+                className={`bib-it${p.here === row.id ? ' is-on' : ''}`}
+                onClick={() => p.onOpen(row.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  p.onMenu(row.id, e.clientX, e.clientY);
+                }}
+              >
+                <span className="bib-fav-dot" style={dotStyle(prefs.colors, rootOf(row.id), 0)} aria-hidden="true" />
+                <span className="bib-ellipsis">{titleOf(row)}</span>
+              </button>
+            ))}
+          </nav>
+        )}
         <div className={`bib-side-label${drop && drop.id === null ? ' is-drop-inside' : ''}`} {...rootDrop} title={t('Suelta aquí para sacar una nota arriba del todo')}>
           {t('Mi biblioteca')}
           <span className="bib-label-tools">
@@ -534,7 +559,7 @@ export function BibSidebar(p: SideProps) {
 
 // ── Menú contextual ───────────────────────────────────────────────────
 
-export type MenuAction = 'open' | 'library' | 'nodes' | 'child' | 'childCanvas' | 'rename' | 'move' | 'archive' | 'delete';
+export type MenuAction = 'fav' | 'open' | 'library' | 'nodes' | 'child' | 'childCanvas' | 'rename' | 'move' | 'archive' | 'delete';
 
 type MenuProps = {
   row: NoteRow;
@@ -635,6 +660,7 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
     { a: 'open', icon: 'open', label: t('Abrir') },
     ...(kids ? [{ a: 'library' as const, icon: 'grid', label: t('Ver como colección') }] : []),
     { a: 'nodes', icon: 'nodes', label: t('Ver en nodos'), key: key('nodes') },
+    { a: 'fav', icon: 'star', label: prefs.favs?.includes(row.id) ? t('Quitar de favoritos') : t('Añadir a favoritos') },
     null,
     { a: 'child', icon: 'child', label: t('Nota dentro'), key: key('newSection') },
     { a: 'childCanvas', icon: 'canvas', label: t('Canvas dentro') },
@@ -657,7 +683,8 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
             className={`bib-menu-it${it.danger ? ' is-danger' : ''}`}
             onClick={() => {
               onClose();
-              onPick(it.a);
+              if (it.a === 'fav') void toggleFav(row.id).catch(() => {});
+              else onPick(it.a);
             }}
           >
             <NavIcon name={it.icon} />

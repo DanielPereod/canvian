@@ -951,7 +951,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
     else if (a === 'child') act('section', id, null);
     else if (a === 'childCanvas') act('createCanvas', null, id);
     else if (a === 'move') setMovingId(id);
-    else act(a, id, null);
+    else if (a !== 'fav') act(a, id, null);
   };
 
   // En grande, en el centro, con un botón para ir a la nota de verdad.
