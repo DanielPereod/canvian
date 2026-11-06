@@ -2,6 +2,12 @@
 export const EN_TASKS: Record<string, string> = {
   // Fechas
   Hoy: 'Today',
+  // Fichas tras la casilla, en el texto de la nota
+  'desde {fecha}': 'from {fecha}',
+  'Prioridad alta': 'High priority',
+  'Prioridad media': 'Medium priority',
+  'Prioridad baja': 'Low priority',
+  'Se repite': 'Repeats',
   Mañana: 'Tomorrow',
   Ayer: 'Yesterday',
   Fecha: 'Date',

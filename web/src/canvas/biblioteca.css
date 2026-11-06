@@ -594,21 +594,7 @@
 
 .canvas.is-bib .tv-title { font-size: calc(26px * var(--title-scale) * var(--type-scale, 1)); }
 .canvas.is-bib .tv-title em { font-style: normal; color: inherit; }
-.canvas.is-bib .popover:has(#note-search) .list { counter-reset: hit; }
-.canvas.is-bib .popover:has(#note-search) .list-item:not(.static)::before {
-  counter-increment: hit;
-  content: counter(hit, decimal-leading-zero);
-  position: static;
-  width: 22px;
-  flex: none;
-  background: none;
-  box-shadow: none;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  opacity: 0.55;
-}
 .canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] { background: var(--accent-soft); color: var(--text); }
-.canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true']::before { color: var(--accent-ink); }
 .canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] .hit-snippet,
 .canvas.is-bib .popover:has(#note-search) .list-item[aria-selected='true'] .list-icon { color: var(--text-faint); }
 .canvas.is-bib #note-search { font-size: calc(22px * var(--type-scale, 1)); font-weight: 500; }

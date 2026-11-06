@@ -91,6 +91,8 @@ const clock = (s: string | undefined) => {
 export const timeMark = (start: string | null | undefined, end: string | null | undefined) => (start ? `⏰ ${start}${end ? `-${end}` : ''}` : '');
 const tidy = (text: string) => text.replace(/\s+/g, ' ').trim();
 // El texto sin fecha, prioridad, etiquetas ni «hecha el».
+/** Una línea sin fecha, horas, prioridad, repetición ni «hecha el» (las etiquetas se quedan): para los resúmenes. */
+export const withoutMarks = (text: string) => tidy(text.replace(RECUR, '').replace(START, '').replace(DUE, '').replace(TIME, '').replace(DONE, '').replace(PRIO, ''));
 const bare = (text: string) => tidy(text.replace(RECUR, '').replace(START, '').replace(DUE, '').replace(TIME, '').replace(DONE, '').replace(PRIO, '').replace(TAG, '$1'));
 
 function tagsIn(text: string) {

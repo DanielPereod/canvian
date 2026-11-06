@@ -4,6 +4,7 @@ import type { NoteRow } from '../api';
 import { keyParts, useKeymap, type ActionId } from '../keys';
 
 import { parentMap } from './sections';
+import { withoutMarks } from './tasks';
 import { Resizer, type SideWidth } from './Resizer';
 import { longPress, TOUCH } from './touch';
 import { locale, t, tn } from '../i18n';
@@ -94,7 +95,8 @@ export function kindOf(r: NoteRow, kids: number) {
 
 // El texto de la nota sin su título, para el resumen.
 export const snippetOf = (r: NoteRow) => {
-  const lines = (r.bodyText ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+  // Sin la sintaxis de las tareas (📅 2026-11-15 ⏫…): solo lo que dicen.
+  const lines = (r.bodyText ?? '').split('\n').map(withoutMarks).filter(Boolean);
   if (r.title && lines[0] === r.title) lines.shift();
   return lines.join(' · ');
 };

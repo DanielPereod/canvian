@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { api, type NoteRow, type SearchHit } from '../api';
 import { parentMap, pathText, resolvePath, routeText } from './sections';
 import { t } from '../i18n';
+import { withoutMarks } from './tasks';
 
 type Props = {
   profileId: string;
@@ -21,10 +22,31 @@ type Item = { kind: 'note'; hit: SearchHit } | { kind: 'create'; text: string } 
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-function snippet(hit: SearchHit): string {
-  const body = (hit.bodyText ?? '').replace(/\s+/g, ' ').trim();
-  const rest = hit.title && body.startsWith(hit.title) ? body.slice(hit.title.length).trim() : body;
-  return rest.slice(0, 90);
+// El trozo del texto donde está lo buscado (sin la sintaxis de las tareas),
+// con lo que coincide resaltado, como en Obsidian o Raycast.
+function snippet(hit: SearchHit, words: string[]): ReactNode {
+  const lines = (hit.bodyText ?? '').split('\n').map(withoutMarks).filter(Boolean);
+  if (hit.title && lines[0] === hit.title) lines.shift();
+  const body = lines.join(' · ');
+  if (!body) return null;
+  const flat = norm(body);
+  // La primera palabra buscada que sale en el texto (norm no cambia la longitud: quita tildes, no letras).
+  let at = -1;
+  let len = 0;
+  for (const w of words) {
+    const i = flat.indexOf(w);
+    if (i >= 0 && (at < 0 || i < at)) [at, len] = [i, w.length];
+  }
+  if (at < 0 || flat.length !== body.length) return body.slice(0, 110);
+  const from = Math.max(0, at - 36);
+  return (
+    <>
+      {from > 0 && '…'}
+      {body.slice(from, at)}
+      <mark>{body.slice(at, at + len)}</mark>
+      {body.slice(at + len, at + len + 90)}
+    </>
+  );
 }
 
 export function CommandPalette({ profileId, onPick, onCreate, onClose, placeholder = t('Buscar notas o crear una · > para rutas'), exclude, rows, onCreatePath }: Props) {
@@ -60,9 +82,9 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
   const title = segs[segs.length - 1].trim();
   const route = rows && parent && onCreatePath && segs.length > 1 ? resolvePath(rows, parent, segs.slice(0, -1).map((n) => n.trim()).filter(Boolean)) : null;
 
+  const words = norm(title).split(/\s+/).filter(Boolean);
   let items: Item[];
   if (route && rows && parent) {
-    const words = norm(title).split(/\s+/).filter(Boolean);
     const time = (r: NoteRow) => (r.updatedAt ? Date.parse(r.updatedAt) : 0);
     const inside = route.missing.length ? [] : rows.filter((r) => (parent.get(r.id) ?? null) === route.zoneId && r.id !== exclude && words.every((w) => norm(`${r.title ?? ''} ${r.bodyText ?? ''}`).includes(w)));
     inside.sort((a, b) => time(b) - time(a));
@@ -77,7 +99,6 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
   const run = (item: Item | undefined) => {
     if (!item) return;
     if (item.kind === 'note') {
-      const words = norm(title).split(/\s+/).filter(Boolean);
       const inTitle = words.every((w) => norm(item.hit.title ?? '').includes(w));
       onPick(item.hit.id, words.length && !inTitle ? title : undefined);
     }
@@ -140,7 +161,10 @@ export function CommandPalette({ profileId, onPick, onCreate, onClose, placehold
               {item.kind === 'note' ? (
                 <div className="hit">
                   <span className="hit-title">{item.hit.title ?? t('Nota sin título')}</span>
-                  {snippet(item.hit) && <span className="hit-snippet">{snippet(item.hit)}</span>}
+                  {(() => {
+                    const body = snippet(item.hit, words);
+                    return body && <span className="hit-snippet">{body}</span>;
+                  })()}
                 </div>
               ) : item.kind === 'path' ? (
                 <>

@@ -360,8 +360,8 @@
 
 .tv-check { flex: none; display: grid; place-items: center; width: 16px; height: 16px; padding: 0; border-radius: var(--radius-xs); border: 1.5px solid var(--text-ghost); background: none; cursor: pointer; transition: border-color var(--dur-fast), background var(--dur-fast); }
 .tv-check:hover { border-color: var(--text-muted); }
-.tv-check.prio-1 { border-color: color-mix(in oklab, var(--accent-ink) 55%, var(--text-ghost)); }
-.tv-check.prio-2 { border-color: var(--accent-ink); }
+.tv-check.prio-1 { border-color: var(--prio-1); }
+.tv-check.prio-2 { border-color: var(--prio-2); }
 .tv-check.prio-3 { border-color: var(--danger); }
 .tv-check.is-doing::after { content: ''; width: 6px; height: 6px; border-radius: 2px; background: var(--accent-ink); }
 .tv-check.is-blocked::after { content: ''; width: 8px; height: 1.5px; background: var(--text-faint); }
