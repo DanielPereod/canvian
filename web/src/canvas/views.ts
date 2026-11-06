@@ -216,7 +216,8 @@ export function newView(type: ViewType, defs: PropertyDef[], name?: string): Vie
   const firstGroup = fields.find((f) => f.def && (f.type === 'select' || f.type === 'checkbox'))?.id ?? 'kind';
   const shown: Record<ViewType, string[]> = {
     table: ['kind', 'due', ...custom.slice(0, 5), 'updated'],
-    list: ['kind', 'kids', 'updated'],
+    // El icono ya dice si es una colección: basta con cuántas tiene y cuándo se tocó.
+    list: ['kids', 'updated'],
     gallery: ['updated'],
     board: ['due'],
     calendar: [],
