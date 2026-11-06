@@ -276,3 +276,5 @@ a.set-button { text-decoration: none; display: inline-flex; align-items: center;
 .type-sample-code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-faint); overflow-wrap: anywhere; }
 .type-sample-ui { display: flex; flex-wrap: wrap; gap: var(--space-4); font-family: var(--font-ui); font-size: var(--text-sm); color: var(--text-faint); }
 .type-sample-ui span:first-child { color: var(--text); font-weight: 600; }
+.list-item > .bib-it-ic { flex: none; width: 15px; height: 15px; margin-right: 10px; color: var(--text-faint); }
+.list-item[aria-selected='true'] > .bib-it-ic { color: var(--text-muted); }

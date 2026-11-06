@@ -145,6 +145,15 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
     }
     return out;
   }, [rows, parent, prefs.colors, opts.colors]);
+  // La leyenda: cada nota madre de arriba con su color.
+  const legend = useMemo(() => {
+    if (!opts.colors) return [];
+    const hasKids = new Set([...parent.values()].filter(Boolean) as string[]);
+    return rows
+      .filter((r) => !parent.get(r.id) && hasKids.has(r.id))
+      .map((r) => ({ id: r.id, name: titleOf(r), color: prefs.colors[r.id] ?? `oklch(0.66 0.13 ${hueOf(r.id)})` }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }, [rows, parent, prefs.colors, opts.colors]);
   const tintsRef = useRef(tints);
   if (tintsRef.current !== tints) {
     tintsRef.current = tints;
@@ -665,6 +674,16 @@ export function NodeView({ rows, links, center, paused, onCenter, onOpen, onActi
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 4h6M11 4h1M2 10h1M6 10h6" /><circle cx="9.5" cy="4" r="1.5" /><circle cx="4.5" cy="10" r="1.5" /></svg>
         </button>
       </div>
+      {legend.length > 0 && (
+        <ul className="graph-legend" aria-label={t('Colores por nota madre')}>
+          {legend.slice(0, 10).map((l) => (
+            <li key={l.id}>
+              <span className="graph-legend-dot" style={{ background: l.color }} aria-hidden="true" />
+              {l.name}
+            </li>
+          ))}
+        </ul>
+      )}
       {panel && (
         <div className="graph-panel" onPointerDown={(e) => e.stopPropagation()}>
           <label className="graph-opt">
