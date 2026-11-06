@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { parentMap } from './sections';
 import { longPress, TOUCH } from './touch';
@@ -39,6 +39,13 @@ const STATUSES: { id: TaskStatus; name: string }[] = [
 // X avanza; una tarea bloqueada vuelve a pendiente al desbloquearla.
 const NEXT: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', blocked: 'todo', done: 'todo' };
 const PRIOS = ['Sin prioridad', 'Baja', 'Media', 'Alta'];
+// La prioridad, como una bandera de su color (la misma que en el texto de las notas).
+const Flag = () => (
+  <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+    <path d="M2.5 1.5v9.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    <path d="M3 1.8h6.6l-1.6 2.6 1.6 2.6H3z" fill="currentColor" />
+  </svg>
+);
 const GROUP_KEY = 'canvian.tasksGrouping';
 const VIEW_KEY = 'canvian.tasksView';
 const LAYOUT_KEY = 'canvian.tasksLayout';
@@ -850,8 +857,9 @@ export function TasksView(p: Props) {
             );
           })}
         </div>
-        <p className="tv-foot meta">
-          {[
+        {(() => {
+          // Una línea con lo básico; el resto, al pasar el ratón o con «?».
+          const all = ([
             ...(cal
               ? [
                   t('1–5 vista · ←→{arrows} día · [ ] {period} · T hoy · arrastra por los días (o las horas) para apuntar algo que los ocupe; una tarea, para moverla o, por su borde, estirarla', {
@@ -876,9 +884,15 @@ export function TasksView(p: Props) {
             foot('help', t('atajos')),
             t('Esc salir'),
           ]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
+            .filter(Boolean)) as string[];
+          const help = foot('help', t('todos los atajos'));
+          const basic = all.slice(0, -2).filter((h) => h.length < 40).slice(0, 2);
+          return (
+            <p className="tv-foot meta" title={all.join(' · ')}>
+              {[...basic, help].filter(Boolean).join(' · ')}
+            </p>
+          );
+        })()}
       </main>
 
       <Resizer size={detailWidth} edge="left" className="tv-resizer" />
@@ -1002,7 +1016,7 @@ function Detail({
               className={`prio-${n}${row.priority === n ? ' is-on' : ''}`}
               onClick={() => p.onChange(row, { priority: row.priority === n ? 0 : n })}
             >
-              {'!'.repeat(n)}
+              <Flag />
             </button>
           ))}
         </div>
@@ -1157,12 +1171,12 @@ function TaskMenu({ row, x, y, onPick, onClose }: { row: Task; x: number; y: num
     </button>
   );
   // Estado, prioridad y fecha, en una fila de botones cada uno.
-  const chips = (label: string, items: { a: TaskMenuAction; name: string; on: boolean; title?: string; className?: string }[]) => (
+  const chips = (label: string, items: { a: TaskMenuAction; name: ReactNode; on: boolean; title?: string; className?: string }[]) => (
     <div key={label} className="tv-menu-row" role="group" aria-label={label}>
       <span className="tv-menu-label">{label}</span>
       <div className="tv-menu-chips">
-        {items.map((it) => (
-          <button key={it.name} role="menuitemradio" aria-checked={it.on} className={`tv-menu-chip${it.on ? ' is-on' : ''}${it.className ? ` ${it.className}` : ''}`} title={it.title ?? it.name} onClick={() => pick(it.a)}>
+        {items.map((it, i) => (
+          <button key={i} role="menuitemradio" aria-checked={it.on} className={`tv-menu-chip${it.on ? ' is-on' : ''}${it.className ? ` ${it.className}` : ''}`} title={it.title ?? (typeof it.name === 'string' ? it.name : undefined)} onClick={() => pick(it.a)}>
             {it.name}
           </button>
         ))}
@@ -1184,7 +1198,7 @@ function TaskMenu({ row, x, y, onPick, onClose }: { row: Task; x: number; y: num
       {item('done', s === 'done' ? t('Marcar pendiente') : t('Marcar hecha'), t('Espacio'))}
       <div className="bib-menu-sep" role="separator" />
       {chips(t('Estado'), STATUSES.map((x) => ({ a: { status: x.id }, name: t(x.name), on: s === x.id })))}
-      {chips(t('Prioridad'), [0, 1, 2, 3].map((n) => ({ a: { priority: n }, name: n ? '!'.repeat(n) : '—', title: t(PRIOS[n]), on: row.priority === n, className: `prio-${n}` })))}
+      {chips(t('Prioridad'), [0, 1, 2, 3].map((n) => ({ a: { priority: n }, name: n ? <Flag /> : '—', title: t(PRIOS[n]), on: row.priority === n, className: `prio-${n}` })))}
       {chips(t('Fecha'), [
         ...soon.map((d) => ({ a: { dueAt: d.iso }, name: d.name, title: d.title ?? dueLabel(d.iso), on: dueDay === d.iso })),
         { a: { dueAt: null }, name: t('Sin fecha'), on: !dueDay },

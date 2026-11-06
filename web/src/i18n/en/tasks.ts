@@ -8,6 +8,7 @@ export const EN_TASKS: Record<string, string> = {
   'Prioridad media': 'Medium priority',
   'Prioridad baja': 'Low priority',
   'Se repite': 'Repeats',
+  'todos los atajos': 'all shortcuts',
   Mañana: 'Tomorrow',
   Ayer: 'Yesterday',
   Fecha: 'Date',

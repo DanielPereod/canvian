@@ -376,8 +376,13 @@
 .tv-prio { margin-left: auto; display: flex; gap: 2px; }
 .tv-prio button { background: none; border: 0; border-radius: var(--radius-xs); padding: 2px 7px; font: inherit; font-size: var(--text-xs); font-weight: 600; color: var(--text-ghost); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }
 .tv-prio button:hover { background: var(--surface-sunken); }
-.tv-prio button.is-on.prio-1 { color: color-mix(in oklab, var(--accent-ink) 60%, var(--text-muted)); }
-.tv-prio button.is-on.prio-2 { color: var(--accent-ink); }
+/* Cada bandera con su color: apagada si no es la elegida. */
+.tv-prio button.prio-1, .tv-menu-chip.prio-1 { color: var(--prio-1) !important; }
+.tv-prio button.prio-2, .tv-menu-chip.prio-2 { color: var(--prio-2) !important; }
+.tv-prio button.prio-3, .tv-menu-chip.prio-3 { color: var(--danger) !important; }
+.tv-prio button:not(.is-on) svg, .tv-menu-chip[class*='prio-']:not(.is-on):not(.prio-0) svg { opacity: 0.35; transition: opacity var(--dur-fast); }
+.tv-prio button:hover svg, .tv-menu-chip:hover svg { opacity: 1 !important; }
+.tv-prio button svg { display: block; }
 .tv-prio button.is-on.prio-3 { color: var(--danger); }
 .tv-detail-title { width: 100%; margin-top: var(--space-2); background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: calc(20px * var(--type-scale, 1)); font-weight: 600; letter-spacing: -0.01em; }
 .tv-detail-where { display: flex; align-items: baseline; gap: 8px; margin: -6px 0 0; padding: 2px 0; background: none; border: 0; color: var(--text-faint); font: inherit; font-size: var(--text-xs); text-align: left; cursor: pointer; }
@@ -421,8 +426,8 @@
 .tv-menu-chip { padding: 3px 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); background: none; font: inherit; font-size: var(--text-xs); color: var(--text-muted); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
 .tv-menu-chip:hover, .tv-menu-chip:focus-visible { background: var(--bib-sel, var(--surface-hover)); color: var(--text); outline: none; }
 .tv-menu-chip.is-on { background: var(--surface-sunken); border-color: transparent; color: var(--text); font-weight: 600; }
-.tv-menu-chip.prio-1.is-on { color: color-mix(in oklab, var(--accent-ink) 60%, var(--text-muted)); }
-.tv-menu-chip.prio-2.is-on { color: var(--accent-ink); }
+.tv-menu-chip.prio-1.is-on { color: var(--prio-1); }
+.tv-menu-chip.prio-2.is-on { color: var(--prio-2); }
 .tv-menu-chip.prio-3.is-on { color: var(--danger); }
 
 @media (max-width: 1100px) { .tv-detail, .tv-resizer { display: none; } }
