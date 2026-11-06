@@ -1,5 +1,11 @@
 // Textos en inglés: la clave es el texto en español, tal cual sale en el código.
 export const EN_NOTE: Record<string, string> = {
+  // Panel de detalles y meta del lector
+  'Está en': 'In',
+  'Notas dentro': 'Notes inside',
+  'Editada {date}': 'Edited {date}',
+  '{n} palabra': '{n} word',
+  '{n} palabras': '{n} words',
   // Inspector
   'Propiedades': 'Properties',
   'Cerrar': 'Close',

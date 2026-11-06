@@ -914,7 +914,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
           ) : (
           <article className={`reader-body${note.cover ? ' has-cover' : ''}`} key={note.id + note.kind}>
             <span className="reader-meta">
-              {madre ? madre.title || t('Nota sin título') : t('Arriba del todo')} · {kindOf(note, kids)} · {t('editada {date}', { date: editedLabel(note.updatedAt) })}
+              {t('Editada {date}', { date: editedLabel(note.updatedAt) })} · {tn(words, '{n} palabra', '{n} palabras')}
               {source && ' · Markdown'}
               {shared && (
                 <>
@@ -970,39 +970,10 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
             <div className="reader-side-top">
               <span className="reader-side-h">{t('Detalles')}</span>
             </div>
-            <dl className="reader-facts">
-              <dt>{t('Tipo')}</dt>
-              <dd>{kindOf(note, kids)}</dd>
-              <dt>{t('Madre')}</dt>
-              <dd>
-                <button className="reader-madre" onClick={() => setMoving(true)} title={t('Mover dentro de otra nota')}>
-                  {madre ? madre.title || t('Nota sin título') : t('Arriba del todo')}
-                </button>
-              </dd>
-              {kids > 0 && (
-                <>
-                  <dt>{t('Dentro')}</dt>
-                  <dd>{tn(kids, '{n} nota', '{n} notas')}</dd>
-                </>
-              )}
-              <dt>{t('Creada')}</dt>
-              <dd>{created}</dd>
-              <dt>{t('Editada')}</dt>
-              <dd>{editedLabel(note.updatedAt)}</dd>
-              <dt>{t('Palabras')}</dt>
-              <dd>{words}</dd>
-              {tasks.total > 0 && (
-                <>
-                  <dt>{t('Tareas')}</dt>
-                  <dd>{tasks.done === tasks.total ? tn(tasks.total, '{n} hecha', '{n} hechas') : t('{done} de {total} hechas', { done: tasks.done, total: tasks.total })}</dd>
-                </>
-              )}
-            </dl>
             {kids > 0 && (
               <>
-                <div className="reader-rule" />
                 <div className="reader-side-row">
-                  <span className="reader-side-h">{t('Dentro')}</span>
+                  <span className="reader-side-h">{t('Notas dentro')}</span>
                   <span className="reader-muted">{kids}</span>
                 </div>
                 <div className="reader-links">
@@ -1045,6 +1016,25 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
                 {t('＋ Enlazar')}
               </button>
             </div>
+            <div className="reader-rule" />
+            <dl className="reader-facts">
+              <dt>{t('Está en')}</dt>
+              <dd>
+                <button className="reader-madre" onClick={() => setMoving(true)} title={t('Mover dentro de otra nota')}>
+                  {madre ? madre.title || t('Nota sin título') : t('Biblioteca')}
+                </button>
+              </dd>
+              {tasks.total > 0 && (
+                <>
+                  <dt>{t('Tareas')}</dt>
+                  <dd>{tasks.done === tasks.total ? tn(tasks.total, '{n} hecha', '{n} hechas') : t('{done} de {total} hechas', { done: tasks.done, total: tasks.total })}</dd>
+                </>
+              )}
+              <dt>{t('Creada')}</dt>
+              <dd>{created}</dd>
+              <dt>{t('Editada')}</dt>
+              <dd>{editedLabel(note.updatedAt)}</dd>
+            </dl>
           </aside>
         )}
         {menu && <SheetMenu x={menu.x} y={menu.y} items={items} onClose={closeMenu} />}

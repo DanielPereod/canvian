@@ -329,6 +329,10 @@
 .bib-up:hover:not(:disabled) { background: var(--surface-hover); color: var(--text) !important; }
 .bib-up:disabled { opacity: 0.35; cursor: default !important; }
 .bib-crumb-wrap { display: flex; align-items: center; min-width: 0; }
+/* La nota en la que estás se lee siempre entera; las de antes se recortan primero. */
+.bib-crumb-wrap:last-child { flex-shrink: 0; max-width: 60%; }
+.bib-crumb-wrap:not(:last-child) { flex-shrink: 1; min-width: 3em; }
+.bib-crumb-wrap.is-more { flex-shrink: 0; min-width: 0; }
 .bib-crumb { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-faint) !important; padding: 3px 4px; border-radius: var(--radius-xs); max-width: 220px; }
 .bib-crumb:hover { color: var(--text) !important; }
 .bib-crumb.is-here { color: var(--text) !important; font-weight: 500; }

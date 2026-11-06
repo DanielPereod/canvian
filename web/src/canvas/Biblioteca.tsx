@@ -778,7 +778,21 @@ export function BibBar(p: BarProps) {
         <button className="bib-up" onClick={p.onUp ?? undefined} disabled={!p.onUp} aria-label={t('Subir')} title={t('Subir (Retroceso)')}>
           ‹
         </button>
-        {p.crumbs.map((c, i) => (
+        {p.crumbs.map((c, i) => {
+          // Con una ruta larga, como en Notion: la primera, «…» y las dos últimas.
+          const n = p.crumbs.length;
+          const hidden = n > 3 && i > 0 && i < n - 2;
+          if (hidden && i > 1) return null;
+          if (hidden)
+            return (
+              <span key="more" className="bib-crumb-wrap is-more">
+                <span className="bib-sep">/</span>
+                <button className="bib-crumb" onClick={() => p.onCrumb(p.crumbs[n - 3].id)} title={p.crumbs.slice(1, n - 2).map((x) => x.title).join(' / ')}>
+                  …
+                </button>
+              </span>
+            );
+          return (
           <span key={`${c.id}:${i}`} className="bib-crumb-wrap">
             {i > 0 && <span className="bib-sep">/</span>}
             {p.rename && i === p.crumbs.length - 1 ? (
@@ -789,7 +803,8 @@ export function BibBar(p: BarProps) {
               </button>
             )}
           </span>
-        ))}
+          );
+        })}
       </nav>
       <button className="bib-search" onClick={p.onSearch}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
