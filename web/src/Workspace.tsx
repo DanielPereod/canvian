@@ -16,6 +16,7 @@ import { loadCalendars } from './calendars';
 import { Settings } from './Settings';
 import { Help } from './Help';
 import { ActionPalette } from './ActionPalette';
+import { DueChipPicker } from './canvas/DueChipPicker';
 
 const ACTIVE_KEY = 'canvian.activeProfile';
 
@@ -136,6 +137,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           },
         }} />
 
+      <DueChipPicker />
       {commandsOpen && <ActionPalette onClose={() => setCommandsOpen(false)} />}
       {switcherOpen && (
         <ProfileSwitcher

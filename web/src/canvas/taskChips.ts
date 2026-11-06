@@ -11,7 +11,7 @@ import { repeatLabel } from './repeat';
 // en Craft. El texto sigue siendo el mismo Markdown: con el cursor dentro de
 // una ficha se ve tal cual, para cambiarlo a mano (como en Obsidian).
 
-type Chip = { from: number; to: number; kind: string; label: string; tone?: string };
+type Chip = { from: number; to: number; at: number; kind: string; label: string; tone?: string; date?: string };
 
 const DATE = String.raw`(\d{4}-\d{2}-\d{2})`;
 const CLOCK = String.raw`(\d{1,2}:\d{2})`;
@@ -48,17 +48,17 @@ function chipsIn(text: string, at: number, done: boolean): Chip[] {
     const to = at + m.index! + m[0].length;
     if (m[1]) {
       const n = daysUntil(m[2]);
-      out.push({ from, to, kind: 'due', label: short(m[2]), tone: done ? undefined : n < 0 ? 'late' : n === 0 ? 'today' : undefined });
-    } else if (m[3]) out.push({ from, to, kind: 'start', label: t('desde {fecha}', { fecha: short(m[4]) }) });
-    else if (m[5]) out.push({ from, to, kind: 'done', label: short(m[6]) });
-    else if (m[7]) out.push({ from, to, kind: 'time', label: m[9] ? `${m[8]}–${m[9]}` : m[8] });
+      out.push({ from, to, at: at + m.index!, kind: 'due', date: m[2], label: short(m[2]), tone: done ? undefined : n < 0 ? 'late' : n === 0 ? 'today' : undefined });
+    } else if (m[3]) out.push({ from, to, at: at + m.index!, kind: 'start', label: t('desde {fecha}', { fecha: short(m[4]) }) });
+    else if (m[5]) out.push({ from, to, at: at + m.index!, kind: 'done', label: short(m[6]) });
+    else if (m[7]) out.push({ from, to, at: at + m.index!, kind: 'time', label: m[9] ? `${m[8]}–${m[9]}` : m[8] });
     else if (m[10]) {
       const [p, name] = PRIO[m[10]];
-      out.push({ from, to, kind: 'prio', label: t(name), tone: `p${p}` });
+      out.push({ from, to, at: at + m.index!, kind: 'prio', label: t(name), tone: `p${p}` });
     } else if (m[11]) {
       const rule = m[11].replace(/^🔁️?\s*/u, '');
-      out.push({ from, to, kind: 'repeat', label: rule ? repeatLabel(rule) : t('Se repite') });
-    } else if (m[12]) out.push({ from, to, kind: 'tag', label: m[12].slice(1) });
+      out.push({ from, to, at: at + m.index!, kind: 'repeat', label: rule ? repeatLabel(rule) : t('Se repite') });
+    } else if (m[12]) out.push({ from, to, at: at + m.index!, kind: 'tag', label: m[12].slice(1) });
   }
   return out;
 }
@@ -79,11 +79,16 @@ function build(doc: PMNode, state: EditorState, editing: boolean): DecorationSet
         // Con el cursor dentro (o justo al lado), se escribe sobre el texto tal cual.
         if (editing && selFrom <= c.to && selTo >= c.from) continue;
         decos.push(
-          Decoration.inline(c.from, c.to, {
-            class: `tk-chip tk-${c.kind}${c.tone ? ` is-${c.tone}` : ''}`,
-            'data-label': c.kind === 'prio' ? '' : c.label,
-            title: c.label,
-          }),
+          Decoration.inline(
+            c.from,
+            c.to,
+            {
+              class: `tk-chip tk-${c.kind}${c.tone ? ` is-${c.tone}` : ''}`,
+              'data-label': c.kind === 'prio' ? '' : c.label,
+              title: c.kind === 'due' ? t('{fecha} · pulsa para cambiarla', { fecha: c.label }) : c.label,
+            },
+            { chip: c },
+          ),
         );
       }
     });
@@ -92,6 +97,9 @@ function build(doc: PMNode, state: EditorState, editing: boolean): DecorationSet
   });
   return DecorationSet.create(doc, decos);
 }
+
+export const DUE_EVENT = 'canvian:task-due';
+export type DueRequest = { date: string; set: (date: string | null) => void };
 
 type ChipState = { decos: DecorationSet; focused: boolean };
 const key = new PluginKey<ChipState>('taskChips');
@@ -115,7 +123,33 @@ export const TaskChips = Extension.create({
         },
         props: {
           decorations: (state) => key.getState(state)?.decos,
+          // Pulsar la fecha abre el calendario (lo pinta <DueChipPicker>, fuera del editor).
           handleDOMEvents: {
+            mousedown: (view, e) => {
+              const el = (e.target as HTMLElement).closest?.('.tk-due');
+              if (!el || !view.editable || e.button !== 0) return false;
+              const pos = view.posAtDOM(el, 0);
+              const deco = key.getState(view.state)?.decos.find(pos, pos + 1).find((d) => (d.spec as { chip?: Chip }).chip?.kind === 'due');
+              const chip = (deco?.spec as { chip?: Chip } | undefined)?.chip;
+              if (!chip?.date) return false;
+              e.preventDefault();
+              const from = chip.at;
+              const to = chip.to;
+              window.dispatchEvent(
+                new CustomEvent<DueRequest>(DUE_EVENT, {
+                  detail: {
+                    date: chip.date,
+                    set: (date) => {
+                      const { state } = view;
+                      // Mismo sitio y mismo texto que al pulsar: si no, no se toca nada.
+                      if (!/^📅/u.test(state.doc.textBetween(from, to))) return;
+                      view.dispatch(date ? state.tr.insertText(`📅 ${date}`, from, to) : state.tr.delete(chip.from, to));
+                    },
+                  },
+                }),
+              );
+              return true;
+            },
             focus: (view) => {
               view.dispatch(view.state.tr.setMeta(key, true));
               return false;
