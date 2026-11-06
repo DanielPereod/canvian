@@ -19,6 +19,7 @@ import { parentMap } from './sections';
 import { decodeTime } from 'ulidx';
 import { NavIcon, editedLabel, kindOf, useContextMenu } from './Biblioteca';
 import { toggleFav, useSidebarPrefs } from './sidebarPrefs';
+import { NoteOutline } from './NoteOutline';
 import { WikiSuggest, splitWiki, wikiLinksIn, type WikiQuery } from './obsidian';
 import { WikiMenu, type WikiItem } from './WikiMenu';
 import { SlashSuggest, type SlashQuery } from './slash';
@@ -932,6 +933,8 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
               {collection(flipColl)}
             </div>
           ) : (
+          <>
+          <NoteOutline editorRef={editorRef} noteId={note.id} />
           <article className={`reader-body${note.cover ? ' has-cover' : ''}`} key={note.id + note.kind}>
             <span className="reader-meta">
               {t('Editada {date}', { date: editedLabel(note.updatedAt) })} · {tn(words, '{n} palabra', '{n} palabras')}
@@ -967,6 +970,7 @@ export function NoteSheet({ note, neighbors, defs, onNavigate, onSave, onProps, 
               between={<NoteProps key={note.id} note={note} defs={defs} profileId={profileId} onChange={onChange} onDefsChange={onDefsChange} onError={onError} />}
             />
           </article>
+          </>
           )}
         </div>
         {/* Los botones de la nota van en la barra de arriba, a la altura de los de la barra lateral;

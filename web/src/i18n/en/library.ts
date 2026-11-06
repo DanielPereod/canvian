@@ -109,6 +109,7 @@ export const EN_LIBRARY: Record<string, string> = {
   Temas: 'Topics',
   Acuerdos: 'Decisions',
   'Próximos pasos': 'Next steps',
+  'Enviar el resumen': 'Send the summary',
   Objetivo: 'Goal',
   'Qué quieres conseguir y para cuándo.': 'What you want to achieve, and by when.',
   'Primer paso': 'First step',

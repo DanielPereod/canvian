@@ -2,6 +2,7 @@
 export const EN_NOTE: Record<string, string> = {
   // Panel de detalles y meta del lector
   'Está en': 'In',
+  'Índice de la nota': 'Note outline',
   'Notas dentro': 'Notes inside',
   'Editada {date}': 'Edited {date}',
   '{n} palabra': '{n} word',

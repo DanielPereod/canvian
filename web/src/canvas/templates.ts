@@ -21,7 +21,7 @@ export const TEMPLATES: Template[] = [
     icon: 'people',
     title: () => `${t('Reunión')} · ${today()}`,
     body: () =>
-      [`## ${t('Asistentes')}`, '- ', '', `## ${t('Temas')}`, '1. ', '', `## ${t('Acuerdos')}`, '- ', '', `## ${t('Próximos pasos')}`, `- [ ] 📅 ${inDays(7)}`].join('\n'),
+      [`## ${t('Asistentes')}`, '- ', '', `## ${t('Temas')}`, '1. ', '', `## ${t('Acuerdos')}`, '- ', '', `## ${t('Próximos pasos')}`, `- [ ] ${t('Enviar el resumen')} 📅 ${inDays(1)}`].join('\n'),
   },
   {
     id: 'project',
