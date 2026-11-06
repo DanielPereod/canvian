@@ -188,8 +188,25 @@ const NAV_ICON: Record<string, ReactNode> = {
   archive: <><rect x="2.5" y="3" width="11" height="3" rx="1" /><path d="M3.5 6v6c0 .6.4 1 1 1h7c.6 0 1-.4 1-1V6M6.5 8.5h3" /></>,
   filter: <path d="M2.5 3.5h11L9.2 8.6v3.9l-2.4 1V8.6z" />,
   canvas: <><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" /><rect x="9" y="9" width="4.5" height="4.5" rx="1" /><path d="M7 4.7h2.3c.9 0 1.5.6 1.5 1.5V9" /></>,
+  // Los de los menús de una nota.
+  open: <path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v2.5c0 .8-.7 1.5-1.5 1.5H4c-.8 0-1.5-.7-1.5-1.5V6c0-.8.7-1.5 1.5-1.5h2.5" />,
+  grid: <><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" /><rect x="9" y="2.5" width="4.5" height="4.5" rx="1" /><rect x="2.5" y="9" width="4.5" height="4.5" rx="1" /><rect x="9" y="9" width="4.5" height="4.5" rx="1" /></>,
+  page: <><path d="M4 2.5h5l3 3v8H4z" /><path d="M9 2.5v3h3" /></>,
+  nodes: <><circle cx="4" cy="4.5" r="1.7" /><circle cx="12" cy="6" r="1.7" /><circle cx="6.5" cy="12" r="1.7" /><path d="m5.6 5 4.7.8M5 6 6 10.3M10.7 7.2 7.8 10.8" /></>,
+  child: <><path d="M4 2.5h5l3 3v8H4z" /><path d="M8 7.5v4M6 9.5h4" /></>,
+  rename: <path d="M11.2 2.3a1.4 1.4 0 0 1 2 2L6.5 11 3.5 12l1-3zM9.8 3.7l2 2" />,
+  move: <><path d="M2.5 4.5c0-.8.6-1.5 1.5-1.5h2.6l1.3 1.5H12c.8 0 1.5.7 1.5 1.5v5c0 .8-.7 1.5-1.5 1.5H4c-.9 0-1.5-.7-1.5-1.5z" /><path d="M6 8.5h4M8.5 7l1.5 1.5L8.5 10" /></>,
+  trash: <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.1c0 .5.5.9 1 .9h3.8c.5 0 1-.4 1-.9l.6-8.1M7 7v4M9 7v4" />,
+  share: <><path d="M8 2.5v7.5M5.3 5.2 8 2.5l2.7 2.7" /><path d="M4.5 7.5H4c-.8 0-1.5.7-1.5 1.5v3c0 .8.7 1.5 1.5 1.5h8c.8 0 1.5-.7 1.5-1.5V9c0-.8-.7-1.5-1.5-1.5h-.5" /></>,
+  link: <path d="M7 9a2.5 2.5 0 0 0 3.5 0l2-2A2.5 2.5 0 0 0 9 3.5l-.7.7M9 7a2.5 2.5 0 0 0-3.5 0l-2 2A2.5 2.5 0 0 0 7 12.5l.7-.7" />,
+  code: <path d="m5.5 4.5-3 3.5 3 3.5M10.5 4.5l3 3.5-3 3.5M9 3 7 13" />,
+  wide: <path d="M2.5 8h11M5 5.5 2.5 8 5 10.5M11 5.5l2.5 2.5-2.5 2.5" />,
+  zen: <path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z" />,
+  image: <><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><circle cx="6" cy="6.5" r="1.1" /><path d="m2.5 11.5 3.5-3 3 2.5 2-1.5 2.5 2" /></>,
+  props: <path d="M2.5 4.5h2M7 4.5h6.5M2.5 8h2M7 8h6.5M2.5 11.5h2M7 11.5h6.5" />,
+  attach: <path d="m12.5 7.5-4.8 4.8a2.8 2.8 0 0 1-4-4L8.8 3.2a1.9 1.9 0 0 1 2.7 2.7L6.6 10.8a.9.9 0 0 1-1.3-1.3L9.8 5" />,
 };
-const NavIcon = ({ name }: { name: string }) => (
+export const NavIcon = ({ name }: { name: string }) => (
   <svg className="bib-it-ic" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
     {NAV_ICON[name]}
   </svg>
@@ -614,18 +631,18 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
   const prefs = useSidebarPrefs();
   const ref = useRef<HTMLDivElement>(null);
   const spot = useContextMenu(ref, x, y, onClose);
-  const items: ({ a: MenuAction; label: string; key?: string; danger?: boolean } | null)[] = [
-    { a: 'open', label: t('Abrir') },
-    ...(kids ? [{ a: 'library' as const, label: t('Ver como colección') }] : []),
-    { a: 'nodes', label: t('Ver en nodos'), key: key('nodes') },
+  const items: ({ a: MenuAction; label: string; icon: string; key?: string; danger?: boolean } | null)[] = [
+    { a: 'open', icon: 'open', label: t('Abrir') },
+    ...(kids ? [{ a: 'library' as const, icon: 'grid', label: t('Ver como colección') }] : []),
+    { a: 'nodes', icon: 'nodes', label: t('Ver en nodos'), key: key('nodes') },
     null,
-    { a: 'child', label: t('Nota dentro'), key: key('newSection') },
-    { a: 'childCanvas', label: t('Canvas dentro') },
-    { a: 'rename', label: t('Renombrar'), key: key('rename') },
-    { a: 'move', label: t('Mover a…'), key: key('move') },
+    { a: 'child', icon: 'child', label: t('Nota dentro'), key: key('newSection') },
+    { a: 'childCanvas', icon: 'canvas', label: t('Canvas dentro') },
+    { a: 'rename', icon: 'rename', label: t('Renombrar'), key: key('rename') },
+    { a: 'move', icon: 'move', label: t('Mover a…'), key: key('move') },
     null,
-    { a: 'archive', label: row.archivedAt ? t('Desarchivar') : t('Archivar'), key: key('archive') },
-    { a: 'delete', label: t('Borrar'), key: key('deleteCell'), danger: true },
+    { a: 'archive', icon: 'archive', label: row.archivedAt ? t('Desarchivar') : t('Archivar'), key: key('archive') },
+    { a: 'delete', icon: 'trash', label: t('Borrar'), key: key('deleteCell'), danger: true },
   ];
 
   const color = prefs.colors[row.id] ?? null;
@@ -643,6 +660,7 @@ export function BibMenu({ row, kids, x, y, onPick, onClose }: MenuProps) {
               onPick(it.a);
             }}
           >
+            <NavIcon name={it.icon} />
             {it.label}
             {it.key && <span className="bib-menu-k">{it.key}</span>}
           </button>
