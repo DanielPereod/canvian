@@ -114,3 +114,49 @@ export function unlink(view: EditorView, hit: LinkHit) {
   view.dispatch(hit.kind === 'wiki' ? state.tr.replaceWith(hit.from, hit.to, state.schema.text(text)) : state.tr.removeMark(hit.from, hit.to, state.schema.marks.link));
   view.focus();
 }
+
+// Lo que se escribe en «Dirección» pasa a ser un enlace de verdad: «ejemplo.com»
+// es https://ejemplo.com y «ana@correo.es», un correo.
+export function normalizeHref(raw: string): string {
+  const s = raw.trim();
+  if (!s) return '';
+  if (/^[a-z][a-z0-9+.-]*:/i.test(s) || /^[/#?]/.test(s)) return s;
+  if (/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(s)) return `mailto:${s}`;
+  return `https://${s.replace(/^\/\/+/, '')}`;
+}
+
+// Cómo se ve la dirección en el menú: sin «https://», sin «www.» y sin la barra final.
+export function prettyHref(href: string): string {
+  return href.replace(/^mailto:/i, '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '');
+}
+
+// Guarda lo escrito en el cuadro de editar enlace: el texto que se ve y adónde va
+// (una dirección web o, en un [[enlace]], la nota). Devuelve si cambió algo.
+export function saveLink(view: EditorView, hit: LinkHit, next: { text: string; href: string }) {
+  const { state } = view;
+  const text = next.text.trim();
+  if (hit.kind === 'wiki') {
+    const node = state.doc.nodeAt(hit.from);
+    const target = next.href.trim() || hit.href;
+    if (node?.type.name !== 'wikilink') return false;
+    const sameNote = splitWiki(target).note === splitWiki(hit.href).note;
+    // Si el texto es el nombre de la nota, no hace falta alias.
+    const alias = text && text !== splitWiki(target).note ? text : null;
+    view.dispatch(state.tr.setNodeMarkup(hit.from, undefined, { ...node.attrs, target, alias, id: sameNote ? node.attrs.id : null }));
+    view.focus();
+    return true;
+  }
+  const href = normalizeHref(next.href);
+  if (!href) {
+    unlink(view, hit);
+    return true;
+  }
+  const link = state.schema.marks.link;
+  const first = state.doc.nodeAt(hit.from);
+  const marks = (first?.marks ?? []).filter((m) => m.type !== link).concat(link.create({ href }));
+  const tr = text && text !== hit.text ? state.tr.replaceWith(hit.from, hit.to, state.schema.text(text, marks)) : state.tr.removeMark(hit.from, hit.to, link).addMark(hit.from, hit.to, link.create({ href }));
+  const end = text && text !== hit.text ? hit.from + text.length : hit.to;
+  view.dispatch(tr.setSelection(TextSelection.create(tr.doc, end)));
+  view.focus();
+  return true;
+}

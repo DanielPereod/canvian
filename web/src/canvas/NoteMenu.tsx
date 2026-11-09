@@ -1,10 +1,12 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import { TextSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
-import { useContextMenu } from './Biblioteca';
+import { NavIcon, useContextMenu } from './Biblioteca';
 import { promptLink } from './editor';
+import { editLink, embedLink, embedOf, prettyHref, saveLink, unlink, type LinkHit } from './links';
+import { splitWiki } from './obsidian';
 import { KINDS, canTurnAll, deleteBlocks, duplicateBlocks, ensureBlockId, liveBlocks, moveBlocks, selectedBlocks, turnBlocks, type Block } from './blocks';
 import { TOUCH } from './touch';
 import { t } from '../i18n';
@@ -15,7 +17,11 @@ import { t } from '../i18n';
 // exacto para pegarlo en otra nota.
 
 // `stay`: no cierra el menú (abre otra lista dentro de él).
-export type MenuItem = { label: string; keys?: string; danger?: boolean; stay?: boolean; run: () => void } | null;
+export type MenuItem = { label: string; icon?: string; keys?: string; danger?: boolean; stay?: boolean; run: () => void } | null;
+
+// El enlace que hay donde se pulsó: el menú lo enseña arriba, con lo que se
+// puede hacer con él. `edit`: abrir ya en el cuadro de editarlo (con Ctrl K).
+export type LinkCtx = { hit: LinkHit; open: () => void; edit?: boolean };
 
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 const MOD = MAC ? '⌘' : 'Ctrl';
@@ -83,17 +89,18 @@ type Props = {
   editor: Editor;
   x: number;
   y: number;
-  // Lo del enlace que hay debajo (abrir, editar…), si lo hay.
-  linkItems: MenuItem[];
+  // El enlace que hay debajo (abrir, editar…), si lo hay.
+  link?: LinkCtx | null;
   note: { id: string; title: string };
   onNotice?: (text: string) => void;
   onClose: () => void;
 };
 
-export function NoteMenu({ editor, x, y, linkItems, note, onNotice, onClose }: Props) {
+export function NoteMenu({ editor, x, y, link, note, onNotice, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [turning, setTurning] = useState(false);
-  const spot = useContextMenu(ref, x, y, onClose);
+  const [editing, setEditing] = useState(!!link?.edit);
+  const spot = useContextMenu(ref, x, y, onClose, editing || turning);
   const { view, state } = editor;
   const sel = state.selection;
   const text = sel instanceof TextSelection && !sel.empty;
@@ -117,6 +124,17 @@ export function NoteMenu({ editor, x, y, linkItems, note, onNotice, onClose }: P
   };
   const linkable = !!block && 'blockId' in block.node.attrs;
 
+  const hit = link?.hit;
+  const web = hit?.kind === 'web';
+  const linkItems: MenuItem[] = hit
+    ? [
+        { label: web ? t('Abrir enlace') : t('Abrir nota'), icon: 'open', run: link!.open },
+        { label: t('Editar enlace…'), icon: 'rename', keys: keys(`${MOD} K`), stay: true, run: () => setEditing(true) },
+        ...(web ? [{ label: t('Copiar enlace'), icon: 'copy', run: () => (copyRich(hit.href), onNotice?.(t('Enlace copiado'))) }] : []),
+        ...(embedOf(state, hit) ? [{ label: t('Ver incrustado'), icon: 'embed', run: () => embedLink(view, hit) }] : []),
+        { label: t('Quitar enlace'), icon: 'unlink', run: () => unlink(view, hit) },
+      ]
+    : [];
   const items: MenuItem[] = [
     ...(linkItems.length ? [...linkItems, null] : []),
     ...(text ? [{ label: t('Cortar'), keys: keys(`${MOD} X`), run: clip('cut') }, { label: t('Copiar'), keys: keys(`${MOD} C`), run: clip('copy') }] : []),
@@ -152,9 +170,39 @@ export function NoteMenu({ editor, x, y, linkItems, note, onNotice, onClose }: P
   );
   const c = () => editor.chain().focus();
 
+  // Con el enlace, todas las opciones dejan el hueco del icono para ir alineadas.
+  const icons = linkItems.length > 0;
+
   return createPortal(
-    <div ref={ref} className="bib-menu nmenu" role="menu" aria-label={t('Menú del texto')} style={{ left: spot.x, top: spot.y }} onContextMenu={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()}>
-      {turning && blocks.length ? (
+    <div
+      ref={ref}
+      className={`bib-menu nmenu${editing && hit ? ' is-editing' : ''}`}
+      role={editing && hit ? 'dialog' : 'menu'}
+      aria-label={editing && hit ? t('Editar enlace') : t('Menú del texto')}
+      style={{ left: spot.x, top: spot.y }}
+      onContextMenu={(e) => e.preventDefault()}
+      // Sin quitarle el cursor al texto, salvo en los campos del cuadro del enlace.
+      onMouseDown={(e) => !(e.target as Element).closest('input') && e.preventDefault()}
+    >
+      {editing && hit ? (
+        <LinkForm
+          hit={hit}
+          onBack={link?.edit ? undefined : () => setEditing(false)}
+          onCancel={onClose}
+          onSave={(next) => {
+            onClose();
+            saveLink(view, hit, next);
+          }}
+          onUnlink={() => {
+            onClose();
+            unlink(view, hit);
+          }}
+          onRaw={() => {
+            onClose();
+            editLink(view, hit);
+          }}
+        />
+      ) : turning && blocks.length ? (
         <>
           <button className="bib-menu-it nmenu-back" onClick={() => setTurning(false)}>
             ‹ {t('Convertir en')}
@@ -185,9 +233,11 @@ export function NoteMenu({ editor, x, y, linkItems, note, onNotice, onClose }: P
               <div className="bib-menu-sep" role="separator" />
             </>
           )}
+          {hit && <LinkCard hit={hit} onOpen={run(link!.open)} />}
           {shown.map((it, i) =>
             it ? (
               <button key={it.label} role="menuitem" className={`bib-menu-it${it.danger ? ' is-danger' : ''}`} onClick={it.stay ? it.run : run(it.run)} aria-haspopup={it.stay ? 'menu' : undefined}>
+                {it.icon ? <NavIcon name={it.icon} /> : icons && <span className="bib-it-ic" aria-hidden="true" />}
                 {it.label}
                 {it.keys && <span className="bib-menu-k">{it.keys}</span>}
               </button>
@@ -199,5 +249,99 @@ export function NoteMenu({ editor, x, y, linkItems, note, onNotice, onClose }: P
       )}
     </div>,
     document.body,
+  );
+}
+
+// Arriba del menú, el enlace: qué texto tiene y adónde lleva. Pulsarlo lo abre.
+function LinkCard({ hit, onOpen }: { hit: LinkHit; onOpen: () => void }) {
+  const web = hit.kind === 'web';
+  const note = splitWiki(hit.href);
+  const title = web ? hit.text.trim() || prettyHref(hit.href) : hit.text.trim() || note.note || hit.href;
+  const where = web ? prettyHref(hit.href) : note.section ? `${note.note} › ${note.section.replace(/^\^/, '')}` : t('Nota de tu biblioteca');
+  return (
+    <>
+      <button className="lmenu-card" onClick={onOpen} title={web ? hit.href : undefined} aria-label={`${web ? t('Abrir enlace') : t('Abrir nota')}: ${title}`}>
+        <span className={`lmenu-ic${web ? '' : ' is-note'}`} aria-hidden="true">
+          <NavIcon name={web ? 'globe' : 'page'} />
+        </span>
+        <span className="lmenu-txt">
+          <span className="lmenu-title">{title}</span>
+          <span className="lmenu-url">{where}</span>
+        </span>
+      </button>
+      <div className="bib-menu-sep" role="separator" />
+    </>
+  );
+}
+
+// El cuadro de editar un enlace: el texto que se ve y adónde lleva (una
+// dirección web o, en un [[enlace]], el nombre de la nota). Intro guarda y Esc
+// cierra sin tocar nada.
+function LinkForm({ hit, onBack, onCancel, onSave, onUnlink, onRaw }: { hit: LinkHit; onBack?: () => void; onCancel: () => void; onSave: (next: { text: string; href: string }) => void; onUnlink: () => void; onRaw: () => void }) {
+  const web = hit.kind === 'web';
+  const [text, setText] = useState(hit.text);
+  const [href, setHref] = useState(hit.href);
+  const hrefBox = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    // Lo que más se cambia es adónde lleva: el cursor empieza ahí, con todo elegido.
+    const box = hrefBox.current;
+    if (!box) return;
+    box.focus();
+    box.select();
+  }, []);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!web && !href.trim()) return;
+    onSave({ text, href });
+  };
+  const changed = text !== hit.text || href !== hit.href;
+  return (
+    <form className="lmenu-form" onSubmit={submit}>
+      <div className="lmenu-form-head">
+        {onBack ? (
+          <button type="button" className="lmenu-back" onClick={onBack} aria-label={t('Volver')}>
+            ‹
+          </button>
+        ) : (
+          <span className="lmenu-ic" aria-hidden="true">
+            <NavIcon name={web ? 'link' : 'page'} />
+          </span>
+        )}
+        <span>{web ? t('Editar enlace') : t('Editar enlace a nota')}</span>
+        <button type="button" className="lmenu-raw" onClick={onRaw} title={t('Editar como Markdown en el texto')}>
+          Markdown
+        </button>
+      </div>
+      <label className="lmenu-field">
+        <span>{web ? t('Dirección') : t('Nota')}</span>
+        <input
+          ref={hrefBox}
+          className="field"
+          value={href}
+          onChange={(e) => setHref(e.target.value)}
+          placeholder={web ? 'https://…' : t('Nombre de la nota')}
+          inputMode={web ? 'url' : undefined}
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+      </label>
+      <label className="lmenu-field">
+        <span>{t('Texto')}</span>
+        <input className="field" value={text} onChange={(e) => setText(e.target.value)} placeholder={web ? prettyHref(href) || t('Texto del enlace') : splitWiki(href).note || t('Texto del enlace')} />
+      </label>
+      <div className="lmenu-actions">
+        <button type="button" className="lmenu-unlink" onClick={onUnlink}>
+          <NavIcon name="unlink" />
+          {t('Quitar')}
+        </button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>
+          {t('Cancelar')}
+        </button>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={!changed || (!web && !href.trim())}>
+          {t('Guardar')}
+        </button>
+      </div>
+    </form>
   );
 }

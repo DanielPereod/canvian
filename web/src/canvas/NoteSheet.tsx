@@ -3,14 +3,14 @@ import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import { api, parseProps, type NoteInput, type NoteRow, type PropertyDef, type Share } from '../api';
 import { ShareDialog } from './ShareDialog';
-import { applyRemote, bodyToHtml, editingExtensions, extensions, joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from './editor';
+import { EDIT_LINK, applyRemote, bodyToHtml, editingExtensions, extensions, joinTitle, parseBody, splitTitle, titleBlock, titleFrom } from './editor';
 import { repairDoc, sourceOf, sourceToDoc } from './markdown';
 import { NoteProps } from './NoteProps';
 import { NoteCover } from './NoteCover';
 import { randomCover } from './cover';
 import { NO_TASKS, taskCount, tasksExcluded } from './tasks';
 import { MediaUpload, YouTubePaste, attachFiles } from './media';
-import { editLink, embedLink, embedOf, linkAt, unlink, type LinkHit } from './links';
+import { linkAt, type LinkHit } from './links';
 import { setNoteSource } from './embeds';
 import { SectionPicker, type SectionOption } from './SectionPicker';
 import { CanvasBoard } from './board/CanvasBoard';
@@ -198,7 +198,7 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between, 
   const [slash, setSlash] = useState<SlashQuery | null>(null);
   // Clic derecho (o mantener pulsado) en el texto: su menú, con lo del enlace
   // que haya debajo.
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; hit: LinkHit | null } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; hit: LinkHit | null; edit?: boolean } | null>(null);
   const menuAt = useRef(0);
   const slashKeys = useRef<(e: KeyboardEvent) => boolean>(() => false);
   const [slashExt] = useState(() => SlashSuggest.configure({ onChange: setSlash, onKey: (e) => slashKeys.current(e) }));
@@ -399,6 +399,24 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between, 
     }
     setCtxMenu({ x, y, hit });
   };
+  // Ctrl K (o el botón de enlace) sobre un enlace ya hecho: su cuadro de
+  // editar, debajo del enlace, en vez de quitarlo sin más.
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom;
+    const onEdit = (e: Event) => {
+      const { view } = editor;
+      const pos = view.state.selection.from;
+      const hit = [pos, pos - 1].map((p) => (p >= 0 ? linkAt(view.state, p) : null)).find(Boolean);
+      if (!hit) return;
+      e.preventDefault();
+      const at = view.coordsAtPos(hit.from);
+      setCtxMenu({ x: at.left, y: at.bottom + 6, hit, edit: true });
+    };
+    dom.addEventListener(EDIT_LINK, onEdit);
+    return () => dom.removeEventListener(EDIT_LINK, onEdit);
+  }, [editor]);
+
   // En el móvil (iPhone sobre todo, que no da clic derecho): mantener pulsado.
   useEffect(() => {
     if (!TOUCH || !editor) return;
@@ -581,8 +599,12 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between, 
           y={ctxMenu.y}
           note={{ id: note.id, title }}
           onNotice={onNotice}
-          onClose={() => setCtxMenu(null)}
-          linkItems={ctxMenu.hit ? linkItems(editor, ctxMenu.hit, (el) => openWiki(editor.view.dom, { target: el, preventDefault: () => {} } as unknown as MouseEvent)) : []}
+          onClose={() => {
+            // Abierto con el teclado (Ctrl K): el cursor vuelve al texto.
+            if (ctxMenu.edit) editor.commands.focus();
+            setCtxMenu(null);
+          }}
+          link={ctxMenu.hit ? { hit: ctxMenu.hit, edit: ctxMenu.edit, open: () => openHit(editor, ctxMenu.hit!, (el) => openWiki(editor.view.dom, { target: el, preventDefault: () => {} } as unknown as MouseEvent)) } : null}
         />
       )}
       {!source && editor && (
@@ -597,22 +619,11 @@ function SheetEditor({ note, onSave, onError, editorRef, wiki, source, between, 
   );
 }
 
-// Lo que se puede hacer con un enlace desde su menú (clic derecho).
-function linkItems(editor: Editor, hit: LinkHit, openNote: (el: HTMLElement) => void): SheetItem[] {
+// Abre el enlace del menú: la web en otra pestaña o la nota enlazada.
+function openHit(editor: Editor, hit: LinkHit, openNote: (el: HTMLElement) => void) {
   const { view } = editor;
-  const web = hit.kind === 'web';
-  const open = () => {
-    if (web) window.open(hit.href, '_blank', 'noopener,noreferrer');
-    else if (view.nodeDOM(hit.from) instanceof HTMLElement) openNote(view.nodeDOM(hit.from) as HTMLElement);
-  };
-  return [
-    { label: web ? t('Abrir enlace') : t('Abrir'), run: open },
-    { label: t('Editar'), run: () => editLink(view, hit) },
-    ...(embedOf(view.state, hit) ? [{ label: t('Ver incrustado'), run: () => embedLink(view, hit) }] : []),
-    ...(web ? [{ label: t('Copiar enlace'), run: () => void navigator.clipboard?.writeText(hit.href).catch(() => {}) }] : []),
-    null,
-    { label: t('Quitar enlace'), run: () => unlink(view, hit) },
-  ];
+  if (hit.kind === 'web') window.open(hit.href, '_blank', 'noopener,noreferrer');
+  else if (view.nodeDOM(hit.from) instanceof HTMLElement) openNote(view.nodeDOM(hit.from) as HTMLElement);
 }
 
 function openLink(e: MouseEvent, any = false) {

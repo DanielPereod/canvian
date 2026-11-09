@@ -69,8 +69,14 @@ export const extensions = [
 ];
 
 // Ctrl/⌘ K pone un enlace a lo seleccionado, o lo quita si ya lo es.
+// Sobre un enlace ya hecho, quien tenga el cuadro de editarlo (el lector de
+// notas) lo abre; si nadie lo atiende, el enlace se quita como antes.
+export const EDIT_LINK = 'canvian:edit-link';
 export function promptLink(ed: Editor) {
-  if (ed.isActive('link')) return ed.chain().focus().extendMarkRange('link').unsetLink().run();
+  if (ed.isActive('link')) {
+    if (!ed.view.dom.dispatchEvent(new Event(EDIT_LINK, { cancelable: true }))) return true;
+    return ed.chain().focus().extendMarkRange('link').unsetLink().run();
+  }
   // Como en Obsidian: entra «[texto]()» en Markdown. Sin selección, el cursor
   // queda para el texto; con ella, para la dirección. Al salir, es un enlace.
   const { from, to, empty } = ed.state.selection;

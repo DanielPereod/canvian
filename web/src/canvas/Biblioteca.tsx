@@ -217,6 +217,10 @@ const NAV_ICON: Record<string, ReactNode> = {
   select: <path d="M3 2.5l4 11 1.6-4.4L13 7.5z" />,
   star: <path d="M8 2.3l1.75 3.55 3.9.57-2.83 2.76.67 3.88L8 11.23l-3.49 1.83.67-3.88L2.35 6.42l3.9-.57z" />,
   attach: <path d="m12.5 7.5-4.8 4.8a2.8 2.8 0 0 1-4-4L8.8 3.2a1.9 1.9 0 0 1 2.7 2.7L6.6 10.8a.9.9 0 0 1-1.3-1.3L9.8 5" />,
+  // Los del menú de un enlace.
+  globe: <><circle cx="8" cy="8" r="5.5" /><path d="M2.5 8h11M8 2.5c1.6 1.6 2.3 3.5 2.3 5.5S9.6 11.9 8 13.5C6.4 11.9 5.7 10 5.7 8S6.4 4.1 8 2.5z" /></>,
+  unlink: <path d="M7 9a2.5 2.5 0 0 0 3.5 0l2-2A2.5 2.5 0 0 0 9 3.5l-.7.7M9 7a2.5 2.5 0 0 0-3.5 0l-2 2A2.5 2.5 0 0 0 7 12.5l.7-.7M2.5 2.5l11 11" />,
+  embed: <><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="m7 6.3 2.8 1.7L7 9.7z" /></>,
 };
 export const NavIcon = ({ name }: { name: string }) => (
   <svg className="bib-it-ic" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
@@ -584,17 +588,19 @@ type MenuProps = {
 
 // Lo común a los menús con clic derecho: dentro de la ventana, el foco en el
 // primer botón, ↑↓ entre ellos y se cierra con Esc o al pulsar fuera.
-export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: number, y: number, onClose: () => void) {
+// `view`: cambia cuando el menú enseña otra cosa (otro tamaño) y hay que volver a encajarlo.
+export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: number, y: number, onClose: () => void, view?: unknown) {
   const [spot, setSpot] = useState({ x, y });
   const buttons = () => [...(ref.current?.querySelectorAll<HTMLButtonElement>('button') ?? [])];
 
-  // Dentro de la ventana siempre, aunque se abra junto al borde.
+  // Dentro de la ventana siempre, aunque se abra junto al borde. Con su tamaño
+  // de verdad (offsetWidth), no el de la animación de entrada, que lo encoge.
   useLayoutEffect(() => {
-    const box = ref.current?.getBoundingClientRect();
-    if (!box) return;
-    setSpot({ x: Math.max(8, Math.min(x, innerWidth - box.width - 8)), y: Math.max(8, Math.min(y, innerHeight - box.height - 8)) });
+    const el = ref.current;
+    if (!el) return;
+    setSpot({ x: Math.max(8, Math.min(x, innerWidth - el.offsetWidth - 8)), y: Math.max(8, Math.min(y, innerHeight - el.offsetHeight - 8)) });
     buttons()[0]?.focus();
-  }, [x, y]);
+  }, [x, y, view]);
 
   useEffect(() => {
     // El selector de color se abre fuera del menú (encima de todo), pero es parte de él.
@@ -602,6 +608,8 @@ export function useContextMenu(ref: React.RefObject<HTMLDivElement | null>, x: n
     const onKey = (e: KeyboardEvent) => {
       const list = buttons();
       const at = list.indexOf(document.activeElement as HTMLButtonElement);
+      // En un campo del menú (p. ej. al editar un enlace) las flechas mueven el cursor.
+      if (e.key !== 'Escape' && (e.target as Element | null)?.closest?.('input, textarea')) return;
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowDown') list[(at + 1) % list.length]?.focus();
       else if (e.key === 'ArrowUp') list[(at - 1 + list.length) % list.length]?.focus();

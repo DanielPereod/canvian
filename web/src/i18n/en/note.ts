@@ -153,4 +153,12 @@ export const EN_NOTE: Record<string, string> = {
   'Quitar de esta nota': 'Remove from this note',
   'Borrar propiedad': 'Delete property',
   '¿Borrarla de todas las notas?': 'Delete it from every note?',
+  // Menú y cuadro de editar un enlace
+  'Editar enlace…': 'Edit link…',
+  'Editar enlace': 'Edit link',
+  'Editar enlace a nota': 'Edit note link',
+  'Editar como Markdown en el texto': 'Edit as Markdown in the text',
+  'Dirección': 'URL',
+  'Texto del enlace': 'Link text',
+  'Nota de tu biblioteca': 'Note in your library',
 };
