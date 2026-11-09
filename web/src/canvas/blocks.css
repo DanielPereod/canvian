@@ -225,6 +225,42 @@ button.note-callout-head:hover { background: color-mix(in oklab, var(--c) 14%, t
 .nmenu-fmt mark { background: var(--accent-soft); color: inherit; padding: 0 2px; border-radius: 2px; }
 .nmenu .blk-kind-i { display: inline-block; width: 24px; color: var(--text-faint); }
 
+/* El enlace en el menú del texto: arriba, una ficha con su texto y adónde
+   lleva; «Editar enlace…» abre en el mismo menú el cuadro para cambiarlo. */
+.lmenu-card { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 7px 9px; border: 0; border-radius: var(--radius-xs); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.lmenu-card:hover, .lmenu-card:focus-visible { background: var(--bib-sel, var(--surface-hover)); outline: none; }
+.lmenu-ic { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-xs); background: var(--accent-soft); color: var(--accent-ink); }
+.lmenu-ic .bib-it-ic { color: inherit; }
+.lmenu-ic.is-note { background: var(--surface-hover); color: var(--text-muted); }
+.lmenu-txt { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.lmenu-title, .lmenu-url { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.lmenu-title { font-weight: var(--weight-medium); }
+.lmenu-url { font-size: var(--text-xs); color: var(--text-faint); }
+
+.nmenu.is-editing { width: min(320px, calc(100vw - 16px)); max-width: none; padding: 10px 12px 12px; }
+.lmenu-form { display: flex; flex-direction: column; gap: 10px; }
+.lmenu-form-head { display: flex; align-items: center; gap: 8px; font-weight: var(--weight-medium); }
+.lmenu-form-head .lmenu-ic { width: 24px; height: 24px; }
+.lmenu-back { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 0; border-radius: var(--radius-xs); background: none; color: var(--text-muted); font: inherit; font-size: var(--text-lg); cursor: pointer; }
+.lmenu-back:hover, .lmenu-back:focus-visible { background: var(--surface-hover); color: var(--text); outline: none; }
+.lmenu-raw { margin-left: auto; padding: 2px 6px; border: 0; border-radius: var(--radius-xs); background: none; color: var(--text-faint); font: inherit; font-size: var(--text-xs); cursor: pointer; }
+.lmenu-raw:hover, .lmenu-raw:focus-visible { background: var(--surface-hover); color: var(--text); outline: none; }
+.lmenu-field { display: flex; flex-direction: column; gap: 4px; }
+.lmenu-field > span { font-size: var(--text-xs); color: var(--text-faint); }
+.lmenu-field .field { min-height: 34px; padding: 0 var(--space-3); border-radius: var(--radius-sm); font: inherit; color: var(--text); }
+.lmenu-actions { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.lmenu-actions .btn-ghost { margin-left: auto; }
+.lmenu-unlink { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 8px 0 6px; border: 0; border-radius: var(--radius-xs); background: none; color: var(--text-muted); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.lmenu-unlink .bib-it-ic { color: inherit; }
+.lmenu-unlink:hover, .lmenu-unlink:focus-visible { background: color-mix(in oklab, var(--danger) 12%, transparent); color: color-mix(in oklab, var(--danger) 80%, var(--text)); outline: none; }
+@media (hover: none) and (pointer: coarse) {
+  .lmenu-card { padding: 10px 9px; }
+  .lmenu-ic { width: 34px; height: 34px; }
+  /* 16 px o más: así el iPhone no amplía la página al tocar el campo. */
+  .lmenu-field .field { min-height: 44px; font-size: max(16px, var(--text-ui)); }
+  .lmenu-actions .btn-sm, .lmenu-unlink { min-height: 40px; }
+}
+
 /* Varios bloques señalados a la vez: se resaltan enteros, sin el subrayado del texto. */
 .sheet-prose .is-block-sel { background: var(--accent-soft); border-radius: var(--radius-xs); }
 .sheet-prose.has-block-sel ::selection { background: transparent; }
