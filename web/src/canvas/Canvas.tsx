@@ -1254,7 +1254,10 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
           )}
         </>
       )}
-      <div className="home-layer">
+      {/* Con una pantalla entera encima (tareas, Diario, bases de datos o una nota),
+          la biblioteca o el grafo de debajo se esconden: si no, al pasar de una
+          pantalla a otra se verían un instante mientras la nueva aparece. */}
+      <div className={`home-layer${tasksOpen || diaryOpen || dbOpen || bibView === 'note' ? ' is-covered' : ''}`}>
       {loaded && bibLayout !== 'nodos' && (
         <Library
           rows={rows}

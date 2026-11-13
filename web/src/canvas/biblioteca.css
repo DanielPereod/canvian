@@ -145,6 +145,10 @@
   z-index: 1;
 }
 .canvas.is-bib > .home-layer { overflow: hidden; }
+/* Tapada por otra pantalla: se esconde cuando la de encima ya ha entrado (el
+   retraso deja que la primera aparezca sobre la biblioteca, como siempre), y así
+   al saltar entre pantallas no asoma el grafo mientras entra la siguiente. */
+.canvas.is-bib > .home-layer.is-covered { visibility: hidden; transition: visibility 0s 260ms; }
 .canvas.is-bib > .sheet { z-index: 3; background: var(--bg); box-shadow: none; }
 .canvas.is-bib > .tasks-view { z-index: 2; background: var(--bg); animation: bib-in 260ms var(--ease-out) both; }
 .canvas.is-bib .lantern { left: calc(var(--bib-w) + 50%); }
