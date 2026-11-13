@@ -15,6 +15,7 @@ import {
   getBezierPath,
   useInternalNode,
   useReactFlow,
+  useStoreApi,
   ViewportPortal,
   type Connection,
   type Edge,
@@ -400,6 +401,7 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
   const [edges, setEdges] = useState<Edge[]>(initial.edges);
   const [drawings, setDrawings] = useState<Drawing[]>(initialBoard.drawings ?? []);
   const flow = useReactFlow();
+  const store = useStoreApi();
   const host = useRef<HTMLDivElement>(null);
   const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
 
@@ -816,7 +818,38 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
     setErasing(erasingRef.current);
   };
 
+  // Con el recuadro, un dedo dibuja el recuadro: React Flow no deja que lo
+  // mueva (con el dedo, sus botones permitidos no cuentan y movería el lienzo).
+  // Aquí se llevan el botón central y los dos dedos, que mueven y acercan.
+  const onBoxDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('.draw-ui, .board-tools, .board-nav')) return;
+    if (e.pointerType === 'mouse') {
+      if (e.button !== 1) return;
+      e.stopPropagation();
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      pan.current = { pointer: e.pointerId, vp: flow.getViewport(), x: e.clientX, y: e.clientY };
+      return;
+    }
+    if (e.pointerType !== 'touch') return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size < 2) return;
+    // El segundo dedo: se deja el recuadro empezado y se mueve el lienzo.
+    e.stopPropagation();
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    boxFrom.current = null;
+    if (store.getState().userSelectionRect) {
+      store.setState({ userSelectionRect: null, userSelectionActive: false });
+      store.getState().resetSelectedElements();
+    }
+    const [a, b] = [...pointers.current.values()];
+    pinch.current = { vp: flow.getViewport(), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)) };
+  };
+
   const onDrawDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (tool === 'box') return onBoxDown(e);
     if (!drawing) return;
     const target = e.target as HTMLElement;
     if (target.closest('.draw-ui, .board-tools, .board-nav, .draw-textarea')) return;
@@ -1301,9 +1334,10 @@ function Inner({ note, rows, onSave, onOpenNote, onPickNote, onError }: Props) {
         nodesDraggable={!drawing}
         nodesConnectable={!drawing}
         elementsSelectable={!drawing}
-        // Con el recuadro, arrastrar en el vacío elige; el lienzo se mueve con
-        // la rueda, con dos dedos o con el botón central.
-        panOnDrag={drawing ? false : tool === 'box' ? [1] : true}
+        // Con el recuadro, arrastrar en el vacío elige (también con el dedo); el
+        // lienzo se mueve con la rueda, con dos dedos o con el botón central, y
+        // eso lo lleva la capa de dibujo.
+        panOnDrag={drawing || tool === 'box' ? false : true}
         selectionOnDrag={tool === 'box'}
         selectionMode={SelectionMode.Full}
         // Mayúsculas (o Ctrl/⌘) y clic suma o quita una tarjeta de lo elegido;
