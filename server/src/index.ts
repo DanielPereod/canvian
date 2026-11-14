@@ -22,8 +22,13 @@ const app = createApp(db, { mediaDir });
 
 // serveStatic espera una ruta relativa al directorio de trabajo.
 const root = relative(process.cwd(), webDir) || '.';
-app.use('/*', serveStatic({ root }));
-app.get('*', serveStatic({ path: join(root, 'index.html') }));
+// La página se pide siempre de nuevo (si no, el navegador o la app de Android
+// pueden seguir horas con la versión vieja tras actualizar); lo de /assets
+// lleva el hash en el nombre y no cambia nunca.
+const onFound = (path: string, c: { header: (name: string, value: string) => void }) =>
+  c.header('Cache-Control', /[\\/]assets[\\/]/.test(path) ? 'public, max-age=31536000, immutable' : 'no-cache');
+app.use('/*', serveStatic({ root, onFound }));
+app.get('*', serveStatic({ path: join(root, 'index.html'), onFound }));
 
 serve({ fetch: app.fetch, port }, () => {
   console.log(`Canvian escuchando en http://0.0.0.0:${port} (base de datos: ${dbPath})`);
