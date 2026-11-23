@@ -30,7 +30,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { createMcpServer } from './mcp/server.js';
 import { createMcpToken, isMcpToken, mcpStatus, revokeMcpToken, setMcpPublicUrl } from './mcp/token.js';
 import { koreaderRoutes, koreaderSettingsRoutes } from './koreader/routes.js';
-import { extensionRoutes, extensionSettingsRoutes } from './extension/routes.js';
+import { extensionRoutes, extensionSettingsRoutes, setActiveProfile } from './extension/routes.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -178,6 +178,13 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
     }
     const res = db.delete(profiles).where(eq(profiles.id, c.req.param('id'))).run();
     return res.changes ? c.body(null, 204) : c.json({ error: 'Perfil no encontrado' }, 404);
+  });
+
+  // El perfil abierto en la web, para que la extensión del navegador use el mismo.
+  api.put('/profiles/:id/active', (c) => {
+    if (!db.select().from(profiles).where(eq(profiles.id, c.req.param('id'))).get()) return c.json({ error: 'Perfil no encontrado' }, 404);
+    setActiveProfile(db, c.req.param('id'));
+    return c.body(null, 204);
   });
 
   api.get('/profiles/:id/viewport', (c) => {

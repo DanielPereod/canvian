@@ -124,6 +124,16 @@ describe('browser extension', () => {
     const after = (await (await ext('GET', `/thread?profile=${profileId}&thread=AAQkThread1`)).json()).tasks;
     expect(after[0]).toMatchObject({ text: 'Revisar contrato', status: 'done' });
 
+    // La vista general: un hilo (dos ids, mismo asunto) con sus dos tareas.
+    const overview = (await (await ext('GET', `/overview?profile=${profileId}`)).json()).threads;
+    expect(overview).toHaveLength(1);
+    expect(overview[0]).toMatchObject({ subject: 'Contrato de obra', subjectKey: 'contrato de obra', counts: { total: 2, open: 1, done: 1 } });
+    expect(overview[0].threads).toEqual(['AAQkThread1']);
+    expect(overview[0].tasks.map((t: { text: string }) => t.text)).toEqual(['Revisar contrato', 'Mandar presupuesto']);
+    // Y la web la ve en el lienzo, para enseñar el hilo en la casilla.
+    const canvas = await (await call('GET', `/api/profiles/${profileId}/canvas`)).json();
+    expect(canvas.mailLinks).toContainEqual({ noteId: clip.id, blockId, subject: 'Contrato de obra', url: thread.url });
+
     // Quitar el vínculo deja la tarea.
     expect((await ext('DELETE', `/link/${after[0].linkId}`)).status).toBe(204);
     expect((await (await ext('GET', `/thread?profile=${profileId}&thread=AAQkThread1`)).json()).tasks).toHaveLength(1);
@@ -148,6 +158,19 @@ describe('browser extension', () => {
     expect(files['canvian-extension/config.js'].toString()).toContain('"url":"https://notas.example.net"');
     const manifest = JSON.parse(files['canvian-extension/manifest.json'].toString());
     expect(manifest.host_permissions).toEqual(['https://notas.example.net/*']);
+  });
+
+  it('uses the profile open in the web unless told otherwise', async () => {
+    const profiles = (await (await call('GET', '/api/profiles')).json()) as { id: string; name: string }[];
+    const trabajo = profiles.find((p) => p.name === 'Trabajo')!;
+    expect((await (await ext('GET', '/profiles')).json()).active).toBe(profileId);
+    expect((await call('PUT', `/api/profiles/${trabajo.id}/active`)).status).toBe(204);
+    expect((await (await ext('GET', '/profiles')).json()).active).toBe(trabajo.id);
+    const clip = await (await ext('POST', '/clip', { title: 'En el trabajo', markdown: '' })).json();
+    expect(clip.open).toContain(`/#nota/${trabajo.id}/`);
+    // Con perfil en la llamada, ese.
+    const mine = await (await ext('POST', '/clip', { profile: profileId, title: 'En casa', markdown: '' })).json();
+    expect(mine.open).toContain(`/#nota/${profileId}/`);
   });
 
   it('normalizes subjects', () => {

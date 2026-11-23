@@ -77,6 +77,10 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   );
 
   const active = profiles.find((p) => p.id === activeId) ?? profiles[0];
+  // El servidor sabe cuál está abierto: la extensión del navegador usa el mismo.
+  useEffect(() => {
+    if (active) api.setActiveProfile(active.id).catch(() => {});
+  }, [active?.id]);
 
   // Cada perfil puede tener su propio tema.
   useEffect(() => {

@@ -18,6 +18,7 @@ let lastOpen = null;
 let tab = null;
 
 const folderKey = (profile) => `folder:${profile ?? 'default'}`;
+let profileId = null; // el perfil en uso: el elegido o el abierto en Canvian
 
 async function extract(wanted) {
   if (!tab?.id || !/^(https?|file):/.test(tab.url ?? '')) {
@@ -115,11 +116,10 @@ async function pickFolder(id) {
   folder = id;
   $('folder-pop').hidden = true;
   renderFolderLabel();
-  const { profile } = await getConfig();
-  await chrome.storage.local.set({ [folderKey(profile)]: id });
+  await chrome.storage.local.set({ [folderKey(profileId)]: id });
 }
 async function loadFolders() {
-  const { profile } = await getConfig();
+  const profile = profileId;
   const res = await api('/folders');
   folders = res.folders;
   clipsName = res.clips;
@@ -177,18 +177,22 @@ async function start() {
     return;
   }
   let profiles;
+  let active;
   try {
-    profiles = (await api('/profiles')).profiles;
+    ({ profiles, active } = await api('/profiles'));
   } catch (e) {
     $('setup-error').textContent = e.message;
     show('setup');
     return;
   }
   const sel = $('profile');
+  const activeName = profiles.find((p) => p.id === active)?.name ?? '';
+  sel.append(new Option(`${activeName} · el de Canvian`, ''));
   for (const p of profiles) sel.append(new Option(p.name, p.id));
-  sel.value = profiles.some((p) => p.id === cfg.profile) ? cfg.profile : profiles[0]?.id;
+  const chosen = profiles.some((p) => p.id === cfg.profile) ? cfg.profile : '';
+  sel.value = chosen;
   sel.hidden = profiles.length < 2;
-  if (!cfg.profile && profiles[0]) await setConfig({ profile: profiles[0].id });
+  profileId = chosen || active;
 
   const { lastTags } = await chrome.storage.local.get('lastTags');
   $('tags').value = lastTags ?? 'recorte';
@@ -238,7 +242,8 @@ $('folder-q').addEventListener('keydown', (e) => {
   }
 });
 $('profile').addEventListener('change', async (e) => {
-  await setConfig({ profile: e.target.value });
+  await setConfig({ profile: e.target.value || null });
+  profileId = e.target.value || (await api('/profiles')).active;
   await Promise.all([loadFolders(), refreshStyle()]);
 });
 $('settings').addEventListener('click', () => chrome.runtime.openOptionsPage());

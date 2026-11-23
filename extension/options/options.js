@@ -5,12 +5,13 @@ const $ = (id) => document.getElementById(id);
 
 async function showProfiles() {
   const { profile } = await getConfig();
-  const { profiles } = await api('/profiles');
+  const { profiles, active } = await api('/profiles');
   const sel = $('profile');
   sel.textContent = '';
+  const activeName = profiles.find((p) => p.id === active)?.name ?? '';
+  sel.append(new Option(`El que tengas abierto en Canvian (ahora ${activeName})`, ''));
   for (const p of profiles) sel.append(new Option(p.name, p.id));
-  sel.value = profiles.some((p) => p.id === profile) ? profile : profiles[0]?.id;
-  if (!profile && profiles[0]) await setConfig({ profile: profiles[0].id });
+  sel.value = profiles.some((p) => p.id === profile) ? profile : '';
   $('profile-box').hidden = false;
   return profiles;
 }
@@ -60,7 +61,7 @@ $('save').addEventListener('click', async () => {
 });
 
 $('profile').addEventListener('change', async (e) => {
-  await setConfig({ profile: e.target.value });
+  await setConfig({ profile: e.target.value || null });
   refreshStyle();
 });
 

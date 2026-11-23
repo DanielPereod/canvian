@@ -18,11 +18,22 @@
           <div class="cp-kicker"><span class="cx-dot"></span>Canvian · tareas del hilo</div>
           <div class="cp-subject cx-brand"></div>
         </div>
+        <button class="cx-quiet cp-view" type="button" title="Todos los hilos con tareas" aria-label="Todos los hilos con tareas">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>
+        </button>
         <button class="cx-quiet cp-x" title="Cerrar" aria-label="Cerrar">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </header>
       <div class="cp-msg" hidden></div>
+      <div class="cp-all" hidden>
+        <div class="cp-all-bar">
+          <input class="cx-field cp-all-q" placeholder="Filtrar hilos o tareas…" />
+          <label class="cp-all-done"><input type="checkbox" class="cp-show-done" /> Hechos</label>
+        </div>
+        <ul class="cp-threads"></ul>
+      </div>
+      <div class="cp-one">
       <ul class="cp-tasks"></ul>
 
       <form class="cp-add">
@@ -49,6 +60,7 @@
           <input class="cx-field cp-q" placeholder="Buscar en tus tareas…" />
           <ul class="cp-results"></ul>
         </div>
+      </div>
       </div>
     </section>
   </div>

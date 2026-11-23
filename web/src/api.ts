@@ -65,6 +65,7 @@ export type PropertyDef = {
 
 export type Lens = { id: string; profileId: string; name: string; query: string; mode: string; slot: number | null };
 
+export type MailLinkRow = { noteId: string; blockId: string; subject: string | null; url: string | null };
 export type EdgeRow = {
   id: string;
   profileId: string;
@@ -190,13 +191,14 @@ export const api = {
   login: (password: string) => request('POST', '/auth/login', { password }),
   logout: () => request('POST', '/auth/logout'),
   profiles: () => request<Profile[]>('GET', '/profiles'),
+  setActiveProfile: (id: string) => request('PUT', `/profiles/${id}/active`),
   createProfile: (name: string) => request<Profile>('POST', '/profiles', { name }),
   updateProfile: (id: string, patch: Partial<Pick<Profile, 'name' | 'color'>>) =>
     request<Profile>('PATCH', `/profiles/${id}`, patch),
   getViewport: (id: string) => request<Viewport>('GET', `/profiles/${id}/viewport`),
   saveViewport: (id: string, v: Viewport) => request('PUT', `/profiles/${id}/viewport`, v),
   canvas: (profileId: string) =>
-    request<{ notes: NoteRow[]; edges: EdgeRow[] }>('GET', `/profiles/${profileId}/canvas`),
+    request<{ notes: NoteRow[]; edges: EdgeRow[]; mailLinks?: MailLinkRow[] }>('GET', `/profiles/${profileId}/canvas`),
   createNote: (profileId: string, note: NoteInput & { id: string; x: number; y: number }) =>
     request<NoteRow>('POST', `/profiles/${profileId}/notes`, note),
   patchNote: (id: string, patch: NoteInput) =>

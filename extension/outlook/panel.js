@@ -39,6 +39,7 @@ const ICON = {
   cal: ['M4 6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z', 'M4 10h16M8 3v4M16 3v4'],
   flag: ['M5 21V4M5 4h11l-2 4 2 4H5'],
   note: ['M6 3h9l4 4v14H6z', 'M15 3v4h4'],
+  mail: ['M3.5 6.5a1 1 0 0 1 1-1h15a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z', 'M4 7l8 6 8-6'],
 };
 
 let parentOrigin = null;
@@ -48,6 +49,9 @@ let today = new Date().toISOString().slice(0, 10);
 let open = false;
 let folders = null;
 let loadSeq = 0;
+// Todos los hilos con tareas (la vista general y los distintivos de la bandeja).
+let overview = [];
+let view = 'thread'; // o 'all'
 
 // ── Con Outlook (la página de fuera) ─────────────────────────────────
 
@@ -55,27 +59,36 @@ let loadSeq = 0;
 // Chrome le pinta un fondo opaco.
 const tell = (msg) => parentOrigin && parent.postMessage({ source: 'canvian-panel', tone: document.documentElement.dataset.tone ?? 'light', ...msg }, parentOrigin);
 new MutationObserver(() => tell({ type: 'tone' })).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tone'] });
-const sizeObserver = new ResizeObserver(() => {
+// Con lo que mide y si hay algo que ver (sin nada, el iframe no tapa Outlook).
+const reportSize = () => {
   const r = $('#frame').getBoundingClientRect();
-  tell({ type: 'size', width: Math.ceil(r.width), height: Math.ceil(r.height) });
-});
+  tell({ type: 'size', width: Math.ceil(r.width), height: Math.ceil(r.height), shown: !($('.cp-launch').hidden && $('.cp-panel').hidden) });
+};
+const sizeObserver = new ResizeObserver(reportSize);
 sizeObserver.observe($('#frame'));
 
 window.addEventListener('message', (e) => {
   if (e.source !== parent || !OUTLOOK.test(e.origin) || e.data?.source !== 'canvian-outlook') return;
+  const first = !parentOrigin;
   parentOrigin = e.origin;
+  if (first) sendBadges();
   if (e.data.type === 'thread') {
     const next = e.data.thread;
     const same = next?.thread === current?.thread && next?.subject === current?.subject;
     current = next;
     if (!same) {
       tasks = [];
+      // Al abrir otro correo (también desde la vista general), se pasa a ese hilo.
+      if (current) view = 'thread';
       render();
       if (current) loadThread();
     }
-    tell({ type: 'size', width: Math.ceil($('#frame').getBoundingClientRect().width), height: Math.ceil($('#frame').getBoundingClientRect().height) });
+    reportSize();
   }
-  if (e.data.type === 'visible') loadThread();
+  if (e.data.type === 'visible') {
+    loadThread();
+    loadOverview();
+  }
   // El alto de la ventana de Outlook: hasta ahí puede crecer el panel.
   if (typeof e.data.height === 'number') document.documentElement.style.setProperty('--host-h', `${e.data.height}px`);
 });
@@ -125,7 +138,7 @@ function iconButton(icon, title, onClick, cls = '') {
   return b;
 }
 
-function taskRow(t, { linked }) {
+function taskRow(t, { linked, unlinkable = linked }) {
   const li = el('li', `cp-task${t.status ? ` cp-${t.status}` : ''}${t.missing ? ' cp-missing' : ''}`);
   const body = el('div', 'cp-body');
   if (t.missing) {
@@ -173,7 +186,7 @@ function taskRow(t, { linked }) {
         iconButton('open', 'Abrir en Canvian', () => chrome.tabs.create({ url: t.open })),
       );
     }
-    acts.append(iconButton('unlink', 'Desvincular del hilo (la tarea sigue en Canvian)', () => unlink(t)));
+    if (unlinkable) acts.append(iconButton('unlink', 'Desvincular del hilo (la tarea sigue en Canvian)', () => unlink(t)));
   } else {
     const pick = el('button', 'cx-quiet cp-pick', 'Vincular');
     pick.type = 'button';
@@ -186,12 +199,25 @@ function taskRow(t, { linked }) {
 
 function render() {
   const has = !!current;
+  const all = view === 'all' || !has;
   const pending = tasks.filter((t) => !t.missing && t.status !== 'done').length;
-  $('.cp-launch').hidden = !has || open;
-  $('.cp-panel').hidden = !has || !open;
-  $('.cp-count').textContent = tasks.length ? `${pending}/${tasks.length}` : '';
-  $('.cp-count').hidden = !tasks.length;
-  if (!has) return;
+  const busy = overview.filter((g) => g.counts.open).length;
+  // Sin correo abierto, el botón lleva a la vista general (si hay algo que ver).
+  const any = has || overview.length > 0;
+  $('.cp-launch').hidden = !any || open;
+  $('.cp-panel').hidden = !any || !open;
+  $('.cp-lbl').textContent = has ? 'Tareas' : 'Tareas de correo';
+  $('.cp-count').textContent = has ? (tasks.length ? `${pending}/${tasks.length}` : '') : busy ? String(busy) : '';
+  $('.cp-count').hidden = !$('.cp-count').textContent;
+  $('.cp-launch').title = has ? 'Tareas de este hilo' : `${busy} ${busy === 1 ? 'hilo' : 'hilos'} con tareas pendientes`;
+  $('.cp-all').hidden = !all;
+  $('.cp-one').hidden = all;
+  $('.cp-view').hidden = !has;
+  $('.cp-view').setAttribute('aria-pressed', String(all));
+  $('.cp-view').title = all ? 'Volver a este hilo' : 'Todos los hilos con tareas';
+  $('.cp-kicker').lastChild.textContent = all ? 'Canvian · tareas de tus correos' : 'Canvian · tareas del hilo';
+  reportSize();
+  if (all) return renderAll();
   $('.cp-subject').textContent = current.subject || 'Hilo sin asunto';
   $('.cp-subject').title = current.subject || '';
   const list = $('.cp-tasks');
@@ -205,12 +231,102 @@ function render() {
 const setOpen = (v) => {
   open = v;
   chrome.storage.local.set({ outlookOpen: v });
+  if (v && !current) view = 'all';
   render();
-  if (v) {
+  if (v && current && view === 'thread') {
     loadFolders();
     $('input.cp-text').focus();
   }
 };
+
+// ── La vista general ─────────────────────────────────────────────────
+
+// Lo mismo que subjectKey() en el servidor: sin «RE:», «RV:», [EXTERNAL]…
+function subjectKey(subject) {
+  let s = (subject ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const prefix = /^\s*(?:\[[^\]]{1,30}\]\s*)?(?:re|rv|fw|fwd|tr|aw|wg|sv|vs|res|enc|r)\s*(?:\[\d+\])?\s*:\s*/i;
+  for (let i = 0; i < 10 && prefix.test(s); i++) s = s.replace(prefix, '');
+  s = s.replace(/^\s*\[[^\]]{1,30}\]\s*/, '').replace(/\s+/g, ' ').trim();
+  return s || null;
+}
+
+// Cómo va un hilo, en una palabra (lo mismo en la vista general y en la bandeja).
+function threadState(c) {
+  if (!c.open) return { tone: 'done', label: c.total === 1 ? 'Hecha' : `${c.total} hechas` };
+  if (c.late) return { tone: 'late', label: c.late === 1 ? '1 atrasada' : `${c.late} atrasadas` };
+  if (c.blocked) return { tone: 'blocked', label: c.blocked === 1 ? 'Bloqueada' : `${c.blocked} bloqueadas` };
+  if (c.doing) return { tone: 'doing', label: c.open === 1 ? 'En curso' : `En curso · ${c.open}` };
+  return { tone: 'todo', label: c.open === 1 ? '1 pendiente' : `${c.open} pendientes` };
+}
+const isCurrent = (g) => !!current && (g.threads.includes(current.thread) || (!!g.subjectKey && g.subjectKey === subjectKey(current.subject)));
+
+function renderAll() {
+  const busy = overview.filter((g) => g.counts.open).length;
+  $('.cp-subject').textContent = overview.length ? `${busy} ${busy === 1 ? 'hilo' : 'hilos'} con tareas pendientes` : 'Ningún hilo con tareas';
+  $('.cp-subject').title = '';
+  const list = $('.cp-threads');
+  list.textContent = '';
+  const fold = (x) => (x ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const words = fold($('.cp-all-q').value).split(/\s+/).filter(Boolean);
+  const showDone = $('.cp-show-done').checked;
+  const shown = overview.filter((g) => (showDone || g.counts.open) && words.every((w) => fold(`${g.subject} ${g.tasks.map((t) => t.text).join(' ')}`).includes(w)));
+  if (!shown.length) {
+    list.append(el('li', 'cp-empty', overview.length ? 'Nada con ese filtro.' : 'Aún no hay tareas vinculadas a correos. Abre un correo y crea o vincula una desde aquí.'));
+    return;
+  }
+  const order = { doing: 0, blocked: 1, todo: 2, done: 3 };
+  for (const g of shown) {
+    const li = el('li', `cp-thread${isCurrent(g) ? ' is-current' : ''}`);
+    const head = el('button', 'cp-thread-head');
+    head.type = 'button';
+    head.title = g.url ? `Abrir el correo: ${g.subject ?? ''}` : g.subject ?? '';
+    const st = threadState(g.counts);
+    head.append(svg(ICON.mail, 14), el('span', 'cp-thread-subj', g.subject || 'Hilo sin asunto'), el('span', `cp-badge is-${st.tone}`, st.label));
+    head.addEventListener('click', () => {
+      if (isCurrent(g)) {
+        view = 'thread';
+        return render();
+      }
+      if (!g.url) return;
+      tell({ type: 'go', url: g.url, threads: g.threads });
+    });
+    li.append(head);
+    const ul = el('ul');
+    const items = g.tasks.filter((t) => showDone || t.status !== 'done' || !g.counts.open);
+    for (const t of [...items].sort((a, b) => (order[a.status] ?? 4) - (order[b.status] ?? 4))) ul.append(taskRow(t, { linked: true, unlinkable: false }));
+    li.append(ul);
+    list.append(li);
+  }
+}
+
+// Los distintivos de la bandeja: a outlook.js, que los pone en cada fila.
+function sendBadges() {
+  tell({
+    type: 'badges',
+    threads: overview.map((g) => ({
+      ids: g.threads,
+      subjectKey: g.subjectKey,
+      ...threadState(g.counts),
+      tip: g.tasks.map((t) => `${t.status === 'done' ? '✓' : t.status === 'doing' ? '◐' : t.status === 'blocked' ? '⊘' : '○'} ${t.text}${t.due && t.status !== 'done' ? ` · ${dayLabel(t.due)}` : ''}`).join('\n'),
+    })),
+  });
+}
+
+let overviewSeq = 0;
+async function loadOverview() {
+  const seq = ++overviewSeq;
+  try {
+    const res = await api('/overview');
+    if (seq !== overviewSeq) return;
+    overview = res.threads;
+    today = res.today;
+  } catch {
+    if (seq !== overviewSeq) return;
+    overview = [];
+  }
+  sendBadges();
+  render();
+}
 
 // ── Datos ────────────────────────────────────────────────────────────
 
@@ -257,6 +373,7 @@ async function changeStatus(t, status) {
     message(e.message);
   }
   loadThread();
+  loadOverview();
 }
 
 async function unlink(t) {
@@ -268,6 +385,7 @@ async function unlink(t) {
     message(e.message);
   }
   loadThread();
+  loadOverview();
 }
 
 async function linkTask(t) {
@@ -278,6 +396,7 @@ async function linkTask(t) {
     $('.cp-q').value = '';
     message(null);
     render();
+    loadOverview();
   } catch (e) {
     message(e.message);
   }
@@ -302,6 +421,7 @@ $('.cp-add').addEventListener('submit', async (e) => {
     $('select.cp-prio').value = 'none';
     message(null);
     render();
+    loadOverview();
   } catch (err) {
     message(err.message);
   } finally {
@@ -337,6 +457,13 @@ $('.cp-q').addEventListener('input', () => {
 });
 $('.cp-launch').addEventListener('click', () => setOpen(true));
 $('.cp-x').addEventListener('click', () => setOpen(false));
+$('.cp-view').addEventListener('click', () => {
+  view = view === 'all' ? 'thread' : 'all';
+  render();
+  if (view === 'thread') loadFolders();
+});
+$('.cp-all-q').addEventListener('input', () => render());
+$('.cp-show-done').addEventListener('change', () => render());
 document.addEventListener('keydown', (e) => e.key === 'Escape' && open && setOpen(false));
 
 (async () => {
@@ -346,4 +473,7 @@ document.addEventListener('keydown', (e) => e.key === 'Escape' && open && setOpe
   render();
   // Aún sin saber quién es la página de fuera: «listo» no lleva datos.
   parent.postMessage({ source: 'canvian-panel', type: 'ready' }, '*');
+  loadOverview();
+  // Lo que se cambie en Canvian llega a la bandeja sin recargar.
+  setInterval(() => document.visibilityState === 'visible' && loadOverview(), 60_000);
 })();
