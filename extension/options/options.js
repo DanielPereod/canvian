@@ -1,4 +1,5 @@
 import { api, getConfig, originPattern, setConfig } from '../lib/api.js';
+import { refreshStyle, startStyle } from '../lib/style.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -22,10 +23,10 @@ async function start() {
     try {
       await showProfiles();
       $('status').textContent = 'Conectada';
-      $('status').className = 'ok';
+      $('status').className = 'cx-ok';
     } catch (e) {
       $('status').textContent = e.message;
-      $('status').className = 'error';
+      $('status').className = 'cx-error';
     }
   }
 }
@@ -33,7 +34,7 @@ async function start() {
 $('save').addEventListener('click', async () => {
   const url = $('url').value.trim().replace(/\/+$/, '');
   const token = $('token').value.trim();
-  $('status').className = 'muted';
+  $('status').className = 'cx-muted';
   if (!/^https?:\/\/[^\s/]+/.test(url)) {
     $('status').textContent = 'Escribe la dirección entera, con http:// o https://';
     return;
@@ -42,7 +43,7 @@ $('save').addEventListener('click', async () => {
   const granted = await chrome.permissions.request({ origins: [originPattern(url)] }).catch(() => false);
   if (!granted) {
     $('status').textContent = 'Sin permiso para esa dirección la extensión no puede llegar a Canvian.';
-    $('status').className = 'error';
+    $('status').className = 'cx-error';
     return;
   }
   await setConfig({ url, token });
@@ -50,13 +51,18 @@ $('save').addEventListener('click', async () => {
   try {
     const profiles = await showProfiles();
     $('status').textContent = `Conectada · ${profiles.length} perfiles`;
-    $('status').className = 'ok';
+    refreshStyle();
+    $('status').className = 'cx-ok';
   } catch (e) {
     $('status').textContent = e.message;
-    $('status').className = 'error';
+    $('status').className = 'cx-error';
   }
 });
 
-$('profile').addEventListener('change', (e) => setConfig({ profile: e.target.value }));
+$('profile').addEventListener('change', async (e) => {
+  await setConfig({ profile: e.target.value });
+  refreshStyle();
+});
 
+startStyle();
 start();

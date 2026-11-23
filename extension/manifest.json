@@ -2,27 +2,72 @@
   "manifest_version": 3,
   "name": "Canvian",
   "short_name": "Canvian",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Recorta páginas a tus notas de Canvian y ve en Outlook las tareas de cada hilo de correo.",
-  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
   "action": {
     "default_title": "Guardar en Canvian",
     "default_popup": "popup/popup.html",
-    "default_icon": { "16": "icons/16.png", "32": "icons/32.png" }
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png"
+    }
   },
   "options_page": "options/options.html",
-  "background": { "service_worker": "background.js", "type": "module" },
-  "permissions": ["storage", "activeTab", "scripting", "contextMenus"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "contextMenus"
+  ],
   "host_permissions": [],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://outlook.office.com/*", "https://outlook.office365.com/*", "https://outlook.live.com/*", "https://outlook.cloud.microsoft/*"],
-      "js": ["outlook/outlook.js"],
+      "matches": [
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*",
+        "https://outlook.live.com/*",
+        "https://outlook.cloud.microsoft/*"
+      ],
+      "js": [
+        "outlook/outlook.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "commands": {
-    "_execute_action": { "suggested_key": { "default": "Alt+Shift+C", "mac": "Alt+Shift+C" }, "description": "Recortar esta página" }
-  }
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+C",
+        "mac": "Alt+Shift+C"
+      },
+      "description": "Recortar esta página"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "outlook/panel.html"
+      ],
+      "matches": [
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*",
+        "https://outlook.live.com/*",
+        "https://outlook.cloud.microsoft/*"
+      ]
+    }
+  ]
 }

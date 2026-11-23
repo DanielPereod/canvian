@@ -1,8 +1,7 @@
 import { PRESET } from './config.js';
-import { api } from './lib/api.js';
 
-// El service worker: hace las llamadas a Canvian por los scripts de las
-// páginas (Outlook) y pone el menú contextual del recortador.
+// El service worker: al instalar, guarda la dirección y la llave que trae la
+// extensión descargada desde Canvian, y pone el menú contextual del recortador.
 
 chrome.runtime.onInstalled.addListener(async () => {
   // La extensión descargada desde Canvian trae la dirección y la llave puestas.
@@ -26,24 +25,4 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
   } catch {
     // Chrome antiguo: el modo queda guardado para cuando se abra el popup.
   }
-});
-
-// Lo que piden los scripts de las páginas: { type: 'api', path, method, body, query }.
-chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
-  if (msg?.type === 'api') {
-    api(msg.path, { method: msg.method, body: msg.body, query: msg.query }).then(
-      (data) => reply({ ok: true, data }),
-      (e) => reply({ ok: false, error: e.message, status: e.status ?? 0 }),
-    );
-    return true;
-  }
-  if (msg?.type === 'open' && typeof msg.url === 'string') {
-    chrome.tabs.create({ url: msg.url });
-    return false;
-  }
-  if (msg?.type === 'options') {
-    chrome.runtime.openOptionsPage();
-    return false;
-  }
-  return false;
 });

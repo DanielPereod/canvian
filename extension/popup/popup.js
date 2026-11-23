@@ -1,4 +1,5 @@
 import { api, getConfig, setConfig } from '../lib/api.js';
+import { refreshStyle, startStyle } from '../lib/style.js';
 
 // El recortador: coge la página (o lo seleccionado) en Markdown, deja
 // cambiar el título, la carpeta y las etiquetas, y lo guarda como nota.
@@ -46,7 +47,7 @@ function renderProps() {
   for (const [name, value] of items) {
     if (!value) continue;
     const chip = document.createElement('span');
-    chip.className = 'chip';
+    chip.className = 'cx-chip';
     chip.title = name === 'Fuente' ? clip.url : value;
     const b = document.createElement('b');
     b.textContent = name;
@@ -91,9 +92,9 @@ function renderFolderList() {
   const add = (id, parts, cls) => {
     const li = document.createElement('li');
     li.setAttribute('role', 'option');
+    li.classList.add('cx-option');
     li.dataset.id = id ?? '';
     li.setAttribute('aria-selected', String(id === folder));
-    if (cls) li.className = cls;
     parts.forEach((p, i) => {
       if (i) {
         const s = document.createElement('span');
@@ -137,7 +138,7 @@ async function save() {
   }
   $('save').disabled = true;
   $('status').textContent = 'Guardando…';
-  $('status').className = 'muted';
+  $('status').className = 'cx-muted';
   const tags = $('tags')
     .value.split(/[,\s]+/)
     .map((t) => t.replace(/^#/, '').trim())
@@ -158,7 +159,7 @@ async function save() {
     show('done');
   } catch (e) {
     $('status').textContent = e.message;
-    $('status').className = 'error';
+    $('status').className = 'cx-error';
   } finally {
     $('save').disabled = false;
   }
@@ -238,7 +239,7 @@ $('folder-q').addEventListener('keydown', (e) => {
 });
 $('profile').addEventListener('change', async (e) => {
   await setConfig({ profile: e.target.value });
-  await loadFolders();
+  await Promise.all([loadFolders(), refreshStyle()]);
 });
 $('settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
 $('setup-open').addEventListener('click', () => chrome.runtime.openOptionsPage());
@@ -248,4 +249,5 @@ $('again').addEventListener('click', () => {
   load('selection');
 });
 
+startStyle();
 start();

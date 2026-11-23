@@ -35,6 +35,7 @@ import {
 import { findTask, insertTask } from '../mcp/taskops.js';
 import { mcpStatus } from '../mcp/token.js';
 import { zip } from '../koreader/plugin.js';
+import { readPrefs } from '../routes/prefs.js';
 
 // La extensión de Canvian para el navegador (carpeta extension/ del repo):
 //  · el recortador guarda una página o lo seleccionado como nota, en la
@@ -267,6 +268,18 @@ export function extensionRoutes(db: Db, hub?: Hub) {
       .onConflictDoNothing()
       .run();
   };
+
+  // El aspecto elegido en Canvian (modo, tema de cada tono, letras y color del
+  // perfil), para que la extensión se vista igual.
+  r.get(
+    '/appearance',
+    safe((c) => {
+      const p = resolveProfile(db, c.req.query('profile'));
+      const prefs = readPrefs(db);
+      const own = (prefs.profileThemes as Record<string, unknown> | undefined)?.[p.id];
+      return c.json({ appearance: own ?? prefs.appearance ?? null, legacyTheme: prefs.theme ?? null, type: prefs.type ?? null, color: p.color ?? null });
+    }),
+  );
 
   r.get('/profiles', (c) => c.json({ profiles: listProfiles(db).map((p) => ({ id: p.id, name: p.name, color: p.color })), publicUrl: base(c) }));
 

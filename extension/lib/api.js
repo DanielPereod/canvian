@@ -1,9 +1,8 @@
 import { PRESET } from '../config.js';
 
 // La dirección y la llave de Canvian, y las llamadas a su API (/ext/…).
-// Solo las hacen el service worker, el popup y las opciones: los scripts de
-// las páginas (Outlook) piden al service worker, porque desde la página no se
-// puede llamar a otra dirección.
+// Las usan el popup, las opciones y el panel de Outlook (páginas de la
+// extensión, con permiso para la dirección de Canvian).
 
 export async function getConfig() {
   const saved = await chrome.storage.local.get(['url', 'token', 'profile']);
