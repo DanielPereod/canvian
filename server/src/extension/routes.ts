@@ -381,6 +381,58 @@ export function extensionRoutes(db: Db, hub?: Hub) {
     }),
   );
 
+  // Todos los hilos con tareas vinculadas: para los distintivos de la bandeja
+  // de entrada y la vista general. Un hilo con varios ids (respuestas) pero el
+  // mismo asunto cuenta como uno.
+  r.get(
+    '/overview',
+    safe((c) => {
+      const { profile: p, all, byId } = ctx(c.req.query('profile'));
+      const off = hidden(all);
+      const links = db.select().from(mailLinks).where(eq(mailLinks.profileId, p.id)).all().sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      type Group = { key: string; ids: Set<string>; subject: string | null; subjectKey: string | null; url: string | null; last: string; seen: Set<string>; tasks: ReturnType<typeof taskOut>[] };
+      const groups = new Map<string, Group>();
+      const tasksOf = new Map<string, Task[]>();
+      for (const l of links) {
+        const key = l.subjectKey ? `s:${l.subjectKey}` : `t:${l.thread}`;
+        let g = groups.get(key);
+        if (!g) groups.set(key, (g = { key, ids: new Set(), subject: l.subject, subjectKey: l.subjectKey, url: l.url, last: l.createdAt, seen: new Set(), tasks: [] }));
+        g.ids.add(l.thread);
+        if (l.url) g.url = l.url;
+        if (l.createdAt > g.last) g.last = l.createdAt;
+        const note = byId.get(l.noteId);
+        if (!note || off.has(note.id) || g.seen.has(`${l.noteId}^${l.blockId}`)) continue;
+        g.seen.add(`${l.noteId}^${l.blockId}`);
+        const n = taskBlockIds(note).indexOf(l.blockId);
+        if (!tasksOf.has(note.id)) tasksOf.set(note.id, allTasks([note]));
+        const t = n >= 0 ? tasksOf.get(note.id)![n] : undefined;
+        if (t) g.tasks.push(taskOut(c, p.id, byId, t, l.blockId));
+      }
+      const today = localDay();
+      const threads = [...groups.values()]
+        .filter((g) => g.tasks.length)
+        .map((g) => {
+          const open = g.tasks.filter((t) => t.status !== 'done');
+          const late = open.filter((t) => t.due && t.due < today).length;
+          const count = (s: string) => g.tasks.filter((t) => t.status === s).length;
+          return {
+            key: g.key,
+            threads: [...g.ids],
+            subject: g.subject,
+            subjectKey: g.subjectKey,
+            url: g.url,
+            counts: { total: g.tasks.length, open: open.length, late, doing: count('doing'), blocked: count('blocked'), done: count('done') },
+            next: open.map((t) => t.due).filter(Boolean).sort()[0] ?? null,
+            tasks: g.tasks,
+            last: g.last,
+          };
+        })
+        // Primero lo que tiene algo pendiente (lo atrasado, antes), y lo más reciente.
+        .sort((a, b) => Number(!a.counts.open) - Number(!b.counts.open) || b.counts.late - a.counts.late || (a.next ?? '9999').localeCompare(b.next ?? '9999') || b.last.localeCompare(a.last));
+      return c.json({ today, threads });
+    }),
+  );
+
   // Vincula una tarea que ya existe al hilo.
   r.post(
     '/thread/link',
@@ -442,6 +494,7 @@ export function extensionRoutes(db: Db, hub?: Hub) {
   // Quita un vínculo (la tarea sigue en su nota).
   r.delete('/link/:id', (c) => {
     const res = db.delete(mailLinks).where(eq(mailLinks.id, c.req.param('id'))).run();
+    if (res.changes) changed();
     return res.changes ? c.body(null, 204) : c.json({ error: 'Vínculo no encontrado' }, 404);
   });
 

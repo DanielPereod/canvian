@@ -35,6 +35,7 @@ import { DiaryView, entryTitle } from './DiaryView';
 import { joinTitle, titleBlock } from './editor';
 import type { JSONContent } from '@tiptap/react';
 import { useBackStep, useDrawerSwipe, usePullDown } from './swipe';
+import { setMailLinks } from './mailLinks';
 
 // La vista de Canvian: la biblioteca. Aquí viven las notas, los enlaces y todo
 // lo que se guarda; la barra lateral, la colección, los nodos y el lector solo
@@ -194,6 +195,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       setDefs(properties);
       setLenses(saved);
       setRows(canvas.notes);
+      setMailLinks(canvas.mailLinks);
       setLinks(canvas.edges.map((e) => ({ id: e.id, source: e.fromId, target: e.toId })));
       const place = readPlace(profile.id);
       const exists = (id: string | null | undefined) => !!id && canvas.notes.some((r) => r.id === id);
@@ -242,6 +244,7 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
         }
         setDefs(properties);
         setLenses(saved);
+        setMailLinks(canvas.mailLinks);
         setRows((local) => {
           const mine = new Map(local.map((r) => [r.id, r]));
           const merged = canvas.notes

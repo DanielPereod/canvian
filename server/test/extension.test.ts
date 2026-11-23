@@ -124,6 +124,16 @@ describe('browser extension', () => {
     const after = (await (await ext('GET', `/thread?profile=${profileId}&thread=AAQkThread1`)).json()).tasks;
     expect(after[0]).toMatchObject({ text: 'Revisar contrato', status: 'done' });
 
+    // La vista general: un hilo (dos ids, mismo asunto) con sus dos tareas.
+    const overview = (await (await ext('GET', `/overview?profile=${profileId}`)).json()).threads;
+    expect(overview).toHaveLength(1);
+    expect(overview[0]).toMatchObject({ subject: 'Contrato de obra', subjectKey: 'contrato de obra', counts: { total: 2, open: 1, done: 1 } });
+    expect(overview[0].threads).toEqual(['AAQkThread1']);
+    expect(overview[0].tasks.map((t: { text: string }) => t.text)).toEqual(['Revisar contrato', 'Mandar presupuesto']);
+    // Y la web la ve en el lienzo, para enseñar el hilo en la casilla.
+    const canvas = await (await call('GET', `/api/profiles/${profileId}/canvas`)).json();
+    expect(canvas.mailLinks).toContainEqual({ noteId: clip.id, blockId, subject: 'Contrato de obra', url: thread.url });
+
     // Quitar el vínculo deja la tarea.
     expect((await ext('DELETE', `/link/${after[0].linkId}`)).status).toBe(204);
     expect((await (await ext('GET', `/thread?profile=${profileId}&thread=AAQkThread1`)).json()).tasks).toHaveLength(1);

@@ -5,6 +5,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { t } from '../i18n';
 import { daysUntil, dueLabel } from './dates';
 import { repeatLabel } from './repeat';
+import { mailLinksOf, onMailLinks, type MailLink } from './mailLinks';
 
 // Lo que va escrito detrás de una casilla («📅 2026-11-15 ⏫ #obra») se ve
 // como fichas: «Hoy», una bandera de color, la etiqueta… como en Things o
@@ -93,9 +94,31 @@ function build(doc: PMNode, state: EditorState, editing: boolean): DecorationSet
       }
     });
     if (prio) decos.push(Decoration.node(pos, pos + node.nodeSize, { 'data-prio': String(prio) }));
+    // Vinculada a un hilo de Outlook: una ficha con su asunto, al final de la línea.
+    const mail = mailLinksOf(node.attrs.blockId as string | null);
+    if (mail?.length) {
+      const end = pos + 1 + para.nodeSize - 1;
+      decos.push(Decoration.widget(end, () => mailChip(mail), { side: 1, ignoreSelection: true, key: `mail:${node.attrs.blockId}:${mail.map((m) => m.subject).join('|')}` }));
+    }
     return true;
   });
   return DecorationSet.create(doc, decos);
+}
+
+function mailChip(links: MailLink[]) {
+  const first = links[0];
+  const el = document.createElement(first.url ? 'a' : 'span');
+  el.className = 'tk-chip tk-mail';
+  el.contentEditable = 'false';
+  const subject = first.subject || t('Hilo de correo');
+  el.dataset.label = links.length > 1 ? `${subject} +${links.length - 1}` : subject;
+  el.title = links.map((l) => `✉ ${l.subject || t('Hilo de correo')}`).join('\n') + (first.url ? `\n${t('Pulsa para abrirlo en Outlook')}` : '');
+  if (first.url && /^https:\/\//.test(first.url)) {
+    (el as HTMLAnchorElement).href = first.url;
+    (el as HTMLAnchorElement).target = '_blank';
+    (el as HTMLAnchorElement).rel = 'noopener noreferrer';
+  }
+  return el;
 }
 
 export const DUE_EVENT = 'canvian:task-due';
@@ -121,11 +144,19 @@ export const TaskChips = Extension.create({
             return { decos: build(state.doc, state, focused && editor.isEditable), focused };
           },
         },
+        // Cuando llegan (o cambian) los vínculos con el correo, se repinta.
+        view: (view) => ({ destroy: onMailLinks(() => !view.isDestroyed && view.dispatch(view.state.tr.setMeta(key, key.getState(view.state)?.focused ?? false))) }),
         props: {
           decorations: (state) => key.getState(state)?.decos,
           // Pulsar la fecha abre el calendario (lo pinta <DueChipPicker>, fuera del editor).
           handleDOMEvents: {
             mousedown: (view, e) => {
+              const mail = (e.target as HTMLElement).closest?.('a.tk-mail') as HTMLAnchorElement | null;
+              if (mail && e.button === 0) {
+                e.preventDefault();
+                window.open(mail.href, '_blank', 'noopener,noreferrer');
+                return true;
+              }
               const el = (e.target as HTMLElement).closest?.('.tk-due');
               if (!el || !view.editable || e.button !== 0) return false;
               const pos = view.posAtDOM(el, 0);

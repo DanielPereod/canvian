@@ -10,6 +10,8 @@ export const EN_TASKS: Record<string, string> = {
   'Prioridad media': 'Medium priority',
   'Prioridad baja': 'Low priority',
   'Se repite': 'Repeats',
+  'Hilo de correo': 'Email thread',
+  'Pulsa para abrirlo en Outlook': 'Click to open it in Outlook',
   'todos los atajos': 'all shortcuts',
   Mañana: 'Tomorrow',
   Ayer: 'Yesterday',

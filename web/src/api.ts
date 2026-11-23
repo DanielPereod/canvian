@@ -65,6 +65,7 @@ export type PropertyDef = {
 
 export type Lens = { id: string; profileId: string; name: string; query: string; mode: string; slot: number | null };
 
+export type MailLinkRow = { noteId: string; blockId: string; subject: string | null; url: string | null };
 export type EdgeRow = {
   id: string;
   profileId: string;
@@ -197,7 +198,7 @@ export const api = {
   getViewport: (id: string) => request<Viewport>('GET', `/profiles/${id}/viewport`),
   saveViewport: (id: string, v: Viewport) => request('PUT', `/profiles/${id}/viewport`, v),
   canvas: (profileId: string) =>
-    request<{ notes: NoteRow[]; edges: EdgeRow[] }>('GET', `/profiles/${profileId}/canvas`),
+    request<{ notes: NoteRow[]; edges: EdgeRow[]; mailLinks?: MailLinkRow[] }>('GET', `/profiles/${profileId}/canvas`),
   createNote: (profileId: string, note: NoteInput & { id: string; x: number; y: number }) =>
     request<NoteRow>('POST', `/profiles/${profileId}/notes`, note),
   patchNote: (id: string, patch: NoteInput) =>

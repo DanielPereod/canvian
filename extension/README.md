@@ -4,6 +4,9 @@ Extensión de Chrome (Manifest V3; vale también en Edge, Brave…) con dos cosa
 
 - **Recortador** (como Obsidian Web Clipper): el icono de Canvian, `Alt ⇧ C` o el menú del botón derecho. Coge la página (el artículo, con Readability), lo seleccionado o solo el enlace, lo pasa a Markdown (Turndown) y lo guarda como nota en la carpeta que elijas (por defecto, «Recortes»), con las propiedades Fuente, Autor y Publicado y las etiquetas que pongas.
 - **Tareas en Outlook** (Outlook en la web): abajo a la derecha, «Tareas» enseña las tareas de Canvian vinculadas al hilo abierto, con su estado, fecha, prioridad y nota. Se cambia el estado con un clic, se crean tareas nuevas para el hilo o se vincula una que ya existe, y «↗» la abre en Canvian.
+- **En la bandeja de entrada**, cada correo con tareas lleva una ficha detrás del asunto con cómo van (atrasadas, bloqueadas, en curso, pendientes o hechas); al pasar el ratón se ven las tareas.
+- **Vista general**: sin ningún correo abierto, «Tareas de correo» (o el botón de lista del panel) enseña todos los hilos con tareas, con filtro, y abre el correo al pulsarlo.
+- **En Canvian**, la casilla vinculada lleva una ficha con el asunto del hilo, que lo abre en Outlook.
 
 ## Instalar
 
@@ -17,7 +20,7 @@ La extensión se viste como tu Canvian: carga la hoja de estilos de tu servidor 
 
 ## Cómo funciona
 
-- Habla con el servidor en `/ext/…` con `Authorization: Bearer <llave>` (`server/src/extension/routes.ts`). Las hacen el popup, las opciones y el panel de Outlook; el script que corre en Outlook (`outlook/outlook.js`) solo pone el iframe y le dice qué hilo está abierto.
+- Habla con el servidor en `/ext/…` con `Authorization: Bearer <llave>` (`server/src/extension/routes.ts`). Las hacen el popup, las opciones y el panel de Outlook; el script que corre en Outlook (`outlook/outlook.js`) pone el iframe, le dice qué hilo está abierto y pinta los distintivos de la lista (las filas llevan `data-convid`, el mismo id que la dirección) con lo que le pasa el panel de `/ext/overview`.
 - Una tarea vinculada es una casilla con id de bloque (`- [ ] … ^abc123`), así se encuentra aunque cambie la nota. El vínculo se guarda en la tabla `mail_links`.
 - El hilo se reconoce por el id de la dirección de Outlook (`/mail/…/id/<id>`) o, si una respuesta trae otro, por el asunto sin «RE:», «RV:», «FW:»…
 - «Abrir en Canvian» usa `#nota/<perfil>/<nota>/<bloque>`, que la web abre y lleva hasta la casilla.

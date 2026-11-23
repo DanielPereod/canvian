@@ -3,7 +3,7 @@ import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { ulid } from 'ulidx';
 import { z } from 'zod';
 import type { Db } from '../db/index.js';
-import { edges, notes, profiles } from '../db/schema.js';
+import { edges, mailLinks, notes, profiles } from '../db/schema.js';
 
 // Las tareas no son notas: son las casillas «- [ ]» de su texto.
 const KINDS = ['text', 'canvas', 'link', 'image', 'checklist', 'code'] as const;
@@ -94,6 +94,14 @@ export function canvasRoutes(db: Db) {
         .where(and(eq(notes.profileId, profileId), isNull(notes.deletedAt)))
         .all(),
       edges: db.select().from(edges).where(eq(edges.profileId, profileId)).all(),
+      // Las casillas vinculadas a un hilo de correo (por la extensión), para
+      // enseñar el hilo en la tarea.
+      mailLinks: db
+        .select({ noteId: mailLinks.noteId, blockId: mailLinks.blockId, subject: mailLinks.subject, url: mailLinks.url })
+        .from(mailLinks)
+        .where(eq(mailLinks.profileId, profileId))
+        .orderBy(mailLinks.createdAt)
+        .all(),
     });
   });
 
