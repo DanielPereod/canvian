@@ -1,0 +1,13 @@
+main { max-width: 580px; margin: 48px auto; padding: 0 20px; animation: cx-in 240ms ease-out both; }
+header { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+header .op-brand { font-size: var(--text-xl); }
+header .cx-muted { margin-left: auto; font-size: var(--text-sm); }
+section { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 14px; }
+h2 { margin: 0 0 6px; font-size: var(--text-lg); }
+section > p { margin: 0 0 12px; font-size: var(--text-sm); }
+.cx-label { margin-top: 12px; }
+.op-mono { font-family: var(--font-mono); }
+.op-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.op-row #status { font-size: var(--text-sm); }
+.op-how { margin: 0; padding-left: 18px; color: var(--text-muted); font-size: var(--text-sm); }
+.op-how li { margin: 8px 0; }

@@ -467,3 +467,33 @@ export function taskCount(row: NoteRow) {
   const all = tasksOf(row);
   return { total: all.length, done: all.filter((t) => t.status === 'done').length, open: all.filter((t) => t.status !== 'done') };
 }
+
+// ── Ids de bloque de las casillas ─────────────────────────────────────
+// Una casilla con id de bloque («- [ ] texto ^abc123») se puede encontrar
+// aunque se añadan o quiten otras: lo usa la extensión del navegador para
+// recordar qué tareas van con cada hilo de correo.
+
+/** El id de bloque de cada tarea de la nota (en el orden de `tasksOf`), o null. */
+export function taskBlockIds(row: NoteRow): (string | null)[] {
+  const doc = parseBody(row.bodyJson);
+  const out: (string | null)[] = [];
+  const walk = (node: JSONContent) => {
+    for (const child of node.content ?? []) {
+      if (child.type === 'taskItem') out.push((child.attrs?.blockId as string | undefined) ?? null);
+      walk(child);
+    }
+  };
+  if (doc) walk(doc);
+  return out;
+}
+
+/** El documento con el id de bloque puesto en la tarea n-ésima, o null si ya no está. */
+export function withTaskBlockId(row: NoteRow, n: number, id: string): JSONContent | null {
+  const doc = parseBody(row.bodyJson);
+  if (!doc) return null;
+  const next = clone(doc);
+  const at = locate(next, n);
+  if (!at) return null;
+  at.item.attrs = { ...at.item.attrs, blockId: id };
+  return next;
+}

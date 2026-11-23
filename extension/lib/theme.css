@@ -1,0 +1,184 @@
+/*
+ * Estilos de la extensión. Los colores, letras y radios son los tokens de
+ * Canvian: lib/style.js carga la hoja de tu Canvian y pone tu tema, así que
+ * todo cambia con Configuración › Aspecto. Lo de :root:not(.has-canvian) solo
+ * vale mientras no hay hoja (sin conectar): Mínimo, claro u oscuro.
+ */
+
+:root:not(.has-canvian) {
+  --accent: #8b95a3;
+  --bg: #0e0f11;
+  --text: #ececec;
+  --text-muted: #b3b3b3;
+  --text-faint: #8a8a8a;
+  --text-ghost: #636363;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.15);
+  --surface-1: #151618;
+  --surface-2: #151618;
+  --surface-3: #1b1c1f;
+  --surface-sunken: rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --danger: #ff8a80;
+  --warning: #f0b45a;
+  --success: #9dc88d;
+  --prio-1: #7cb8f2;
+  --prio-2: #f0b45a;
+  --prio-3: #f28b82;
+  --shadow-2: 0 24px 60px -24px rgba(0, 0, 0, 0.8);
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+  --radius-btn: 999px;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --title-font: var(--font-ui);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-2xs: 10px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-ui: 15px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  color-scheme: dark;
+}
+:root:not(.has-canvian)[data-tone='light'] {
+  --bg: #ffffff;
+  --text: #161616;
+  --text-muted: #4d4d4d;
+  --text-faint: #7a7a7a;
+  --text-ghost: #a3a3a3;
+  --line: rgba(0, 0, 0, 0.08);
+  --line-strong: rgba(0, 0, 0, 0.16);
+  --surface-1: #ffffff;
+  --surface-2: #f6f6f6;
+  --surface-3: #ffffff;
+  --surface-sunken: rgba(0, 0, 0, 0.035);
+  --surface-hover: rgba(0, 0, 0, 0.05);
+  --accent: #4b5563;
+  --shadow-2: 0 24px 60px -24px rgba(0, 0, 0, 0.3);
+  color-scheme: light;
+}
+:root:not(.has-canvian) {
+  --accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
+  --accent-line: color-mix(in oklab, var(--accent) 50%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 38%, transparent);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+::selection { background: color-mix(in oklab, var(--accent) 40%, transparent); }
+
+/* Barras de desplazamiento finas, del color de las líneas del tema. */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--text-ghost); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+:focus-visible { outline: none; }
+
+/* ── Piezas ───────────────────────────────────────────────────────── */
+.cx-label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.cx-field {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 11px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-sunken);
+  color: var(--text);
+  outline: none;
+  transition: border-color 140ms, box-shadow 200ms;
+}
+.cx-field::placeholder { color: var(--text-ghost); }
+.cx-field:hover { border-color: color-mix(in oklab, var(--line-strong) 60%, var(--text-faint)); }
+.cx-field:focus, .cx-field:focus-within { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
+textarea.cx-field { resize: vertical; font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.6; }
+select.cx-field {
+  appearance: none;
+  padding-right: 28px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-faint) 50%), linear-gradient(135deg, var(--text-faint) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+select.cx-field option { background: var(--surface-3); color: var(--text); }
+input[type='date'].cx-field::-webkit-calendar-picker-indicator { opacity: 0.55; cursor: pointer; }
+:root[data-tone='dark'] input[type='date'].cx-field::-webkit-calendar-picker-indicator { filter: invert(1); }
+
+:root:not(.has-canvian) .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: var(--radius-btn);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-sunken);
+  font-weight: 500;
+  white-space: nowrap;
+}
+:root:not(.has-canvian) .btn:hover:not(:disabled) { background: var(--surface-hover); }
+:root:not(.has-canvian) .btn:disabled { opacity: 0.45; cursor: default; }
+:root:not(.has-canvian) .btn-primary { background: var(--text); border-color: transparent; color: var(--bg); font-weight: 600; }
+:root:not(.has-canvian) .btn-primary:hover:not(:disabled) { background: var(--text); opacity: 0.9; }
+/* Los botones de Canvian (.btn, .btn-primary, .btn-ghost), a la medida de la extensión. */
+.btn { white-space: nowrap; }
+.btn.btn-sm { min-height: 32px; }
+.btn:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft); }
+.cx-quiet { display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--text-faint); border-radius: var(--radius-sm); padding: 4px 8px; transition: color 140ms, background 140ms; }
+.cx-quiet:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
+.cx-icon { width: 32px; min-height: 32px; padding: 0; border-radius: var(--radius-sm); }
+
+.cx-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--radius-btn); background: var(--surface-sunken); border: 1px solid var(--line); }
+.cx-seg button { border: 0; background: transparent; padding: 5px 12px; border-radius: var(--radius-btn); color: var(--text-faint); font-size: var(--text-sm); transition: color 140ms, background 140ms; }
+.cx-seg button:hover:not(:disabled) { color: var(--text); }
+.cx-seg button[aria-pressed='true'] { background: var(--surface-3); color: var(--text); box-shadow: 0 0 0 1px var(--line-strong), 0 1px 2px rgba(0, 0, 0, 0.12); }
+.cx-seg button:disabled { opacity: 0.4; cursor: default; }
+
+.cx-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 3px 10px; border-radius: var(--radius-pill); background: var(--surface-sunken); border: 1px solid var(--line); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-chip b { font-weight: 500; color: var(--text-faint); }
+
+.cx-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px 1px var(--accent-glow); flex: none; display: inline-block; }
+.cx-brand { font-family: var(--title-font, var(--font-ui)); font-style: var(--title-style, normal); font-weight: var(--title-weight, 500); letter-spacing: var(--title-tracking, -0.01em); text-transform: var(--title-case, none); }
+.cx-muted { color: var(--text-faint); }
+.cx-error { color: var(--danger); }
+.cx-ok { color: var(--success); }
+
+.cx-menu { background: var(--surface-3); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 6px; }
+:root.has-canvian .cx-menu { backdrop-filter: blur(24px); }
+.cx-option { display: flex; align-items: center; gap: 4px; padding: 7px 10px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); }
+.cx-option:hover, .cx-option.is-active { background: var(--surface-hover); color: var(--text); }
+.cx-option[aria-selected='true'] { color: var(--text); background: var(--accent-soft); }
+.cx-option .sep { color: var(--text-ghost); }
+
+kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--radius-xs); border: 1px solid var(--line-strong); background: var(--surface-sunken); font: 500 var(--text-2xs) / 1 var(--font-mono); color: var(--text-muted); }
+
+@keyframes cx-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

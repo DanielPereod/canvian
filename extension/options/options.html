@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Canvian · Opciones</title>
+  <link rel="stylesheet" href="../lib/theme.css" />
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main>
+    <header><span class="cx-dot"></span><span class="cx-brand op-brand">Canvian</span><span class="cx-muted">Extensión del navegador</span></header>
+
+    <section>
+      <h2 class="cx-brand">Conexión</h2>
+      <p class="cx-muted">La dirección de tu Canvian y la llave de <b>Configuración › Extensión del navegador</b>. Si descargaste la extensión desde allí, ya vienen puestas.</p>
+      <label class="cx-label" for="url">Dirección</label>
+      <input id="url" class="cx-field" placeholder="https://canvian.tu-casa.net" autocomplete="off" />
+      <label class="cx-label" for="token">Llave</label>
+      <input id="token" class="cx-field op-mono" type="password" autocomplete="off" />
+      <div class="op-row">
+        <button id="save" class="btn btn-primary btn-sm">Guardar y probar</button>
+        <span id="status" class="cx-muted"></span>
+      </div>
+    </section>
+
+    <section id="profile-box" hidden>
+      <h2 class="cx-brand">Perfil</h2>
+      <p class="cx-muted">Donde se guardan los recortes y de donde salen las tareas de Outlook.</p>
+      <select id="profile" class="cx-field"></select>
+    </section>
+
+    <section>
+      <h2 class="cx-brand">Cómo se usa</h2>
+      <ul class="op-how">
+        <li><b>Recortar:</b> pulsa el icono de Canvian (o <kbd>Alt</kbd> <kbd>⇧</kbd> <kbd>C</kbd>), elige la carpeta y guarda. Con texto seleccionado se guarda solo eso. También desde el menú del botón derecho.</li>
+        <li><b>Outlook:</b> abre un correo en Outlook en la web. Abajo a la derecha aparece <b>Tareas</b>: las de ese hilo, con su estado. Desde ahí creas una nueva o vinculas una que ya tengas en Canvian.</li>
+      </ul>
+    </section>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

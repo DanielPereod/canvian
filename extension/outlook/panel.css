@@ -1,0 +1,99 @@
+/* El panel vive en un iframe de la extensión sobre Outlook: fondo transparente
+   y un margen para que se vea la sombra. */
+html, body { background: transparent !important; overflow: hidden; }
+body { font-size: var(--text-sm); }
+#frame { position: fixed; right: 0; bottom: 0; padding: 40px 14px 14px 40px; display: flex; flex-direction: column; align-items: flex-end; }
+
+.cp-launch {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px 8px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-3);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.08);
+  transition: transform 160ms cubic-bezier(0.34, 1.45, 0.64, 1), border-color 140ms;
+}
+:root.has-canvian .cp-launch { backdrop-filter: blur(20px); }
+.cp-launch:hover { transform: translateY(-1px); border-color: var(--accent-line); }
+.cp-count { font-weight: 500; font-size: var(--text-xs); color: var(--text-muted); background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 0 7px; }
+
+.cp-panel {
+  width: 380px;
+  max-height: calc(var(--host-h, 720px) - 70px);
+  display: flex; flex-direction: column;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  animation: cx-in 200ms ease-out both;
+}
+:root.has-canvian .cp-panel { backdrop-filter: blur(28px); }
+/* Un fondo opaco debajo del cristal, para que no se transparente el correo. */
+.cp-panel { background-image: linear-gradient(var(--surface-3), var(--surface-3)), linear-gradient(var(--bg), var(--bg)); }
+
+header { display: flex; align-items: flex-start; gap: 8px; padding: 14px 12px 12px 16px; border-bottom: 1px solid var(--line); }
+.cp-head { flex: 1; min-width: 0; }
+.cp-kicker { display: flex; align-items: center; gap: 7px; font-size: var(--text-2xs); font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); }
+.cp-kicker .cx-dot { width: 6px; height: 6px; }
+.cp-subject { margin-top: 5px; font-size: var(--text-lg); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-x { width: 28px; height: 28px; padding: 0; }
+
+.cp-msg { margin: 10px 14px 0; padding: 9px 11px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--danger) 10%, transparent); border: 1px solid color-mix(in oklab, var(--danger) 30%, transparent); color: var(--danger); font-size: var(--text-xs); }
+.cp-msg button { margin-left: 6px; color: var(--text); text-decoration: underline; padding: 0; }
+
+ul { list-style: none; margin: 0; padding: 0; }
+.cp-tasks { overflow-y: auto; padding: 6px; flex: 1 1 auto; min-height: 48px; }
+.cp-task { position: relative; display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px; border-radius: var(--radius-md); transition: background 120ms; }
+.cp-task:hover { background: var(--surface-hover); }
+
+.cp-st { flex: none; width: 18px; height: 18px; margin-top: 1px; padding: 0; border-radius: 50%; border: 1.5px solid var(--text-ghost); background: transparent; color: transparent; display: grid; place-items: center; transition: border-color 140ms, box-shadow 160ms, background 140ms; }
+.cp-st svg { width: 11px; height: 11px; }
+.cp-st:hover:not(:disabled) { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.cp-st:disabled { cursor: default; }
+.cp-task.cp-doing .cp-st { border-color: var(--accent); background: conic-gradient(var(--accent) 0 50%, transparent 50% 100%); }
+.cp-task.cp-blocked .cp-st { border-color: var(--danger); background: linear-gradient(135deg, transparent 43%, var(--danger) 43% 57%, transparent 57%); }
+.cp-task.cp-done .cp-st { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+.cp-task.cp-missing .cp-st { border-style: dashed; }
+
+.cp-body { flex: 1; min-width: 0; }
+.cp-txt { word-break: break-word; color: var(--text); line-height: 1.35; }
+.cp-task.cp-done .cp-txt { text-decoration: line-through; text-decoration-color: var(--text-ghost); color: var(--text-faint); }
+.cp-task.cp-missing .cp-txt { color: var(--text-faint); font-style: italic; }
+.cp-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 10px; margin-top: 3px; font-size: var(--text-xs); color: var(--text-faint); }
+.cp-meta > span { display: inline-flex; align-items: center; gap: 4px; }
+.cp-meta svg { width: 11px; height: 11px; flex: none; }
+.cp-meta .cp-due.cp-today { color: var(--warning); font-weight: 600; }
+.cp-meta .cp-due.cp-late { color: var(--danger); font-weight: 600; }
+.cp-meta .cp-prio.cp-p3 { color: var(--prio-3); }
+.cp-meta .cp-prio.cp-p2 { color: var(--prio-2); }
+.cp-meta .cp-prio.cp-p1 { color: var(--prio-1); }
+.cp-meta .cp-state.cp-doing { color: var(--accent); }
+.cp-meta .cp-state.cp-blocked { color: var(--danger); }
+.cp-meta .cp-tag { color: var(--text-muted); }
+.cp-meta .cp-path { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cp-acts { display: flex; gap: 1px; opacity: 0; transition: opacity 120ms; }
+.cp-task:hover .cp-acts, .cp-task:focus-within .cp-acts, .cp-results .cp-acts { opacity: 1; }
+.cp-acts .cx-quiet { width: 26px; height: 26px; padding: 0; }
+.cp-acts .cx-quiet svg { width: 14px; height: 14px; }
+.cp-acts .cp-pick { width: auto; padding: 0 10px; color: var(--accent); font-weight: 500; }
+.cp-empty { padding: 18px 16px; color: var(--text-faint); text-align: center; font-size: var(--text-xs); line-height: 1.5; }
+
+.cp-add { border-top: 1px solid var(--line); padding: 12px 14px 8px; display: grid; gap: 8px; }
+.cp-add .cx-field { min-height: 34px; padding: 6px 10px; font-size: var(--text-sm); }
+.cp-add .cp-text { width: 100%; }
+.cp-row { display: flex; gap: 6px; min-width: 0; }
+.cp-row .cp-due { flex: 1 1 0; min-width: 0; }
+.cp-row .cp-prio { flex: 0 0 auto; max-width: 140px; }
+.cp-row .cp-add-btn { flex: none; }
+.cp-where { display: flex; align-items: center; gap: 8px; color: var(--text-faint); font-size: var(--text-xs); }
+.cp-where .cx-field { flex: 1 1 0; min-width: 0; min-height: 30px; font-size: var(--text-xs); padding: 4px 28px 4px 9px; }
+
+.cp-link { padding: 0 8px 10px; }
+.cp-toggle-link { gap: 6px; font-size: var(--text-xs); padding: 6px 8px; }
+.cp-search { display: grid; gap: 6px; padding: 4px 6px 0; }
+.cp-search .cp-q { min-height: 34px; padding: 6px 10px; font-size: var(--text-sm); }
+.cp-results { max-height: 210px; overflow-y: auto; margin: 0 -4px; }

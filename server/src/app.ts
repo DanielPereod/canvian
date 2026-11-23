@@ -30,6 +30,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { createMcpServer } from './mcp/server.js';
 import { createMcpToken, isMcpToken, mcpStatus, revokeMcpToken, setMcpPublicUrl } from './mcp/token.js';
 import { koreaderRoutes, koreaderSettingsRoutes } from './koreader/routes.js';
+import { extensionRoutes, extensionSettingsRoutes } from './extension/routes.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -217,6 +218,7 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
   });
 
   api.route('/', koreaderSettingsRoutes(db));
+  api.route('/', extensionSettingsRoutes(db));
   api.route('/', canvasRoutes(db));
   api.route('/', shareRoutes(db));
   api.route('/', propertyRoutes(db));
@@ -248,6 +250,8 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
   app.all('/mcp/:token', (c) => mcp(c, c.req.param('token')));
   // KOReader manda aquí los subrayados (con su propia llave, ver koreader/).
   app.route('/koreader', koreaderRoutes(db, hub, opts.mediaDir));
+  // La extensión del navegador (recortes y tareas en Outlook), con su llave.
+  app.route('/ext', extensionRoutes(db, hub));
   app.route('/api', api);
   app.all('/api/*', (c) => c.json({ error: 'No encontrado' }, 404));
   return app;

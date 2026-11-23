@@ -14,6 +14,7 @@ import { loadZenPrefs } from './canvas/zenPrefs';
 import { loadDiaryPrefs } from './canvas/diaryPrefs';
 import { loadCalendars } from './calendars';
 import { Settings } from './Settings';
+import { readDeepLink } from './deepLink';
 import { Help } from './Help';
 import { ActionPalette } from './ActionPalette';
 import { DueChipPicker } from './canvas/DueChipPicker';
@@ -21,6 +22,8 @@ import { DueChipPicker } from './canvas/DueChipPicker';
 const ACTIVE_KEY = 'canvian.activeProfile';
 
 function readActive(): string | null {
+  const link = readDeepLink();
+  if (link) return link.profileId;
   try {
     return localStorage.getItem(ACTIVE_KEY);
   } catch {

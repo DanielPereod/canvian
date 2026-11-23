@@ -77,23 +77,26 @@ const diary = z.object({ profiles: z.array(id).max(100) });
 const profileThemes = z.record(id, appearance).refine((m) => Object.keys(m).length <= 200);
 const SCHEMAS: Record<(typeof KEYS)[number], z.ZodType> = { keymap, theme, appearance, type, sidebar, wide, collection, lang, calendars, zen, views, diary, profileThemes };
 
+/** Las preferencias guardadas (las que valen), por su nombre. */
+export function readPrefs(db: Db): Record<string, unknown> {
+  const rows = db.select().from(settings).where(like(settings.key, `${PREFIX}%`)).all();
+  const out: Record<string, unknown> = {};
+  for (const row of rows) {
+    const key = row.key.slice(PREFIX.length);
+    if (!(KEYS as readonly string[]).includes(key)) continue;
+    try {
+      out[key] = JSON.parse(row.value);
+    } catch {
+      // Un valor roto se ignora: vuelven los de fábrica.
+    }
+  }
+  return out;
+}
+
 export function prefRoutes(db: Db) {
   const r = new Hono();
 
-  r.get('/prefs', (c) => {
-    const rows = db.select().from(settings).where(like(settings.key, `${PREFIX}%`)).all();
-    const out: Record<string, unknown> = {};
-    for (const row of rows) {
-      const key = row.key.slice(PREFIX.length);
-      if (!(KEYS as readonly string[]).includes(key)) continue;
-      try {
-        out[key] = JSON.parse(row.value);
-      } catch {
-        // Un valor roto se ignora: vuelven los de fábrica.
-      }
-    }
-    return c.json(out);
-  });
+  r.get('/prefs', (c) => c.json(readPrefs(db)));
 
   r.put('/prefs/:key', async (c) => {
     const key = c.req.param('key') as (typeof KEYS)[number];

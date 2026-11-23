@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Canvian</title>
+  <link rel="stylesheet" href="../lib/theme.css" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="pp-top">
+    <span class="cx-dot"></span>
+    <span class="cx-brand pp-brand">Canvian</span>
+    <select id="profile" class="cx-field pp-profile" aria-label="Perfil" hidden></select>
+    <button id="settings" class="cx-quiet pp-icon" title="Opciones" aria-label="Opciones">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <main id="form" hidden>
+    <div class="cx-seg" role="group" aria-label="Qué guardar">
+      <button data-mode="page" aria-pressed="true">Página</button>
+      <button data-mode="selection">Selección</button>
+      <button data-mode="link">Solo enlace</button>
+    </div>
+
+    <input id="title" class="pp-title" autocomplete="off" aria-label="Título" placeholder="Título" />
+
+    <div class="pp-grid">
+      <div>
+        <label class="cx-label" for="folder-btn">Carpeta</label>
+        <div class="pp-combo">
+          <button id="folder-btn" class="cx-field pp-combo-btn" aria-haspopup="listbox">
+            <svg class="pp-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <span id="folder-label">Recortes</span><span class="pp-caret"></span>
+          </button>
+          <div id="folder-pop" class="cx-menu pp-combo-pop" hidden>
+            <input id="folder-q" class="cx-field" placeholder="Buscar carpeta…" autocomplete="off" />
+            <ul id="folder-list" role="listbox"></ul>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label class="cx-label" for="tags">Etiquetas</label>
+        <input id="tags" class="cx-field" placeholder="recorte, lectura" autocomplete="off" />
+      </div>
+    </div>
+
+    <div id="props" class="pp-props"></div>
+
+    <div class="pp-content-head">
+      <label class="cx-label" for="markdown">Contenido</label>
+      <span id="count" class="cx-muted"></span>
+    </div>
+    <textarea id="markdown" class="cx-field" rows="10" spellcheck="false"></textarea>
+
+    <footer class="pp-actions">
+      <span id="status" class="cx-muted"></span>
+      <span class="pp-hint cx-muted"><kbd>Ctrl</kbd><kbd>↵</kbd></span>
+      <button id="save" class="btn btn-primary btn-sm">Añadir a Canvian</button>
+    </footer>
+  </main>
+
+  <section id="done" class="pp-done" hidden>
+    <div class="pp-done-mark"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <div class="cx-brand pp-done-title">Guardado</div>
+    <div id="done-path" class="cx-muted"></div>
+    <div class="pp-done-actions">
+      <button id="open" class="btn btn-primary btn-sm">Abrir en Canvian</button>
+      <button id="again" class="btn btn-ghost btn-sm">Otro recorte</button>
+    </div>
+  </section>
+
+  <section id="setup" class="pp-setup" hidden>
+    <div class="cx-brand pp-done-title">Conecta tu Canvian</div>
+    <p class="cx-muted">Pon la dirección y la llave en las opciones (o descarga la extensión desde Configuración › Extensión del navegador, que ya las trae).</p>
+    <p id="setup-error" class="cx-error"></p>
+    <button id="setup-open" class="btn btn-primary btn-sm">Abrir opciones</button>
+  </section>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
