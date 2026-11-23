@@ -7,26 +7,43 @@
   if (window.top !== window || window.__canvianOutlook) return;
   window.__canvianOutlook = true;
 
-  const SUBJECT_SELECTORS = [
-    '[data-app-section="ConversationContainer"] [role="heading"]',
-    '#ConversationReadingPaneContainer [role="heading"]',
-    '[role="main"] [role="heading"][aria-level="2"]',
-    '[role="main"] .allowTextSelection[role="heading"]',
-    '[aria-label="Reading Pane"] [role="heading"]',
-    '[aria-label="Panel de lectura"] [role="heading"]',
+  // El asunto: entre los encabezados del panel de lectura, el de letra más
+  // grande (el del remitente también es un «heading», pero más pequeño). Se
+  // descartan los que parecen una persona (llevan un correo o están dentro
+  // del bloque del remitente).
+  // El asunto va fuera del contenedor de la conversación, así que se busca
+  // en todo el «main» (lo de fuera, la lista y la navegación, no cuenta).
+  const PANE = [
+    '[role="main"]',
+    '#ConversationReadingPaneContainer',
+    '[aria-label="Reading Pane"]',
+    '[aria-label="Panel de lectura"]',
+    '[data-app-section="ConversationContainer"]',
   ];
+  const CANDIDATES = '[role="heading"], h1, h2, h3, [id*="ubject" i], [class*="ubject" i]';
+  const PERSONISH = '[class*="ender" i], [class*="ersona" i], [aria-label*="From" i], [aria-label*="De:" i], [data-testid*="ersona" i]';
+  function readSubject() {
+    const pane = PANE.map((s) => document.querySelector(s)).find(Boolean);
+    if (!pane) return null;
+    let best = null;
+    for (const node of pane.querySelectorAll(CANDIDATES)) {
+      if (node.closest(PERSONISH)) continue;
+      const text = (node.getAttribute('title') || node.textContent || '').trim().replace(/\s+/g, ' ');
+      if (!text || text.length > 300 || /@|^(de|from|para|to|cc):/i.test(text)) continue;
+      const rect = node.getBoundingClientRect();
+      if (!rect.width || !rect.height) continue;
+      const size = parseFloat(getComputedStyle(node).fontSize) || 0;
+      // Más grande gana; a igualdad, el de más arriba.
+      if (!best || size > best.size + 0.5 || (Math.abs(size - best.size) <= 0.5 && rect.top < best.top)) {
+        best = { text, size, top: rect.top };
+      }
+    }
+    return best ? best.text.slice(0, 400) : null;
+  }
   function currentThread() {
     const path = decodeURIComponent(location.pathname);
     const m = /\/(?:id|read)\/([^/?#]+)/.exec(path) ?? /[?&]ItemID=([^&#]+)/i.exec(location.search);
-    let subject = null;
-    for (const sel of SUBJECT_SELECTORS) {
-      const node = document.querySelector(sel);
-      const text = node?.getAttribute('title') || node?.textContent;
-      if (text && text.trim()) {
-        subject = text.trim().replace(/\s+/g, ' ').slice(0, 400);
-        break;
-      }
-    }
+    const subject = readSubject();
     if (!m && !subject) return null;
     return { thread: m ? m[1] : `asunto:${subject}`, subject, url: location.href };
   }

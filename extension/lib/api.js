@@ -5,16 +5,18 @@ import { PRESET } from '../config.js';
 // extensión, con permiso para la dirección de Canvian).
 
 export async function getConfig() {
-  const saved = await chrome.storage.local.get(['url', 'token', 'profile']);
+  // `profile` null: el que esté abierto en Canvian (lo decide el servidor).
+  // Se guarda como «profileChoice»: la 0.1 guardaba siempre el primero en «profile».
+  const saved = await chrome.storage.local.get(['url', 'token', 'profileChoice']);
   return {
     url: (saved.url ?? PRESET.url ?? '').replace(/\/+$/, ''),
     token: saved.token ?? PRESET.token ?? '',
-    profile: saved.profile ?? null,
+    profile: saved.profileChoice || null,
   };
 }
 
-export async function setConfig(change) {
-  await chrome.storage.local.set(change);
+export async function setConfig({ profile, ...rest }) {
+  await chrome.storage.local.set({ ...rest, ...(profile !== undefined ? { profileChoice: profile || null } : {}) });
 }
 
 /** El patrón de permiso para la dirección del servidor («https://casa.example/*»). */

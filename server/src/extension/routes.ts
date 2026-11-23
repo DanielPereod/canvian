@@ -56,6 +56,14 @@ const sha256 = (value: string) => createHash('sha256').update(value).digest();
 
 export const extensionToken = (db: Db) => get(db, TOKEN);
 
+// El perfil abierto en la web (el último que se eligió en cualquier
+// dispositivo): la extensión lo usa si no se le dice otro.
+const ACTIVE = 'active_profile';
+export const activeProfileId = (db: Db) => get(db, ACTIVE);
+export function setActiveProfile(db: Db, id: string) {
+  db.insert(settings).values({ key: ACTIVE, value: id }).onConflictDoUpdate({ target: settings.key, set: { value: id } }).run();
+}
+
 export function createExtensionToken(db: Db): string {
   const token = randomBytes(24).toString('base64url');
   db.insert(settings).values({ key: TOKEN, value: token }).onConflictDoUpdate({ target: settings.key, set: { value: token } }).run();
@@ -192,8 +200,17 @@ export function extensionRoutes(db: Db, hub?: Hub) {
   };
   const json = async (c: Context) => c.req.json().catch(() => null);
 
+  // Sin perfil en la llamada, el abierto en la web (o, si ya no existe, el primero).
+  const pick = (profile?: string | null) => {
+    const ref = profile || activeProfileId(db);
+    try {
+      return resolveProfile(db, ref);
+    } catch {
+      return resolveProfile(db, null);
+    }
+  };
   const ctx = (profile?: string | null) => {
-    const p = resolveProfile(db, profile);
+    const p = pick(profile);
     const all = liveNotes(db, p.id);
     return { profile: p, all, byId: new Map(all.map((n) => [n.id, n])) };
   };
@@ -274,14 +291,14 @@ export function extensionRoutes(db: Db, hub?: Hub) {
   r.get(
     '/appearance',
     safe((c) => {
-      const p = resolveProfile(db, c.req.query('profile'));
+      const p = pick(c.req.query('profile'));
       const prefs = readPrefs(db);
       const own = (prefs.profileThemes as Record<string, unknown> | undefined)?.[p.id];
       return c.json({ appearance: own ?? prefs.appearance ?? null, legacyTheme: prefs.theme ?? null, type: prefs.type ?? null, color: p.color ?? null });
     }),
   );
 
-  r.get('/profiles', (c) => c.json({ profiles: listProfiles(db).map((p) => ({ id: p.id, name: p.name, color: p.color })), publicUrl: base(c) }));
+  r.get('/profiles', (c) => c.json({ profiles: listProfiles(db).map((p) => ({ id: p.id, name: p.name, color: p.color })), active: pick(null).id, publicUrl: base(c) }));
 
   // Las notas de texto donde se puede guardar un recorte o una tarea, con su ruta.
   r.get(

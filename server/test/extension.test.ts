@@ -150,6 +150,19 @@ describe('browser extension', () => {
     expect(manifest.host_permissions).toEqual(['https://notas.example.net/*']);
   });
 
+  it('uses the profile open in the web unless told otherwise', async () => {
+    const profiles = (await (await call('GET', '/api/profiles')).json()) as { id: string; name: string }[];
+    const trabajo = profiles.find((p) => p.name === 'Trabajo')!;
+    expect((await (await ext('GET', '/profiles')).json()).active).toBe(profileId);
+    expect((await call('PUT', `/api/profiles/${trabajo.id}/active`)).status).toBe(204);
+    expect((await (await ext('GET', '/profiles')).json()).active).toBe(trabajo.id);
+    const clip = await (await ext('POST', '/clip', { title: 'En el trabajo', markdown: '' })).json();
+    expect(clip.open).toContain(`/#nota/${trabajo.id}/`);
+    // Con perfil en la llamada, ese.
+    const mine = await (await ext('POST', '/clip', { profile: profileId, title: 'En casa', markdown: '' })).json();
+    expect(mine.open).toContain(`/#nota/${profileId}/`);
+  });
+
   it('normalizes subjects', () => {
     expect(subjectKey('RE: RV: [EXTERNAL] Contrato de Obra ')).toBe('contrato de obra');
     expect(subjectKey('Fwd: Presupuesto  ÁTICO')).toBe('presupuesto atico');

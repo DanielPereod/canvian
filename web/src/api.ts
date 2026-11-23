@@ -190,6 +190,7 @@ export const api = {
   login: (password: string) => request('POST', '/auth/login', { password }),
   logout: () => request('POST', '/auth/logout'),
   profiles: () => request<Profile[]>('GET', '/profiles'),
+  setActiveProfile: (id: string) => request('PUT', `/profiles/${id}/active`),
   createProfile: (name: string) => request<Profile>('POST', '/profiles', { name }),
   updateProfile: (id: string, patch: Partial<Pick<Profile, 'name' | 'color'>>) =>
     request<Profile>('PATCH', `/profiles/${id}`, patch),
