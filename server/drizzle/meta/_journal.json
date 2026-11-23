@@ -78,6 +78,13 @@
       "when": 1790570000000,
       "tag": "0010_db_folders",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1790580000000,
+      "tag": "0011_mail_links",
+      "breakpoints": true
     }
   ]
 }

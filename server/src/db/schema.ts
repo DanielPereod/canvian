@@ -236,3 +236,32 @@ export const dbLinks = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.columnId, t.fromId, t.toId] }), index('idx_db_links_to').on(t.columnId, t.toId)],
 );
+
+// Tareas vinculadas a un hilo de correo (la extensión del navegador, en
+// Outlook). La tarea es una casilla de `noteId` con el id de bloque `blockId`
+// («- [ ] … ^abc123»), así que se sigue encontrando aunque cambie la nota.
+// El hilo se reconoce por `thread` (el id de la conversación que da Outlook)
+// o, si cambia, por su asunto sin «RE:»/«RV:» (`subjectKey`).
+export const mailLinks = sqliteTable(
+  'mail_links',
+  {
+    id: text('id').primaryKey(),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    thread: text('thread').notNull(),
+    subject: text('subject'),
+    subjectKey: text('subject_key'),
+    url: text('url'),
+    noteId: text('note_id')
+      .notNull()
+      .references(() => notes.id, { onDelete: 'cascade' }),
+    blockId: text('block_id').notNull(),
+    createdAt: text('created_at').notNull().default(now),
+  },
+  (t) => [
+    uniqueIndex('uq_mail_links').on(t.profileId, t.thread, t.noteId, t.blockId),
+    index('idx_mail_links_subject').on(t.profileId, t.subjectKey),
+    index('idx_mail_links_task').on(t.noteId, t.blockId),
+  ],
+);

@@ -156,6 +156,23 @@ export const EN_APP: Record<string, string> = {
   'Llave del MCP no válida': 'Invalid MCP key',
   'La llave viene de CANVIAN_MCP_TOKEN': 'The key comes from CANVIAN_MCP_TOKEN',
 
+  // Configuración › Extensión del navegador
+  'Extensión del navegador': 'Browser extension',
+  'Configuración: Extensión del navegador': 'Settings: Browser extension',
+  'Una extensión para Chrome (y Edge, Brave…). Recorta una página, o lo que tengas seleccionado, y la guarda como nota en la carpeta que elijas, como Obsidian Web Clipper. En Outlook en la web enseña las tareas de cada hilo de correo, con su estado, y deja crear otras o vincular las que ya tienes.':
+    'An extension for Chrome (and Edge, Brave…). It clips a page, or whatever you have selected, and saves it as a note in the folder you choose, like Obsidian Web Clipper. In Outlook on the web it shows the tasks of each email thread, with their status, and lets you create new ones or link the ones you already have.',
+  'Extensión': 'Extension',
+  'Ya lleva puestas la dirección ({url}) y la llave.': 'The address ({url}) and the key are already set.',
+  'Descargar extensión': 'Download extension',
+  'Cómo instalarla': 'How to install it',
+  'Descomprime el .zip: sale la carpeta canvian-extension.': 'Unzip the .zip: you get the canvian-extension folder.',
+  'En Chrome abre chrome://extensions y enciende «Modo de desarrollador» (arriba a la derecha).': 'In Chrome open chrome://extensions and turn on “Developer mode” (top right).',
+  'Pulsa «Cargar descomprimida» y elige la carpeta canvian-extension.': 'Click “Load unpacked” and pick the canvian-extension folder.',
+  'Fija el icono de Canvian en la barra. Para recortar, púlsalo (o Alt ⇧ C). En Outlook, abre un correo: abajo a la derecha sale «Tareas».': 'Pin the Canvian icon to the toolbar. To clip, click it (or Alt ⇧ C). In Outlook, open an email: “Tasks” shows up at the bottom right.',
+  'Quien la tenga puede crear notas y cambiar tus tareas. Si se filtra, crea otra y vuelve a descargar la extensión.': 'Whoever has it can create notes and change your tasks. If it leaks, create another and download the extension again.',
+  'Aún no hay ninguna: se crea al descargar la extensión.': 'There isn’t one yet: it’s created when you download the extension.',
+  'La extensión dejará de funcionar hasta que pongas la llave nueva en sus opciones (o la vuelvas a descargar). ¿Crear otra?': 'The extension will stop working until you put the new key in its options (or download it again). Create another?',
+  'La extensión dejará de poder guardar recortes y ver tareas. ¿Desactivar?': 'The extension will no longer be able to save clips or see tasks. Turn off?',
   // Configuración › KOReader
   'Configuración: KOReader': 'Settings: KOReader',
   'Manda a Canvian los subrayados y notas de los libros que lees en KOReader. Cada libro es una nota, dentro de la carpeta que elijas. Volver a sincronizar actualiza la nota del libro, no la duplica; lo que escribas encima de «Subrayados» se conserva.':

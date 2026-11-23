@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Db } from '../db/index.js';
 import { notes } from '../db/schema.js';
 import { toFtsQuery } from '../routes/canvas.js';
-import { addTaskItem, allTasks, changeTask, listedTasks, newTaskItem, parseRecur, recurs, recurText, setToday, type Task, type TaskStatus } from '../doc/tasks.js';
+import { allTasks, changeTask, listedTasks, newTaskItem, parseRecur, recurs, recurText, setToday, type Task, type TaskStatus } from '../doc/tasks.js';
 import { parseBody, sectionOf, splitTitle } from '../doc/json.js';
 import { docToMarkdown } from '../doc/markdown.js';
 import {
@@ -38,6 +38,7 @@ import {
   type Note,
 } from './notes.js';
 import { fromBase64, fromUrl, sniffImage } from './images.js';
+import { findTask, insertTask } from './taskops.js';
 import { storeImage } from '../routes/media.js';
 import type { Fetcher } from '../calendars.js';
 import { ulid } from 'ulidx';
@@ -506,32 +507,9 @@ export function createMcpServer(db: Db, hub?: Hub, opts: { mediaDir?: string; fe
         under = findTask(all, subtask_of);
         host = byId.get(under.noteId);
       } else if (note) host = textNote(resolveNote(all, note));
-      else host = all.find((n) => !n.zoneId && n.kind === 'text' && !n.archivedAt && n.title?.trim().toLocaleLowerCase('es') === INBOX.toLocaleLowerCase('es'));
-      let row: Note;
-      if (host) {
-        const doc = addTaskItem(host, item, under);
-        linkWikis(db, p.id, host.id, doc);
-        row = saveNote(db, host.id, contentOf(doc));
-      } else {
-        // Sin «Tareas» todavía: se crea, como hace la web.
-        const title = { type: 'paragraph', content: [{ type: 'text', marks: [{ type: 'bold' }], text: INBOX }] };
-        const doc = { type: 'doc', content: [title, { type: 'taskList', content: [item] }] };
-        row = createNote(db, p.id, { doc, parentId: null });
-        linkWikis(db, p.id, row.id, doc);
-        row = saveNote(db, row.id, contentOf(doc));
-      }
+      const { row, added } = insertTask(db, p.id, all, item, { host, under });
       byId.set(row.id, row);
       changed();
-      // La casilla nueva es la última de la nota o, si es subtarea, la última dentro de la otra.
-      const after = allTasks([row]);
-      let added = after[after.length - 1];
-      if (under) {
-        const inside = new Set([under.id]);
-        for (const t of after) if (t.parentId && inside.has(t.parentId)) {
-          inside.add(t.id);
-          added = t;
-        }
-      }
       return data({ added: taskOut(byId, added) });
     }),
   );
@@ -855,15 +833,4 @@ export function createMcpServer(db: Db, hub?: Hub, opts: { mediaDir?: string; fe
   );
 
   return server;
-}
-
-// «nota:n» → la tarea (comprobando que la nota sigue ahí y la tiene).
-function findTask(all: Note[], id: string): Task {
-  const at = id.lastIndexOf(':');
-  const noteId = id.slice(0, at);
-  const n = Number(id.slice(at + 1));
-  const row = all.find((x) => x.id === noteId);
-  const task = row && Number.isInteger(n) ? allTasks([row])[n] : undefined;
-  if (!task) throw new McpError(`No encuentro la tarea ${id}. Vuelve a listarlas con list_tasks: los ids cambian si se edita la nota.`);
-  return task;
 }

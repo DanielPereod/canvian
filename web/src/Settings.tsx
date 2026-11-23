@@ -9,6 +9,7 @@ import { BackArrow } from './BackArrow';
 import { CalendarSettings } from './CalendarSettings';
 import { AiSettings } from './AiSettings';
 import { KoreaderSettings } from './KoreaderSettings';
+import { ExtensionSettings } from './ExtensionSettings';
 import { setZenFullscreen, useZenPrefs } from './canvas/zenPrefs';
 import { setDiaryOn, useDiaryPrefs } from './canvas/diaryPrefs';
 import type { Profile } from './api';
@@ -25,7 +26,7 @@ type Props = {
   onProfiles: () => void;
 };
 
-type SectionId = 'general' | 'aspecto' | 'calendarios' | 'asistentes' | 'koreader' | 'atajos';
+type SectionId = 'general' | 'aspecto' | 'calendarios' | 'asistentes' | 'koreader' | 'extension' | 'atajos';
 
 const SECTIONS: { id: SectionId; name: string }[] = [
   { id: 'general', name: 'General' },
@@ -33,6 +34,7 @@ const SECTIONS: { id: SectionId; name: string }[] = [
   { id: 'calendarios', name: 'Calendarios' },
   { id: 'asistentes', name: 'Asistentes IA' },
   { id: 'koreader', name: 'KOReader' },
+  { id: 'extension', name: 'Extensión del navegador' },
   { id: 'atajos', name: 'Atajos de teclado' },
 ];
 
@@ -299,6 +301,8 @@ export function Settings({ profile, profiles, onClose, onProfiles }: Props) {
           {section === 'asistentes' && <AiSettings report={report} />}
 
           {section === 'koreader' && <KoreaderSettings report={report} />}
+
+          {section === 'extension' && <ExtensionSettings report={report} />}
 
           {section === 'atajos' && (
             <>

@@ -1,0 +1,37 @@
+body { width: 400px; }
+.top { display: flex; align-items: center; gap: 8px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+.top .brand { flex: 1; }
+.profile { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 3px 8px; }
+.icon { font-size: 15px; padding: 4px 6px; }
+
+main { padding: 12px 14px 14px; display: flex; flex-direction: column; }
+main .seg { align-self: flex-start; margin-bottom: 12px; }
+main .label { margin-top: 10px; }
+.title { font-size: 15px; font-weight: 600; }
+
+.combo { position: relative; }
+.combo-btn { display: flex; align-items: center; justify-content: space-between; text-align: left; cursor: pointer; }
+.combo-btn span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.caret { color: var(--text-3); margin-left: 8px; }
+.combo-pop { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: var(--radius-md); padding: 6px; box-shadow: 0 12px 30px rgb(0 0 0 / 0.35); }
+.combo-pop ul { list-style: none; margin: 6px 0 0; padding: 0; max-height: 190px; overflow: auto; }
+.combo-pop li { padding: 6px 8px; border-radius: var(--radius-sm); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-pop li .sep { color: var(--text-3); }
+.combo-pop li[aria-selected='true'], .combo-pop li:hover { background: var(--accent-soft); }
+.combo-pop li.def { color: var(--text-2); }
+
+.props { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.props .chip b { font-weight: 500; color: var(--text-3); }
+.content-head { display: flex; align-items: baseline; justify-content: space-between; margin-top: 10px; }
+.content-head .label { margin: 0 0 4px; }
+.content-head .muted { font-size: 11px; }
+
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.actions #status { font-size: 12px; flex: 1; }
+
+.done, .setup { padding: 28px 18px 24px; text-align: center; }
+.done-mark { width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 22px; }
+.done-title { font-family: var(--font-title); font-size: 22px; font-style: italic; }
+#done-path { margin: 4px 0 16px; word-break: break-word; }
+.done-actions { display: flex; gap: 8px; justify-content: center; }
+.setup p { color: var(--text-2); }

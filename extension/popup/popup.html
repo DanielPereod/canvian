@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Canvian</title>
+  <link rel="stylesheet" href="../lib/theme.css" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="top">
+    <span class="dot"></span>
+    <span class="brand">Canvian</span>
+    <select id="profile" class="profile" aria-label="Perfil" hidden></select>
+    <button id="settings" class="btn btn-ghost icon" title="Opciones" aria-label="Opciones">⚙</button>
+  </header>
+
+  <main id="form" hidden>
+    <div class="seg" role="group" aria-label="Qué guardar">
+      <button data-mode="page" aria-pressed="true">Página</button>
+      <button data-mode="selection">Selección</button>
+      <button data-mode="link">Solo enlace</button>
+    </div>
+
+    <label class="label" for="title">Título</label>
+    <input id="title" class="field title" autocomplete="off" />
+
+    <label class="label" for="folder-btn">Carpeta</label>
+    <div class="combo">
+      <button id="folder-btn" class="field combo-btn" aria-haspopup="listbox"><span id="folder-label">Recortes</span><span class="caret">▾</span></button>
+      <div id="folder-pop" class="combo-pop" hidden>
+        <input id="folder-q" class="field" placeholder="Buscar carpeta…" autocomplete="off" />
+        <ul id="folder-list" role="listbox"></ul>
+      </div>
+    </div>
+
+    <label class="label" for="tags">Etiquetas</label>
+    <input id="tags" class="field" placeholder="recorte, lectura" autocomplete="off" />
+
+    <div id="props" class="props"></div>
+
+    <div class="content-head">
+      <label class="label" for="markdown">Contenido</label>
+      <span id="count" class="muted"></span>
+    </div>
+    <textarea id="markdown" class="field" rows="9" spellcheck="false"></textarea>
+
+    <footer class="actions">
+      <span id="status" class="muted"></span>
+      <button id="save" class="btn btn-primary">Añadir a Canvian</button>
+    </footer>
+  </main>
+
+  <section id="done" class="done" hidden>
+    <div class="done-mark">✓</div>
+    <div class="done-title">Guardado</div>
+    <div id="done-path" class="muted"></div>
+    <div class="done-actions">
+      <button id="open" class="btn btn-primary">Abrir en Canvian</button>
+      <button id="again" class="btn">Otro recorte</button>
+    </div>
+  </section>
+
+  <section id="setup" class="setup" hidden>
+    <p>Conecta la extensión con tu Canvian para guardar recortes.</p>
+    <p id="setup-error" class="error"></p>
+    <button id="setup-open" class="btn btn-primary">Abrir opciones</button>
+  </section>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

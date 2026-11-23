@@ -67,6 +67,7 @@ export function ActionPalette({ onClose }: { onClose: () => void }) {
     { key: 'set-calendarios', label: t('Configuración: Calendarios'), group: 'Aplicación', run: () => openSettingsAt('calendarios') },
     { key: 'set-asistentes', label: t('Configuración: Asistentes IA'), group: 'Aplicación', run: () => openSettingsAt('asistentes') },
     { key: 'set-koreader', label: t('Configuración: KOReader'), group: 'Aplicación', run: () => openSettingsAt('koreader') },
+    { key: 'set-extension', label: t('Configuración: Extensión del navegador'), group: 'Aplicación', run: () => openSettingsAt('extension') },
     { key: 'set-atajos', label: t('Configuración: Atajos de teclado'), group: 'Aplicación', run: () => openSettingsAt('atajos') },
   ];
 

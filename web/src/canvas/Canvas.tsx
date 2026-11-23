@@ -5,6 +5,7 @@ import { api, whenIdle, writesSoFar, parseProps, type Lens, type NoteInput, type
 import type { NoteContent } from './NoteSheet';
 import { CommandPalette } from './CommandPalette';
 import { goToAnchor } from './anchor';
+import { clearDeepLink, readDeepLink } from '../deepLink';
 import { onLive } from '../live';
 import { NodeView, LOOSE, type MapAction } from './NodeView';
 import { bounds, parentMap, rectOf, visibleRows, type Rect } from './sections';
@@ -196,8 +197,15 @@ export function Canvas({ profile, shell }: { profile: Profile; shell: Shell }) {
       setLinks(canvas.edges.map((e) => ({ id: e.id, source: e.fromId, target: e.toId })));
       const place = readPlace(profile.id);
       const exists = (id: string | null | undefined) => !!id && canvas.notes.some((r) => r.id === id);
+      // Un enlace #nota/<perfil>/<nota>[/<bloque>] (de la extensión) abre esa nota.
+      const link = readDeepLink();
+      if (link) clearDeepLink();
+      const linked = link && link.profileId === profile.id && exists(link.noteId) ? link : null;
       if (place.center === LOOSE || exists(place.center)) setCenter(place.center!);
-      if (exists(place.note)) setFocusId(place.note!);
+      if (linked) {
+        if (linked.blockId) goToAnchor(linked.noteId, { section: `^${linked.blockId}` });
+        setFocusId(linked.noteId);
+      } else if (exists(place.note)) setFocusId(place.note!);
       else if (place.tasks) setTasksOpen(true);
       else if (place.diary) setDiaryOpen(true);
       else if (place.db) {
