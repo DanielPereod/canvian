@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>Canvian · Tareas del hilo</title>
   <link rel="stylesheet" href="../lib/theme.css" />
+  <link rel="stylesheet" href="../lib/controls.css" />
   <link rel="stylesheet" href="panel.css" />
 </head>
 <body>
@@ -28,7 +29,7 @@
       <div class="cp-msg" hidden></div>
       <div class="cp-all" hidden>
         <div class="cp-all-bar">
-          <input class="cx-field cp-all-q" placeholder="Filtrar hilos o tareas…" />
+          <input class="field cp-all-q" placeholder="Filtrar hilos o tareas…" autocomplete="off" />
           <label class="cp-all-done"><input type="checkbox" class="cp-show-done" /> Hechos</label>
         </div>
         <ul class="cp-threads"></ul>
@@ -37,18 +38,13 @@
       <ul class="cp-tasks"></ul>
 
       <form class="cp-add">
-        <input class="cx-field cp-text" placeholder="Nueva tarea para este hilo…" maxlength="1000" />
+        <input class="field cp-text" placeholder="Nueva tarea para este hilo…" maxlength="1000" autocomplete="off" />
         <div class="cp-row">
-          <input class="cx-field cp-due" type="date" title="Fecha" />
-          <select class="cx-field cp-prio" title="Prioridad">
-            <option value="none">Sin prioridad</option>
-            <option value="high">Alta</option>
-            <option value="medium">Media</option>
-            <option value="low">Baja</option>
-          </select>
+          <span class="cp-slot cp-due-slot"></span>
+          <span class="cp-slot cp-prio-slot"></span>
           <button class="btn btn-primary btn-sm cp-add-btn" type="submit">Añadir</button>
         </div>
-        <label class="cp-where"><span>En</span><select class="cx-field cp-note"></select></label>
+        <div class="cp-where"><span>En</span><span class="cp-slot cp-note-slot"></span></div>
       </form>
 
       <div class="cp-link">
@@ -57,7 +53,7 @@
           Vincular una tarea que ya existe
         </button>
         <div class="cp-search" hidden>
-          <input class="cx-field cp-q" placeholder="Buscar en tus tareas…" />
+          <input class="field cp-q" placeholder="Buscar en tus tareas…" autocomplete="off" />
           <ul class="cp-results"></ul>
         </div>
       </div>

@@ -4,13 +4,14 @@
   <meta charset="utf-8" />
   <title>Canvian</title>
   <link rel="stylesheet" href="../lib/theme.css" />
+  <link rel="stylesheet" href="../lib/controls.css" />
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <header class="pp-top">
     <span class="cx-dot"></span>
     <span class="cx-brand pp-brand">Canvian</span>
-    <select id="profile" class="cx-field pp-profile" aria-label="Perfil" hidden></select>
+    <span id="profile" class="pp-profile-slot" hidden></span>
     <button id="settings" class="cx-quiet pp-icon" title="Opciones" aria-label="Opciones">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
     </button>
@@ -27,17 +28,8 @@
 
     <div class="pp-grid">
       <div>
-        <label class="cx-label" for="folder-btn">Carpeta</label>
-        <div class="pp-combo">
-          <button id="folder-btn" class="cx-field pp-combo-btn" aria-haspopup="listbox">
-            <svg class="pp-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-            <span id="folder-label">Recortes</span><span class="pp-caret"></span>
-          </button>
-          <div id="folder-pop" class="cx-menu pp-combo-pop" hidden>
-            <input id="folder-q" class="cx-field" placeholder="Buscar carpeta…" autocomplete="off" />
-            <ul id="folder-list" role="listbox"></ul>
-          </div>
-        </div>
+        <label class="cx-label">Carpeta</label>
+        <span id="folder-slot" class="pp-folder-slot"></span>
       </div>
       <div>
         <label class="cx-label" for="tags">Etiquetas</label>

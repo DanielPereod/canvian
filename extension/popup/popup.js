@@ -1,5 +1,6 @@
 import { api, getConfig, setConfig } from '../lib/api.js';
 import { refreshStyle, startStyle } from '../lib/style.js';
+import { combo, notePicker } from '../lib/controls.js';
 
 // El recortador: coge la página (o lo seleccionado) en Markdown, deja
 // cambiar el título, la carpeta y las etiquetas, y lo guarda como nota.
@@ -11,8 +12,6 @@ const show = (id) => {
 
 let clip = null; // lo que devolvió la página
 let mode = 'page';
-let folders = [];
-let folder = null; // id, o null = «Recortes»
 let clipsName = 'Recortes';
 let lastOpen = null;
 let tab = null;
@@ -79,53 +78,25 @@ async function load(wanted) {
   if ($('status').textContent === 'Leyendo la página…') $('status').textContent = '';
 }
 
-// ── La carpeta ─────────────────────────────────────────────────────────
+// ── La carpeta: con el buscador de Canvian ─────────────────────────
 
-const folderPath = (f) => f.path.split(' > ');
-function renderFolderLabel() {
-  const f = folders.find((x) => x.id === folder);
-  $('folder-label').textContent = f ? folderPath(f).join(' › ') : `${clipsName} (por defecto)`;
-}
-function renderFolderList() {
-  const q = $('folder-q').value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
-  const list = $('folder-list');
-  list.textContent = '';
-  const add = (id, parts, cls) => {
-    const li = document.createElement('li');
-    li.setAttribute('role', 'option');
-    li.classList.add('cx-option');
-    li.dataset.id = id ?? '';
-    li.setAttribute('aria-selected', String(id === folder));
-    parts.forEach((p, i) => {
-      if (i) {
-        const s = document.createElement('span');
-        s.className = 'sep';
-        s.textContent = ' › ';
-        li.append(s);
-      }
-      li.append(p);
-    });
-    li.addEventListener('click', () => pickFolder(id));
-    list.append(li);
-  };
-  if (!q) add(null, [`${clipsName} (por defecto)`], 'def');
-  const match = folders.filter((f) => !q || f.path.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().includes(q));
-  for (const f of match.slice(0, 80)) add(f.id, folderPath(f));
-}
-async function pickFolder(id) {
-  folder = id;
-  $('folder-pop').hidden = true;
-  renderFolderLabel();
-  await chrome.storage.local.set({ [folderKey(profileId)]: id });
-}
+const folderField = notePicker({
+  search: async (q) => {
+    const res = await api('/search', { query: { q, limit: 20 } });
+    clipsName = res.clips ?? clipsName;
+    return res;
+  },
+  defaultLabel: () => clipsName,
+  placeholder: 'Buscar carpeta…',
+  onChange: (v) => chrome.storage.local.set({ [folderKey(profileId)]: v }),
+});
+$('folder-slot').append(folderField.el);
+
+// La carpeta elegida la última vez en este perfil (se guarda con su título).
 async function loadFolders() {
-  const profile = profileId;
-  const res = await api('/folders');
-  folders = res.folders;
-  clipsName = res.clips;
-  const saved = (await chrome.storage.local.get(folderKey(profile)))[folderKey(profile)];
-  folder = folders.some((f) => f.id === saved) ? saved : null;
-  renderFolderLabel();
+  const key = folderKey(profileId);
+  const saved = (await chrome.storage.local.get(key))[key];
+  folderField.set(saved && typeof saved === 'object' && saved.id ? saved : null);
 }
 
 // ── Guardar ───────────────────────────────────────────────────────────
@@ -151,7 +122,7 @@ async function save() {
   try {
     const res = await api('/clip', {
       method: 'POST',
-      body: { parent: folder, title, markdown, url: /^https?:/.test(clip.url) ? clip.url : null, tags, properties },
+      body: { parent: folderField.value?.id ?? null, title, markdown, url: /^https?:/.test(clip.url) ? clip.url : null, tags, properties },
     });
     await chrome.storage.local.set({ lastTags: $('tags').value });
     lastOpen = res.open;
@@ -160,6 +131,11 @@ async function save() {
   } catch (e) {
     $('status').textContent = e.message;
     $('status').className = 'cx-error';
+    // La carpeta recordada ya no existe: vuelve a la de por defecto.
+    if (/carpeta/i.test(e.message) && folderField.value) {
+      folderField.set(null);
+      chrome.storage.local.remove(folderKey(profileId));
+    }
   } finally {
     $('save').disabled = false;
   }
@@ -185,13 +161,20 @@ async function start() {
     show('setup');
     return;
   }
-  const sel = $('profile');
   const activeName = profiles.find((p) => p.id === active)?.name ?? '';
-  sel.append(new Option(`${activeName} · el de Canvian`, ''));
-  for (const p of profiles) sel.append(new Option(p.name, p.id));
   const chosen = profiles.some((p) => p.id === cfg.profile) ? cfg.profile : '';
-  sel.value = chosen;
-  sel.hidden = profiles.length < 2;
+  const profileField = combo({
+    label: 'Perfil',
+    items: [{ id: '', label: `${activeName} · el de Canvian` }, ...profiles.map((p) => ({ id: p.id, label: p.name }))],
+    value: chosen,
+    onChange: async (v) => {
+      await setConfig({ profile: v || null });
+      profileId = v || (await api('/profiles')).active;
+      await Promise.all([loadFolders(), refreshStyle()]);
+    },
+  });
+  $('profile').append(profileField.el);
+  $('profile').hidden = profiles.length < 2;
   profileId = chosen || active;
 
   const { lastTags } = await chrome.storage.local.get('lastTags');
@@ -220,31 +203,6 @@ $('markdown').addEventListener('input', renderCount);
 $('save').addEventListener('click', save);
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') save();
-  if (e.key === 'Escape' && !$('folder-pop').hidden) {
-    e.preventDefault();
-    $('folder-pop').hidden = true;
-  }
-});
-$('folder-btn').addEventListener('click', () => {
-  const pop = $('folder-pop');
-  pop.hidden = !pop.hidden;
-  if (!pop.hidden) {
-    $('folder-q').value = '';
-    renderFolderList();
-    $('folder-q').focus();
-  }
-});
-$('folder-q').addEventListener('input', renderFolderList);
-$('folder-q').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    $('folder-list').querySelector('li')?.click();
-  }
-});
-$('profile').addEventListener('change', async (e) => {
-  await setConfig({ profile: e.target.value || null });
-  profileId = e.target.value || (await api('/profiles')).active;
-  await Promise.all([loadFolders(), refreshStyle()]);
 });
 $('settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
 $('setup-open').addEventListener('click', () => chrome.runtime.openOptionsPage());

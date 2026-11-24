@@ -3,11 +3,12 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { and, eq, or } from 'drizzle-orm';
+import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { ulid } from 'ulidx';
 import { z } from 'zod';
 import type { Db } from '../db/index.js';
-import { mailLinks, settings } from '../db/schema.js';
+import { mailLinks, notes, settings } from '../db/schema.js';
+import { toFtsQuery } from '../routes/canvas.js';
 import { newBlockId } from '../doc/json.js';
 import { allTasks, changeTask, listedTasks, newTaskItem, taskBlockIds, withTaskBlockId, type Task, type TaskStatus } from '../doc/tasks.js';
 import type { LiveEvent } from '../live.js';
@@ -311,6 +312,39 @@ export function extensionRoutes(db: Db, hub?: Hub) {
         .map((n) => ({ id: n.id, title: noteTitle(n), path: pathOf(byId, n), updated: n.updatedAt }))
         .sort((a, b) => a.path.localeCompare(b.path, 'es'));
       return c.json({ folders, clips: CLIPS, inbox: INBOX });
+    }),
+  );
+
+  // Buscar notas (para elegir carpeta o nota de una tarea): lo mismo que el
+  // buscador de Canvian (texto completo, el título pesa más); sin nada
+  // escrito, las últimas tocadas.
+  r.get(
+    '/search',
+    safe((c) => {
+      const { profile: p, all, byId } = ctx(c.req.query('profile'));
+      const off = hidden(all);
+      const q = toFtsQuery(c.req.query('q') ?? '');
+      const limit = Math.min(Math.max(Number(c.req.query('limit')) || 20, 1), 50);
+      const base = and(eq(notes.profileId, p.id), isNull(notes.deletedAt), eq(notes.kind, 'text'));
+      const ids = q
+        ? db
+            .select({ id: notes.id })
+            .from(notes)
+            .innerJoin(sql`notes_fts`, sql`notes_fts.rowid = ${notes}.rowid`)
+            .where(and(base, sql`notes_fts MATCH ${q}`))
+            .orderBy(sql`bm25(notes_fts, 4.0, 1.0)`)
+            .limit(limit * 2)
+            .all()
+        : db.select({ id: notes.id }).from(notes).where(base).orderBy(desc(notes.updatedAt)).limit(limit * 2).all();
+      const hits = ids
+        .map(({ id }) => byId.get(id))
+        .filter((n): n is Note => !!n && !off.has(n.id))
+        .slice(0, limit)
+        .map((n) => {
+          const path = pathOf(byId, n);
+          return { id: n.id, title: noteTitle(n), path, where: path.split(' > ').slice(0, -1).join(' > ') };
+        });
+      return c.json({ hits, clips: CLIPS, inbox: INBOX });
     }),
   );
 

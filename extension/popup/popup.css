@@ -1,7 +1,9 @@
 body { width: 420px; }
 .pp-top { display: flex; align-items: center; gap: 10px; padding: 12px 14px 12px 16px; border-bottom: 1px solid var(--line); }
 .pp-top .pp-brand { flex: 1; font-size: var(--text-lg); }
-.pp-profile { width: auto; min-height: 30px; padding: 3px 28px 3px 12px; border-radius: var(--radius-pill); font-size: var(--text-sm); }
+.pp-profile-slot { display: contents; }
+.pp-profile-slot[hidden] { display: none; }
+.pp-profile-slot .cx-combo { width: auto; max-width: 220px; height: 30px; border-radius: var(--radius-pill); padding: 0 12px; }
 .pp-icon { width: 32px; height: 32px; padding: 0; }
 
 main { padding: 14px 16px 14px; display: flex; flex-direction: column; animation: cx-in 220ms ease-out both; }
@@ -28,13 +30,9 @@ main .cx-seg { align-self: flex-start; margin-bottom: 12px; }
 
 .pp-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 10px; }
 .pp-grid > div { min-width: 0; }
-.pp-combo { position: relative; }
-.pp-combo-btn { display: flex; align-items: center; gap: 7px; text-align: left; }
-.pp-combo-btn .pp-ico { flex: none; color: var(--text-faint); }
-.pp-combo-btn #folder-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pp-caret { flex: none; width: 6px; height: 6px; border-right: 1.5px solid var(--text-faint); border-bottom: 1.5px solid var(--text-faint); transform: translateY(-2px) rotate(45deg); }
-.pp-combo-pop { position: absolute; z-index: 5; left: 0; width: 360px; top: calc(100% + 6px); animation: cx-in 160ms ease-out both; }
-.pp-combo-pop ul { list-style: none; margin: 6px 0 0; padding: 0; max-height: 220px; overflow: auto; }
+.pp-folder-slot .cx-combo { width: 100%; height: 38px; }
+.pp-folder-slot .cx-combo::before { content: ''; flex: none; width: 14px; height: 14px; background: var(--text-faint); -webkit-mask: var(--pp-folder) center / contain no-repeat; mask: var(--pp-folder) center / contain no-repeat; }
+:root { --pp-folder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E"); }
 
 .pp-props { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .pp-content-head { display: flex; align-items: baseline; justify-content: space-between; margin-top: 12px; }
