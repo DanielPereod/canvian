@@ -85,6 +85,13 @@ export type LayoutItem = {
 
 export type ExtensionStatus = { token: string | null; publicUrl: string | null };
 export type KoreaderStatus = { token: string | null; publicUrl: string | null; folders: Record<string, string | null> };
+export type OpdshelfStatus = {
+  config: { url: string; username: string | null; profileId: string | null; hasKey: boolean; hasPassword: boolean } | null;
+  lastSync: string | null;
+  lastError: string | null;
+  books: number;
+};
+export type OpdshelfConfig = { url: string; username?: string | null; password?: string | null; key?: string | null; profileId?: string | null };
 export type McpStatus = { enabled: boolean; fromEnv: boolean; token: string | null; publicUrl: string | null };
 
 // Una nota pública: su enlace (id), qué hijas se ven y si pide contraseña.
@@ -232,6 +239,10 @@ export const api = {
   createKoreaderToken: () => request<{ token: string }>('POST', '/koreader/token'),
   revokeKoreaderToken: () => request('DELETE', '/koreader/token'),
   setKoreaderFolder: (profileId: string, noteId: string | null) => request<KoreaderStatus>('PUT', '/koreader/folder', { profileId, noteId }),
+  opdshelfStatus: () => request<OpdshelfStatus>('GET', '/opdshelf'),
+  setOpdshelf: (config: OpdshelfConfig) => request<OpdshelfStatus>('PUT', '/opdshelf', config),
+  removeOpdshelf: () => request('DELETE', '/opdshelf'),
+  syncOpdshelf: (all = false) => request<{ books: number; created: number; updated: number; status: OpdshelfStatus }>('POST', '/opdshelf/sync', { all }),
   shares: (profileId: string) => request<Share[]>('GET', `/profiles/${profileId}/shares`),
   share: (noteId: string) => request<Share | null>('GET', `/notes/${noteId}/share`),
   saveShare: (noteId: string, body: { scope: ShareScope; childIds: string[]; password?: string | null }) => request<Share>('PUT', `/notes/${noteId}/share`, body),
