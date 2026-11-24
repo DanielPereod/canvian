@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { api, ApiError, type Mastery, type NbCard, type NbFull, type NbMessage, type NbReview, type NbSource, type NbTopic, type NbTopicFull, type Notebook, type SearchHit } from '../api';
 import { onLive } from '../live';
 import { t, tn } from '../i18n';
@@ -896,6 +897,9 @@ function TopicPage(p: {
   const [data, setData] = useState<NbTopicFull | null>(null);
   const [nb, setNb] = useState<NbFull | null>(null);
   const tutor = useAi();
+  // El editor de la nota, en un panel al lado: se abre solo al llegar a «Escribe tu nota».
+  const [writing, setWriting] = useState(false);
+  const offered = useRef(false);
   const sources = useAi();
   const reload = useCallback(() => api.nbTopic(p.topicId).then(setData, p.onError), [p.topicId, p.onError]);
   useEffect(() => {
@@ -923,6 +927,11 @@ function TopicPage(p: {
     if (!data.messages.length && data.topic.status !== 'hecho') void say();
     if (!data.sources.length && !data.topic.brief && (nb.notebook.sourceMode === 'auto' || nb.sources.length)) void findSources();
   });
+  useEffect(() => {
+    if (!data || offered.current || data.note || data.topic.stage !== 'nota') return;
+    offered.current = true;
+    setWriting(true);
+  }, [data]);
 
   if (!data || !nb) return null;
   const topic = data.topic;
@@ -965,8 +974,29 @@ function TopicPage(p: {
         ))}
       </div>
 
-      {p.tab === 'sesion' && <Session data={data} busy={tutor.busy} error={tutor.error} onSay={say} onSettings={p.onSettings} onWrite={() => p.onTab('nota')} />}
-      {p.tab === 'nota' && <NoteWriter data={data} nb={nb} onSaved={got} onOpenNote={p.onOpenNote} onSettings={p.onSettings} onError={p.onError} onDone={p.onBack} />}
+      {p.tab === 'sesion' && <Session data={data} busy={tutor.busy} error={tutor.error} onSay={say} onSettings={p.onSettings} onWrite={() => setWriting(true)} />}
+      {p.tab === 'nota' && <NoteWriter data={data} nb={nb} profileId={p.profileId} onSaved={got} onOpenNote={p.onOpenNote} onSettings={p.onSettings} onError={p.onError} onDone={p.onBack} />}
+      {writing && p.tab !== 'nota' && (
+        <NotePanel onClose={() => setWriting(false)}>
+          <NoteWriter
+            data={data}
+            nb={nb}
+            profileId={p.profileId}
+            onSaved={got}
+            onOpenNote={(id) => {
+              // El editor de la nota se abre encima de la página: el panel se aparta y vuelve con «Revisar mi nota».
+              setWriting(false);
+              p.onOpenNote(id);
+            }}
+            onSettings={p.onSettings}
+            onError={p.onError}
+            onDone={() => {
+              setWriting(false);
+              p.onBack();
+            }}
+          />
+        </NotePanel>
+      )}
       {p.tab === 'fuentes' && (
         <>
           <AiProblem error={sources.error} onSettings={p.onSettings} onRetry={() => void findSources()} />
@@ -1060,11 +1090,11 @@ function Session({ data, busy, error, onSay, onSettings, onWrite }: { data: NbTo
           )}
           <div ref={end} className="nbv-end" />
         </div>
-        {(stage === 'nota' || stage === 'fin') && !data.note ? (
+        {(stage === 'nota' || stage === 'fin') && data.topic.status !== 'hecho' ? (
           <div className="nbv-callout">
-            <span>{t('Ahora escribe tu nota con lo que has aprendido, sin mirar la sesión.')}</span>
+            <span>{data.note ? t('Cuando acabes de escribir tu nota, pide a Claude que la revise.') : t('Ahora escribe tu nota con lo que has aprendido, sin mirar la sesión. Se abre al lado, y eliges dónde guardarla.')}</span>
             <button className="btn btn-primary btn-sm" onClick={onWrite}>
-              {t('Escribir mi nota')}
+              {data.note ? t('Revisar mi nota') : t('Escribir mi nota')}
             </button>
           </div>
         ) : null}
@@ -1095,18 +1125,116 @@ function Session({ data, busy, error, onSay, onSettings, onWrite }: { data: NbTo
   );
 }
 
-function NoteWriter({ data, nb, onSaved, onOpenNote, onSettings, onError, onDone }: { data: NbTopicFull; nb: NbFull; onSaved: (d: NbTopicFull | null) => NbTopicFull | null; onOpenNote: (id: string) => void; onSettings: () => void; onError: (e: unknown) => void; onDone: () => void }) {
+type Where = { kind: 'cuaderno' } | { kind: 'raiz' } | { kind: 'nota'; id: string; title: string };
+
+/** Dónde se guarda la nota: en la carpeta del cuaderno, arriba del todo o dentro de otra nota (con buscador). */
+function WherePicker({ profileId, folder, value, onChange }: { profileId: string; folder: string; value: Where; onChange: (w: Where) => void }) {
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  useEffect(() => {
+    const v = q.trim();
+    if (!v) {
+      setHits([]);
+      return;
+    }
+    const id = setTimeout(() => api.search(profileId, v).then((r) => setHits(r.slice(0, 8)), () => setHits([])), 180);
+    return () => clearTimeout(id);
+  }, [q, profileId]);
+  return (
+    <div className="nbv-where-pick">
+      <div className="nbv-label">{t('¿Dónde la guardo?')}</div>
+      <div className="nbv-where-opts" role="radiogroup" aria-label={t('¿Dónde la guardo?')}>
+        <button role="radio" aria-checked={value.kind === 'cuaderno'} className={`nbv-chip${value.kind === 'cuaderno' ? ' is-on' : ''}`} onClick={() => onChange({ kind: 'cuaderno' })}>
+          {t('En «{folder}»', { folder })}
+        </button>
+        <button role="radio" aria-checked={value.kind === 'raiz'} className={`nbv-chip${value.kind === 'raiz' ? ' is-on' : ''}`} onClick={() => onChange({ kind: 'raiz' })}>
+          {t('Arriba del todo')}
+        </button>
+        {value.kind === 'nota' ? (
+          <button role="radio" aria-checked className="nbv-chip is-on" onClick={() => setSearching(true)}>
+            {t('Dentro de «{title}»', { title: value.title })}
+          </button>
+        ) : (
+          <button role="radio" aria-checked={false} className={`nbv-chip${searching ? ' is-on' : ''}`} onClick={() => setSearching(true)}>
+            {t('Dentro de otra nota…')}
+          </button>
+        )}
+      </div>
+      {searching && (
+        <div className="nbv-where-search">
+          <input className="field" autoFocus value={q} placeholder={t('Busca la nota donde guardarla')} aria-label={t('Busca la nota donde guardarla')} onChange={(e) => setQ(e.target.value)} />
+          {hits.length > 0 && (
+            <ul className="nbv-hits">
+              {hits.map((h) => (
+                <li key={h.id}>
+                  <button
+                    onClick={() => {
+                      onChange({ kind: 'nota', id: h.id, title: h.title || t('Sin título') });
+                      setSearching(false);
+                      setQ('');
+                    }}
+                  >
+                    ¶ {h.title || t('Sin título')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Panel al lado de la sesión para escribir la nota (tapa la sesión: se escribe sin mirar). */
+function NotePanel({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  // Fuera de la vista (que lleva una animación con transform): si no, «fixed» no cubre la pantalla.
+  return createPortal(
+    <div
+      className="nbv-drawer-layer"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+    >
+      <div className="nbv-drawer-back" onClick={onClose} />
+      <aside className="nbv-drawer" role="dialog" aria-label={t('Tu nota')}>
+        <header className="nbv-drawer-head">
+          <span className="nbv-drawer-title">{t('Tu nota')}</span>
+          <button className="nbv-icon" aria-label={t('Cerrar')} title={t('Cerrar')} onClick={onClose}>
+            ×
+          </button>
+        </header>
+        <div className="nbv-drawer-body">{children}</div>
+      </aside>
+    </div>,
+    document.body,
+  );
+}
+
+function NoteWriter({ data, nb, profileId, onSaved, onOpenNote, onSettings, onError, onDone }: { data: NbTopicFull; nb: NbFull; profileId: string; onSaved: (d: NbTopicFull | null) => NbTopicFull | null; onOpenNote: (id: string) => void; onSettings: () => void; onError: (e: unknown) => void; onDone: () => void }) {
   const [title, setTitle] = useState(data.note?.title ?? data.topic.title);
-  const [text, setText] = useState(data.note?.markdown ?? '');
-  const [where, setWhere] = useState<'cuaderno' | 'raiz'>('cuaderno');
+  const [where, setWhere] = useState<Where>({ kind: 'cuaderno' });
   const ai = useAi();
   const review: NbReview | null | undefined = data.review;
   const [chosen, setChosen] = useState<Set<number>>(new Set());
   useEffect(() => setChosen(new Set(review?.cards.map((_, i) => i) ?? [])), [review]);
   const [linked, setLinked] = useState<Set<string>>(new Set());
 
-  const save = () =>
-    ai.run(t('Claude está leyendo tu nota…'), () => api.nbSaveNote(data.topic.id, { markdown: text, title: title.trim() || undefined, ...(data.note ? {} : where === 'raiz' ? { parentId: null } : {}) })).then(onSaved);
+  // La nota se escribe en el editor de siempre: primero se crea vacía donde
+  // diga la persona y se abre; luego Claude lee lo que haya escrito.
+  const create = () =>
+    ai
+      .run(t('Creando tu nota…'), () => api.nbSaveNote(data.topic.id, { title: title.trim() || undefined, ...(where.kind === 'raiz' ? { parentId: null } : where.kind === 'nota' ? { parentId: where.id } : {}) }))
+      .then((d) => {
+        onSaved(d);
+        if (d?.note) onOpenNote(d.note.id);
+      });
+  const review_ = () => ai.run(t('Claude está leyendo tu nota…'), () => api.nbSaveNote(data.topic.id, {})).then(onSaved);
   const finish = () => {
     const cards = review?.cards.filter((_, i) => chosen.has(i)) ?? [];
     api.nbAddCards(data.topic.id, cards, true).then((d) => {
@@ -1118,29 +1246,42 @@ function NoteWriter({ data, nb, onSaved, onOpenNote, onSettings, onError, onDone
 
   return (
     <div className="nbv-note">
-      <p className="nbv-intro">{t('Escribe con tus palabras lo que has entendido, sin mirar la sesión (por eso no se ve aquí). Recordarlo y explicarlo es lo que lo fija. Claude no te la reescribe: te dice qué falta.')}</p>
-      <input className="field nbv-input nbv-note-title" value={title} aria-label={t('Título de la nota')} onChange={(e) => setTitle(e.target.value)} />
-      <textarea className="field nbv-input nbv-note-text" rows={10} value={text} placeholder={t('Lo que he aprendido… (puedes usar Markdown y [[enlaces]] a otras notas)')} aria-label={t('Tu nota')} onChange={(e) => setText(e.target.value)} />
-      <div className="nbv-note-bar">
-        {data.note ? (
-          <button className="nbv-link" onClick={() => onOpenNote(data.note!.id)}>
-            {t('Abrir en la biblioteca')} ↗
-          </button>
-        ) : (
-          <label className="nbv-hint nbv-where">
-            {t('Se guarda en la biblioteca:')}{' '}
-            <select className="field" value={where} onChange={(e) => setWhere(e.target.value as 'cuaderno' | 'raiz')}>
-              <option value="cuaderno">{t('en «{folder}»', { folder })}</option>
-              <option value="raiz">{t('arriba del todo')}</option>
-            </select>
+      <p className="nbv-intro">{t('Escribe con tus palabras lo que has entendido, sin mirar la sesión. Recordarlo y explicarlo es lo que lo fija. Es una nota normal de tu biblioteca, con el editor de siempre. Claude no te la reescribe: te dice qué falta.')}</p>
+      {data.note ? (
+        <div className="nbv-note-card">
+          <span className="nbv-note-card-icon" aria-hidden="true">
+            ¶
+          </span>
+          <span className="nbv-note-card-text">
+            <span className="nbv-note-card-title">{data.note.title}</span>
+            <span className="nbv-hint">{t('Escríbela en el editor y, cuando acabes, pide a Claude que la revise.')}</span>
+          </span>
+          <span className="nbv-note-card-tools">
+            <button className="btn btn-ghost btn-sm" onClick={() => onOpenNote(data.note!.id)}>
+              {t('Abrir y escribir')}
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => void review_()} disabled={!!ai.busy}>
+              {review ? t('Revisar otra vez') : t('Ya está: que Claude la revise')}
+            </button>
+          </span>
+        </div>
+      ) : (
+        <>
+          <WherePicker profileId={profileId} folder={folder} value={where} onChange={setWhere} />
+          <label className="nbv-label" htmlFor="nb-note-title">
+            {t('Título')}
           </label>
-        )}
-        <button className="btn btn-primary btn-sm" onClick={() => void save()} disabled={!text.trim() || !!ai.busy}>
-          {data.note ? t('Guardar y revisar otra vez') : t('Guardar mi nota')}
-        </button>
-      </div>
+          <input id="nb-note-title" className="field nbv-input nbv-note-title" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !ai.busy && void create()} />
+          <div className="nbv-note-bar">
+            <span />
+            <button className="btn btn-primary btn-sm" onClick={() => void create()} disabled={!!ai.busy}>
+              {t('Crear la nota y escribirla')}
+            </button>
+          </div>
+        </>
+      )}
       {ai.busy && <Thinking label={ai.busy} />}
-      <AiProblem error={ai.error ?? (data.reviewError ? { message: data.reviewError } : null)} onSettings={onSettings} onRetry={() => void save()} />
+      <AiProblem error={ai.error ?? (data.reviewError ? { message: data.reviewError } : null)} onSettings={onSettings} onRetry={() => void (data.note ? review_() : create())} />
 
       {review && (
         <div className="nbv-review-note">

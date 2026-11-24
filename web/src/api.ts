@@ -353,7 +353,7 @@ export const api = {
   nbAddSource: (topicId: string, body: { url?: string; noteId?: string; title?: string }) => request<NbTopicFull>('POST', `/topics/${topicId}/sources`, body),
   nbAddNotebookSource: (id: string, body: { url?: string; noteId?: string; title?: string }) => request<NbFull>('POST', `/notebooks/${id}/sources`, body),
   nbPatchSource: (id: string, patch: { pinned?: boolean; removed?: boolean }) => request<NbTopicFull | NbFull>('PATCH', `/nb-sources/${id}`, patch),
-  nbSaveNote: (topicId: string, body: { markdown: string; title?: string; parentId?: string | null; review?: boolean }) => request<NbTopicFull>('POST', `/topics/${topicId}/note`, body),
+  nbSaveNote: (topicId: string, body: { markdown?: string; title?: string; parentId?: string | null; review?: boolean }) => request<NbTopicFull>('POST', `/topics/${topicId}/note`, body),
   nbLink: (topicId: string, noteId: string) => request<NbTopicFull>('POST', `/topics/${topicId}/link`, { noteId }),
   nbAddCards: (topicId: string, cards: { kind?: string; front: string; back: string }[], finish = false) => request<NbTopicFull>('POST', `/topics/${topicId}/cards`, { cards, finish }),
   nbReview: (profileId: string, notebookId?: string) => request<NbCard[]>('GET', `/profiles/${profileId}/review${notebookId ? `?notebook=${notebookId}` : ''}`),

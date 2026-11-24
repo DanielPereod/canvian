@@ -227,6 +227,22 @@ describe('notebooks', () => {
     expect(links).toEqual([{ noteId: saved.note.id, topicId: topic.id, topic: 'Derivadas', notebookId: planned.notebook.id, notebook: 'Matemáticas' }]);
   });
 
+  it('creates an empty note where the person says and reviews what they write in the normal editor', async () => {
+    const planned = await newNotebook();
+    const topic = planned.topics[0];
+    const parent = await ok('POST', `/profiles/${profileId}/notes`, { id: '01JESTUDIOS000000000000001', kind: 'text', x: 0, y: 0, title: 'Estudios', bodyText: 'Estudios' });
+    const started = await ok('POST', `/topics/${topic.id}/note`, { title: 'Mis límites', parentId: parent.id });
+    expect(started.note).toMatchObject({ title: 'Mis límites', markdown: '' });
+    expect(started.review).toBeNull();
+    expect(asked.some((q) => Object.keys((q.schema?.properties as object) ?? {}).includes('covered'))).toBe(false);
+    expect((await call('POST', `/topics/${topic.id}/note`, {})).status).toBe(400);
+    const doc = { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Mis límites' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'Un límite es a lo que se acerca.' }] }] };
+    await ok('PATCH', `/notes/${started.note.id}`, { bodyJson: JSON.stringify(doc), bodyText: 'Mis límites\nUn límite es a lo que se acerca.' });
+    const reviewed = await ok('POST', `/topics/${topic.id}/note`, {});
+    expect(reviewed.review.covered.length).toBeGreaterThan(0);
+    expect(asked.at(-1)!.prompt).toContain('Un límite es a lo que se acerca.');
+  });
+
   it('keeps the note even if the review fails', async () => {
     const planned = await newNotebook();
     failNext = new AiError('Claude no ha podido responder');

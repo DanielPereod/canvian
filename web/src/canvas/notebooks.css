@@ -216,10 +216,7 @@ textarea.nbv-input:focus-visible, .nbv-card-row textarea:focus-visible { outline
 /* Tu nota */
 .nbv-note { display: flex; flex-direction: column; gap: var(--space-3); max-width: 760px; }
 .nbv-note-title { font-size: var(--text-lg); font-weight: 600; }
-textarea.nbv-note-text { min-height: 240px; }
 .nbv-note-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.nbv-where { display: inline-flex; align-items: center; gap: var(--space-2); }
-.nbv-where .field { width: auto; min-height: 30px; padding-top: 0; padding-bottom: 0; font-size: var(--text-sm); }
 .nbv-review-note { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4) var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface-1); }
 .nbv-check { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .nbv-check li { display: flex; gap: var(--space-2); font-size: var(--text-sm); line-height: 1.45; }
@@ -234,6 +231,29 @@ textarea.nbv-note-text { min-height: 240px; }
 .nbv-proposed label:hover { background: var(--surface-sunken); }
 .nbv-proposed input { margin-top: 3px; accent-color: var(--accent); }
 .nbv-proposed-a { display: block; margin-top: 2px; color: var(--text-faint); font-size: var(--text-sm); }
+
+/* Tu nota, ya creada: se escribe en el editor de siempre */
+.nbv-note-card { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-1); }
+.nbv-note-card-icon { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-ink); }
+.nbv-note-card-text { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 2px; }
+.nbv-note-card-title { font-weight: 600; }
+.nbv-note-card-tools { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* Dónde se guarda la nota */
+.nbv-where-pick { display: flex; flex-direction: column; gap: var(--space-2); }
+.nbv-where-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.nbv-where-search { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* Panel lateral para escribir la nota */
+.nbv-drawer-layer { position: fixed; inset: 0; z-index: calc(var(--z-chrome) + 15); display: flex; justify-content: flex-end; }
+.nbv-drawer-back { position: absolute; inset: 0; background: rgba(10, 10, 12, 0.38); animation: note-popup-fade 180ms ease-out both; }
+.nbv-drawer { position: relative; display: flex; flex-direction: column; width: min(620px, 100%); height: 100%; background: var(--bg); border-left: 1px solid var(--line); box-shadow: var(--shadow-2); animation: nbv-drawer-in 260ms var(--ease-out) both; }
+.nbv-drawer-head { flex: none; display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5); border-bottom: 1px solid var(--line); }
+.nbv-drawer-title { font-weight: 600; }
+.nbv-drawer-body { flex: 1; overflow-y: auto; padding: var(--space-4) var(--space-5) var(--space-6); }
+.nbv-drawer .nbv-note { max-width: none; }
+@keyframes nbv-drawer-in { from { transform: translateX(24px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .nbv-drawer { animation: none; } }
 
 /* Tarjetas del tema */
 .nbv-cards { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
