@@ -10,7 +10,7 @@ Estado: **fase 1**. Login, perfiles, y notas con texto enriquecido en el canvas:
 2. Instala. Los datos quedan en `/DATA/AppData/canvian/canvian.db`.
 3. Abre `http://<ip-del-servidor>:3210` y elige tu contraseña. Se crean los perfiles Personal y Trabajo.
 
-La imagen `ghcr.io/danielpereod/canvian` se publica sola al hacer merge en `main` (amd64 y arm64). Si el repositorio es privado, el paquete en GHCR también lo será: hazlo público en *GitHub → Packages → canvian → Package settings*, o haz `docker login ghcr.io` en el servidor.
+La imagen `ghcr.io/danielpereod/canvian` se publica sola al hacer merge en `main` (amd64). Si el repositorio es privado, el paquete en GHCR también lo será: hazlo público en *GitHub → Packages → canvian → Package settings*, o haz `docker login ghcr.io` en el servidor.
 
 Para actualizar: en CasaOS, botón de actualizar la app (vuelve a descargar `latest`).
 

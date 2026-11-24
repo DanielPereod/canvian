@@ -1068,12 +1068,12 @@ function Session({ data, busy, error, onSay, onSettings, onWrite }: { data: NbTo
             </button>
           </div>
         ) : null}
-        <div className="nbv-compose">
+        <div className="nbv-compose" onClick={(e) => e.currentTarget.querySelector('textarea')?.focus()}>
           <textarea
-            className="field"
-            rows={2}
+            className="nbv-compose-input"
+            rows={1}
             value={text}
-            placeholder={data.topic.status === 'hecho' ? t('Pregunta lo que quieras sobre el tema') : t('Responde… (Intro para enviar, Mayús+Intro para otra línea)')}
+            placeholder={data.topic.status === 'hecho' ? t('Pregunta lo que quieras sobre el tema') : t('Responde…')}
             aria-label={t('Responder al tutor')}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -1083,11 +1083,13 @@ function Session({ data, busy, error, onSay, onSettings, onWrite }: { data: NbTo
               }
             }}
           />
-          <button className="btn btn-primary btn-sm" onClick={send} disabled={!text.trim() || !!busy}>
-            {t('Enviar')}
-          </button>
+          <div className="nbv-compose-foot">
+            <span className="nbv-compose-hint">{t('Intro para enviar, Mayús+Intro para otra línea. ¿Algo no te cuadra? Díselo: lo revisará con sus fuentes.')}</span>
+            <button className="btn btn-primary btn-sm" onClick={send} disabled={!text.trim() || !!busy}>
+              {t('Enviar')}
+            </button>
+          </div>
         </div>
-        <p className="nbv-hint nbv-compose-hint">{t('¿Algo no te cuadra? Díselo: lo revisará con sus fuentes.')}</p>
       </div>
     </div>
   );
