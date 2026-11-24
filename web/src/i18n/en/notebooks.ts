@@ -94,6 +94,8 @@ export const EN_NOTEBOOKS: Record<string, string> = {
   'Responde… (Intro para enviar, Mayús+Intro para otra línea)': 'Reply… (Enter to send, Shift+Enter for a new line)',
   'Responder al tutor': 'Reply to the tutor',
   Enviar: 'Send',
+  'Responde…': 'Reply…',
+  'Intro para enviar, Mayús+Intro para otra línea. ¿Algo no te cuadra? Díselo: lo revisará con sus fuentes.': "Enter to send, Shift+Enter for a new line. Something doesn't add up? Say so: it will check against its sources.",
   '¿Algo no te cuadra? Díselo: lo revisará con sus fuentes.': "Something doesn't add up? Say so: it will check against its sources.",
   'Claude está leyendo tu nota…': 'Claude is reading your note…',
   'Escribe con tus palabras lo que has entendido, sin mirar la sesión (por eso no se ve aquí). Recordarlo y explicarlo es lo que lo fija. Claude no te la reescribe: te dice qué falta.':
