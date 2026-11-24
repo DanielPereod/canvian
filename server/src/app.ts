@@ -30,6 +30,8 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { createMcpServer } from './mcp/server.js';
 import { createMcpToken, isMcpToken, mcpStatus, revokeMcpToken, setMcpPublicUrl } from './mcp/token.js';
 import { koreaderRoutes, koreaderSettingsRoutes } from './koreader/routes.js';
+import { opdshelfRoutes } from './opdshelf/routes.js';
+import { createOpdshelfWorker, type Fetcher as OpdshelfFetcher } from './opdshelf/sync.js';
 import { extensionRoutes, extensionSettingsRoutes, setActiveProfile } from './extension/routes.js';
 import { claudeAi, loginFlow, type Ai } from './ai/claude.js';
 import { notebookRoutes } from './notebooks/routes.js';
@@ -56,10 +58,13 @@ const DEFAULT_PROFILES = [
 
 export function createApp(
   db: Db,
-  opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher; fetchPage?: Fetcher; ai?: Ai; claudeHome?: string } = {},
+  opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher; fetchPage?: Fetcher; fetchOpdshelf?: OpdshelfFetcher; opdshelfLive?: boolean; ai?: Ai; claudeHome?: string } = {},
 ) {
   const api = new Hono();
   const hub = createHub();
+  // opdshelf: Canvian pide los subrayados (en las pruebas, solo al pulsar «Sincronizar»).
+  const opdshelf = createOpdshelfWorker(db, { fetcher: opts.fetchOpdshelf, mediaDir: opts.mediaDir, hub, live: opts.opdshelfLive });
+  opdshelf.start();
   // La IA de los cuadernos: Claude Code con la suscripción de la persona (ver ai/claude.ts).
   const claudeHome = opts.claudeHome ?? join(tmpdir(), 'canvian-claude');
   const ai = opts.ai ?? claudeAi(db, { home: claudeHome });
@@ -237,6 +242,7 @@ export function createApp(
 
   api.route('/', notebookRoutes(db, { ai, login, hub }));
   api.route('/', koreaderSettingsRoutes(db));
+  api.route('/', opdshelfRoutes(db, opdshelf));
   api.route('/', extensionSettingsRoutes(db));
   api.route('/', canvasRoutes(db));
   api.route('/', shareRoutes(db));

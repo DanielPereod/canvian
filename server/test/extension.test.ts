@@ -80,6 +80,13 @@ describe('browser extension', () => {
     expect(notes.filter((n) => n.title === 'Recortes')).toHaveLength(1);
     expect(notes.find((n) => n.title === 'Otra')!.zoneId).toBe(recortes.id);
     expect((await ext('POST', '/clip', { profile: profileId, parent: 'no-existe', title: 'X' })).status).toBe(400);
+
+    // Buscar dónde guardar: como el buscador de Canvian (por palabras, con su ruta).
+    const hits = (await (await ext('GET', `/search?profile=${profileId}&q=${encodeURIComponent('masa')}`)).json()).hits;
+    expect(hits[0]).toMatchObject({ title: 'Masa madre', path: 'Recortes > Cómo hacer pan > Masa madre', where: 'Recortes > Cómo hacer pan' });
+    expect((await (await ext('GET', `/search?profile=${profileId}&q=ingred`)).json()).hits.map((h: { title: string }) => h.title)).toContain('Cómo hacer pan');
+    const recent = (await (await ext('GET', `/search?profile=${profileId}`)).json()).hits;
+    expect(recent.length).toBeGreaterThan(2);
   });
 
   it('links tasks to a mail thread and follows them when the note changes', async () => {

@@ -1,17 +1,16 @@
 import { api, getConfig, originPattern, setConfig } from '../lib/api.js';
 import { refreshStyle, startStyle } from '../lib/style.js';
+import { combo } from '../lib/controls.js';
 
 const $ = (id) => document.getElementById(id);
 
 async function showProfiles() {
   const { profile } = await getConfig();
   const { profiles, active } = await api('/profiles');
-  const sel = $('profile');
-  sel.textContent = '';
   const activeName = profiles.find((p) => p.id === active)?.name ?? '';
-  sel.append(new Option(`El que tengas abierto en Canvian (ahora ${activeName})`, ''));
-  for (const p of profiles) sel.append(new Option(p.name, p.id));
-  sel.value = profiles.some((p) => p.id === profile) ? profile : '';
+  const items = [{ id: '', label: `El que tengas abierto en Canvian (ahora ${activeName})` }, ...profiles.map((p) => ({ id: p.id, label: p.name }))];
+  profileField.setItems(items);
+  profileField.set(profiles.some((p) => p.id === profile) ? profile : '');
   $('profile-box').hidden = false;
   return profiles;
 }
@@ -60,10 +59,14 @@ $('save').addEventListener('click', async () => {
   }
 });
 
-$('profile').addEventListener('change', async (e) => {
-  await setConfig({ profile: e.target.value || null });
-  refreshStyle();
+const profileField = combo({
+  label: 'Perfil',
+  onChange: async (v) => {
+    await setConfig({ profile: v || null });
+    refreshStyle();
+  },
 });
+$('profile').append(profileField.el);
 
 startStyle();
 start();

@@ -207,6 +207,43 @@ export const EN_APP: Record<string, string> = {
   'Llave de KOReader no válida': 'Invalid KOReader key',
   'Datos del libro no válidos': 'Invalid book data',
 
+  // Configuración › opdshelf
+  'Configuración: opdshelf': 'Settings: opdshelf',
+  'Canvian lee de tu servidor opdshelf los subrayados y notas de todos tus libros (de KOReader, la app de Android o el navegador) y los guarda como una nota por libro, en la carpeta elegida en KOReader. Cada subrayado lleva su ^id, así que los enlaces a un subrayado siguen funcionando aunque se vuelva a sincronizar. Se pone al día solo, en cuanto opdshelf avisa de un cambio.':
+    'Canvian reads the highlights and notes of all your books from your opdshelf server (from KOReader, the Android app or the browser) and saves them as one note per book, in the folder chosen under KOReader. Each highlight carries its ^id, so links to a highlight keep working after syncing again. It updates on its own as soon as opdshelf announces a change.',
+  Dirección: 'Address',
+  'La de opdshelf, sin /admin.': 'The opdshelf address, without /admin.',
+  'Llave de API': 'API key',
+  'Guardada. Se usa antes que el usuario y la contraseña.': 'Saved. It is used before the username and password.',
+  'La que crea opdshelf en Settings › Apps and connections. Si tu opdshelf aún no tiene llaves, usa el usuario y la contraseña.':
+    'The one opdshelf creates under Settings › Apps and connections. If your opdshelf has no keys yet, use the username and password.',
+  'Usuario y contraseña': 'Username and password',
+  'Los de opdshelf (ADMIN_USERNAME y ADMIN_PASSWORD). Déjalos vacíos si tu opdshelf no pide contraseña.':
+    'The opdshelf ones (ADMIN_USERNAME and ADMIN_PASSWORD). Leave them empty if your opdshelf asks for no password.',
+  Usuario: 'Username',
+  'En el que se guardan los libros.': 'The one books are saved in.',
+  Conexión: 'Connection',
+  Conectar: 'Connect',
+  'Aún no está conectado.': 'Not connected yet.',
+  'Última sincronización: %1 · %2 libros con subrayados': 'Last sync: %1 · %2 books with highlights',
+  'Conectado, aún sin sincronizar.': 'Connected, not synced yet.',
+  'Libros nuevos: %1 · actualizados: %2': 'New books: %1 · updated: %2',
+  'Sincronizando…': 'Syncing…',
+  'Sincronizar ahora': 'Sync now',
+  'Volver a traer todo': 'Fetch everything again',
+  'Rehace las notas de todos los libros, también los que no han cambiado (por ejemplo, si borraste alguna).':
+    'Rebuilds the notes of every book, including the ones that did not change (for example, if you deleted one).',
+  'Traer todo': 'Fetch all',
+  'Quitar conexión': 'Disconnect',
+  'Canvian dejará de leer opdshelf. Las notas de los libros se quedan. ¿Quitar la conexión?': 'Canvian will stop reading opdshelf. The book notes stay. Disconnect?',
+  'Si también usas el plugin de Canvian en KOReader': 'If you also use the Canvian plugin in KOReader',
+  'Ya no hace falta: el plugin de opdshelf manda tus subrayados a opdshelf y Canvian los lee de ahí. Puedes quitarlo. Mientras siga instalado, no toca los libros que llegan desde opdshelf.':
+    'You no longer need it: the opdshelf plugin sends your highlights to opdshelf and Canvian reads them from there. You can remove it. While it stays installed, it leaves the books that come from opdshelf alone.',
+  'opdshelf no acepta el usuario, la contraseña o la llave': 'opdshelf does not accept the username, password or key',
+  'La llave de opdshelf no deja leer esto': 'The opdshelf key does not allow reading this',
+  'opdshelf no está configurado': 'opdshelf is not set up',
+  'Dirección de opdshelf no válida': 'Invalid opdshelf address',
+
   // Configuración › Calendarios
   Calendarios: 'Calendars',
   'Los eventos de tus otros calendarios salen en el calendario de tareas, con su color. Solo se leen: para cambiarlos, hazlo en su aplicación. Se actualizan cada 15 minutos.':

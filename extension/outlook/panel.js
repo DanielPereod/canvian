@@ -1,5 +1,6 @@
 import { api, getConfig } from '../lib/api.js';
 import { startStyle } from '../lib/style.js';
+import { datePicker, notePicker, priorityPicker } from '../lib/controls.js';
 
 // El panel «Tareas» de Outlook. Es una página de la extensión dentro de un
 // iframe (outlook.js lo pone): así lleva los estilos de tu Canvian sin
@@ -47,7 +48,26 @@ let current = null; // { thread, subject, url }
 let tasks = [];
 let today = new Date().toISOString().slice(0, 10);
 let open = false;
-let folders = null;
+let inboxName = 'Tareas';
+
+// Los controles de la web: fecha, prioridad y en qué nota va (con el buscador).
+const pop = { up: true, onLayout: () => reportSize() };
+const dueField = datePicker({ placeholder: 'Fecha', ...pop });
+const prioField = priorityPicker();
+const noteField = notePicker({
+  ...pop,
+  search: async (q) => {
+    const res = await api('/search', { query: { q, limit: 20 } });
+    inboxName = res.inbox ?? inboxName;
+    return res;
+  },
+  defaultLabel: () => inboxName,
+  placeholder: 'Buscar la nota…',
+  onChange: (v) => chrome.storage.local.set({ outlookNote: v }),
+});
+$('.cp-due-slot').append(dueField.el);
+$('.cp-prio-slot').append(prioField.el);
+$('.cp-note-slot').append(noteField.el);
 let loadSeq = 0;
 // Todos los hilos con tareas (la vista general y los distintivos de la bandeja).
 let overview = [];
@@ -60,9 +80,19 @@ let view = 'thread'; // o 'all'
 const tell = (msg) => parentOrigin && parent.postMessage({ source: 'canvian-panel', tone: document.documentElement.dataset.tone ?? 'light', ...msg }, parentOrigin);
 new MutationObserver(() => tell({ type: 'tone' })).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tone'] });
 // Con lo que mide y si hay algo que ver (sin nada, el iframe no tapa Outlook).
+// Con una ventanita abierta (calendario, elegir nota), también lo que ocupa
+// ella: el iframe está anclado abajo a la derecha y crece hacia arriba.
 const reportSize = () => {
-  const r = $('#frame').getBoundingClientRect();
-  tell({ type: 'size', width: Math.ceil(r.width), height: Math.ceil(r.height), shown: !($('.cp-launch').hidden && $('.cp-panel').hidden) });
+  let w = 0;
+  let h = 0;
+  for (const node of [$('#frame'), ...document.querySelectorAll('.cx-pop')]) {
+    const r = node.getBoundingClientRect();
+    // A la ventanita, un margen para su borde y su sombra.
+    const room = node.id === 'frame' ? 0 : 24;
+    w = Math.max(w, innerWidth - r.left + room);
+    h = Math.max(h, innerHeight - r.top + room);
+  }
+  tell({ type: 'size', width: Math.ceil(w), height: Math.ceil(h), shown: !($('.cp-launch').hidden && $('.cp-panel').hidden) });
 };
 const sizeObserver = new ResizeObserver(reportSize);
 sizeObserver.observe($('#frame'));
@@ -347,19 +377,13 @@ async function loadThread() {
   render();
 }
 
+// La última nota elegida (se recuerda con su título para enseñarla sin pedir nada).
+let notesLoaded = false;
 async function loadFolders() {
-  if (folders) return;
-  try {
-    folders = await api('/folders');
-    const sel = $('select.cp-note');
-    sel.textContent = '';
-    sel.append(new Option(`${folders.inbox} (por defecto)`, ''));
-    for (const f of folders.folders) sel.append(new Option(pathText(f.path), f.id));
-    const { outlookNote } = await chrome.storage.local.get('outlookNote');
-    if (outlookNote && folders.folders.some((f) => f.id === outlookNote)) sel.value = outlookNote;
-  } catch {
-    folders = null;
-  }
+  if (notesLoaded) return;
+  notesLoaded = true;
+  const { outlookNote } = await chrome.storage.local.get('outlookNote');
+  if (outlookNote && typeof outlookNote === 'object' && outlookNote.id) noteField.set(outlookNote);
 }
 
 const threadBody = () => ({ thread: current.thread, subject: current.subject, url: current.url });
@@ -409,16 +433,22 @@ $('.cp-add').addEventListener('submit', async (e) => {
   const btn = $('.cp-add-btn');
   btn.disabled = true;
   try {
-    const note = $('select.cp-note').value || null;
-    const res = await api('/thread/task', {
-      method: 'POST',
-      body: { ...threadBody(), text, due: $('input.cp-due').value || null, priority: $('select.cp-prio').value, note },
-    });
-    chrome.storage.local.set({ outlookNote: note });
+    const note = noteField.value?.id ?? null;
+    let res;
+    try {
+      res = await api('/thread/task', { method: 'POST', body: { ...threadBody(), text, due: dueField.value, priority: prioField.value, note } });
+    } catch (err) {
+      // La nota recordada ya no está: se vuelve a la de por defecto.
+      if (note && /nota/i.test(err.message)) {
+        noteField.set(null);
+        chrome.storage.local.remove('outlookNote');
+      }
+      throw err;
+    }
     tasks = res.tasks;
     $('input.cp-text').value = '';
-    $('input.cp-due').value = '';
-    $('select.cp-prio').value = 'none';
+    dueField.set(null);
+    prioField.set('none');
     message(null);
     render();
     loadOverview();
