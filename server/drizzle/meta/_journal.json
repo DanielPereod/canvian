@@ -85,6 +85,13 @@
       "when": 1790580000000,
       "tag": "0011_mail_links",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1790590000000,
+      "tag": "0012_notebooks",
+      "breakpoints": true
     }
   ]
 }

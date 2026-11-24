@@ -124,10 +124,70 @@ export type NoteInput = Partial<Omit<NoteRow, 'id' | 'profileId' | 'updatedAt' |
   props?: Record<string, PropValue>;
 };
 
+// ── Cuadernos (aprender con la IA) ──────────────────────────────────
+export type ClaudeStatus = { connected: boolean; tokenHint: string | null; model: string; checkedAt: string | null; lastError: string | null };
+export type Mastery = 'sin-tocar' | 'fallas' | 'fragil' | 'dominado';
+export type Notebook = {
+  id: string;
+  profileId: string;
+  title: string;
+  goal: string | null;
+  level: string | null;
+  color: string | null;
+  status: 'diagnostico' | 'activo';
+  diagnosis: { q: string; a: string }[];
+  sourceMode: 'auto' | 'manual';
+  folderId: string | null;
+  topics: number;
+  done: number;
+  next: string | null;
+  due: number;
+  updatedAt: string;
+};
+export type NbSource = { id: string; notebookId: string; topicId: string | null; kind: string; title: string; url: string | null; noteId: string | null; why: string | null; origin: 'ia' | 'manual'; pinned: number; removed: number };
+export type NbTopic = {
+  id: string;
+  notebookId: string;
+  position: number;
+  title: string;
+  summary: string | null;
+  dependsOn: string[];
+  status: 'pendiente' | 'estudiando' | 'hecho';
+  stage: string | null;
+  gaps: string[];
+  solid: string[];
+  lesson: string | null;
+  brief: string | null;
+  noteId: string | null;
+  mastery?: { level: Mastery; cards: number; due: number; recall: number | null };
+};
+export type NbFull = { notebook: Notebook; topics: NbTopic[]; sources: NbSource[]; next: string | null; calibration: { confidence: number; answers: number; right: number | null }[] };
+export type NbMessage = { id: string; role: 'tutor' | 'yo'; stage: string | null; body: string; createdAt: string };
+export type NbCard = { id: string; notebookId: string; topicId: string | null; kind: 'dato' | 'explica' | 'problema'; front: string; back: string; due: string; reps: number; lapses: number; state: number; notebook?: string; topic?: string | null; next?: string[] };
+export type NbReview = {
+  covered: { idea: string; ok: boolean }[];
+  question: string;
+  links: { title: string; id: string | null }[];
+  lesson: string;
+  cards: { kind: 'dato' | 'explica' | 'problema'; front: string; back: string }[];
+};
+export type NbTopicFull = {
+  topic: NbTopic;
+  messages: NbMessage[];
+  sources: NbSource[];
+  cards: NbCard[];
+  note: { id: string; title: string; markdown: string } | null;
+  review?: NbReview | null;
+  reviewError?: string;
+};
+export type NbLink = { noteId: string; topicId: string; topic: string; notebookId: string; notebook: string };
+
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** De la IA: auth (hay que volver a conectar), off (sin conectar) o fail. */
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -163,7 +223,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     });
     if (res.status === 204) return undefined as T;
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(t(data.error ?? 'Algo ha fallado'), res.status);
+    if (!res.ok) throw new ApiError(t(data.error ?? 'Algo ha fallado'), res.status, data.code);
     return data as T;
   } finally {
     if (write && --busy === 0) {
@@ -268,6 +328,39 @@ export const api = {
   },
   dbQuery: (profileId: string, query: string) => request<DbResult>('POST', `/profiles/${profileId}/db/query`, { query }),
   publicDbQuery: (slug: string, query: string) => request<DbResult>('POST', `/public/${encodeURIComponent(slug)}/db`, { query }),
+  // Claude (la IA de los cuadernos), con la suscripción de la persona.
+  claudeStatus: () => request<ClaudeStatus>('GET', '/ai/claude'),
+  claudeLogin: () => request<{ url: string }>('POST', '/ai/claude/login'),
+  claudeLoginCode: (code: string) => request<ClaudeStatus>('POST', '/ai/claude/login/code', { code }),
+  claudeLoginCancel: () => request('DELETE', '/ai/claude/login'),
+  claudeToken: (token: string) => request<ClaudeStatus>('PUT', '/ai/claude/token', { token }),
+  claudeForget: () => request('DELETE', '/ai/claude/token'),
+  claudeModel: (model: string) => request<ClaudeStatus>('PUT', '/ai/claude/model', { model }),
+  claudeTest: () => request<{ ok: boolean; reply: string; status: ClaudeStatus }>('POST', '/ai/claude/test'),
+  notebooks: (profileId: string) => request<Notebook[]>('GET', `/profiles/${profileId}/notebooks`),
+  createNotebook: (profileId: string, body: { title: string; goal?: string | null }) => request<Notebook>('POST', `/profiles/${profileId}/notebooks`, body),
+  notebook: (id: string) => request<NbFull>('GET', `/notebooks/${id}`),
+  patchNotebook: (id: string, patch: Partial<Pick<Notebook, 'title' | 'goal' | 'sourceMode' | 'folderId' | 'color'>>) => request<NbFull>('PATCH', `/notebooks/${id}`, patch),
+  deleteNotebook: (id: string) => request('DELETE', `/notebooks/${id}`),
+  nbDiagnosis: (id: string) => request<NbFull>('POST', `/notebooks/${id}/diagnosis`),
+  nbPlan: (id: string, answers: { q: string; a: string }[]) => request<NbFull>('POST', `/notebooks/${id}/plan`, { answers }),
+  nbAddTopic: (id: string, title: string) => request<NbFull>('POST', `/notebooks/${id}/topics`, { title }),
+  nbPatchTopic: (id: string, patch: Partial<Pick<NbTopic, 'title' | 'summary' | 'status' | 'position' | 'dependsOn'>>) => request<NbFull>('PATCH', `/topics/${id}`, patch),
+  nbDeleteTopic: (id: string) => request<NbFull>('DELETE', `/topics/${id}`),
+  nbTopic: (id: string) => request<NbTopicFull>('GET', `/topics/${id}`),
+  nbTurn: (id: string, text?: string) => request<NbTopicFull>('POST', `/topics/${id}/turn`, text ? { text } : {}),
+  nbAutoSources: (id: string) => request<NbTopicFull>('POST', `/topics/${id}/sources/auto`),
+  nbAddSource: (topicId: string, body: { url?: string; noteId?: string; title?: string }) => request<NbTopicFull>('POST', `/topics/${topicId}/sources`, body),
+  nbAddNotebookSource: (id: string, body: { url?: string; noteId?: string; title?: string }) => request<NbFull>('POST', `/notebooks/${id}/sources`, body),
+  nbPatchSource: (id: string, patch: { pinned?: boolean; removed?: boolean }) => request<NbTopicFull | NbFull>('PATCH', `/nb-sources/${id}`, patch),
+  nbSaveNote: (topicId: string, body: { markdown: string; title?: string; parentId?: string | null; review?: boolean }) => request<NbTopicFull>('POST', `/topics/${topicId}/note`, body),
+  nbLink: (topicId: string, noteId: string) => request<NbTopicFull>('POST', `/topics/${topicId}/link`, { noteId }),
+  nbAddCards: (topicId: string, cards: { kind?: string; front: string; back: string }[], finish = false) => request<NbTopicFull>('POST', `/topics/${topicId}/cards`, { cards, finish }),
+  nbReview: (profileId: string, notebookId?: string) => request<NbCard[]>('GET', `/profiles/${profileId}/review${notebookId ? `?notebook=${notebookId}` : ''}`),
+  nbGrade: (cardId: string, body: { rating: number; confidence?: number | null; answer?: string | null }) => request<NbCard>('POST', `/nb-cards/${cardId}/grade`, body),
+  nbPatchCard: (cardId: string, patch: { front?: string; back?: string }) => request<NbCard>('PATCH', `/nb-cards/${cardId}`, patch),
+  nbDeleteCard: (cardId: string) => request('DELETE', `/nb-cards/${cardId}`),
+  nbLinks: (profileId: string) => request<NbLink[]>('GET', `/profiles/${profileId}/notebook-links`),
   search: (profileId: string, q: string) =>
     request<SearchHit[]>('GET', `/profiles/${profileId}/search?q=${encodeURIComponent(q)}`),
 };

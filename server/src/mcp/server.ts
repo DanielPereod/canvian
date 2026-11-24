@@ -44,6 +44,7 @@ import type { Fetcher } from '../calendars.js';
 import { ulid } from 'ulidx';
 import { COLUMN_TYPES, DbError, addColumn, createTable, deleteRow, findTable, keyOf, normalizeValues, primaryOf, rowsOf, saveRow, tablesOf, titlesOf, type Row, type Table } from '../databases/model.js';
 import { runQuery } from '../databases/query.js';
+import { registerNotebookTools } from './notebooks.js';
 
 // El servidor MCP de Canvian: deja que Claude (u otro cliente MCP) lea y
 // escriba las notas y tareas. Cada petición crea uno nuevo (sin estado).
@@ -69,6 +70,7 @@ const INSTRUCTIONS = `Canvian es la app de notas de Dani (en español). Cómo fu
 - Hay perfiles (por ejemplo Personal y Trabajo) que no se mezclan; sin indicar ninguno se usa el primero.
 - Archivar oculta una nota (y lo que tiene dentro) sin borrarla.
 - Aparte de las notas hay bases de datos: tablas con columnas tipadas (texto, número, opciones, etiquetas, fecha, casilla, enlace, imagen, nota y relación con otra tabla). list_databases las enseña, query_database las consulta con un SELECT de solo lectura (las relaciones se siguen con un punto: autor.nombre; autor.count() cuenta los enlaces) y add_rows/update_row/delete_row las cambian. En una nota, un bloque \`\`\`db con un SELECT dentro enseña su resultado como tabla (y siempre al día).
+- Cuadernos: aprender una materia desde cero, por temas, con repaso espaciado (list_notebooks, get_notebook). Para estudiar un tema llama a study_topic y sigue sus reglas de tutor; al acabar guarda con save_topic_progress y add_notebook_cards. Para repasar, due_cards y grade_card.
 Usa los ids que devuelven las herramientas para referirte a notas y tareas. Escribe en el idioma de las notas.`;
 
 // «Nota#^abc123» o «Nota#Encabezado»: la nota y el punto. Si el título
@@ -111,7 +113,7 @@ function recurArg(rule: string): string {
 }
 const priorityName = (p: number) => (['none', 'low', 'medium', 'high'] as const)[p] ?? 'none';
 
-type Hub = { publish: (e: { scope: 'canvas' | 'db'; client: string | null }) => void };
+type Hub = { publish: (e: { scope: 'canvas' | 'db' | 'nb'; client: string | null }) => void };
 
 const text = (value: string) => ({ content: [{ type: 'text' as const, text: value }] });
 const data = (value: unknown) => text(JSON.stringify(value, null, 2));
@@ -831,6 +833,8 @@ export function createMcpServer(db: Db, hub?: Hub, opts: { mediaDir?: string; fe
       return text(`Fila borrada de «${t.name}».`);
     }),
   );
+
+  registerNotebookTools(server, db, () => hub?.publish({ scope: 'nb', client: 'mcp' }));
 
   return server;
 }

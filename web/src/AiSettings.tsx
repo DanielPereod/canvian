@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ClaudeSettings } from './ClaudeSettings';
 import { api } from './api';
 import { t } from './i18n';
 
@@ -139,6 +140,8 @@ export function AiSettings({ report }: { report: (p: Promise<unknown>) => void }
 
   return (
     <>
+      <ClaudeSettings report={report} />
+      <div className="set-name ai-mcp-title">{t('Conector para otros asistentes')}</div>
       <p className="set-hint cal-set-intro">
         {t('Conecta Canvian con tu asistente (Claude, ChatGPT, Codex, OpenCode…) para que pueda buscar y leer tus notas, crear y editar notas, apuntar tareas y marcarlas como hechas, ordenar notas y resumir lo que has hecho. Usa el servidor MCP de Canvian.')}
       </p>

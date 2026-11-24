@@ -16,6 +16,9 @@ FROM node:22-bookworm-slim
 ENV NODE_ENV=production \
     PORT=3210 \
     CANVIAN_DB=/data/canvian.db
+# Claude Code: la IA de Cuadernos, con la suscripción de Claude que se conecta
+# desde Configuración › Asistentes IA (su sesión se guarda en /data/claude).
+RUN npm install -g @anthropic-ai/claude-code && npm cache clean --force
 WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules

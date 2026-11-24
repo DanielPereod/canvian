@@ -33,6 +33,10 @@ import { koreaderRoutes, koreaderSettingsRoutes } from './koreader/routes.js';
 import { opdshelfRoutes } from './opdshelf/routes.js';
 import { createOpdshelfWorker, type Fetcher as OpdshelfFetcher } from './opdshelf/sync.js';
 import { extensionRoutes, extensionSettingsRoutes, setActiveProfile } from './extension/routes.js';
+import { claudeAi, loginFlow, type Ai } from './ai/claude.js';
+import { notebookRoutes } from './notebooks/routes.js';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -54,13 +58,17 @@ const DEFAULT_PROFILES = [
 
 export function createApp(
   db: Db,
-  opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher; fetchPage?: Fetcher; fetchOpdshelf?: OpdshelfFetcher; opdshelfLive?: boolean } = {},
+  opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher; fetchPage?: Fetcher; fetchOpdshelf?: OpdshelfFetcher; opdshelfLive?: boolean; ai?: Ai; claudeHome?: string } = {},
 ) {
   const api = new Hono();
   const hub = createHub();
   // opdshelf: Canvian pide los subrayados (en las pruebas, solo al pulsar «Sincronizar»).
   const opdshelf = createOpdshelfWorker(db, { fetcher: opts.fetchOpdshelf, mediaDir: opts.mediaDir, hub, live: opts.opdshelfLive });
   opdshelf.start();
+  // La IA de los cuadernos: Claude Code con la suscripción de la persona (ver ai/claude.ts).
+  const claudeHome = opts.claudeHome ?? join(tmpdir(), 'canvian-claude');
+  const ai = opts.ai ?? claudeAi(db, { home: claudeHome });
+  const login = loginFlow(db, { home: claudeHome });
 
   // La cookie solo se marca Secure si llega por HTTPS (directo o tras un proxy);
   // en la red local por http://192.168.x.x tiene que funcionar sin ella.
@@ -232,6 +240,7 @@ export function createApp(
     return c.body(null, 204);
   });
 
+  api.route('/', notebookRoutes(db, { ai, login, hub }));
   api.route('/', koreaderSettingsRoutes(db));
   api.route('/', opdshelfRoutes(db, opdshelf));
   api.route('/', extensionSettingsRoutes(db));
