@@ -436,14 +436,16 @@ export function notebookRoutes(db: Db, opts: { ai: Ai; login: ReturnType<typeof 
     }),
   );
 
-  // Tu nota: se guarda en la biblioteca como una nota normal y la IA la revisa.
+  // Tu nota: es una nota normal de la biblioteca. Sin markdown, la primera vez
+  // se crea vacía donde diga la persona (para escribirla en el editor de
+  // siempre) y después la IA revisa lo que haya escrito en ella.
   r.post(
     '/topics/:id/note',
     guard(async (c) => {
       const t = topicOf(db, param(c, 'id'));
       const nb = notebookOf(db, t.notebookId);
       const body = z
-        .object({ markdown: z.string().trim().min(1).max(60_000), title: z.string().trim().max(200).optional(), parentId: z.string().max(40).nullish(), review: z.boolean().optional() })
+        .object({ markdown: z.string().trim().min(1).max(60_000).optional(), title: z.string().trim().max(200).optional(), parentId: z.string().max(40).nullish(), review: z.boolean().optional() })
         .safeParse(await json(c));
       if (!body.success) return c.json({ error: 'Escribe tu nota antes de guardarla' }, 400);
       const all = liveNotes(db, nb.profileId);
@@ -458,20 +460,25 @@ export function notebookRoutes(db: Db, opts: { ai: Ai; login: ReturnType<typeof 
       const title = body.data.title || t.title;
       const existing = t.noteId ? all.find((n) => n.id === t.noteId) : undefined;
       let note;
-      if (existing) {
-        note = saveNote(db, existing.id, contentOf(editDoc(existing, { title, content: body.data.markdown })));
+      let markdown = body.data.markdown;
+      if (existing && markdown !== undefined) {
+        note = saveNote(db, existing.id, contentOf(editDoc(existing, { title, content: markdown })));
+      } else if (existing) {
+        note = existing;
+        markdown = bodyMarkdown(existing).trim();
       } else {
-        note = createNote(db, nb.profileId, { doc: newDoc(title, body.data.markdown), parentId: parentId ?? null });
+        note = createNote(db, nb.profileId, { doc: newDoc(title, markdown ?? ''), parentId: parentId ?? null });
         db.update(nbTopics).set({ noteId: note.id, updatedAt: nowIso() }).where(eq(nbTopics.id, t.id)).run();
       }
-      libraryChanged(c);
-      if (body.data.review === false) return c.json({ ...topicFull(t.id), review: null });
+      if (note !== existing) libraryChanged(c);
+      if (body.data.review === false || (!existing && markdown === undefined)) return c.json({ ...topicFull(t.id), review: null });
+      if (!markdown) return c.json({ error: 'Tu nota está vacía: escríbela antes de que Claude la revise' }, 400);
       try {
         const library = liveNotes(db, nb.profileId)
           .filter((n) => n.id !== note.id && !n.archivedAt && n.kind === 'text' && n.title?.trim())
           .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
           .map((n) => noteTitle(n));
-        const review = await reviewNote(ai, nb, topicOf(db, t.id), messagesOf(db, t.id), body.data.markdown, library);
+        const review = await reviewNote(ai, nb, topicOf(db, t.id), messagesOf(db, t.id), markdown, library);
         db.update(nbTopics).set({ lesson: review.lesson.slice(0, 40_000), updatedAt: nowIso() }).where(eq(nbTopics.id, t.id)).run();
         const byTitle = new Map(liveNotes(db, nb.profileId).map((n) => [noteTitle(n), n.id]));
         return c.json({ ...topicFull(t.id), review: { ...review, links: review.links.map((title) => ({ title, id: byTitle.get(title) ?? null })) } });

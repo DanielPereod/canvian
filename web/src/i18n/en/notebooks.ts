@@ -140,6 +140,23 @@ export const EN_NOTEBOOKS: Record<string, string> = {
   'Volver a conectar Claude': 'Reconnect Claude',
   'Conectar Claude': 'Connect Claude',
   Reintentar: 'Retry',
+  'Cuando acabes de escribir tu nota, pide a Claude que la revise.': "When you've finished writing your note, ask Claude to check it.",
+  'Revisar mi nota': 'Check my note',
+  'Creando tu nota…': 'Creating your note…',
+  'Escribe con tus palabras lo que has entendido, sin mirar la sesión. Recordarlo y explicarlo es lo que lo fija. Es una nota normal de tu biblioteca, con el editor de siempre. Claude no te la reescribe: te dice qué falta.':
+    "Write what you've understood in your own words, without looking at the session. Recalling and explaining it is what makes it stick. It's a normal note in your library, with the usual editor. Claude won't rewrite it: it tells you what's missing.",
+  'Escríbela en el editor y, cuando acabes, pide a Claude que la revise.': "Write it in the editor and, when you're done, ask Claude to check it.",
+  'Abrir y escribir': 'Open and write',
+  'Revisar otra vez': 'Check again',
+  'Ya está: que Claude la revise': 'Done: let Claude check it',
+  'Crear la nota y escribirla': 'Create the note and write it',
+  '¿Dónde la guardo?': 'Where should I save it?',
+  'En «{folder}»': 'In “{folder}”',
+  'Arriba del todo': 'At the top',
+  'Dentro de «{title}»': 'Inside “{title}”',
+  'Dentro de otra nota…': 'Inside another note…',
+  'Busca la nota donde guardarla': 'Find the note to save it in',
+  'Ahora escribe tu nota con lo que has aprendido, sin mirar la sesión. Se abre al lado, y eliges dónde guardarla.': "Now write your note with what you've learned, without looking at the session. It opens alongside, and you choose where to save it.",
 
   // Configuración › Asistentes IA › Claude
   'Claude con tu suscripción': 'Claude with your subscription',

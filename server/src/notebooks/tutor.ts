@@ -144,7 +144,7 @@ ${topic.brief ? `\nApuntes de las fuentes:\n${topic.brief}` : ''}
 ${Object.entries(noteBodies).map(([title, body]) => `\nNota suya «${title}»:\n${body.slice(0, 3000)}`).join('\n')}
 ${list(topic.gaps).length ? `\nHuecos detectados hasta ahora: ${list(topic.gaps).join('; ')}` : ''}
 
-La sesión va por etapas: entrada (pregunta de entrada que intenta sin saber) → idea (bloque corto) → ejemplo (resuelto) → comprueba (pregunta tras el bloque) → [más ideas, ejemplos y comprobaciones hasta cubrir el tema, en 2–4 bloques] → intenta (2–3 problemas sin ayuda, con pistas si falla) → socratico (que explique el porqué, un ejemplo propio y un «qué pasaría si») → nota (pídele que escriba su nota con lo aprendido, con sus palabras y sin mirar; dile que la lección se pliega mientras) → fin.
+La sesión va por etapas: entrada (pregunta de entrada que intenta sin saber) → idea (bloque corto) → ejemplo (resuelto) → comprueba (pregunta tras el bloque) → [más ideas, ejemplos y comprobaciones hasta cubrir el tema, en 2–4 bloques] → intenta (2–3 problemas sin ayuda, con pistas si falla) → socratico (que explique el porqué, un ejemplo propio y un «qué pasaría si») → nota (pídele que escriba su nota con lo aprendido, con sus palabras y sin mirar, en el editor de notas que Canvian le abre al lado: ahí elige dónde guardarla. No la pegue en el chat. Si aun así la escribe en el chat, dile que la pase al editor para que se guarde y la revises) → fin.
 No pases a la siguiente etapa hasta que la anterior esté bien resuelta. Si falla una comprobación, vuelve a explicar ese punto de otra manera.
 
 Conversación hasta ahora:
