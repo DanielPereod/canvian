@@ -172,20 +172,27 @@
   document.documentElement.append(frame);
 
   let current;
-  // Mientras el iframe aún está en blanco no se le puede escribir: se le
-  // manda todo otra vez cuando avisa de que está listo.
+  // Mientras el iframe aún está en blanco (about:blank, con el origen de
+  // Outlook) no se le escribe: Chrome lo apunta como error de la extensión
+  // aunque no lance nada. Se espera a que el panel diga que está listo, y
+  // entonces se le manda todo.
+  let panelReady = false;
   const send = (msg) => {
+    if (!panelReady) return;
     try {
       frame.contentWindow?.postMessage({ source: 'canvian-outlook', ...msg }, ORIGIN);
     } catch {
-      // Aún cargando.
+      // El panel se está recargando.
     }
   };
   const sendThread = () => send({ type: 'thread', thread: current ?? null, height: innerHeight });
 
   window.addEventListener('message', (e) => {
     if (e.source !== frame.contentWindow || e.origin !== ORIGIN || e.data?.source !== 'canvian-panel') return;
-    if (e.data.type === 'ready') sendThread();
+    if (e.data.type === 'ready') {
+      panelReady = true;
+      sendThread();
+    }
     if (e.data.tone === 'dark' || e.data.tone === 'light') frame.style.colorScheme = e.data.tone;
     if (e.data.type === 'size') {
       const w = Math.min(e.data.width, innerWidth - 12);
