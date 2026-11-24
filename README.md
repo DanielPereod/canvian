@@ -81,6 +81,23 @@ Cualquier nota se puede compartir por un enlace: en el lector, menú de los tres
 
 Las imágenes y archivos de lo compartido se ven también; los `[[enlaces]]` a notas que no se comparten quedan como texto. Un canvas se ve entero (tarjetas, flechas, grupos y dibujos), solo para mirar: se mueve y se acerca, y un toque en una tarjeta de nota la abre si también se comparte; las de notas que no se comparten salen como «Nota no compartida». Para que el enlace funcione fuera de casa, pon tu dirección pública (https://…) en Configuración › Asistentes IA. Para dejar de compartir, apaga «Pública en la web» (el enlace deja de funcionar; si vuelves a compartirla, sale uno nuevo). Archivar o borrar la nota también la quita.
 
+## Cuadernos
+
+Una sección para aprender una materia desde cero con Claude como tutor (barra lateral › **Cuadernos**). Cada cuaderno es una materia dividida en temas, como los de papel.
+
+1. **Nuevo cuaderno:** dices qué quieres aprender y para qué. Claude te hace unas preguntas para saber de dónde partes y propone un temario con el orden recomendado. Lo puedes cambiar: añadir, quitar y reordenar temas.
+2. **Estudiar un tema** sigue lo que mejor funciona según la investigación: una pregunta antes de explicar (pretest), ideas en bloques cortos con una pregunta de comprobación, ejemplos resueltos que se van quitando para que lo intentes tú, un interrogatorio socrático y, al final, **tu propia nota**, escrita sin mirar. Claude no te la reescribe: marca qué ideas del tema faltan, te hace una pregunta, propone enlaces a otras notas y tarjetas para el repaso.
+3. **Tu nota** es una nota normal de la biblioteca (por defecto dentro de una nota con el nombre del cuaderno) y queda enlazada al tema. La lección limpia de la sesión queda en la pestaña «Lección».
+4. **Repaso espaciado** con FSRS: las tarjetas vuelven justo antes de olvidarlas, mezcladas entre temas. Antes de ver la respuesta puedes escribirla y decir cuánto confías; la **calibración** te enseña si te sobrestimas.
+5. **Mapa de dominio:** los temas y sus dependencias, coloreados según tus repasos (lo dominas, frágil, fallas, por estudiar). Si un tema depende de otro que aún flojea, te lo avisa (no lo bloquea).
+6. **Fuentes:** en automático, Claude busca en la web y elige notas tuyas que sirven, y explica por qué. Puedes quitar (no vuelve a proponerla), añadir un enlace o una nota, y fijar las que quieras. En «Solo las mías» enseña solo con lo que añadas tú.
+
+Las herramientas MCP (`list_notebooks`, `study_topic`, `save_topic_progress`, `due_cards`, `grade_card`…) dejan estudiar y repasar también desde la app de Claude.
+
+### La IA: Claude con tu suscripción
+
+Canvian usa **Claude Code** por detrás con tu cuenta de Claude (Pro o Max), sin clave de API: gasta los límites de tu suscripción. Se conecta desde la web, sin tocar el contenedor: Configuración › Asistentes IA › **Conectar** abre la página de Claude para iniciar sesión; pega el código que te da y listo. Si la sesión caduca o la cierras, vuelve a pulsar «Volver a conectar». También se puede pegar un token de `claude setup-token`. La imagen de Docker ya trae Claude Code; su sesión se guarda junto a la base de datos (`/data/claude`). En desarrollo hace falta tenerlo instalado (`npm i -g @anthropic-ai/claude-code`) o indicar otro con `CANVIAN_CLAUDE_BIN`.
+
 ## Conectar con Claude (MCP)
 
 Canvian lleva un servidor MCP en `/mcp` para que Claude lea y escriba tus notas: buscar y leer notas, crearlas y editarlas en Markdown (con `[[enlaces]]`), listar, añadir y completar tareas, mover, archivar y poner propiedades, y un resumen de la actividad reciente. Respeta los perfiles.

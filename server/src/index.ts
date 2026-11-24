@@ -18,7 +18,8 @@ const mediaDir = resolve(process.env.CANVIAN_MEDIA ?? join(dirname(dbPath), 'med
 
 mkdirSync(dirname(dbPath), { recursive: true });
 const db = openDb(dbPath);
-const app = createApp(db, { mediaDir });
+// Claude Code (la IA de los cuadernos) guarda lo suyo también en el volumen.
+const app = createApp(db, { mediaDir, claudeHome: join(dirname(dbPath), 'claude') });
 
 // serveStatic espera una ruta relativa al directorio de trabajo.
 const root = relative(process.cwd(), webDir) || '.';

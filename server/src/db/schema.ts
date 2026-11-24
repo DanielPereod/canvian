@@ -265,3 +265,143 @@ export const mailLinks = sqliteTable(
     index('idx_mail_links_task').on(t.noteId, t.blockId),
   ],
 );
+
+// ── Cuadernos (ver notebooks/) ──────────────────────────────────────────
+// La IA enseña un tema desde cero: el cuaderno es la materia, los temas sus
+// capítulos. status: diagnostico | activo. source_mode: auto | manual.
+// diagnosis (JSON): [{ q, a }]. folder_id: la nota de la biblioteca donde se
+// sugiere guardar las notas que escribe la persona.
+export const notebooks = sqliteTable(
+  'notebooks',
+  {
+    id: text('id').primaryKey(),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    goal: text('goal'),
+    level: text('level'),
+    color: text('color'),
+    status: text('status').notNull().default('diagnostico'),
+    diagnosis: text('diagnosis').notNull().default('[]'),
+    sourceMode: text('source_mode').notNull().default('auto'),
+    folderId: text('folder_id').references(() => notes.id, { onDelete: 'set null' }),
+    position: integer('position').notNull().default(0),
+    createdAt: text('created_at').notNull().default(now),
+    updatedAt: text('updated_at').notNull().default(now),
+  },
+  (t) => [index('idx_notebooks_profile').on(t.profileId, t.position)],
+);
+
+// status: pendiente | estudiando | hecho. stage: la etapa de la sesión en la
+// que va (entrada, idea, ejemplo, comprueba, intenta, socratico, nota, fin).
+// gaps / solid (JSON): huecos que quedan y lo que ya está claro. lesson: la
+// página limpia (Markdown) que queda para releer. note_id: la nota de la persona.
+export const nbTopics = sqliteTable(
+  'nb_topics',
+  {
+    id: text('id').primaryKey(),
+    notebookId: text('notebook_id')
+      .notNull()
+      .references(() => notebooks.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull().default(0),
+    title: text('title').notNull(),
+    summary: text('summary'),
+    dependsOn: text('depends_on').notNull().default('[]'),
+    status: text('status').notNull().default('pendiente'),
+    stage: text('stage'),
+    gaps: text('gaps').notNull().default('[]'),
+    solid: text('solid').notNull().default('[]'),
+    lesson: text('lesson'),
+    // Apuntes sacados de las fuentes (con de dónde sale cada cosa), para que el tutor se apoye en ellas.
+    brief: text('brief'),
+    noteId: text('note_id').references(() => notes.id, { onDelete: 'set null' }),
+    createdAt: text('created_at').notNull().default(now),
+    updatedAt: text('updated_at').notNull().default(now),
+  },
+  (t) => [index('idx_nb_topics_notebook').on(t.notebookId, t.position), index('idx_nb_topics_note').on(t.noteId)],
+);
+
+// Fuentes de un tema (o de todo el cuaderno, sin topic_id). kind: web | video |
+// libro | pdf | nota. origin: ia | manual. Una fuente quitada se queda con
+// removed = 1 para que la IA no vuelva a proponerla.
+export const nbSources = sqliteTable(
+  'nb_sources',
+  {
+    id: text('id').primaryKey(),
+    notebookId: text('notebook_id')
+      .notNull()
+      .references(() => notebooks.id, { onDelete: 'cascade' }),
+    topicId: text('topic_id').references(() => nbTopics.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull().default('web'),
+    title: text('title').notNull(),
+    url: text('url'),
+    noteId: text('note_id').references(() => notes.id, { onDelete: 'cascade' }),
+    why: text('why'),
+    origin: text('origin').notNull().default('manual'),
+    pinned: integer('pinned').notNull().default(0),
+    removed: integer('removed').notNull().default(0),
+    createdAt: text('created_at').notNull().default(now),
+  },
+  (t) => [index('idx_nb_sources_notebook').on(t.notebookId, t.topicId)],
+);
+
+// La conversación con el tutor en un tema. role: tutor | yo.
+export const nbMessages = sqliteTable(
+  'nb_messages',
+  {
+    id: text('id').primaryKey(),
+    topicId: text('topic_id')
+      .notNull()
+      .references(() => nbTopics.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull().default(0),
+    role: text('role').notNull(),
+    stage: text('stage'),
+    body: text('body').notNull(),
+    createdAt: text('created_at').notNull().default(now),
+  },
+  (t) => [index('idx_nb_messages_topic').on(t.topicId, t.position)],
+);
+
+// Tarjetas de repaso con su estado FSRS (ts-fsrs). kind: dato | explica | problema.
+export const nbCards = sqliteTable(
+  'nb_cards',
+  {
+    id: text('id').primaryKey(),
+    notebookId: text('notebook_id')
+      .notNull()
+      .references(() => notebooks.id, { onDelete: 'cascade' }),
+    topicId: text('topic_id').references(() => nbTopics.id, { onDelete: 'set null' }),
+    kind: text('kind').notNull().default('dato'),
+    front: text('front').notNull(),
+    back: text('back').notNull(),
+    due: text('due').notNull(),
+    stability: real('stability').notNull().default(0),
+    difficulty: real('difficulty').notNull().default(0),
+    scheduledDays: integer('scheduled_days').notNull().default(0),
+    learningSteps: integer('learning_steps').notNull().default(0),
+    reps: integer('reps').notNull().default(0),
+    lapses: integer('lapses').notNull().default(0),
+    state: integer('state').notNull().default(0),
+    lastReview: text('last_review'),
+    createdAt: text('created_at').notNull().default(now),
+  },
+  (t) => [index('idx_nb_cards_due').on(t.notebookId, t.due)],
+);
+
+// Cada repaso: la nota (1 otra vez · 2 difícil · 3 bien · 4 fácil), la
+// confianza que se dijo antes de ver la respuesta (25–95) y lo que se escribió.
+export const nbReviews = sqliteTable(
+  'nb_reviews',
+  {
+    id: text('id').primaryKey(),
+    cardId: text('card_id')
+      .notNull()
+      .references(() => nbCards.id, { onDelete: 'cascade' }),
+    rating: integer('rating').notNull(),
+    confidence: integer('confidence'),
+    answer: text('answer'),
+    reviewedAt: text('reviewed_at').notNull().default(now),
+  },
+  (t) => [index('idx_nb_reviews_card').on(t.cardId, t.reviewedAt)],
+);

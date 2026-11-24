@@ -24,7 +24,7 @@ const withKey = (text: string, keys: string) => (keys ? `${text} (${keys})` : te
 // arriba, la ruta y el buscador; en el centro, las notas de la colección en
 // sus vistas (Collection.tsx) o los nodos de siempre.
 
-export type BibView = 'library' | 'note' | 'tasks' | 'diary' | 'db';
+export type BibView = 'library' | 'note' | 'tasks' | 'diary' | 'db' | 'nb';
 // La colección (con sus vistas) o los nodos.
 export type BibLayout = 'lista' | 'nodos';
 
@@ -168,6 +168,7 @@ type SideProps = {
   onTasks: () => void;
   onDiary: () => void;
   onDb: () => void;
+  onNotebooks: () => void;
   onArchived: () => void;
   onNewNote: (kind: NewKind) => void;
   onMove: (id: string, parent: string | null) => void;
@@ -187,6 +188,7 @@ const NAV_ICON: Record<string, ReactNode> = {
   diary: <><rect x="3" y="2.5" width="10" height="11" rx="1.5" /><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3" /></>,
   tasks: <><circle cx="8" cy="8" r="5.5" /><path d="m5.6 8.1 1.7 1.7 3.2-3.4" /></>,
   db: <><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="M2.5 6.5h11M2.5 9.8h11M6.5 6.5v6.5" /></>,
+  notebook: <><path d="M4.5 2.5h7c.6 0 1 .4 1 1v9c0 .6-.4 1-1 1h-7z" /><path d="M4.5 2.5v11M3 5h3M3 8h3M3 11h3M7.5 5.5h3" /></>,
   archive: <><rect x="2.5" y="3" width="11" height="3" rx="1" /><path d="M3.5 6v6c0 .6.4 1 1 1h7c.6 0 1-.4 1-1V6M6.5 8.5h3" /></>,
   filter: <path d="M2.5 3.5h11L9.2 8.6v3.9l-2.4 1V8.6z" />,
   canvas: <><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" /><rect x="9" y="9" width="4.5" height="4.5" rx="1" /><path d="M7 4.7h2.3c.9 0 1.5.6 1.5 1.5V9" /></>,
@@ -479,6 +481,10 @@ export function BibSidebar(p: SideProps) {
           <button className={`bib-it${p.view === 'db' ? ' is-on' : ''}`} onClick={p.onDb}>
             <NavIcon name="db" />
             {t('Bases de datos')}
+          </button>
+          <button className={`bib-it${p.view === 'nb' ? ' is-on' : ''}`} onClick={p.onNotebooks}>
+            <NavIcon name="notebook" />
+            {t('Cuadernos')}
           </button>
           {/* Sin teclado, lo que solo tenía atajo. */}
           <button className="bib-it bib-touch" onClick={p.onLantern}>

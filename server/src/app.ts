@@ -31,6 +31,10 @@ import { createMcpServer } from './mcp/server.js';
 import { createMcpToken, isMcpToken, mcpStatus, revokeMcpToken, setMcpPublicUrl } from './mcp/token.js';
 import { koreaderRoutes, koreaderSettingsRoutes } from './koreader/routes.js';
 import { extensionRoutes, extensionSettingsRoutes, setActiveProfile } from './extension/routes.js';
+import { claudeAi, loginFlow, type Ai } from './ai/claude.js';
+import { notebookRoutes } from './notebooks/routes.js';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
 const loginBody = z.object({ password: z.string().min(1).max(200) });
@@ -50,9 +54,16 @@ const DEFAULT_PROFILES = [
   { name: 'Trabajo', color: PROFILE_COLORS[1], icon: 'briefcase' },
 ];
 
-export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher; fetchPage?: Fetcher } = {}) {
+export function createApp(
+  db: Db,
+  opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher; fetchPage?: Fetcher; ai?: Ai; claudeHome?: string } = {},
+) {
   const api = new Hono();
   const hub = createHub();
+  // La IA de los cuadernos: Claude Code con la suscripción de la persona (ver ai/claude.ts).
+  const claudeHome = opts.claudeHome ?? join(tmpdir(), 'canvian-claude');
+  const ai = opts.ai ?? claudeAi(db, { home: claudeHome });
+  const login = loginFlow(db, { home: claudeHome });
 
   // La cookie solo se marca Secure si llega por HTTPS (directo o tras un proxy);
   // en la red local por http://192.168.x.x tiene que funcionar sin ella.
@@ -224,6 +235,7 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
     return c.body(null, 204);
   });
 
+  api.route('/', notebookRoutes(db, { ai, login, hub }));
   api.route('/', koreaderSettingsRoutes(db));
   api.route('/', extensionSettingsRoutes(db));
   api.route('/', canvasRoutes(db));

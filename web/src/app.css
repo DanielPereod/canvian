@@ -278,3 +278,14 @@ a.set-button { text-decoration: none; display: inline-flex; align-items: center;
 .type-sample-ui span:first-child { color: var(--text); font-weight: 600; }
 .list-item > .bib-it-ic { flex: none; width: 15px; height: 15px; margin-right: 10px; color: var(--text-faint); }
 .list-item[aria-selected='true'] > .bib-it-ic { color: var(--text-muted); }
+
+/* Configuración › Asistentes IA › Claude con tu suscripción (Cuadernos). */
+.claude-set { display: flex; flex-direction: column; gap: var(--space-2); }
+.claude-set > .set-hint { margin: 0; }
+.claude-login { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.claude-login ol { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+.claude-login-row { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.claude-login-row .field { flex: 1; min-width: 200px; }
+.claude-paste { align-self: flex-start; }
+.claude-ok { color: var(--success, var(--accent-ink)); }
+.ai-mcp-title { margin-top: var(--space-5); }
