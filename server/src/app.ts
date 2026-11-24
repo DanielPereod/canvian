@@ -30,6 +30,8 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { createMcpServer } from './mcp/server.js';
 import { createMcpToken, isMcpToken, mcpStatus, revokeMcpToken, setMcpPublicUrl } from './mcp/token.js';
 import { koreaderRoutes, koreaderSettingsRoutes } from './koreader/routes.js';
+import { opdshelfRoutes } from './opdshelf/routes.js';
+import { createOpdshelfWorker, type Fetcher as OpdshelfFetcher } from './opdshelf/sync.js';
 import { extensionRoutes, extensionSettingsRoutes, setActiveProfile } from './extension/routes.js';
 
 const passwordBody = z.object({ password: z.string().min(8).max(200) });
@@ -50,9 +52,15 @@ const DEFAULT_PROFILES = [
   { name: 'Trabajo', color: PROFILE_COLORS[1], icon: 'briefcase' },
 ];
 
-export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher; fetchPage?: Fetcher } = {}) {
+export function createApp(
+  db: Db,
+  opts: { mediaDir?: string; heartbeatMs?: number; fetchCalendar?: Fetcher; fetchPage?: Fetcher; fetchOpdshelf?: OpdshelfFetcher; opdshelfLive?: boolean } = {},
+) {
   const api = new Hono();
   const hub = createHub();
+  // opdshelf: Canvian pide los subrayados (en las pruebas, solo al pulsar «Sincronizar»).
+  const opdshelf = createOpdshelfWorker(db, { fetcher: opts.fetchOpdshelf, mediaDir: opts.mediaDir, hub, live: opts.opdshelfLive });
+  opdshelf.start();
 
   // La cookie solo se marca Secure si llega por HTTPS (directo o tras un proxy);
   // en la red local por http://192.168.x.x tiene que funcionar sin ella.
@@ -225,6 +233,7 @@ export function createApp(db: Db, opts: { mediaDir?: string; heartbeatMs?: numbe
   });
 
   api.route('/', koreaderSettingsRoutes(db));
+  api.route('/', opdshelfRoutes(db, opdshelf));
   api.route('/', extensionSettingsRoutes(db));
   api.route('/', canvasRoutes(db));
   api.route('/', shareRoutes(db));

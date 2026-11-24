@@ -19,6 +19,8 @@ const folderKey = (profileId: string) => `koreader_folder:${profileId}`;
 export const BOOK_KEY = 'koreader';
 /** Propiedad reservada: la portada que ya se subió (no se vuelve a pedir, aunque luego se quite). */
 export const COVER_KEY = 'koreaderCover';
+/** Propiedad reservada: el libro llega desde opdshelf (ver opdshelf/), que manda sus ids de subrayado. */
+export const OPDSHELF_KEY = 'opdshelf';
 /** El encabezado desde el que la nota es de KOReader; lo de encima se respeta. */
 export const SECTION = 'Subrayados';
 const FOLDER_TITLE = 'KOReader';
@@ -58,7 +60,7 @@ export function setKoreaderFolder(db: Db, profileId: string, noteId: string | nu
 }
 
 /** La nota carpeta del perfil; si no hay ninguna elegida (o ya no existe), una nota «KOReader» en la raíz. */
-function folderFor(db: Db, profileId: string, all: Note[]): string {
+export function folderFor(db: Db, profileId: string, all: Note[]): string {
   const chosen = koreaderFolder(db, profileId);
   if (chosen && all.some((n) => n.id === chosen)) return chosen;
   const made = all.find((n) => !n.zoneId && !n.archivedAt && n.title?.trim() === FOLDER_TITLE) ?? createNote(db, profileId, { doc: newDoc(FOLDER_TITLE, ''), parentId: null });
@@ -165,6 +167,10 @@ export function syncBook(db: Db, body: SyncBody): SyncResult {
     return { id: note.id, title, created: true, changed: true, count, cover: true };
   }
 
+  // Si el libro ya llega desde opdshelf, el plugin no lo pisa: le quitaría los ^id de cada subrayado.
+  if (parseProps(existing.props)[OPDSHELF_KEY]) {
+    return { id: existing.id, title: existing.title ?? body.book.title ?? '', created: false, changed: false, count, cover: false };
+  }
   const doc = mergeHighlights(parseBody(existing.bodyJson) ?? { type: 'doc', content: [] }, blocks);
   const props = JSON.stringify(withAuthor(existing.props));
   const bodyJson = JSON.stringify(doc);

@@ -18,7 +18,7 @@ const mediaDir = resolve(process.env.CANVIAN_MEDIA ?? join(dirname(dbPath), 'med
 
 mkdirSync(dirname(dbPath), { recursive: true });
 const db = openDb(dbPath);
-const app = createApp(db, { mediaDir });
+const app = createApp(db, { mediaDir, opdshelfLive: true });
 
 // serveStatic espera una ruta relativa al directorio de trabajo.
 const root = relative(process.cwd(), webDir) || '.';
