@@ -27,7 +27,6 @@ services:
 x-casaos:
   architectures:
     - amd64
-    - arm64
   main: canvian
   author: DanielPereod
   developer: DanielPereod
