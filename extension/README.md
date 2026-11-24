@@ -16,6 +16,8 @@ Desde esta carpeta: «Cargar descomprimida» con `extension/` y escribe la direc
 
 ## Aspecto
 
+Los controles (fecha, prioridad, elegir nota o carpeta y perfil) son los de la web, con sus mismas clases (`lib/controls.js` y `lib/controls.css`): el calendario, las banderas de prioridad y el desplegable; elegir nota o carpeta busca con el mismo buscador de Canvian (`/ext/search`, texto completo con el título primero).
+
 La extensión se viste como tu Canvian: carga la hoja de estilos de tu servidor y aplica el modo (claro, oscuro o automático), el tema de cada tono, las letras de Configuración › Aspecto y el color del perfil (`lib/style.js`, con `/ext/appearance`). Sin conexión usa Mínimo. El panel de Outlook es una página de la extensión dentro de un iframe (`outlook/panel.html`), así sus estilos no chocan con los de Outlook.
 
 ## Cómo funciona
